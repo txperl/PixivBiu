@@ -1,0 +1,429 @@
+<!DOCTYPE HTML>
+<!--
+    Multiverse by HTML5 UP
+    html5up.net | @ajlkn
+    Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+
+<head>
+    <title>PixivBiu</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1,
+            user-scalable=no" />
+    <link type="favicon" rel="shortcut icon" href="static/pixiv.png">
+    <link rel="stylesheet" href="static/multiverse/assets/css/main.css" />
+    <link rel="stylesheet" href="static/multiverse/assets/css/nprogress.css" />
+    <noscript>
+        <link rel="stylesheet" href="static/multiverse/assets/css/noscript.css" />
+    </noscript>
+    <link rel="stylesheet" href="static/multiverse/assets/css/tooltipster.bundle.min.css" />
+    <link rel="stylesheet" href="static/multiverse/assets/css/tooltipster.theme.min.css" />
+    <link rel="stylesheet" href="static/multiverse/assets/css/n.css" />
+</head>
+
+<body class="is-preload" style="padding: 0 50px;">
+    <div class="search-area">
+        <div class="bar">
+            <input id="srhBox" class="tooltip" placeholder="Biu~" autocomplete="off" title="搜索 · 回车执行">
+        </div>
+        <div id="settings">
+            <input id="settingsPageNum" class="tooltip" placeholder="每组页数" autocomplete="off" title="单次搜索页数，建议参数不要过大">
+            <input id="settingsIsOriPic" class="tooltip" placeholder="大图预览" autocomplete="off"
+                title="在图片详情页显示较大尺寸的图片，on 为开启，off 为关闭（若图片加载时间过长，建议关闭）">
+            <input id="settingsIsAllSort" class="tooltip" placeholder="更多排序" autocomplete="off"
+                title="为所有结果按收藏数排序，on 为开启，off 为关闭（关闭时仅为关键词搜索排序）">
+            <input id="settingsRvrProxyUrl" class="tooltip" placeholder="图片反代地址" autocomplete="off"
+                title="Pixiv 图片反向代理地址（如果不是很懂请勿修改，默认为 https://i.pixiv.cat）">
+            <br>
+            <button id="btnSaveSettings" onclick="javascript:
+                    saveSettingsCookie();">保存</button>
+        </div>
+    </div>
+
+    <!-- Wrapper -->
+    <div id="wrapper">
+
+        <!-- Header -->
+        <header id="header">
+            <h1><a href="./"><strong>PixivBiu</strong>@2.0</a></h1>
+            <h1 id="progressDownloadingPics"></h1>
+            <nav>
+                <ul id="rstHeaderShow">
+                    <li><a href="javascript: isShowSettings();">搜索设置</a></li>
+                    <li><a href="#footer" class="icon solid fa-info-circle">关于</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <!-- Main -->
+        <div id="main">
+            <article id="codeBox" class="thumb">
+                <a href="javascript: 0;" class="imageBtn pop_ctrl"><img src="static/multiverse/images/thumbs/01.jpg"
+                        alt="" /></a>
+                <h2>指令合集</h2>
+                <ul>
+                    <li><a href="javascript: changeSrhBox('@w={work_id}');">@w={work_id}</a> #指定作品</li><br>
+                    <li><a href="javascript: changeSrhBox('@u={user_id} -i');">@u={user_id} -i</a> #用户插画</li>
+                    <li><a href="javascript: changeSrhBox('@u={user_id} -c');">@u={user_id} -c</a> #～漫画</li>
+                    <li><a href="javascript: changeSrhBox('@u={user_id} -m');">@u={user_id} -m</a> #～收藏</li>
+                    <li><a href="javascript: changeSrhBox('@u={user_id} -f');">@u={user_id} -f</a> #～关注列表</li><br>
+                    <li>（将 {xxxx_id} 替换为相应 ID）</li>
+                </ul>
+            </article>
+            <article id="rankBox" class="thumb">
+                <a href="javascript: 0;" class="imageBtn pop_ctrl"><img src="static/multiverse/images/thumbs/02.jpg"
+                        alt="" /></a>
+                <h2>排行榜</h2>
+                <ul>
+                    <li><a href="javascript: getRank('day');">日图</a></li>
+                    <li><a href="javascript: getRank('week');">周图</a></li>
+                    <li><a href="javascript: getRank('month');">月图</a></li>
+                    <li><a href="javascript: getRank('day_manga');">日漫</a></li>
+                    <li><a href="javascript: getRank('week_manga');">周漫</a></li>
+                    <li><a href="javascript: getRank('month_manga');">月漫</a></li>
+                    <li><a href="javascript: getRank('day_r18');">日R18</a></li>
+                    <li><a href="javascript: getRank('week_r18');">周R18</a></li>
+                    <li><a href="javascript: getRank('week_rookie');">新人</a></li>
+                </ul>
+            </article>
+            <article id="myBox" class="thumb">
+                <a class="imageBtn pop_ctrl"><img src="static/multiverse/images/thumbs/03.jpg" alt="" /></a>
+                <h2>我的</h2>
+                <ul>
+                    <li><a href="javascript: getMarks();">收藏@公开</a></li>
+                    <li><a href="javascript: getMarks('my');">收藏@隐藏</a></li>
+                    <li><a href="javascript: getFollowing();">关注@公开</a></li>
+                    <li><a href="javascript: getFollowing('my');">关注@隐藏</a></li>
+                    <li><a href="javascript: getRecommend('illust');">推荐@插画</a></li>
+                    <li><a href="javascript: getRecommend('manga');">推荐@漫画</a></li>
+                </ul>
+            </article>
+            <article class="thumb">
+                <a href="javascript: changeSrhBox('', 2);" class="imageBtn"><img
+                        src="static/multiverse/images/thumbs/04.jpg" alt="" /></a>
+                <h2>搜索</h2>
+            </article>
+        </div>
+
+        <!-- Footer -->
+        <footer id="footer" class="panel">
+            <div class="inner split">
+                <div>
+                    <section>
+                        <h2>PixivBiu@2.0.0b1</h2>
+                        <p>一款不错的 Pixiv 搜索<b>辅助</b>工具。<br>基于 Python@3.7 构建。</p>
+                    </section>
+                    <section>
+                        <h2>一些链接</h2>
+                        <ul class="icons">
+                            <li>
+                                <a target="_blank" href="https://github.com/txperl/PixivBiu" class="icon
+                                        brands fa-github"><span class="label">GitHub</span></a>
+                            </li>
+                            <li>
+                                <a target="_blank" href="https://biu.tls.moe/" class="icon
+                                        solid fa-air-freshener"><span class="label">Official</span></a>
+                            </li>
+                            <li>
+                                <a target="_blank" href="mailto:txperl@gmail.com" class="icon solid fa-envelope"><span
+                                        class="label">Email</span></a>
+                            </li>
+                        </ul>
+                    </section>
+                    <p class="copyright">
+                        &copy;
+                        <a target="_blank" href="https://tls.moe/">铜锣烧计划</a>.
+                        <br>Created by <a target="_blank" href="https://yumoe.com/">Trii Hisa</a>.<br>Design by <a
+                            target="_blank" href="https://html5up.net/">HTML5 UP</a>.
+                    </p>
+                </div>
+                <div>
+                    <section>
+                        <h2>其他</h2>
+                        <a target="_blank" href="https://biu.tls.moe/#/usage/basic">如何使用？</a> & <a target="_blank"
+                            href="mailto:txperl@gmail.com?subject=「PixivBiu」">反馈</a><br><br>
+                        <button id="btnCheckUP" onclick="checkOutdated();" class="primary tooltip"
+                            title="BiuBiuBiu~">检测更新</button><br><br>
+                        <p>If you feel your rights have been violated, please contact me through the above
+                            information.<br>So sorry.</p>
+                    </section>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="static/multiverse/assets/js/jquery.min.js"></script>
+    <script src="static/multiverse/assets/js/jquery.poptrox.min.js"></script>
+    <script src="static/multiverse/assets/js/jquery.popmenu.min.js"></script>
+    <script src="static/multiverse/assets/js/js.cookie.min.js"></script>
+    <script src="static/multiverse/assets/js/browser.min.js"></script>
+    <script src="static/multiverse/assets/js/breakpoints.min.js"></script>
+    <script src="static/multiverse/assets/js/nprogress.js"></script>
+    <script src="static/multiverse/assets/js/util.js"></script>
+    <script src="static/multiverse/assets/js/main.js"></script>
+    <script src="static/multiverse/assets/js/tooltipster.bundle.min.js"></script>
+    <script src="static/multiverse/assets/js/searchSettings.js"></script>
+    <script src="static/multiverse/assets/js/statusMsg.js"></script>
+    <script src="static/multiverse/assets/js/searchActions.js"></script>
+    <script src="static/multiverse/assets/js/functions.js"></script>
+    <script>
+        var tmpCode;
+        var tmpPageData;
+        var tmpSearchSettings = {};
+        var settingsMods = {
+            '#settingsPageNum': ['pixivbiu_searchPageNum', 5, '每组页数'],
+            '#settingsIsOriPic': ['pixivbiu_displayIsOriPic', 'off', '大图预览'],
+            '#settingsIsAllSort': ['pixivbiu_funIsAllSort', 'off', '更多排序'],
+            '#settingsRvrProxyUrl': ['pixivbiu_RvrProxyUrl', 'https://i.pixiv.cat', '图片反代地址']
+        };
+
+        $(document).ready(function () {
+            loadSearchSettings();
+            $('#myBox').popmenu();
+            $('#codeBox').popmenu();
+            $('#rankBox').popmenu();
+            loadTooltip();
+            var c = getGetArg('code');
+            if (c != '') {
+                c = unescape(c);
+                setTimeout('changeSrhBox("' + c + '", 2)', 300);
+            }
+        });
+
+        $('#srhBox').keypress(function (e) {
+            if (e.which == 13 && $('#srhBox').val() != '') {
+                srhBoxDo();
+            }
+        });
+
+        $("#srhBox").bind("input propertychange", function (event) {
+            srhBoxStu();
+        });
+
+        function srhBoxDo() {
+            var c = $('#srhBox').val();
+            if ((m = regMatch(/@u=(.*?) -(.)/g, c)).length == 3) {
+                var user = m[1];
+                var code = m[2];
+                if (code == 'i') {
+                    $('title').html('TA 插画' + ' - PixivBiu');
+                    getUserWorks(user, 'illust');
+                } else if (code == 'c') {
+                    $('title').html('TA 漫画' + ' - PixivBiu');
+                    getUserWorks(user, 'manga');
+                } else if (code == 'm') {
+                    $('title').html('TA 收藏' + ' - PixivBiu');
+                    getMarks(user);
+                } else if (code == 'f') {
+                    $('title').html('TA 关注' + ' - PixivBiu');
+                    getFollowing(user);
+                }
+            } else if ((m = regMatch(/@w=(.*?)$/g, c)).length == 2) {
+                $('title').html('作品' + ' - PixivBiu');
+                getOneWork(m[1]);
+            } else {
+                $('title').html('PixivBiu');
+                searchForWorks(c);
+            }
+            srhBoxStu();
+        }
+
+        function srhBoxStu() {
+            var c = $('#srhBox').val();
+            if ((m = regMatch(/@u=(.*?) -(.)/g, c)).length == 3) {
+                var code = m[2];
+                if (code == 'i') {
+                    $('#srhBox').tooltipster('content', '指令 · 获取TA的 插画 作品');
+                } else if (code == 'c') {
+                    $('#srhBox').tooltipster('content', '指令 · 获取TA的 漫画 作品');
+                } else if (code == 'm') {
+                    $('#srhBox').tooltipster('content', '指令 · 获取TA的 收藏 列表');
+                } else if (code == 'f') {
+                    $('#srhBox').tooltipster('content', '指令 · 获取TA的 关注 列表');
+                } else {
+                    $('#srhBox').tooltipster('content', '指令 · -i 插画、-c 漫画、-m 收藏列表、-f 关注列表');
+                }
+            } else if (regMatch(/@u=(.*?)$/g, c).length == 2) {
+                $('#srhBox').tooltipster('content', '指令 @u={user_id} -{type} · 获取指定用户的 -i 插画、-c 漫画、-m 收藏列表、-f 关注列表');
+            } else if (regMatch(/@w=(.*?)$/g, c).length == 2) {
+                $('#srhBox').tooltipster('content', '指令 @w={work_id} · 获取指定作品');
+            } else {
+                $('#srhBox').tooltipster('content', '搜索 · 回车执行');
+            }
+        }
+
+        function grpIdxBoxStu() {
+            var c = $('#headerGrpIdxBox').val();
+            var oric = $('#headerGrpIdxBox').attr('placeholder');
+            var itm = $('#btnHeaderNext');
+            var txt = '下一组';
+            if (itm.length <= 0) {
+                itm = $('#btnHeaderBack');
+                txt = '返回';
+            }
+            if (itm.length <= 0)
+                return;
+            if (c != '' && !isNaN(c) && c != oric) {
+                itm.attr('href', 'javascript: grpActChon(\'now\', ' + Number(c) + ');');
+                itm.text('跳转');
+            } else {
+                itm.attr('href', 'javascript: grpActChon(\'next\');');
+                itm.text(txt);
+            }
+        }
+
+        function showPics(title = '', reLoadList = ['main', 'header'], c = tmpPageData) {
+            var rstHtml = '';
+            var headerHtml = '<li><a href="javascript: isShowSettings();">搜索设置</a></li>';
+            var typeName = {
+                "illustration": "图",
+                "manga": "漫",
+                "ugoira": "动",
+                "other": "其他"
+            }
+            if (c.rst && c.rst.data) {
+                var i = 0;
+                var data = c.rst.data;
+                var groupIndex = Number(c['args']['ops']['groupIndex']);
+
+                // 整理结果
+                // 用户作品类的用户信息显示
+                if (c.rst.data.length > 0 && c['args']['ops']['method'] == 'userWorks') {
+                    if (data[0]['author']['is_followed']) {
+                        var li = '<a id="follow_' + data[0]['author']['id'] + '" href="javascript: doFollow(' + data[0]['author']['id'] + ', \'del\');"><b class="tooltip" title="取消关注"><hicon>💘</hicon></b></a>';
+                    } else {
+                        var li = '<a id="follow_' + data[0]['author']['id'] + '" href="javascript: doFollow(' + data[0]['author']['id'] + ', \'add\');"><b class="tooltip" title="关注"><hicon>💗</hicon></b></a>';
+                    }
+                    li += '<a target="_blank" href="https://www.pixiv.net/users/' + data[0]['author']['id'] + '"><d class="tooltip" title="打开画师 Pixiv 主页">Pixiv</d></a>';
+                    li += '<a target="_blank" href=".?code=%40u%3d' + data[0]['author']['id'] + '%20-f"><op class="tooltip" title="获取 TA 的关注列表">关注列表</op></a>';
+                    rstHtml += '<article class="thumb"><a class="imageBtn"><img src="' + data[0]['all']['user']['profile_image_urls']['medium'].replace('i.pximg.net', 'i.pixiv.cat') + '" alt="" /></a><h2>画师@' + data[0]['author']['name'] + '</h2><section class="thumbAction">' + li + '</section></article>';
+                }
+
+                // 用户列表整理
+                for (i = 0; i < data.length && c['args']['ops']['method'] == 'userFollowing'; i++) {
+                    if (data[i]['is_followed']) {
+                        var li = '<a id="follow_' + data[i]['id'] + '" href="javascript: doFollow(' + data[i]['id'] + ', \'del\');"><b class="tooltip" title="取消关注"><hicon>💘</hicon></b></a>';
+                    } else {
+                        var li = '<a id="follow_' + data[i]['id'] + '" href="javascript: doFollow(' + data[i]['id'] + ', \'add\');"><b class="tooltip" title="关注"><hicon>💗</hicon></b></a>';
+                    }
+                    li += '<a target="_blank" href=".?code=%40u%3d' + data[i]['id'] + '%20-i"><d class="tooltip" title="获取 TA 的作品">🔍作品</d></a>';
+                    rstHtml += '<article class="thumb"><a class="imageBtn"><img src="' + data[i]['profile_image_urls']['medium'].replace('i.pximg.net', 'i.pixiv.cat') + '" alt="" /></a><h2>' + data[i]['name'] + '</h2><section class="thumbAction">' + li + '</section></article>';
+                }
+
+                // 通用作品整理
+                for (i = 0; i < data.length && c['args']['ops']['method'] != 'userFollowing'; i++) {
+                    var extra = '';
+                    var imgUrlCover = data[i]['image_urls']['medium'].replace('https://i.pximg.net', tmpSearchSettings['pixivbiu_RvrProxyUrl']);
+                    var imgUrl = data[i]['image_urls']['large'].replace('https://i.pximg.net', tmpSearchSettings['pixivbiu_RvrProxyUrl']);
+                    var bookedNum = data[i]['total_bookmarked'];
+
+                    if (data[i]['all']['meta_pages'].length > 0) {
+                        typeName['illustration'] = '多图';
+                        typeName['manga'] = '漫画';
+                        extra += '<a target="_blank" href=".?code=%40w%3d' + data[i]['id'] + '"><op class="tooltip" title="查看完整作品">👀</op></a>';
+                    } else {
+                        typeName['illustration'] = '图';
+                        typeName['manga'] = '单漫';
+                    }
+
+                    if (tmpSearchSettings['pixivbiu_displayIsOriPic'] != 'on')
+                        imgUrl = imgUrlCover;
+
+                    if (c['args']['ops']['method'] == 'rank')
+                        bookedNum = '';
+
+                    // 收藏按钮
+                    if (data[i]['is_bookmarked']) {
+                        extra += '<a id="marks_' + data[i]['id'] + '" href="javascript: doBookmark(' + data[i]['id'] + ', \'del\');"><b class="tooltip" title="取消收藏"><hicon>💘</hicon>' + bookedNum + '</b></a>';
+                    } else {
+                        extra += '<a id="marks_' + data[i]['id'] + '" href="javascript: doBookmark(' + data[i]['id'] + ', \'add\');"><b class="tooltip" title="收藏"><hicon>💗</hicon>' + bookedNum + '</b></a>';
+                    }
+
+                    // 下载归类用的文件夹名称
+                    if (c['args']['fun']['kt']) {
+                        var kt = c['args']['fun']['kt'];
+                    } else if (c['args']['ops']['method'] == 'userWorks') {
+                        var kt = '画师#' + data[0]['author']['name'] + '@' + data[0]['author']['id'];
+                    } else if (c['args']['ops']['method'] == 'userMarks') {
+                        var kt = '收藏@' + c['args']['fun']['userID'];
+                    } else if (c['args']['ops']['method'] == 'rank') {
+                        var kt = '排行榜@' + c['args']['fun']['mode'];
+                    } else if (c['args']['ops']['method'] == 'oneWork') {
+                        var kt = '作品';
+                    } else {
+                        var kt = c['args']['ops']['method'];
+                    }
+
+                    // 下载按钮
+                    extra += '<a id="dl_' + data[i]['id'] + '" href="javascript: doDownloadPic(\'' + kt + '\', ' + data[i]['id'] + ', ' + String(i) + ');"><d class="tooltip" title="下载">' + typeName[data[i]['type']] + '</d></a>';
+
+                    // 图片预览内容
+                    var extraText = '<a href="javascript: doDownloadPic(\'' + kt + '\', \'' + data[i]['id'] + '\', ' + String(i) + ');">⏬下载</a> && <a target="_blank" href=".?code=%40u%3d' + data[i]['author']['id'] + '%20-i">🔍此画师@插画</a> && <a target="_blank" href=".?code=%40u%3d' + data[i]['author']['id'] + '%20-c">🔍～@漫画</a>';
+
+                    if (data[i]['all']['meta_pages'].length > 0) {
+                        extraText = '<a target="_blank" href=".?code=%40w%3d' + data[i]['id'] + '">👀查看</a> && ' + extraText;
+                    }
+
+                    var desText = '<h2><a target="_blank" href="https://www.pixiv.net/artworks/' + data[i]['id'] + '">' + data[i]['title'] + '</a></h2><p>Created by <a target="_blank" href="https://www.pixiv.net/users/' + data[i]['author']['id'] + '">' + data[i]['author']['name'] + '</a> with ❤️</p><p class="one-line no-des">' + data[i]['caption'] + '</p>';
+
+                    if (c['args']['ops']['method'] == 'oneWork' && i != 0) {
+                        extra = '';
+                        extraText = '';
+                        desText = '';
+                    }
+
+                    // 最终结果
+                    rstHtml += '<article id="art_' + data[i]['id'] + '" class="thumb"><a href="' + imgUrl + '" class="image"><img src="' + imgUrlCover + '" alt="' + data[i]['title'] + '" /></a>' + desText + '<p>' + extraText + '</p><section class="thumbAction">' + extra + '</section></article>';
+                }
+
+                // 缓存文件
+                if (tmpCode == 2) {
+                    headerHtml += '<li><a href="javascript: searchForWorks(\'' + c['args']['fun']['kt'] + '\', ' + groupIndex + ', 0);">刷新缓存</a></li>';
+                }
+
+                // 返回按钮
+                if (groupIndex > 0) {
+                    headerHtml += '<li><a id="btnHeaderBack" href="javascript: grpActChon(\'back\');" class="icon solid fa-chevron-circle-left">返回</a></li>';
+                } else if (groupIndex == 0) {
+                    headerHtml += '<li><a href="." class="icon solid fa-home">首页</a></li>';
+                }
+
+                // 组序号输入框
+                headerHtml += '<li><input oninput="grpIdxBoxStu();" id="headerGrpIdxBox" placeholder="' + c['args']['ops']['groupIndex'] + '" autocomplete="off"></li>';
+
+                // 下一组按钮
+                if (data.length != 0) {
+                    headerHtml += '<li><a id="btnHeaderNext" href="javascript: grpActChon(\'next\');" class="icon solid fa-chevron-circle-right">下一组</a></li>';
+                } else {
+                    rstHtml = btnGetHTML('none');
+                }
+
+                // 输出
+                $('#main').html(rstHtml);
+
+                if ($.inArray('header', reLoadList) >= 0) {
+                    $('#rstHeaderShow').html(headerHtml);
+                }
+
+                reMainJs(jQuery, reLoadList);
+            } else {
+                $('#main').html(btnGetHTML('none'));
+                reMainJs(jQuery, ['main']);
+            }
+            // 动画过渡
+            window.setTimeout(function () {
+                $('body').removeClass('is-preload');
+                if (title != '') {
+                    $('.search-area').addClass('search-area-by');
+                    $('#srhBox').attr('placeholder', title);
+                }
+            }, 100);
+            loadTooltip();
+        }
+    </script>
+</body>
+
+</html>

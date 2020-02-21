@@ -1,0 +1,69 @@
+account:
+  username: ""
+    # Pixiv 用户名或邮箱
+
+  password: ""
+    # Pixiv 的密码
+
+sys:
+  host: "127.0.0.1:4001"
+    # 程序运行的地址，如果不是很懂请不要修改
+    # 不可带有 http:// 前缀
+
+  isDebug: false
+    # 调试模式
+    # true 为开启
+    # false 为关闭
+
+  api: "public"
+    # 默认 api 模式
+    # public: 可以使用全功能，但必须需要代理（翻墙）
+    # byPassSni: 无法使用关注功能，其他功能相同，但无需代理（无需翻墙）
+
+  theme: "multiverse"
+    # 默认主题
+    # 暂无其他，请默认为 multiverse
+
+biu:
+  common:
+    proxy: ""
+      # 代理服务器地址
+      # 如 http://127.0.0.1:1080/
+
+    defaultActionType: "public"
+      # 账号默认操作类型
+      # public: 当进行收藏、关注等操作时默认放入公开类别
+      # private: 私人类别
+
+  search:
+    maxThreads: 8
+      # 搜索池最大线程数
+
+    loadCacheFirst: true
+      # 搜索优先加载本地缓存
+      # true 为开启
+      # false 为关闭
+
+  download:
+    maxThreads: 16
+      # 下载池最大线程数
+
+    saveURI: "{ROOTPATH}downloads/{KT}/"
+      # 下载保存路径，以 / 结尾
+      # 可选变量
+      # - {ROOTPATH}: 程序根目录
+      # - {KT}: 搜索关键词
+      # - {title}: 作品标题
+      # - {work_id}: 作品 ID
+      # - {user_name}: 作者名称
+      # - {user_id}: 作者 ID
+      # - {type}: 作品类型
+
+    saveFileName: "{title}"
+      # 下载图片的标题
+      # 可选变量
+      # - {title}: 作品标题
+      # - {work_id}: 作品 ID
+      # - {user_name}: 作者名称
+      # - {user_id}: 作者 ID
+      # - {type}: 作品类型

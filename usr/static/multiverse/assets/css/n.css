@@ -1,0 +1,227 @@
+#main {
+    transition-property: margin-top;
+    transition-duration: 1s;
+    transition-timing-function: ease;
+    margin-bottom: 100px;
+}
+
+.aniMoveDown {
+    margin-top: 120px !important;
+}
+
+.search-area {
+    transition-property: padding;
+    transition-duration: 1s;
+    transition-timing-function: ease;
+    width: 100%;
+    padding: 100px 2.5em 3em 2.5em;
+}
+
+.search-area-by {
+    padding: 100px 0 3em 0 !important;
+}
+
+.search-area .bar input {
+    cursor: text;
+    outline: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    height: 1.5em;
+    text-indent: .2em;
+    border: 0;
+    background: #242629;
+    border-radius: 4px;
+    font: inherit;
+    font-size: 5em;
+}
+
+#main .thumb>a {
+    transition-property: border;
+    transition-duration: .5s;
+    transition-timing-function: ease;
+}
+
+#main .thumb>h2 {
+    bottom: 1.475em;
+    font-size: 1.2em;
+    left: 1.6875em;
+}
+
+#main .thumb .thumbAction a>b, #main .thumb .thumbAction a>d, #main .thumb .thumbAction a>op {
+    position: absolute;
+    top: 8px;
+    background: rgba(0, 0, 0, .2);
+    backdrop-filter: blur(3px);
+    color: #FFF;
+    text-shadow: 0 1px 0 #000;
+    font-size: 1.15em;
+    font-weight: 700;
+    line-height: 2em;
+    padding: 0 .4em;
+    border-radius: .2em;
+}
+
+#main .thumb .thumbAction a>b {
+    left: 8px;
+}
+
+#main .thumb .thumbAction a>d {
+    right: 8px;
+}
+
+#main .thumb .thumbAction a>op {
+    right: 3.6em;
+}
+
+#main .thumb>.imageBtn {
+    -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    border: 0;
+    height: 100%;
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 100%;
+}
+
+.proer-dling {
+    border: 25px solid #34a58e !important;
+}
+
+.proer-done {
+    border: 50px solid #263238 !important;
+}
+
+.proer-error {
+    border: 25px solid #880E4F !important;
+}
+
+.search-area #settings {
+    display: none;
+    padding: 1em 1.35em 0 1.35em;
+    z-index: -999;
+    position: absolute;
+}
+
+.search-area #settings>input {
+    -moz-appearance: none;
+    -webkit-appearance: none;
+    -ms-appearance: none;
+    appearance: none;
+    background: #34363b;
+    border: 0;
+    border-radius: 0;
+    color: #a0a0a1;
+    /* display: block; */
+    outline: 0;
+    padding: 0 1em;
+    text-decoration: none;
+    width: 200px;
+    padding: .5em;
+    color: #fff;
+    margin: 0 10px 20px 0;
+}
+
+#headerGrpIdxBox {
+    cursor: text;
+    outline: 0;
+    border: 0;
+    color: #fff;
+    background-color: #1f2224;
+    width: 3em;
+    text-align: center;
+}
+
+.thumb h2 a {
+    border-bottom: none;
+}
+
+.poptrox-popup a {
+    color: #fff;
+}
+
+.poptrox-popup .one-line {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.poptrox-popup .no-des a {
+    border-bottom: none;
+}
+
+.poptrox-popup .caption {
+    background-image: -moz-linear-gradient(to top, rgba(16, 16, 16, 0.45) 100%, rgba(16, 16, 16, 0.5) 100%);
+    background-image: -webkit-linear-gradient(to top, rgba(16, 16, 16, 0.45) 100%, rgba(16, 16, 16, 0.5) 100%);
+    background-image: -ms-linear-gradient(to top, rgba(16, 16, 16, 0.45) 100%, rgba(16, 16, 16, 0.5) 100%);
+    background-image: linear-gradient(to top, rgba(16, 16, 16, 0.45) 100%, rgba(16, 16, 16, 0.5) 100%);
+}
+
+.poptrox-popup:before {
+    display: none !important;
+}
+
+@media screen and (max-width: 1680px) {
+    #main .thumb {
+        width: 25% !important;
+    }
+}
+
+@media screen and (max-width: 1280px) {
+    #main .thumb {
+        width: 33.333333% !important;
+    }
+}
+
+@media screen and (max-width: 980px) {
+    #main .thumb {
+        width: 50% !important;
+    }
+}
+
+@media screen and (max-width: 736px) {
+    body {
+        padding: 0 !important;
+    }
+    .search-area {
+        padding: 100px 1em 3em 1em;
+    }
+    .aniMoveDown {
+        margin-top: 150px !important;
+    }
+    .poptrox-popup .caption {
+        display: block !important;
+        font-size: .8em;
+        line-height: 1.05em;
+    }
+}
+
+@media screen and (min-width: 1680px) {
+    body, input, select, textarea {
+        font-size: 12pt;
+    }
+}
+
+html::-webkit-scrollbar-track-piece {}
+
+html::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+html::-webkit-scrollbar-thumb {
+    height: 40px;
+    background-color: #eee;
+    border-radius: 16px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+    background-color: #ddd;
+}
+
+::selection {
+    background: rgba(0, 149, 255, 0.1);
+}
