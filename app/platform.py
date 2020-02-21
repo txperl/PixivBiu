@@ -54,11 +54,11 @@ class CMDProcessor(object):
         for x in loads:
             try:
                 uri = loads[x].replace("{ROOTPATH}", ENVIRON["ROOTPATH"])
-                with open(uri, "r") as c:
+                with open(uri, "r", encoding="UTF-8") as c:
                     sfx = uri.split(".")[-1]
-                    if sfx == 'json':
+                    if sfx == "json":
                         info[x] = json.load(c)
-                    elif sfx == 'yml' or sfx == 'yaml':
+                    elif sfx == "yml" or sfx == "yaml":
                         info[x] = yaml.safe_load(c)
                     else:
                         info[x] = c

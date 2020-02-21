@@ -17,7 +17,7 @@ app = Flask(
 # 调整 flask 日志等级
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
-with open(ROOTPAHT + "config.yml", "r") as c:
+with open(ROOTPAHT + "config.yml", "r", encoding="UTF-8") as c:
     sets = yaml.safe_load(c)
 
 if sets["sys"]["isDebug"]:
