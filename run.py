@@ -6,42 +6,37 @@ import yaml
 import sys
 import os
 
-ROOTPAHT = os.path.split(os.path.realpath(sys.argv[0]))[0] + "/"
 
+ENVIRON = CMDProcessor.getEnv()  # 加载环境变量
 app = Flask(
     __name__,
-    template_folder=ROOTPAHT + "usr/templates",
-    static_folder=ROOTPAHT + "usr/static",
+    template_folder=ENVIRON["ROOTPATH"] + "usr/templates",
+    static_folder=ENVIRON["ROOTPATH"] + "usr/static",
 )
 
-# 调整 flask 日志等级
-log = logging.getLogger("werkzeug")
-log.setLevel(logging.ERROR)
-with open(ROOTPAHT + "config.yml", "r", encoding="UTF-8") as c:
-    sets = yaml.safe_load(c)
-
-if sets["sys"]["isDebug"]:
-    CORS(app, resources=r"/*")  # 允许跨域请求
-
-
+# 路由
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def pixivbiu(path):
     if path == "":
         return render_template(
-            "%s/index.html" % (sets["sys"]["theme"]), ROOTPATH=ROOTPAHT
+            "%s/index.html" % (sets["sys"]["theme"]), ENVIRON=ENVIRON
         )
 
-    processor = CMDProcessor()
-
-    r = processor.process(path)
-
-    return jsonify(r)
+    return jsonify(CMDProcessor().process(path))
 
 
 if __name__ == "__main__":
+    sets = CMDProcessor.loadSet("{ROOTPATH}config.yml")  # 获取配置
+
+    if sets["sys"]["isDebug"]:
+        CORS(app, resources=r"/*")  # 允许跨域请求
+    else:
+        logging.getLogger("werkzeug").setLevel(logging.ERROR)  # 调整日志等级
+
     app.run(
         host=sets["sys"]["host"].split(":")[0],
         port=sets["sys"]["host"].split(":")[1],
         debug=sets["sys"]["isDebug"],
     )
+

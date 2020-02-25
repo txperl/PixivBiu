@@ -1,6 +1,7 @@
 # pylint: disable=relative-beyond-top-level,unused-wildcard-import
 from ...platform import CMDProcessor
 from concurrent.futures import ThreadPoolExecutor
+from os import system, name
 from flask import request
 from pixivpy3 import *
 import threading
@@ -11,12 +12,13 @@ import sys
 @CMDProcessor.core_register_auto("biu", {"config": "{ROOTPATH}config.yml"})
 class core_module_biu(object):
     def __init__(self, info=None):
-        self.ver = 200000
+        self.ver = 200001
         self.place = "local"
         self.apiType = "public"
         self.api = None
         self.apiAssist = None
         self.sets = info["config"]
+        self.ENVORON = info["ENVIRON"]
         self.pximgURL = "https://i.pximg.net"
         self.lock = threading.Lock()
         self.pool_srh = ThreadPoolExecutor(
@@ -37,7 +39,7 @@ class core_module_biu(object):
             else:
                 self.__loginPublicAPI()
         except:
-            input("[pixivbiu] \033[31mPixiv 登陆失败，PixivBiu 将无法正常运行\033[0m\n按任意键继续...")
+            input("[pixivbiu] \033[31mPixiv 登陆失败，PixivBiu 将无法运行\033[0m\n按任意键继续...")
             sys.exit(0)
         return self
 
@@ -70,6 +72,7 @@ class core_module_biu(object):
             print("[pixivbiu] 请输入 Pixiv 的\033[1;37;45m 邮箱、密码 \033[0m(本程序不会保存与上传)")
             self.sets["account"]["username"] = input("\033[1;37;45m邮箱:\033[0m ")
             self.sets["account"]["password"] = input("\033[1;37;45m密码:\033[0m ")
+            self.__clear()
         self.apiType = self.sets["sys"]["api"]
 
     def __loginPublicAPI(self):
@@ -275,4 +278,10 @@ class core_module_biu(object):
 
         # if "data" in response.json()["Answer"][0]:
         #     self.pximgURL = "http://" + response.json()["Answer"][0]["data"]
+
+    def __clear(self):
+        if name == "nt":
+            system("cls")
+        else:
+            system("clear")
 

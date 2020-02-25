@@ -31,8 +31,10 @@
             <input id="settingsPageNum" class="tooltip" placeholder="每组页数" autocomplete="off" title="单次搜索页数，建议参数不要过大">
             <input id="settingsIsOriPic" class="tooltip" placeholder="大图预览" autocomplete="off"
                 title="在图片详情页显示较大尺寸的图片，on 为开启，off 为关闭（若图片加载时间过长，建议关闭）">
+            <input id="settingsSortMode" class="tooltip" placeholder="排序模式" autocomplete="off"
+                title="0 为按收藏数排序，1 为按人气(浏览数)排序">
             <input id="settingsIsAllSort" class="tooltip" placeholder="更多排序" autocomplete="off"
-                title="为所有结果按收藏数排序，on 为开启，off 为关闭（关闭时仅为关键词搜索排序）">
+                title="为所有结果排序，on 为开启，off 为关闭（关闭时仅为关键词搜索排序）">
             <input id="settingsRvrProxyUrl" class="tooltip" placeholder="图片反代地址" autocomplete="off"
                 title="Pixiv 图片反向代理地址（如果不是很懂请勿修改，默认为 https://i.pixiv.cat）">
             <br>
@@ -95,6 +97,8 @@
                     <li><a href="javascript: getMarks('my');">收藏@隐藏</a></li>
                     <li><a href="javascript: getFollowing();">关注@公开</a></li>
                     <li><a href="javascript: getFollowing('my');">关注@隐藏</a></li>
+                    <li><a href="javascript: getNewToMe();">用户新作@公开</a></li>
+                    <li><a href="javascript: getNewToMe('private');">用户新作@隐藏</a></li>
                     <li><a href="javascript: getRecommend('illust');">推荐@插画</a></li>
                     <li><a href="javascript: getRecommend('manga');">推荐@漫画</a></li>
                 </ul>
@@ -111,7 +115,7 @@
             <div class="inner split">
                 <div>
                     <section>
-                        <h2>PixivBiu@2.0.0b1</h2>
+                        <h2>PixivBiu@2.0.0b2</h2>
                         <p>一款不错的 Pixiv 搜索<b>辅助</b>工具。<br>基于 Python@3.7 构建。</p>
                     </section>
                     <section>
@@ -177,6 +181,7 @@
             '#settingsPageNum': ['pixivbiu_searchPageNum', 5, '每组页数'],
             '#settingsIsOriPic': ['pixivbiu_displayIsOriPic', 'off', '大图预览'],
             '#settingsIsAllSort': ['pixivbiu_funIsAllSort', 'off', '更多排序'],
+            '#settingsSortMode': ['pixivbiu_sortMode', '0', '排序模式'],
             '#settingsRvrProxyUrl': ['pixivbiu_RvrProxyUrl', 'https://i.pixiv.cat', '图片反代地址']
         };
 
@@ -259,19 +264,21 @@
             var c = $('#headerGrpIdxBox').val();
             var oric = $('#headerGrpIdxBox').attr('placeholder');
             var itm = $('#btnHeaderNext');
+            var itmi = $('#btnHeaderNext i');
             var txt = '下一组';
             if (itm.length <= 0) {
                 itm = $('#btnHeaderBack');
+                itmi = $('#btnHeaderBack i');
                 txt = '返回';
             }
             if (itm.length <= 0)
                 return;
             if (c != '' && !isNaN(c) && c != oric) {
                 itm.attr('href', 'javascript: grpActChon(\'now\', ' + Number(c) + ');');
-                itm.text('跳转');
+                itmi.tooltipster('content', '跳转');
             } else {
                 itm.attr('href', 'javascript: grpActChon(\'next\');');
-                itm.text(txt);
+                itmi.tooltipster('content', txt);
             }
         }
 
@@ -361,13 +368,13 @@
                     extra += '<a id="dl_' + data[i]['id'] + '" href="javascript: doDownloadPic(\'' + kt + '\', ' + data[i]['id'] + ', ' + String(i) + ');"><d class="tooltip" title="下载">' + typeName[data[i]['type']] + '</d></a>';
 
                     // 图片预览内容
-                    var extraText = '<a href="javascript: doDownloadPic(\'' + kt + '\', \'' + data[i]['id'] + '\', ' + String(i) + ');">⏬下载</a> && <a target="_blank" href=".?code=%40u%3d' + data[i]['author']['id'] + '%20-i">🔍此画师@插画</a> && <a target="_blank" href=".?code=%40u%3d' + data[i]['author']['id'] + '%20-c">🔍～@漫画</a>';
+                    var extraText = '<a target="_blank" href=".?code=%40u%3d' + data[i]['author']['id'] + '%20-i">🔍作者插画</a> <a target="_blank" href=".?code=%40u%3d' + data[i]['author']['id'] + '%20-c">🔍作者漫画</a>';
 
                     if (data[i]['all']['meta_pages'].length > 0) {
-                        extraText = '<a target="_blank" href=".?code=%40w%3d' + data[i]['id'] + '">👀查看</a> && ' + extraText;
+                        extraText = '<a target="_blank" href=".?code=%40w%3d' + data[i]['id'] + '">👀查看</a> ' + extraText;
                     }
 
-                    var desText = '<h2><a target="_blank" href="https://www.pixiv.net/artworks/' + data[i]['id'] + '">' + data[i]['title'] + '</a></h2><p>Created by <a target="_blank" href="https://www.pixiv.net/users/' + data[i]['author']['id'] + '">' + data[i]['author']['name'] + '</a> with ❤️</p><p class="one-line no-des">' + data[i]['caption'] + '</p>';
+                    var desText = '<h2><a target="_blank" href="https://www.pixiv.net/artworks/' + data[i]['id'] + '">' + data[i]['title'] + '</a></h2><p>Created by <a target="_blank" href="https://www.pixiv.net/users/' + data[i]['author']['id'] + '">' + data[i]['author']['name'] + '</a> on ' + data[i]['created_time'] + '<br>#收藏' + data[i]['total_bookmarked'] + ' #浏览' + data[i]['total_viewed'] + '</p>';
 
                     if (c['args']['ops']['method'] == 'oneWork' && i != 0) {
                         extra = '';
@@ -382,21 +389,25 @@
                 // 缓存文件
                 if (tmpCode == 2) {
                     headerHtml += '<li><a href="javascript: searchForWorks(\'' + c['args']['fun']['kt'] + '\', ' + groupIndex + ', 0);">刷新缓存</a></li>';
+                } else {
+                    headerHtml += '<li><a href="javascript: grpActChon(\'now\');">刷新</a></li>';
                 }
 
                 // 返回按钮
                 if (groupIndex > 0) {
-                    headerHtml += '<li><a id="btnHeaderBack" href="javascript: grpActChon(\'back\');" class="icon solid fa-chevron-circle-left">返回</a></li>';
+                    headerHtml += '<li><a id="btnHeaderBack" href="javascript: grpActChon(\'back\');"><i class="icon solid fa-chevron-circle-left tooltip" title="返回"></i></a></li>';
                 } else if (groupIndex == 0) {
-                    headerHtml += '<li><a href="." class="icon solid fa-home">首页</a></li>';
+                    headerHtml += '<li><a href="."><i class="icon solid fa-home tooltip" title="主页"></i></a></li>';
                 }
 
                 // 组序号输入框
-                headerHtml += '<li><input oninput="grpIdxBoxStu();" id="headerGrpIdxBox" placeholder="' + c['args']['ops']['groupIndex'] + '" autocomplete="off"></li>';
+                if (c['args']['ops']['method'] != 'userMarks') {
+                    headerHtml += '<li><input oninput="grpIdxBoxStu();" id="headerGrpIdxBox" class="tooltip" placeholder="' + c['args']['ops']['groupIndex'] + '" autocomplete="off" title="组序号"></li>';
+                }
 
                 // 下一组按钮
                 if (data.length != 0) {
-                    headerHtml += '<li><a id="btnHeaderNext" href="javascript: grpActChon(\'next\');" class="icon solid fa-chevron-circle-right">下一组</a></li>';
+                    headerHtml += '<li><a id="btnHeaderNext" href="javascript: grpActChon(\'next\');"><i class="icon solid fa-chevron-circle-right tooltip" title="下一组"></i></a></li>';
                 } else {
                     rstHtml = btnGetHTML('none');
                 }

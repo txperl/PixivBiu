@@ -8,7 +8,8 @@ function searchForWorks(key, grpIdx = 0, isCache = 1) {
             'kt': key,
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
             'isCache': Number(isCache),
-            'groupIndex': Number(grpIdx)
+            'groupIndex': Number(grpIdx),
+            'sortMode': String(tmpSearchSettings['pixivbiu_sortMode'])
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
@@ -36,6 +37,7 @@ function getUserWorks(user, type, grpIdx = 0) {
         data: {
             'userID': user,
             'type': type,
+            'sortMode': String(tmpSearchSettings['pixivbiu_sortMode']),
             'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] == 'on'),
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
             'groupIndex': Number(grpIdx)
@@ -98,6 +100,7 @@ function getRecommend(type = 'illust', grpIdx = 0) {
             'type': type,
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
             'groupIndex': Number(grpIdx),
+            'sortMode': String(tmpSearchSettings['pixivbiu_sortMode']),
             'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] == 'on')
         },
         success: function (rep) {
@@ -118,27 +121,64 @@ function getRecommend(type = 'illust', grpIdx = 0) {
     });
 }
 
-function getMarks(user = '') {
+function getNewToMe(mode = 'public', grpIdx = 0) {
     NProgress.inc();
     cssShowLoading();
-    var mode = 'public';
+    $.ajax({
+        type: "GET",
+        url: "api/biu/get/newtome",
+        data: {
+            'restrict': mode,
+            'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
+            'groupIndex': Number(grpIdx),
+            'sortMode': String(tmpSearchSettings['pixivbiu_sortMode']),
+            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] == 'on')
+        },
+        success: function (rep) {
+            rep = jQuery.parseJSON(JSON.stringify(rep));
+            if (rep.code) {
+                console.log(rep);
+                tmpPageData = rep.msg;
+                showPics('用户新作@' + mode, ['main', 'header']);
+            } else {
+                showPics('Error :<', ['main'], []);
+            }
+            NProgress.done();
+        },
+        error: function (e) {
+            showPics('Error :<', ['main'], []);
+            NProgress.done();
+        }
+    });
+}
+
+function getMarks(user = '', mode = 'public', grp = '0@0') {
+    NProgress.inc();
+    cssShowLoading();
     if (user == 'my') {
         mode = 'private';
         user = '';
     }
     if (user == '' || user == 'my')
         $('#srhBox').val('');
+    var grpIdx = Number(grp.split('@')[0]);
+    var grpArr = grp.split('@')[1].split('_');
     $.ajax({
         type: "GET",
         url: "api/biu/get/idmarks",
         data: {
             'userID': user,
             'restrict': mode,
-            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] == 'on')
+            'sortMode': String(tmpSearchSettings['pixivbiu_sortMode']),
+            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] == 'on'),
+            'groupIndex': String(grpArr[grpIdx]),
+            'tmp': grp
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
+                if (grpIdx == grpArr.length - 1 && rep['msg']['args']['ops']['markNex'] != 'None')
+                    rep['msg']['args']['ops']['tmp'] = grp.split('@')[0] + '@' + grp.split('@')[1] + '_' + rep['msg']['args']['ops']['markNex'];
                 console.log(rep);
                 tmpPageData = rep.msg;
                 if (user == '' || user == 'my') {
@@ -325,10 +365,16 @@ function doDownloadPic(kt, workID = 0, idx = -1) {
 function grpActChon(type, grpIdx = -1, args = tmpPageData['args']) {
     var meth = args['ops']['method'];
 
-    if (grpIdx <= -1)
-        grpIdx = Number(args['ops']['groupIndex']);
+    if (grpIdx <= -1) {
+        if (meth == 'userMarks') {
+            grpIdx = Number(args['ops']['tmp'].split('@')[0]);
+            var grp = args['ops']['tmp'].split('@')[1];
+        } else {
+            grpIdx = Number(args['ops']['groupIndex']);
+        }
+    }
 
-    if (type == 'back') {
+    if (type == 'back' && grpIdx > 0) {
         grpIdx--;
     } else if (type == 'next') {
         grpIdx++;
@@ -344,5 +390,13 @@ function grpActChon(type, grpIdx = -1, args = tmpPageData['args']) {
         getRecommend(args['fun']['type'], grpIdx);
     } else if (meth == 'userFollowing') {
         getFollowing(args['fun']['userID'], args['fun']['restrict'], grpIdx);
+    } else if (meth == 'newToMe') {
+        getNewToMe(args['fun']['mode'], grpIdx);
+    } else if (meth == 'userMarks') {
+        if (grpIdx < args['ops']['tmp'].split('_').length) {
+            getMarks(args['fun']['userID'], args['fun']['restrict'], String(grpIdx) + '@' + grp);
+        } else {
+            $('#btnHeaderNext i').tooltipster('content', '没有了...');
+        }
     }
 }

@@ -4,8 +4,7 @@ import yaml
 import sys
 import os
 
-ENVIRON = {}
-ENVIRON["ROOTPATH"] = os.path.split(os.path.realpath(sys.argv[0]))[0] + "/"
+ENVIRON = {"ROOTPATH": os.path.split(os.path.realpath(sys.argv[0]))[0] + "/"}
 
 
 class CMDProcessor(object):
@@ -50,20 +49,9 @@ class CMDProcessor(object):
 
     @classmethod
     def core_register_auto(cls, core_name, loads={}):
-        info = {}
+        info = {"ENVIRON": ENVIRON}
         for x in loads:
-            try:
-                uri = loads[x].replace("{ROOTPATH}", ENVIRON["ROOTPATH"])
-                with open(uri, "r", encoding="UTF-8") as c:
-                    sfx = uri.split(".")[-1]
-                    if sfx == "json":
-                        info[x] = json.load(c)
-                    elif sfx == "yml" or sfx == "yaml":
-                        info[x] = yaml.safe_load(c)
-                    else:
-                        info[x] = c
-            except:
-                info[x] = None
+            info[x] = cls.loadSet(loads[x])
 
         def wrapper(core):
             try:
@@ -77,3 +65,26 @@ class CMDProcessor(object):
             return core
 
         return wrapper
+
+    @staticmethod
+    def getEnv():
+        return ENVIRON
+
+    @staticmethod
+    def loadSet(uri):
+        uri = uri.replace("{ROOTPATH}", ENVIRON["ROOTPATH"])
+        try:
+            with open(uri, "r", encoding="UTF-8") as c:
+                sfx = uri.split(".")[-1]
+                if sfx == "json":
+                    return json.load(c)
+                elif sfx == "yml" or sfx == "yaml":
+                    return yaml.safe_load(c)
+                else:
+                    return c
+        except Exception as e:
+            print("[system] \033[1;37;46m %s \033[0m failed to load" % uri)
+            print("\033[31m[ERROR] %s\033[0m" % e)
+            print("\033[31m%s\033[0m" % traceback.format_exc())
+        return None
+

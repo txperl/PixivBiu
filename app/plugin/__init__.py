@@ -6,6 +6,7 @@ from .biu.get.idmarks import *
 from .biu.get.idfollowing import *
 from .biu.get.recommend import *
 from .biu.get.onework import *
+from .biu.get.newtome import *
 from .biu.do.mark import *
 from .biu.do.unmark import *
 from .biu.do.dl import *

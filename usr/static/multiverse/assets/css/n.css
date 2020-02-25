@@ -135,6 +135,10 @@
     text-align: center;
 }
 
+#header nav>ul>li i.icon:before {
+    color: #505051;
+}
+
 .thumb h2 a {
     border-bottom: none;
 }
@@ -154,10 +158,8 @@
 }
 
 .poptrox-popup .caption {
-    background-image: -moz-linear-gradient(to top, rgba(16, 16, 16, 0.45) 100%, rgba(16, 16, 16, 0.5) 100%);
-    background-image: -webkit-linear-gradient(to top, rgba(16, 16, 16, 0.45) 100%, rgba(16, 16, 16, 0.5) 100%);
-    background-image: -ms-linear-gradient(to top, rgba(16, 16, 16, 0.45) 100%, rgba(16, 16, 16, 0.5) 100%);
-    background-image: linear-gradient(to top, rgba(16, 16, 16, 0.45) 100%, rgba(16, 16, 16, 0.5) 100%);
+    position: fixed;
+    background-image: none;
 }
 
 .poptrox-popup:before {

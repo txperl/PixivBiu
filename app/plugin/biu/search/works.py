@@ -14,11 +14,12 @@ class searchWorks(object):
                 "works",
                 [
                     "kt",
+                    "mode=tag",
                     "&totalPage=5",
                     "&groupIndex=0",
+                    "&sortMode=0",
                     "&isSort=1",
                     "&isCache=1",
-                    "mode=tag",
                 ],
             )
         except:
@@ -34,12 +35,13 @@ class searchWorks(object):
         cachePath = self.MOD.ENVIRON["ROOTPATH"] + "usr/cache/data_search/"
         fileName = (
             (
-                "%s@%s_%s+%s_%s.json"
+                "%s@%s_%s+%s_%s%s.json"
                 % (
                     args["fun"]["kt"],
                     args["fun"]["mode"],
                     args["ops"]["totalPage"],
                     args["ops"]["groupIndex"],
+                    args["ops"]["sortMode"],
                     args["ops"]["isSort"],
                 )
             )
@@ -78,8 +80,7 @@ class searchWorks(object):
         }
 
         r = {"api": "app", "total": 0, "data": []}
-        self.MOD.args.argsPurer(
-            funArg, {"kt": "word", "mode": "search_target"})
+        self.MOD.args.argsPurer(funArg, {"kt": "word", "mode": "search_target"})
         funArg["search_target"] = modes[funArg["search_target"]]
 
         status = []
@@ -90,12 +91,10 @@ class searchWorks(object):
         for p in range(grpIdx * ttlPage, (grpIdx + 1) * ttlPage):
             argg = funArg.copy()
             argg["offset"] = p * 30
-            status.append(self.MOD.biu.pool_srh.submit(
-                self.__thread_appWorks, **argg))
+            status.append(self.MOD.biu.pool_srh.submit(self.__thread_appWorks, **argg))
 
         self.MOD.biu.updateStatus(
-            "search", (funArg["word"] + "_" + str(ttlPage) +
-                       "+" + str(grpIdx)), status,
+            "search", (funArg["word"] + "_" + str(ttlPage) + "+" + str(grpIdx)), status,
         )
 
         for x in as_completed(status):
@@ -104,9 +103,14 @@ class searchWorks(object):
         r["total"] = len(r["data"])
 
         if int(opsArg["isSort"]) == 1:
-            r["data"] = sorted(
-                r["data"], key=lambda kv: kv["total_bookmarks"], reverse=True
-            )
+            if str(opsArg["sortMode"]) == "1":
+                r["data"] = sorted(
+                    r["data"], key=lambda kv: kv["total_view"], reverse=True
+                )
+            else:
+                r["data"] = sorted(
+                    r["data"], key=lambda kv: kv["total_bookmarks"], reverse=True
+                )
         self.MOD.biu.appWorksPurer(r["data"])
 
         return r

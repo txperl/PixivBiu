@@ -14,9 +14,12 @@ class getIDWorks(object):
                 [
                     "userID=%s" % self.MOD.biu.apiAssist.user_id,
                     "restrict=public",
+                    "&sortMode=0",
                     "&isSort=0",
-                    "&totalPage=all",
-                    "&groupIndex=all",
+                    "&totalPage=5",
+                    "&groupIndex=0",
+                    "&markNex=0",
+                    "&tmp=0@0"
                 ],
             )
         except:
@@ -27,27 +30,42 @@ class getIDWorks(object):
             "msg": {
                 "way": "get",
                 "args": args,
-                "rst": self.gank(args["ops"].copy(), args["fun"].copy()),
+                "rst": self.gank(args["ops"], args["fun"].copy()),
             },
         }
 
     def gank(self, opsArg, funArg):
         self.MOD.args.argsPurer(funArg, {"userID": "user_id"})
-        argg = funArg.copy()
         r = []
 
-        while True:
+        ttlPage = int(opsArg["totalPage"])  # 页数
+
+        if str(opsArg["groupIndex"]) != "0":
+            mstart = str(opsArg["groupIndex"])
+        else:
+            mstart = None
+        opsArg["markNex"] = "None"
+
+        argg = funArg.copy()
+        argg["max_bookmark_id"] = mstart
+        for p in range(ttlPage):
             t = self.MOD.biu.apiAssist.user_bookmarks_illust(**argg)
             if "illusts" in t and len(t["illusts"]) != 0:
                 r = r + t["illusts"]
                 if not t["next_url"]:
+                    opsArg["markNex"] = "None"
                     break
                 argg = self.MOD.biu.apiAssist.parse_qs(t["next_url"])
+                opsArg["markNex"] = argg["max_bookmark_id"]
             else:
+                opsArg["markNex"] = "None"
                 break
 
         if int(opsArg["isSort"]) == 1:
-            r = sorted(r, key=lambda kv: kv["total_bookmarks"], reverse=True)
+            if str(opsArg["sortMode"]) == "1":
+                r = sorted(r, key=lambda kv: kv["total_view"], reverse=True)
+            else:
+                r = sorted(r, key=lambda kv: kv["total_bookmarks"], reverse=True)
         self.MOD.biu.appWorksPurer(r)
 
         return {"api": "app", "data": r}

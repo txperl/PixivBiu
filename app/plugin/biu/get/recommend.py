@@ -3,7 +3,7 @@ from ....platform import CMDProcessor
 
 
 @CMDProcessor.plugin_register("api/biu/get/recommend")
-class getRank(object):
+class getRmd(object):
     def __init__(self, MOD):
         self.MOD = MOD
 
@@ -11,7 +11,13 @@ class getRank(object):
         try:
             args = self.MOD.args.getArgs(
                 "recommend",
-                ["type=illust", "&isSort=0", "&totalPage=5", "&groupIndex=0"],
+                [
+                    "type=illust",
+                    "&sortMode=0",
+                    "&isSort=0",
+                    "&totalPage=5",
+                    "&groupIndex=0",
+                ],
             )
         except:
             return {"code": 0, "msg": "missing parameters"}
@@ -40,9 +46,12 @@ class getRank(object):
 
         for x in self.MOD.biu.pool_srh.map(self.__thread_gank, status_arg):
             r += x
-        
+
         if int(opsArg["isSort"]) == 1:
-            r = sorted(r, key=lambda kv: kv["total_bookmarks"], reverse=True)
+            if str(opsArg["sortMode"]) == "1":
+                r = sorted(r, key=lambda kv: kv["total_view"], reverse=True)
+            else:
+                r = sorted(r, key=lambda kv: kv["total_bookmarks"], reverse=True)
         self.MOD.biu.appWorksPurer(r)
 
         return {"api": "app", "data": r}
