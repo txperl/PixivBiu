@@ -1,6 +1,5 @@
 # coding=utf-8
 from flask import Flask, render_template, jsonify
-from gevent.pywsgi import WSGIServer
 from app.platform import CMDProcessor
 import logging
 import yaml

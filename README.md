@@ -16,7 +16,6 @@ PixivBiu 是一款不错的 Pixiv 搜索**辅助**工具。
 
 * 安装依赖
   + [flask](https://github.com/pallets/flask)
-  + [gevent](https://github.com/gevent/gevent)
   + [PyYAML](https://github.com/yaml/pyyaml)
   + [Pillow](https://github.com/python-pillow/Pillow)
   + [PixivPy](https://github.com/upbit/pixivpy)
