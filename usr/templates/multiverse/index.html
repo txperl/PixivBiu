@@ -284,7 +284,9 @@
 
         function dlPageAll() {
             $('.thumbAction').each(function () {
-                $(this).children('a:last')[0].click();
+                if ($(this).children('a:last')[0]['target'] != '_blank') {
+                    $(this).children('a:last')[0].click();
+                }
             });
         }
 

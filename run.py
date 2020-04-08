@@ -29,24 +29,16 @@ def pixivbiu(path):
 
 if __name__ == "__main__":
     sets = CMDProcessor.loadSet("{ROOTPATH}config.yml")  # 获取配置
+    if not sets["sys"]["isDebug"]:
+        logging.getLogger("werkzeug").setLevel(logging.ERROR)  # 调整日志等级
 
     try:
-        if sets["sys"]["isDebug"]:
-            app.run(
-                host=sets["sys"]["host"].split(":")[0],
-                port=sets["sys"]["host"].split(":")[1],
-                debug=True,
-            )
-        else:
-            http_server = WSGIServer(
-                (
-                    sets["sys"]["host"].split(":")[0],
-                    int(sets["sys"]["host"].split(":")[1]),
-                ),
-                app,
-                log=None,
-            )
-            http_server.serve_forever()
+        app.run(
+            host=sets["sys"]["host"].split(":")[0],
+            port=sets["sys"]["host"].split(":")[1],
+            debug=sets["sys"]["isDebug"],
+            threaded=True,
+        )
     except UnicodeDecodeError:
         print("您的计算机用户名可能存在特殊字符，程序无法正常运行。")
         input("按任意键退出...")
