@@ -1,3 +1,4 @@
+# coding=utf-8
 # pylint: disable=relative-beyond-top-level,unused-wildcard-import
 from ...platform import CMDProcessor
 from concurrent.futures import ThreadPoolExecutor
@@ -8,11 +9,15 @@ import threading
 import requests
 import sys
 
+if name == "nt":
+    import os
+    os.system("color")
+
 
 @CMDProcessor.core_register_auto("biu", {"config": "{ROOTPATH}config.yml"})
 class core_module_biu(object):
     def __init__(self, info=None):
-        self.ver = 200001
+        self.ver = 200002
         self.place = "local"
         self.apiType = "public"
         self.api = None
@@ -39,7 +44,7 @@ class core_module_biu(object):
             else:
                 self.__loginPublicAPI()
         except:
-            input("[pixivbiu] \033[31mPixiv 登陆失败，PixivBiu 将无法运行\033[0m\n按任意键继续...")
+            input("[pixivbiu] \033[31mPixiv 登陆失败，PixivBiu 将无法运行\033[0m\n按任意键退出...")
             sys.exit(0)
         return self
 
@@ -121,6 +126,8 @@ class core_module_biu(object):
             des = "最新"
         else:
             des = "\033[31m有新版本可用\033[0m"
+            print("\033[31m有新版本可用！\033[0m访问 https://biu.tls.moe/ 即可下载")
+            input("按任意键继续使用旧版本...")
         print("[pixivbiu] 初始化完成")
         print("------------")
         print("\033[1;37;40m PixivBiu \033[0m")
@@ -284,4 +291,3 @@ class core_module_biu(object):
             system("cls")
         else:
             system("clear")
-

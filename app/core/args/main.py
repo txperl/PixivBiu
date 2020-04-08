@@ -1,3 +1,4 @@
+# coding=utf-8
 # pylint: disable=relative-beyond-top-level,unused-wildcard-import
 from ...platform import CMDProcessor
 from flask import request

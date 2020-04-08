@@ -1,3 +1,4 @@
+# coding=utf-8
 # pylint: disable=relative-beyond-top-level
 from ....platform import CMDProcessor
 import requests
@@ -5,7 +6,7 @@ import json
 
 
 @CMDProcessor.plugin_register("api/biu/do/dl")
-class getRank(object):
+class doDownload(object):
     def __init__(self, MOD):
         self.MOD = MOD
         self.code = 1
@@ -175,8 +176,10 @@ class getRank(object):
             zipData = requests.get(url, headers=header, proxies=proxy)
             self.MOD.file.aout(uri + "data/ugoira.zip", zipData.content, "wb")
             self.MOD.file.unzip(uri + "data/", uri + "data/ugoira.zip")
-            self.MOD.file.cov2webp(uri + name + ".webp", pl, dl)
+            if self.MOD.biu.sets["biu"]["download"]["whatsUgoira"] == 'gif':
+                self.MOD.file.cov2gif(uri + name + ".gif", pl, dl)
+            else:
+                self.MOD.file.cov2webp(uri + name + ".webp", pl, dl)
         except:
             return False
         return True
-

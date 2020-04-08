@@ -1,3 +1,4 @@
+# coding=utf-8
 # pylint: disable=relative-beyond-top-level
 from ....platform import CMDProcessor
 

@@ -27,7 +27,7 @@ sys:
 biu:
   common:
     proxy: ""
-      # 代理服务器监听地址
+      # 本地代理服务器监听地址
       # 如 http://127.0.0.1:1080/
 
     defaultActionType: "public"
@@ -69,3 +69,7 @@ biu:
       # - {user_name}: 作者名称
       # - {user_id}: 作者 ID
       # - {type}: 作品类型
+
+    whatsUgoira: "webp"
+      # 将动图转换为指定格式
+      # 可选 webp, gif

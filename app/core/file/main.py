@@ -1,7 +1,7 @@
+# coding=utf-8
 # pylint: disable=relative-beyond-top-level
 from ...platform import CMDProcessor
 from PIL import Image
-from apng import APNG
 import zipfile
 import json
 import yaml
@@ -80,12 +80,19 @@ class core_module_file(object):
             return False
         return True
 
-    def cov2apng(self, uri, plist, dlist):
+    def cov2gif(self, uri, plist, dlist):
+        imgs = []
         try:
-            im = APNG()
-            for i in range(len(plist)):
-                im.append_file(plist[i], delay=dlist[i])
-            im.save(uri)
+            for x in plist:
+                imgs.append(Image.open(x))
+            imgs[0].save(
+                uri,
+                "gif",
+                save_all=True,
+                append_images=imgs[1:],
+                duration=dlist,
+                loop=0
+            )
         except:
             return False
         return True

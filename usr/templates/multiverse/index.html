@@ -36,7 +36,7 @@
             <input id="settingsIsAllSort" class="tooltip" placeholder="更多排序" autocomplete="off"
                 title="为所有结果排序，on 为开启，off 为关闭（关闭时仅为关键词搜索排序）">
             <input id="settingsRvrProxyUrl" class="tooltip" placeholder="图片反代地址" autocomplete="off"
-                title="Pixiv 图片反向代理地址（如果不是很懂请勿修改，默认为 https://i.pixiv.cat）">
+                title="Pixiv 图片反向代理地址（如果不是很懂请勿修改）">
             <br>
             <button id="btnSaveSettings" onclick="javascript:
                     saveSettingsCookie();">保存</button>
@@ -115,7 +115,7 @@
             <div class="inner split">
                 <div>
                     <section>
-                        <h2>PixivBiu@2.0.0b2</h2>
+                        <h2>PixivBiu@2.0.0b3</h2>
                         <p>一款不错的 Pixiv 搜索<b>辅助</b>工具。<br>基于 Python@3.7 构建。</p>
                     </section>
                     <section>
@@ -282,6 +282,12 @@
             }
         }
 
+        function dlPageAll() {
+            $('.thumbAction').each(function () {
+                $(this).children('a:last')[0].click();
+            });
+        }
+
         function showPics(title = '', reLoadList = ['main', 'header'], c = tmpPageData) {
             var rstHtml = '';
             var headerHtml = '<li><a href="javascript: isShowSettings();">搜索设置</a></li>';
@@ -385,6 +391,9 @@
                     // 最终结果
                     rstHtml += '<article id="art_' + data[i]['id'] + '" class="thumb"><a href="' + imgUrl + '" class="image"><img src="' + imgUrlCover + '" alt="' + data[i]['title'] + '" /></a>' + desText + '<p>' + extraText + '</p><section class="thumbAction">' + extra + '</section></article>';
                 }
+
+                // 一键下载
+                headerHtml += '<li><a class="tooltip" href="javascript: dlPageAll();" title="下载本页所有图片(原图)">下载</a></li>';
 
                 // 缓存文件
                 if (tmpCode == 2) {
