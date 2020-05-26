@@ -1,6 +1,7 @@
 # coding=utf-8
 from flask import Flask, render_template, jsonify
 from app.platform import CMDProcessor
+import webbrowser
 import logging
 import yaml
 import sys
@@ -32,6 +33,8 @@ if __name__ == "__main__":
         logging.getLogger("werkzeug").setLevel(logging.ERROR)  # 调整日志等级
 
     try:
+        if sets["sys"]["autoOpen"]:
+            webbrowser.open("http://" + sets["sys"]["host"])
         app.run(
             host=sets["sys"]["host"].split(":")[0],
             port=sets["sys"]["host"].split(":")[1],

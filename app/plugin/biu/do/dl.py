@@ -174,8 +174,9 @@ class doDownload(object):
 
         try:
             zipData = requests.get(url, headers=header, proxies=proxy)
-            self.MOD.file.aout(uri + "data/ugoira.zip", zipData.content, "wb")
+            self.MOD.file.aout(uri + "data/ugoira.zip", zipData.content, "wb", False)
             self.MOD.file.unzip(uri + "data/", uri + "data/ugoira.zip")
+            self.MOD.file.rm(uri + "data/ugoira.zip")
             if self.MOD.biu.sets["biu"]["download"]["whatsUgoira"] == 'gif':
                 self.MOD.file.cov2gif(uri + name + ".gif", pl, dl)
             else:

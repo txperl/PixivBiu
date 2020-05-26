@@ -13,3 +13,4 @@ from .biu.do.dl import *
 from .biu.do.follow import *
 from .biu.do.unfollow import *
 from .biu.search.works import *
+from .biu.search.users import *

@@ -30,13 +30,15 @@
         <div id="settings">
             <input id="settingsPageNum" class="tooltip" placeholder="每组页数" autocomplete="off" title="单次搜索页数，建议参数不要过大">
             <input id="settingsIsOriPic" class="tooltip" placeholder="大图预览" autocomplete="off"
-                title="在图片详情页显示较大尺寸的图片，on 为开启，off 为关闭（若图片加载时间过长，建议关闭）">
+                title="在图片详情页显示较大尺寸的图片。on: 开启，off: 关闭（若图片加载时间过长，建议关闭）">
+            <input id="settingsSearchMode" class="tooltip" placeholder="搜索模式" autocomplete="off"
+                title="tag: 部分匹配标签，otag: 全匹配标签，des: 匹配标题或描述">
             <input id="settingsSortMode" class="tooltip" placeholder="排序模式" autocomplete="off"
-                title="0 为按收藏数排序，1 为按人气(浏览数)排序">
+                title="0: 按收藏数排序，1: 按人气(浏览数)排序">
             <input id="settingsIsAllSort" class="tooltip" placeholder="更多排序" autocomplete="off"
-                title="为所有结果排序，on 为开启，off 为关闭（关闭时仅为关键词搜索排序）">
+                title="为所有结果排序。on: 开启，off: 关闭（关闭时仅为关键词搜索排序）">
             <input id="settingsRvrProxyUrl" class="tooltip" placeholder="图片反代地址" autocomplete="off"
-                title="Pixiv 图片反向代理地址（如果不是很懂请勿修改）">
+                title="Pixiv 图片反向代理地址（如果不是很懂请勿修改）" hidden>
             <br>
             <button id="btnSaveSettings" onclick="javascript:
                     saveSettingsCookie();">保存</button>
@@ -65,7 +67,8 @@
                         alt="" /></a>
                 <h2>指令合集</h2>
                 <ul>
-                    <li><a href="javascript: changeSrhBox('@w={work_id}');">@w={work_id}</a> #指定作品</li><br>
+                    <li><a href="javascript: changeSrhBox('@su={user_name}');">@su={user_name}</a> #用户搜索</li>
+                    <li><a href="javascript: changeSrhBox('@w={work_id}');">@w={work_id}</a> #指定作品</li>
                     <li><a href="javascript: changeSrhBox('@u={user_id} -i');">@u={user_id} -i</a> #用户插画</li>
                     <li><a href="javascript: changeSrhBox('@u={user_id} -c');">@u={user_id} -c</a> #～漫画</li>
                     <li><a href="javascript: changeSrhBox('@u={user_id} -m');">@u={user_id} -m</a> #～收藏</li>
@@ -115,7 +118,7 @@
             <div class="inner split">
                 <div>
                     <section>
-                        <h2>PixivBiu@2.0.0b3</h2>
+                        <h2>PixivBiu@2.0.0b4</h2>
                         <p>一款不错的 Pixiv 搜索<b>辅助</b>工具。<br>基于 Python@3.7 构建。</p>
                     </section>
                     <section>
@@ -182,7 +185,8 @@
             '#settingsIsOriPic': ['pixivbiu_displayIsOriPic', 'off', '大图预览'],
             '#settingsIsAllSort': ['pixivbiu_funIsAllSort', 'off', '更多排序'],
             '#settingsSortMode': ['pixivbiu_sortMode', '0', '排序模式'],
-            '#settingsRvrProxyUrl': ['pixivbiu_RvrProxyUrl', 'https://i.pixiv.cat', '图片反代地址']
+            '#settingsSearchMode': ['pixivbiu_searchMode', 'tag', '搜索模式'],
+            '#settingsRvrProxyUrl': ['pixivbiu_RvrProxyUrl', 'https://i.pixiv.cat', '图片反代地址'],
         };
 
         $(document).ready(function () {
@@ -214,21 +218,37 @@
                 var user = m[1];
                 var code = m[2];
                 if (code == 'i') {
-                    $('title').html('TA 插画' + ' - PixivBiu');
+                    $('title').html('TA 插画 - PixivBiu');
                     getUserWorks(user, 'illust');
                 } else if (code == 'c') {
-                    $('title').html('TA 漫画' + ' - PixivBiu');
+                    $('title').html('TA 漫画 - PixivBiu');
                     getUserWorks(user, 'manga');
                 } else if (code == 'm') {
-                    $('title').html('TA 收藏' + ' - PixivBiu');
+                    $('title').html('TA 收藏 - PixivBiu');
                     getMarks(user);
                 } else if (code == 'f') {
-                    $('title').html('TA 关注' + ' - PixivBiu');
+                    $('title').html('TA 关注 - PixivBiu');
                     getFollowing(user);
                 }
+            } else if ((m = regMatch(/@s=(.*?) -(.)/g, c)).length == 3) {
+                var kt = m[1];
+                var code = m[2];
+                if (code == 't') {
+                    $('title').html(kt + ' - 标签搜索');
+                    searchForWorks(kt, 0, 1, 'tag');
+                } else if (code == 'o') {
+                    $('title').html(kt + ' - 全标签搜索');
+                    searchForWorks(kt, 0, 1, 'otag');
+                } else if (code == 'd') {
+                    $('title').html(kt + ' - 标题或描述搜索');
+                    searchForWorks(kt, 0, 1, 'des');
+                }
             } else if ((m = regMatch(/@w=(.*?)$/g, c)).length == 2) {
-                $('title').html('作品' + ' - PixivBiu');
+                $('title').html('作品 - PixivBiu');
                 getOneWork(m[1]);
+            } else if ((m = regMatch(/@su=(.*?)$/g, c)).length == 2) {
+                $('title').html('用户搜索 - PixivBiu');
+                searchForUsers(m[1]);
             } else {
                 $('title').html('PixivBiu');
                 searchForWorks(c);
@@ -251,10 +271,23 @@
                 } else {
                     $('#srhBox').tooltipster('content', '指令 · -i 插画、-c 漫画、-m 收藏列表、-f 关注列表');
                 }
+            } else if ((m = regMatch(/@s=(.*?) -(.)/g, c)).length == 3) {
+                var code = m[2];
+                if (code == 't') {
+                    $('#srhBox').tooltipster('content', '指令 · 部分匹配标签搜索');
+                } else if (code == 'o') {
+                    $('#srhBox').tooltipster('content', '指令 · 全匹配标签搜索');
+                } else if (code == 'd') {
+                    $('#srhBox').tooltipster('content', '指令 · 匹配标题或描述搜索');
+                } else {
+                    $('#srhBox').tooltipster('content', '指令 · -t 部分标签、-o 全标签、-d 标题或描述');
+                }
             } else if (regMatch(/@u=(.*?)$/g, c).length == 2) {
                 $('#srhBox').tooltipster('content', '指令 @u={user_id} -{type} · 获取指定用户的 -i 插画、-c 漫画、-m 收藏列表、-f 关注列表');
             } else if (regMatch(/@w=(.*?)$/g, c).length == 2) {
                 $('#srhBox').tooltipster('content', '指令 @w={work_id} · 获取指定作品');
+            } else if (regMatch(/@su=(.*?)$/g, c).length == 2) {
+                $('#srhBox').tooltipster('content', '指令 @su={keyword} · 用户搜索');
             } else {
                 $('#srhBox').tooltipster('content', '搜索 · 回车执行');
             }
@@ -318,7 +351,7 @@
                 }
 
                 // 用户列表整理
-                for (i = 0; i < data.length && c['args']['ops']['method'] == 'userFollowing'; i++) {
+                for (i = 0; i < data.length && (c['args']['ops']['method'] == 'userFollowing' || c['args']['ops']['method'] == 'searchUsers'); i++) {
                     if (data[i]['is_followed']) {
                         var li = '<a id="follow_' + data[i]['id'] + '" href="javascript: doFollow(' + data[i]['id'] + ', \'del\');"><b class="tooltip" title="取消关注"><hicon>💘</hicon></b></a>';
                     } else {
@@ -329,7 +362,7 @@
                 }
 
                 // 通用作品整理
-                for (i = 0; i < data.length && c['args']['ops']['method'] != 'userFollowing'; i++) {
+                for (i = 0; i < data.length && (c['args']['ops']['method'] != 'userFollowing' && c['args']['ops']['method'] != 'searchUsers'); i++) {
                     var extra = '';
                     var imgUrlCover = data[i]['image_urls']['medium'].replace('https://i.pximg.net', tmpSearchSettings['pixivbiu_RvrProxyUrl']);
                     var imgUrl = data[i]['image_urls']['large'].replace('https://i.pximg.net', tmpSearchSettings['pixivbiu_RvrProxyUrl']);
@@ -382,7 +415,14 @@
                         extraText = '<a target="_blank" href=".?code=%40w%3d' + data[i]['id'] + '">👀查看</a> ' + extraText;
                     }
 
+                    // 图片信息展示
                     var desText = '<h2><a target="_blank" href="https://www.pixiv.net/artworks/' + data[i]['id'] + '">' + data[i]['title'] + '</a></h2><p>Created by <a target="_blank" href="https://www.pixiv.net/users/' + data[i]['author']['id'] + '">' + data[i]['author']['name'] + '</a> on ' + data[i]['created_time'] + '<br>#收藏' + data[i]['total_bookmarked'] + ' #浏览' + data[i]['total_viewed'] + '</p>';
+                    //// 标签
+                    var tagss = '<p style="max-width: 25%;">';
+                    for (let kk = 0; kk < data[i]['tags'].length; kk++) {
+                        tagss = tagss + '<a target="_blank" href=".?code=%40s%3d' + escape(data[i]['tags'][kk]) + ' -o">#' + data[i]['tags'][kk] + '</a> ';
+                    }
+                    desText = tagss + '</p>' + desText;
 
                     if (c['args']['ops']['method'] == 'oneWork' && i != 0) {
                         extra = '';
@@ -395,7 +435,7 @@
                 }
 
                 // 一键下载
-                headerHtml += '<li><a class="tooltip" href="javascript: dlPageAll();" title="下载本页所有图片(原图)">下载</a></li>';
+                headerHtml += '<li><a class="tooltip" href="javascript: dlPageAll();" title="下载本页所有图片（原图）">下载</a></li>';
 
                 // 缓存文件
                 if (tmpCode == 2) {

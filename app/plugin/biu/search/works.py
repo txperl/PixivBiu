@@ -65,7 +65,7 @@ class searchWorks(object):
             code = 2
         else:
             rst = self.appWorks(args["ops"].copy(), args["fun"].copy())
-            self.MOD.file.aout(cachePath + fileName, rst)
+            self.MOD.file.aout(cachePath + fileName, rst, "w", False)
 
         return {
             "code": code,
@@ -76,7 +76,7 @@ class searchWorks(object):
     def appWorks(self, opsArg, funArg):
         modes = {
             "tag": "partial_match_for_tags",
-            "text": "exact_match_for_tags",
+            "otag": "exact_match_for_tags",
             "des": "title_and_caption",
         }
 

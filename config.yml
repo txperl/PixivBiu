@@ -6,6 +6,9 @@ account:
     # Pixiv 的密码
 
 sys:
+  confVersion: 0.1
+    # 配置文件版本，请勿修改
+
   host: "127.0.0.1:4001"
     # 程序运行的地址，如果不是很懂请不要修改
     # 不可带有 http:// 前缀
@@ -23,6 +26,9 @@ sys:
   theme: "multiverse"
     # 默认主题
     # 暂无其他，请保持默认为 multiverse
+
+  autoOpen: true
+    # 启动后自动打开程序运行网址
 
 biu:
   common:

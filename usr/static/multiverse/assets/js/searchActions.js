@@ -1,11 +1,14 @@
-function searchForWorks(key, grpIdx = 0, isCache = 1) {
+function searchForWorks(key, grpIdx = 0, isCache = 1, mode = tmpSearchSettings['pixivbiu_searchMode']) {
     cssShowLoading();
     setTimeout("progresserSearching('" + key + '_' + String(tmpSearchSettings['pixivbiu_searchPageNum']) + '+' + String(grpIdx) + "')", 200);
+    if (mode != 'tag' && mode != 'otag' && mode != 'des')
+        mode = 'tag';
     $.ajax({
         type: "GET",
         url: "api/biu/search/works",
         data: {
             'kt': key,
+            'mode': mode,
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
             'isCache': Number(isCache),
             'groupIndex': Number(grpIdx),
@@ -224,6 +227,35 @@ function getFollowing(user = '', mode = 'public', grpIdx = 0) {
                 } else {
                     showPics('TA 的关注', ['main', 'header']);
                 }
+            } else {
+                showPics('Error :<', ['main'], []);
+            }
+            NProgress.done();
+        },
+        error: function (e) {
+            showPics('Error :<', ['main'], []);
+            NProgress.done();
+        }
+    });
+}
+
+function searchForUsers(key, grpIdx = 0) {
+    NProgress.inc();
+    cssShowLoading();
+    $.ajax({
+        type: "GET",
+        url: "api/biu/search/users",
+        data: {
+            'kt': key,
+            'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
+            'groupIndex': Number(grpIdx)
+        },
+        success: function (rep) {
+            rep = jQuery.parseJSON(JSON.stringify(rep));
+            if (rep.code) {
+                console.log(rep);
+                tmpPageData = rep.msg;
+                showPics('用户搜索', ['main', 'header']);
             } else {
                 showPics('Error :<', ['main'], []);
             }

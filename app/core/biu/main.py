@@ -11,13 +11,15 @@ import sys
 
 if name == "nt":
     import os
+
     os.system("color")
 
 
 @CMDProcessor.core_register_auto("biu", {"config": "{ROOTPATH}config.yml"})
 class core_module_biu(object):
     def __init__(self, info=None):
-        self.ver = 200002
+        self.ver = 200003
+        self.lowestConfVer = 0.1
         self.place = "local"
         self.apiType = "public"
         self.api = None
@@ -44,7 +46,7 @@ class core_module_biu(object):
             else:
                 self.__loginPublicAPI()
         except:
-            input("[pixivbiu] \033[31mPixiv 登陆失败，PixivBiu 将无法运行\033[0m\n按任意键退出...")
+            input("[pixivbiu] \033[31mPixiv 登陆失败，可能是账号或密码错误\033[0m\n按任意键退出...")
             sys.exit(0)
         return self
 
@@ -69,6 +71,11 @@ class core_module_biu(object):
     def __prepConfig(self):
         if self.sets == None:
             input("[pixivbiu] \033[31m读取配置文件失败，PixivBiu 将无法正常运行\033[0m\n按任意键继续...")
+            sys.exit(0)
+        if self.sets["sys"]["confVersion"] < self.lowestConfVer:
+            input(
+                "[pixivbiu] \033[31m配置文件版本过低，请使用新版本中的配置文件（config.yml）\033[0m\n按任意键继续..."
+            )
             sys.exit(0)
         if (
             self.sets["account"]["username"] == ""
