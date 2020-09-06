@@ -47,15 +47,15 @@ class doDownload(object):
         rootURI = (
             self.MOD.biu.sets["biu"]["download"]["saveURI"]
             .replace("{ROOTPATH}", self.MOD.ENVIRON["ROOTPATH"])
-            .replace("{KT}", funArg["kt"])
+            .replace("{KT}", self.__pureName(funArg["kt"]))
         )
 
         if rootURI[-1] != "/":
             rootURI = rootURI + "/"
 
-        rootURI = self.__fileNameModify(rootURI, r)
-        picTitle = self.__fileNameModify(
-            self.MOD.biu.sets["biu"]["download"]["saveFileName"], r, True
+        rootURI = self.__deName(rootURI, r)
+        picTitle = self.__pureName(
+            self.__deName(self.MOD.biu.sets["biu"]["download"]["saveFileName"], r)
         )
 
         status = []
@@ -111,27 +111,27 @@ class doDownload(object):
 
         return "running"
 
-    def __fileNameModify(self, name, data, isMore=False):
-        t = (
-            name.replace("{title}", str(data["title"]))
-            .replace("{work_id}", str(data["id"]))
-            .replace("{user_name}", str(data["user"]["name"]))
-            .replace("{user_id}", str(data["user"]["id"]))
-            .replace("{type}", str(data["type"]))
+    def __deName(self, name, data):
+        return (
+            name.replace("{title}", self.__pureName(str(data["title"])))
+            .replace("{work_id}", self.__pureName(str(data["id"])))
+            .replace("{user_name}", self.__pureName(str(data["user"]["name"])))
+            .replace("{user_id}", self.__pureName(str(data["user"]["id"])))
+            .replace("{type}", self.__pureName(str(data["type"])))
         )
-        if isMore:
-            t = (
-                t.replace("\\", "#")
-                .replace("/", "#")
-                .replace(":", "#")
-                .replace("*", "#")
-                .replace("?", "#")
-                .replace('"', "#")
-                .replace("<", "#")
-                .replace(">", "#")
-                .replace("|", "#")
-            )
-        return t
+
+    def __pureName(self, name):
+        return (
+            name.replace("\\", "#")
+            .replace("/", "#")
+            .replace(":", "#")
+            .replace("*", "#")
+            .replace("?", "#")
+            .replace('"', "#")
+            .replace("<", "#")
+            .replace(">", "#")
+            .replace("|", "#")
+        )
 
     def __thread_dlPics(self, url, uri):
         header = {"Referer": "https://app-api.pixiv.net/"}
