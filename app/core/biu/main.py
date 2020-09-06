@@ -2,24 +2,22 @@
 # pylint: disable=relative-beyond-top-level,unused-wildcard-import
 from ...platform import CMDProcessor
 from concurrent.futures import ThreadPoolExecutor
-from os import system, name
 from flask import request
 from pixivpy3 import *
 import threading
 import requests
 import sys
+import os
 
-if name == "nt":
-    import os
-
+if os.name == "nt":
     os.system("color")
 
 
 @CMDProcessor.core_register_auto("biu", {"config": "{ROOTPATH}config.yml"})
 class core_module_biu(object):
     def __init__(self, info=None):
-        self.ver = 200003
-        self.lowestConfVer = 0.1
+        self.ver = 200004
+        self.lowestConfVer = 1
         self.place = "local"
         self.apiType = "public"
         self.api = None
@@ -294,7 +292,7 @@ class core_module_biu(object):
         #     self.pximgURL = "http://" + response.json()["Answer"][0]["data"]
 
     def __clear(self):
-        if name == "nt":
-            system("cls")
+        if os.name == "nt":
+            os.system("cls")
         else:
-            system("clear")
+            os.system("clear")

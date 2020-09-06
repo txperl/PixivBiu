@@ -4,7 +4,7 @@ PixivBiu 是一款不错的 Pixiv 搜索**辅助**工具。
 
 ## 基础功能
 
-* Pixiv 搜索，并且可免会员按收藏数排序
+* Pixiv 搜索，可免会员按收藏数排序
 * 下载原始图片，包括插画、漫画、动图
 * 获取用户的作品、收藏夹、关注列表、相关推荐等
 * 获取排行榜，包括今日、本周、本月排行等
@@ -14,21 +14,21 @@ PixivBiu 是一款不错的 Pixiv 搜索**辅助**工具。
 
 ### 源码
 
-* 安装依赖，执行 `pip3 install -r requirements.txt` 
+* 安装依赖，执行 `pip3 install -r requirements.txt`
   + [flask](https://github.com/pallets/flask)
   + [requests](https://github.com/psf/requests)
   + [PyYAML](https://github.com/yaml/pyyaml)
   + [Pillow](https://github.com/python-pillow/Pillow)
   + [PixivPy](https://github.com/upbit/pixivpy)
 * 修改 `./config.yml` 相关配置选项，具体参见注释，或[配置文档](https://biu.tls.moe/#/usage/quickstart?id=配置)
-* 执行 `python3 run.py` 
-* 访问运行地址，默认为 `http://127.0.0.1:4001/` 
+* 执行 `python3 run.py`
+* 访问运行地址，默认为 `http://127.0.0.1:4001/`
 
 ### 已编译程序
 
-此项目基于 `Python@3.7` 编写，使用 `PyInstaller` 构建编译版本。
+此项目基于 `Python@3.7` 编写，使用 `PyInstaller@3.6` 构建编译版本。
 
-我们只提供了 Windows 和 macOS 的编译版本，如有其他需求请自行编译。
+这里只提供 Windows 和 macOS 的编译版本，如有其他需求请自行编译。
 
 具体可在 [Releases](https://github.com/txperl/PixivBiu/releases) 中下载(暂无)，或者[在这](https://biu.tls.moe/#/lib/dl)下载。
 
@@ -50,5 +50,6 @@ PixivBiu 是一款不错的 Pixiv 搜索**辅助**工具。
 
 ### 条款
 
+* 本程序(PixivBiu)仅供学习交流，最初目的达成后请自行删除
 * 使用后任何不可知事件都与原作者无关，原作者不承担任何后果
 * [MIT License](https://choosealicense.com/licenses/mit/)

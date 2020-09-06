@@ -6,7 +6,7 @@ account:
     # Pixiv 的密码
 
 sys:
-  confVersion: 0.1
+  confVersion: 1
     # 配置文件版本，请勿修改
 
   host: "127.0.0.1:4001"
@@ -75,6 +75,11 @@ biu:
       # - {user_name}: 作者名称
       # - {user_id}: 作者 ID
       # - {type}: 作品类型
+
+    autoArchive: true
+      # 自动将拥有多张图片的作品归档（放入一个文件夹中）
+      # true 为开启
+      # false 为关闭
 
     whatsUgoira: "webp"
       # 将动图转换为指定格式

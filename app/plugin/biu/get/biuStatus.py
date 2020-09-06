@@ -4,7 +4,7 @@ from ....platform import CMDProcessor
 
 
 @CMDProcessor.plugin_register("api/biu/get/status")
-class getRank(object):
+class getStatus(object):
     def __init__(self, MOD):
         self.MOD = MOD
 

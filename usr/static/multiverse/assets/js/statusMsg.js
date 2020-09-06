@@ -92,16 +92,12 @@ function progresserDownloading(key, errors = 0) {
                 }
                 return;
             } else {
-                if (num > 1) {
-                    if ($(id).length > 0) {
-                        $(thu).attr('class', 'image proer-dling');
+                if ($(id).length > 0) {
+                    $(thu).attr('class', 'image proer-dling');
+                    if (num > 1)
                         $(id).html('下载中 ' + fin + '/' + num);
-                    }
-                } else {
-                    if ($(id).length > 0) {
-                        $(thu).attr('class', 'image proer-dling');
+                    else
                         $(id).html('下载中');
-                    }
                 }
                 setTimeout("progresserDownloading('" + key + "')", 500);
             }

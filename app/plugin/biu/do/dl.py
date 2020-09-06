@@ -61,6 +61,7 @@ class doDownload(object):
         status = []
 
         if r["type"] != "ugoira" and isSingle:
+            # 单图下载
             url = r["meta_single_page"]["original_image_url"].replace(
                 "https://i.pximg.net", self.MOD.biu.pximgURL
             )
@@ -73,14 +74,19 @@ class doDownload(object):
 
             status.append(self.MOD.biu.pool.submit(self.__thread_dlPics, url, extraURI))
         elif r["type"] != "ugoira" and not isSingle:
+            # 多图下载
             index = 0
+            # 判断是否自动归档
+            if self.MOD.biu.sets["biu"]["download"]["autoArchive"]:
+                ext = picTitle + "/"
+            else:
+                ext = ""
             for x in r["meta_pages"]:
                 picURL = x["image_urls"]["original"]
                 url = picURL.replace("https://i.pximg.net", self.MOD.biu.pximgURL)
                 extraURI = (
                     rootURI
-                    + picTitle
-                    + "/"
+                    + ext
                     + picTitle
                     + "_"
                     + str(index)
@@ -93,6 +99,7 @@ class doDownload(object):
                     self.MOD.biu.pool.submit(self.__thread_dlPics, url, extraURI)
                 )
         else:
+            # 动图下载
             extraURI = rootURI + picTitle + "/"
             status.append(
                 self.MOD.biu.pool.submit(
@@ -177,7 +184,7 @@ class doDownload(object):
             self.MOD.file.aout(uri + "data/ugoira.zip", zipData.content, "wb", False)
             self.MOD.file.unzip(uri + "data/", uri + "data/ugoira.zip")
             self.MOD.file.rm(uri + "data/ugoira.zip")
-            if self.MOD.biu.sets["biu"]["download"]["whatsUgoira"] == 'gif':
+            if self.MOD.biu.sets["biu"]["download"]["whatsUgoira"] == "gif":
                 self.MOD.file.cov2gif(uri + name + ".gif", pl, dl)
             else:
                 self.MOD.file.cov2webp(uri + name + ".webp", pl, dl)

@@ -32,7 +32,7 @@
             <input id="settingsIsOriPic" class="tooltip" placeholder="大图预览" autocomplete="off"
                 title="在图片详情页显示较大尺寸的图片。on: 开启，off: 关闭（若图片加载时间过长，建议关闭）">
             <input id="settingsSearchMode" class="tooltip" placeholder="搜索模式" autocomplete="off"
-                title="tag: 部分匹配标签，otag: 全匹配标签，des: 匹配标题或描述">
+                title="tag: 匹配部分标签(默认)，otag: 全标签，des: 标题或描述">
             <input id="settingsSortMode" class="tooltip" placeholder="排序模式" autocomplete="off"
                 title="0: 按收藏数排序，1: 按人气(浏览数)排序">
             <input id="settingsIsAllSort" class="tooltip" placeholder="更多排序" autocomplete="off"
@@ -118,7 +118,7 @@
             <div class="inner split">
                 <div>
                     <section>
-                        <h2>PixivBiu@2.0.0b4</h2>
+                        <h2>PixivBiu@2.0.0b5</h2>
                         <p>一款不错的 Pixiv 搜索<b>辅助</b>工具。<br>基于 Python@3.7 构建。</p>
                     </section>
                     <section>
@@ -148,12 +148,12 @@
                 <div>
                     <section>
                         <h2>其他</h2>
-                        <a target="_blank" href="https://biu.tls.moe/#/usage/basic">如何使用？</a> & <a target="_blank"
+                        <a target="_blank" href="https://biu.tls.moe/#/usage/basic">如何使用?</a> & <a target="_blank"
                             href="mailto:txperl@gmail.com?subject=「PixivBiu」">反馈</a><br><br>
                         <button id="btnCheckUP" onclick="checkOutdated();" class="primary tooltip"
                             title="BiuBiuBiu~">检测更新</button><br><br>
-                        <p>If you feel your rights have been violated, please contact me through the above
-                            information.<br>So sorry.</p>
+                        <p>If you feel your rights have been violated, please contact me through the
+                            information above. Sorry a lot.</p>
                     </section>
                 </div>
             </div>
@@ -234,7 +234,7 @@
                 var kt = m[1];
                 var code = m[2];
                 if (code == 't') {
-                    $('title').html(kt + ' - 标签搜索');
+                    $('title').html(kt + ' - 部分标签搜索');
                     searchForWorks(kt, 0, 1, 'tag');
                 } else if (code == 'o') {
                     $('title').html(kt + ' - 全标签搜索');
@@ -274,9 +274,9 @@
             } else if ((m = regMatch(/@s=(.*?) -(.)/g, c)).length == 3) {
                 var code = m[2];
                 if (code == 't') {
-                    $('#srhBox').tooltipster('content', '指令 · 部分匹配标签搜索');
+                    $('#srhBox').tooltipster('content', '指令 · 匹配部分标签搜索');
                 } else if (code == 'o') {
-                    $('#srhBox').tooltipster('content', '指令 · 全匹配标签搜索');
+                    $('#srhBox').tooltipster('content', '指令 · 匹配全标签搜索');
                 } else if (code == 'd') {
                     $('#srhBox').tooltipster('content', '指令 · 匹配标题或描述搜索');
                 } else {
@@ -284,10 +284,12 @@
                 }
             } else if (regMatch(/@u=(.*?)$/g, c).length == 2) {
                 $('#srhBox').tooltipster('content', '指令 @u={user_id} -{type} · 获取指定用户的 -i 插画、-c 漫画、-m 收藏列表、-f 关注列表');
+            } else if (regMatch(/@s=(.*?)$/g, c).length == 2) {
+                $('#srhBox').tooltipster('content', '指令 · 以指定匹配模式搜索 -t 部分标签、-o 全标签、-d 标题或描述');
             } else if (regMatch(/@w=(.*?)$/g, c).length == 2) {
-                $('#srhBox').tooltipster('content', '指令 @w={work_id} · 获取指定作品');
+                $('#srhBox').tooltipster('content', '指令 @w={work_id} · 搜索指定 ID 的作品');
             } else if (regMatch(/@su=(.*?)$/g, c).length == 2) {
-                $('#srhBox').tooltipster('content', '指令 @su={keyword} · 用户搜索');
+                $('#srhBox').tooltipster('content', '指令 @su={keyword} · 搜索相关用户');
             } else {
                 $('#srhBox').tooltipster('content', '搜索 · 回车执行');
             }
@@ -316,11 +318,12 @@
         }
 
         function dlPageAll() {
-            $('.thumbAction').each(function () {
-                if ($(this).children('a:last')[0]['target'] != '_blank') {
-                    $(this).children('a:last')[0].click();
-                }
-            });
+            if (confirm("你确定要一下子下载全部的图片嘛？！还是原图哎...\n其实点击图片右上角也可以下载。"))
+                $('.thumbAction').each(function () {
+                    if ($(this).children('a:last')[0]['target'] != '_blank') {
+                        $(this).children('a:last')[0].click();
+                    }
+                });
         }
 
         function showPics(title = '', reLoadList = ['main', 'header'], c = tmpPageData) {
