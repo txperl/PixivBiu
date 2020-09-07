@@ -54,7 +54,7 @@ biu:
     maxThreads: 16
       # 下载池最大线程数
 
-    saveURI: "{ROOTPATH}downloads/{KT}/"
+    saveURI: "{ROOTPATH}/downloads/{KT}/"
       # 下载保存路径，以 / 结尾
       # 不可使用 \ 符号，请将其替换为 / 或 \\
       # 可选变量
