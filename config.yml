@@ -35,6 +35,8 @@ biu:
     proxy: ""
       # 本地代理服务器监听地址
       # 如 http://127.0.0.1:1080/
+      # 留空则程序会自动检测系统代理设置（暂时仅支持 Windows）
+      # 填入 no 则不使用任何代理（暂时仅支持 Windows）
 
     defaultActionType: "public"
       # 账号默认操作类型

@@ -135,11 +135,8 @@ class doDownload(object):
 
     def __thread_dlPics(self, url, uri):
         header = {"Referer": "https://app-api.pixiv.net/"}
-        if (
-            self.MOD.biu.apiType != "byPassSni"
-            and self.MOD.biu.sets["biu"]["common"]["proxy"] != ""
-        ):
-            proxy = {"https": self.MOD.biu.sets["biu"]["common"]["proxy"]}
+        if self.MOD.biu.proxy != "":
+            proxy = {"https": self.MOD.biu.proxy}
         else:
             proxy = {}
 
@@ -153,11 +150,8 @@ class doDownload(object):
 
     def __thread_dlUgoiraPics(self, id, name, uri):
         header = {"Referer": "https://app-api.pixiv.net/"}
-        if (
-            self.MOD.biu.apiType != "byPassSni"
-            and self.MOD.biu.sets["biu"]["common"]["proxy"] != ""
-        ):
-            proxy = {"https": self.MOD.biu.sets["biu"]["common"]["proxy"]}
+        if self.MOD.biu.proxy != "":
+            proxy = {"https": self.MOD.biu.proxy}
         else:
             proxy = {}
 
