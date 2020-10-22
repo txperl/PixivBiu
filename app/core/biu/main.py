@@ -19,7 +19,7 @@ if os.name == "nt":
 @CMDProcessor.core_register_auto("biu", {"config": "{ROOTPATH}config.yml"})
 class core_module_biu(object):
     def __init__(self, info=None):
-        self.ver = 200005
+        self.ver = 200006
         self.lowestConfVer = 1
         self.place = "local"
         self.apiType = "public"
@@ -44,6 +44,7 @@ class core_module_biu(object):
         self.__prepConfig()  # 加载配置项
         self.proxy = self.__getSystemProxy()  # 加载代理地址
         self.biuInfo = self.__getBiuInfo()  # 加载联网信息
+        self.__checkForUpdate()  # 检测更新
         if self.apiType != "byPassSni":
             self.__checkNetwork()  # 检测网络是否可通
         try:
@@ -131,16 +132,19 @@ class core_module_biu(object):
                 print("[pixivbiu] Pixiv 图片服务器 IP 获取失败")
         self.__showRdyInfo()
 
-    def __showRdyInfo(self):
-        if self.ver >= self.biuInfo["version"]:
-            des = "最新"
-        else:
-            des = "\033[31m有新版本可用@%s\033[0m" % self.biuInfo["version"]
+    def __checkForUpdate(self):
+        if self.ver < self.biuInfo["version"]:
             print(
                 "\033[31m有新版本可用@%s！\033[0m访问 https://biu.tls.moe/ 即可下载"
                 % self.biuInfo["version"]
             )
             input("按任意键以继续使用旧版本...")
+
+    def __showRdyInfo(self):
+        if self.ver >= self.biuInfo["version"]:
+            des = "最新"
+        else:
+            des = "\033[31m有新版本可用@%s\033[0m" % self.biuInfo["version"]
         print("[pixivbiu] 初始化完成")
         print("------------")
         print("\033[1;37;40m PixivBiu \033[0m")
