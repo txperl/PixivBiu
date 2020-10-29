@@ -14,7 +14,8 @@ class core_module_file(object):
     def __init__(self):
         pass
 
-    def ain(self, uri, mode="r"):
+    @staticmethod
+    def ain(uri, mode="r"):
         if not os.path.exists(uri):
             return False
         try:
@@ -29,7 +30,8 @@ class core_module_file(object):
             return False
         return f
 
-    def aout(self, uri, data, mode="w", dRename=True):
+    @staticmethod
+    def aout(uri, data, mode="w", dRename=True):
         if not uri:
             return False
 
@@ -69,7 +71,8 @@ class core_module_file(object):
         )
         return True
 
-    def rm(self, uri):
+    @staticmethod
+    def rm(uri):
         if not os.path.exists(uri):
             return False
         try:
@@ -80,7 +83,8 @@ class core_module_file(object):
         print("\033[32m[removed]\033[0m \033[36m%s\033[0m" % (uri))
         return True
 
-    def unzip(self, ruri, furi):
+    @staticmethod
+    def unzip(ruri, furi):
         try:
             f = zipfile.ZipFile(furi, "r")
             for name in f.namelist():
@@ -92,7 +96,8 @@ class core_module_file(object):
         print("\033[32m[unzipped]\033[0m \033[36m%s\033[0m" % (furi))
         return True
 
-    def cov2webp(self, uri, plist, dlist, quality=100):
+    @staticmethod
+    def cov2webp(uri, plist, dlist, quality=100):
         imgs = []
         try:
             for x in plist:
@@ -109,7 +114,8 @@ class core_module_file(object):
             return False
         return True
 
-    def cov2gif(self, uri, plist, dlist):
+    @staticmethod
+    def cov2gif(uri, plist, dlist):
         imgs = []
         try:
             for x in plist:

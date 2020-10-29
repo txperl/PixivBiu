@@ -4,9 +4,12 @@ account:
 
   password: ""
     # Pixiv 的密码
+  
+  isToken: true
+    # 是否使用 token 登录
 
 sys:
-  confVersion: 1
+  confVersion: 2
     # 配置文件版本，请勿修改
 
   host: "127.0.0.1:4001"

@@ -1,6 +1,7 @@
 # coding=utf-8
 # pylint: disable=relative-beyond-top-level,unused-wildcard-import
 from ...platform import CMDProcessor
+from ..file.main import core_module_file as ifile
 from concurrent.futures import ThreadPoolExecutor
 from flask import request
 from pixivpy3 import *
@@ -19,8 +20,8 @@ if os.name == "nt":
 @CMDProcessor.core_register_auto("biu", {"config": "{ROOTPATH}config.yml"})
 class core_module_biu(object):
     def __init__(self, info=None):
-        self.ver = 200006
-        self.lowestConfVer = 1
+        self.ver = 200007
+        self.lowestConfVer = 2
         self.place = "local"
         self.apiType = "public"
         self.api = None
@@ -47,15 +48,8 @@ class core_module_biu(object):
         self.__checkForUpdate()  # 检测更新
         if self.apiType != "byPassSni":
             self.__checkNetwork()  # 检测网络是否可通
-        try:
-            if self.apiType == "app" or self.apiType == "byPassSni":
-                self.__loginAppAPI()
-            else:
-                self.__loginPublicAPI()
-        except Exception as e:
-            print(e)
-            input("[pixivbiu] \033[31mPixiv 登陆失败\033[0m\n按任意键退出...")
-            sys.exit(0)
+        self.__login()  # 登录
+        self.__showRdyInfo()  # 展示初始化完成信息
         return self
 
     def __prepConfig(self):
@@ -67,14 +61,6 @@ class core_module_biu(object):
                 "[pixivbiu] \033[31m配置文件版本过低，请使用新版本中的配置文件（config.yml）\033[0m\n按任意键继续..."
             )
             sys.exit(0)
-        if (
-            self.sets["account"]["username"] == ""
-            or self.sets["account"]["password"] == ""
-        ):
-            print("[pixivbiu] 请输入 Pixiv 的\033[1;37;45m 邮箱、密码 \033[0m(本程序不会保存与上传)")
-            self.sets["account"]["username"] = input("\033[1;37;45m邮箱:\033[0m ")
-            self.sets["account"]["password"] = input("\033[1;37;45m密码:\033[0m ")
-            self.__clear()
         self.apiType = self.sets["sys"]["api"]
 
     def __checkNetwork(self):
@@ -91,7 +77,40 @@ class core_module_biu(object):
             self.apiType = "byPassSni"
             self.proxy = ""
 
-    def __loginPublicAPI(self):
+    def __login(self):
+        try:
+            tokenFile = ifile.ain(self.ENVORON["ROOTPATH"] + "usr/.token.json",)
+            if self.sets["account"]["isToken"] and tokenFile:
+                args = {
+                    "token": tokenFile["token"],
+                }
+            else:
+                self.__loadAccountInfo()
+                args = {
+                    "username": self.sets["account"]["username"],
+                    "password": self.sets["account"]["password"],
+                }
+            if self.apiType == "app" or self.apiType == "byPassSni":
+                self.__loginAppAPI(**args)
+            else:
+                self.__loginPublicAPI(**args)
+        except Exception as e:
+            print(e)
+            input("[pixivbiu] \033[31mPixiv 登陆失败\033[0m\n按任意键退出...")
+            sys.exit(0)
+
+    def __loadAccountInfo(self):
+        if (
+            self.sets["account"]["username"] == ""
+            or self.sets["account"]["password"] == ""
+        ):
+            print("[pixivbiu] 请输入 Pixiv 的\033[1;37;45m 邮箱、密码 \033[0m(本程序不会保存与上传)")
+            self.sets["account"]["username"] = input("\033[1;37;45m邮箱:\033[0m ")
+            self.sets["account"]["password"] = input("\033[1;37;45m密码:\033[0m ")
+            self.__clear()
+        return self.sets["account"]["username"], self.sets["account"]["password"]
+
+    def __loginPublicAPI(self, username=None, password=None, token=None):
         _REQUESTS_KWARGS = {}
         if self.proxy != "":
             _REQUESTS_KWARGS = {
@@ -99,16 +118,30 @@ class core_module_biu(object):
             }
         self.api = PixivAPI(**_REQUESTS_KWARGS)
         self.apiAssist = AppPixivAPI(**_REQUESTS_KWARGS)
-        self.api.login(
-            self.sets["account"]["username"], self.sets["account"]["password"]
-        )
-        self.apiAssist.login(
-            self.sets["account"]["username"], self.sets["account"]["password"]
-        )
-        print("[pixivbiu] %s api 登录成功" % self.apiType)
-        self.__showRdyInfo()
 
-    def __loginAppAPI(self):
+        if token != None:
+            try:
+                self.api.auth(refresh_token=token)
+                self.apiAssist.auth(refresh_token=token)
+                print("[pixivbiu] 读取 token 成功")
+            except:
+                account = self.__loadAccountInfo()
+                self.api.login(*account)
+                self.apiAssist.login(*account)
+        else:
+            self.api.login(username, password)
+            self.apiAssist.login(username, password)
+
+        if self.sets["account"]["isToken"]:
+            ifile.aout(
+                self.ENVORON["ROOTPATH"] + "usr/.token.json",
+                {"token": self.api.refresh_token,},
+                dRename=False,
+            )
+
+        print("[pixivbiu] %s api 登录成功" % self.apiType)
+
+    def __loginAppAPI(self, username=None, password=None, token=None):
         _REQUESTS_KWARGS = {}
         if self.proxy != "" and self.apiType != "byPassSni":
             _REQUESTS_KWARGS = {
@@ -120,9 +153,23 @@ class core_module_biu(object):
             self.api = ByPassSniApi(**_REQUESTS_KWARGS)
             self.api.require_appapi_hosts(hostname=self.biuInfo["pApiURL"])
             self.api.set_accept_language("zh-cn")
-        self.api.login(
-            self.sets["account"]["username"], self.sets["account"]["password"]
-        )
+
+        if token != None:
+            try:
+                self.api.auth(refresh_token=token)
+                print("[pixivbiu] 读取 token 成功")
+            except:
+                account = self.__loadAccountInfo()
+                self.api.login(*account)
+        else:
+            self.api.login(username, password)
+
+        if self.sets["account"]["isToken"]:
+            ifile.aout(
+                self.ENVORON["ROOTPATH"] + "usr/.token.json",
+                {"token": self.api.refresh_token,},
+                dRename=False,
+            )
         self.apiAssist = self.api
         print("[pixivbiu] %s api 登录成功" % self.apiType)
         if self.apiType != "app":
@@ -130,7 +177,6 @@ class core_module_biu(object):
                 self.__getPximgTrueIP()
             except:
                 print("[pixivbiu] Pixiv 图片服务器 IP 获取失败")
-        self.__showRdyInfo()
 
     def __checkForUpdate(self):
         if self.ver < self.biuInfo["version"]:
