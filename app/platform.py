@@ -1,5 +1,6 @@
 # coding=utf-8
 import traceback
+import socket
 import json
 import yaml
 import sys
@@ -88,4 +89,12 @@ class CMDProcessor(object):
             print("\033[31m[ERROR] %s\033[0m" % e)
             print("\033[31m%s\033[0m" % traceback.format_exc())
         return None
+
+    @staticmethod
+    def isPortInUse(port):
+        port = int(port)
+        if port >= 0 and port <= 65535:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                return s.connect_ex(("localhost", port)) == 0
+        return False
 

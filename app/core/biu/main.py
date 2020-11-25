@@ -43,6 +43,7 @@ class core_module_biu(object):
 
     def auto(self):
         self.__prepConfig()  # 加载配置项
+        self.__preCheck()  # 运行前检测
         self.proxy = self.__getSystemProxy()  # 加载代理地址
         self.biuInfo = self.__getBiuInfo()  # 加载联网信息
         self.__checkForUpdate()  # 检测更新
@@ -53,6 +54,9 @@ class core_module_biu(object):
         return self
 
     def __prepConfig(self):
+        """
+        加载 pixivbiu 的全局配置项
+        """
         if self.sets == None:
             input("[pixivbiu] \033[31m读取配置文件失败，PixivBiu 将无法正常运行\033[0m\n按任意键继续...")
             sys.exit(0)
@@ -63,7 +67,84 @@ class core_module_biu(object):
             sys.exit(0)
         self.apiType = self.sets["sys"]["api"]
 
+    def __preCheck(self):
+        """
+        进行运行前的检测，目前有如下功能：
+        1. 检测端口是否已被占用
+        """
+        # 检测端口是否被占用
+        if CMDProcessor.isPortInUse(self.sets["sys"]["host"].split(":")[1]):
+            print("现端口已被占用，请修改 config.yml 中 sys-host 配置。")
+            input("按任意键退出...")
+            sys.exit(0)
+
+    def __getSystemProxy(self):
+        """
+        检测系统本地设置中的代理地址，并验证是否可用。
+        @Windows: 通过注册表项获取
+        @macOS: 暂时未实现
+        @Linux: 暂时未实现
+        """
+        if self.sets["biu"]["common"]["proxy"] == "no":
+            return ""
+
+        if self.apiType == "byPassSni" or self.sets["biu"]["common"]["proxy"] != "":
+            return self.sets["biu"]["common"]["proxy"]
+
+        proxies = []
+
+        if os.name == "nt":
+            tmp = os.popen(
+                'reg query "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings" | findstr "ProxyServer AutoConfigURL"'
+            )
+            oriProxy = tmp.read()
+            tmp.close()
+            t = oriProxy.split("\n")[:-1]
+            proxies = [re.split("\s+", x)[1:] for x in t]
+        else:
+            # MBP 不在身边，之后再更新...（（
+            pass
+
+        # 筛选出可用代理地址
+        for x in proxies:
+            proxy = x[2]
+            t = re.match(r"https?:\/\/(.*?):(\d+)", proxy)
+            if t:
+                try:
+                    telnetlib.Telnet(t.group(1), port=int(t.group(2)), timeout=1)
+                    print("[pixivbiu] 已启用系统代理地址: %s" % proxy)
+                    return proxy
+                except:
+                    pass
+
+        return ""
+
+    def __getBiuInfo(self):
+        """
+        获取联网 pixivbiu 相关信息
+        """
+        try:
+            return json.loads(
+                requests.get("https://biu.tls.moe/d/biuinfo.json", timeout=6).text
+            )
+        except:
+            return {"version": self.ver + 1, "pApiURL": "public-api.secure.pixiv.net"}
+
+    def __checkForUpdate(self):
+        """
+        检测是否有更新（仅本地版本号对比）
+        """
+        if self.ver < self.biuInfo["version"]:
+            print(
+                "\033[31m有新版本可用@%s！\033[0m访问 https://biu.tls.moe/ 即可下载"
+                % self.biuInfo["version"]
+            )
+            input("按任意键以继续使用旧版本...")
+
     def __checkNetwork(self):
+        """
+        检测网络是否可通。若不可通，则启用 bypass 模式。
+        """
         print("[pixivbiu] 检测网络状态...")
         try:
             if self.proxy != "":
@@ -78,6 +159,9 @@ class core_module_biu(object):
             self.proxy = ""
 
     def __login(self):
+        """
+        登录函数。
+        """
         try:
             tokenFile = ifile.ain(self.ENVORON["ROOTPATH"] + "usr/.token.json",)
             if self.sets["account"]["isToken"] and tokenFile:
@@ -100,6 +184,9 @@ class core_module_biu(object):
             sys.exit(0)
 
     def __loadAccountInfo(self):
+        """
+        要求用户输入 Pixiv 邮箱、密码信息。
+        """
         if (
             self.sets["account"]["username"] == ""
             or self.sets["account"]["password"] == ""
@@ -111,6 +198,9 @@ class core_module_biu(object):
         return self.sets["account"]["username"], self.sets["account"]["password"]
 
     def __loginPublicAPI(self, username=None, password=None, token=None):
+        """
+        public 模式登录。
+        """
         _REQUESTS_KWARGS = {}
         if self.proxy != "":
             _REQUESTS_KWARGS = {
@@ -142,6 +232,9 @@ class core_module_biu(object):
         print("[pixivbiu] %s api 登录成功" % self.apiType)
 
     def __loginAppAPI(self, username=None, password=None, token=None):
+        """
+        app 模式登录。
+        """
         _REQUESTS_KWARGS = {}
         if self.proxy != "" and self.apiType != "byPassSni":
             _REQUESTS_KWARGS = {
@@ -178,15 +271,10 @@ class core_module_biu(object):
             except:
                 print("[pixivbiu] Pixiv 图片服务器 IP 获取失败")
 
-    def __checkForUpdate(self):
-        if self.ver < self.biuInfo["version"]:
-            print(
-                "\033[31m有新版本可用@%s！\033[0m访问 https://biu.tls.moe/ 即可下载"
-                % self.biuInfo["version"]
-            )
-            input("按任意键以继续使用旧版本...")
-
     def __showRdyInfo(self):
+        """
+        展示初始化成功消息。
+        """
         if self.ver >= self.biuInfo["version"]:
             des = "最新"
         else:
@@ -210,6 +298,12 @@ class core_module_biu(object):
         print("------------")
 
     def updateStatus(self, type, key, c):
+        """
+        线程池状态更新函数。
+        @type(str): search || download
+        @key(str): 线程的唯一 key
+        @c(thread): 线程引用
+        """
         if not key or c == []:
             return
         self.lock.acquire()
@@ -220,6 +314,9 @@ class core_module_biu(object):
         self.lock.release()
 
     def appWorksPurer(self, da):
+        """
+        格式化返回的图片信息。
+        """
         for i in range(len(da)):
             total = 0
             typer = "other"
@@ -272,50 +369,11 @@ class core_module_biu(object):
             }
             da[i] = r
 
-    def __getBiuInfo(self):
-        try:
-            return json.loads(
-                requests.get("https://biu.tls.moe/d/biuinfo.json", timeout=6).text
-            )
-        except:
-            return {"version": self.ver + 1, "pApiURL": "public-api.secure.pixiv.net"}
-
-    def __getSystemProxy(self):
-        if self.sets["biu"]["common"]["proxy"] == "no":
-            return ""
-
-        if self.apiType == "byPassSni" or self.sets["biu"]["common"]["proxy"] != "":
-            return self.sets["biu"]["common"]["proxy"]
-
-        proxies = []
-
-        if os.name == "nt":
-            tmp = os.popen(
-                'reg query "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings" | findstr "ProxyServer AutoConfigURL"'
-            )
-            oriProxy = tmp.read()
-            tmp.close()
-            t = oriProxy.split("\n")[:-1]
-            proxies = [re.split("\s+", x)[1:] for x in t]
-        else:
-            # MBP 不在身边，之后再更新...（（
-            pass
-
-        # 筛选出可用代理地址
-        for x in proxies:
-            proxy = x[2]
-            t = re.match(r"https?:\/\/(.*?):(\d+)", proxy)
-            if t:
-                try:
-                    telnetlib.Telnet(t.group(1), port=int(t.group(2)), timeout=1)
-                    print("[pixivbiu] 已启用系统代理地址: %s" % proxy)
-                    return proxy
-                except:
-                    pass
-
-        return ""
-
     def __getPximgTrueIP(self):
+        """
+        获取 pixiv 图片服务器地址。
+        （现暂时直接返回第三方反代地址）
+        """
         # 暂时
         self.pximgURL = "https://i.pixiv.cat"
         return
