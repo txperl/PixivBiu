@@ -1,12 +1,14 @@
 # coding=utf-8
-# pylint: disable=relative-beyond-top-level
-from ...platform import CMDProcessor
-from PIL import Image
-import zipfile
 import json
-import yaml
-import time
 import os
+import shutil
+import time
+import zipfile
+
+import yaml
+from PIL import Image
+
+from ...platform import CMDProcessor
 
 
 @CMDProcessor.core_register("file")
@@ -26,12 +28,12 @@ class core_module_file(object):
                 elif fileType == "yml" or fileType == "yaml":
                     f = yaml.safe_load(f)
         except:
-            print("\033[31m[failed-load] %s\033[0m" % (uri))
+            print("\033[31m[load@failed] %s\033[0m" % (uri))
             return False
         return f
 
     @staticmethod
-    def aout(uri, data, mode="w", dRename=True):
+    def aout(uri, data, mode="w", dRename=True, msg=False):
         if not uri:
             return False
 
@@ -63,37 +65,69 @@ class core_module_file(object):
                     data = yaml.dump(data)
                 f.write(data)
         except:
-            print("\033[31m[failed-save] %s -> %s\033[0m" % (fileName, uri))
+            print("\033[31m[save@failed] %s -> %s\033[0m" % (fileName, uri))
             return False
-        print(
-            "\033[32m[saved]\033[0m \033[36m%s\033[0m -> \033[36m%s\033[0m"
-            % (fileName, uri)
-        )
+        if msg:
+            print(
+                "\033[32m[save]\033[0m \033[36m%s\033[0m -> \033[36m%s\033[0m"
+                % (fileName, uri)
+            )
         return True
 
     @staticmethod
-    def rm(uri):
-        if not os.path.exists(uri):
-            return False
+    def mkdir(path):
         try:
-            os.remove(uri)
-        except:
-            print("\033[31m[failed-remove] %s\033[0m" % (uri))
-            return False
-        print("\033[32m[removed]\033[0m \033[36m%s\033[0m" % (uri))
-        return True
+            if path != "" and not os.path.exists(path):
+                os.makedirs(path)
+        except Exception as e:
+            print("\033[31m%s\033[0m" % e)
 
     @staticmethod
-    def unzip(ruri, furi):
+    def clearDIR(folder, nameList=[]):
+        if not os.path.exists(folder):
+            return
+        for filename in os.listdir(folder):
+            if len(nameList) > 0 and filename not in nameList:
+                continue
+            file_path = os.path.join(folder, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print("Failed to delete %s. Reason: %s" % (file_path, e))
+
+    @staticmethod
+    def rm(uri, msg=False):
+        uris = uri if type(uri) == list else [uri]
+        r = []
+        for x in uris:
+            if x == "" or not os.path.exists(x):
+                r.append(False)
+                continue
+            try:
+                os.remove(x)
+            except:
+                print("\033[31m[remove@failed] %s\033[0m" % (x))
+                r.append(False)
+            if msg:
+                print("\033[32m[remove]\033[0m \033[36m%s\033[0m" % (x))
+            r.append(True)
+        return r if len(r) > 1 else r[0]
+
+    @staticmethod
+    def unzip(ruri, furi, msg=False):
         try:
             f = zipfile.ZipFile(furi, "r")
             for name in f.namelist():
                 f.extract(name, ruri)
             f.close()
         except:
-            print("\033[31m[failed-unzip] %s\033[0m" % (furi))
+            print("\033[31m[unzip@failed] %s\033[0m" % (furi))
             return False
-        print("\033[32m[unzipped]\033[0m \033[36m%s\033[0m" % (furi))
+        if msg:
+            print("\033[32m[unzip]\033[0m \033[36m%s\033[0m" % (furi))
         return True
 
     @staticmethod

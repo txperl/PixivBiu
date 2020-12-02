@@ -1,5 +1,4 @@
 # coding=utf-8
-# pylint: disable=relative-beyond-top-level
 from ....platform import CMDProcessor
 
 
@@ -17,22 +16,32 @@ class getStatus(object):
         idx = "rate_" + args["fun"]["type"]
         key = str(args["fun"]["key"])
 
-        if idx not in self.MOD.biu.STATUS or key not in self.MOD.biu.STATUS[idx]:
+        if args["fun"]["type"] == "search" and key not in self.MOD.biu.STATUS[idx]:
+            return {"code": 0, "msg": "unknown parameters"}
+        elif args["fun"]["type"] == "download" and key not in self.MOD.dl.tasks and key != "__all__":
             return {"code": 0, "msg": "unknown parameters"}
 
         rep = []
 
-        for x in self.MOD.biu.STATUS[idx][key]:
-            if x.done():
-                if idx == 'rate_download':
-                    rep.append(x.result())
-                elif idx == 'rate_search':
-                    rep.append(True)
+        if idx == "rate_download":
+            if key == "__all__":
+                rep = self.MOD.dl.status()
             else:
-                rep.append("running")
-        
+                for x in self.MOD.dl.status(key):
+                    if x == "done":
+                        rep.append(True)
+                    elif x is None or x == "failed":
+                        rep.append(False)
+                    else:
+                        rep.append("running")
+        elif idx == "rate_search":
+            for x in self.MOD.biu.STATUS[idx][key]:
+                if x.done():
+                    rep.append(True)
+                else:
+                    rep.append("running")
+
         return {
             "code": 1,
-            "msg": {"way": "get", "args": args, "rst": rep,},
+            "msg": {"way": "get", "args": args, "rst": rep, },
         }
-

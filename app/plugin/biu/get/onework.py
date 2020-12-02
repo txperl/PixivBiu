@@ -1,8 +1,5 @@
 # coding=utf-8
-# pylint: disable=relative-beyond-top-level
 from ....platform import CMDProcessor
-import requests
-import json
 
 
 @CMDProcessor.plugin_register("api/biu/get/onework")

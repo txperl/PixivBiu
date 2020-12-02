@@ -4,12 +4,12 @@ account:
 
   password: ""
     # Pixiv 的密码
-  
-  isToken: true
+
+  isToken: false
     # 是否使用 token 登录
 
 sys:
-  confVersion: 2
+  confVersion: 3
     # 配置文件版本，请勿修改
 
   host: "127.0.0.1:4001"
@@ -56,8 +56,20 @@ biu:
       # false 为关闭
 
   download:
-    maxThreads: 16
-      # 下载池最大线程数
+    mode: "dl-single"
+      # 下载模式
+      # dl-single: 程序单线程下载
+      # aria2: 使用 aria2 下载，如果启用此项，还需填写下方的 aria2Host、aria2Secret
+      # dl: [暂不推荐] 程序多线程下载，暂时不稳定
+
+    aria2Host: "localhost:6800"
+      # aria2 RPC 监听地址，如 localhost:6800
+
+    aria2Secret: ""
+      # aria2 RPC 密钥，如未设置请留空
+
+    maxDownloading: 8
+      # 最大同时下载任务数
 
     saveURI: "{ROOTPATH}/downloads/{KT}/"
       # 下载保存路径，以 / 结尾

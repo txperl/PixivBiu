@@ -25,9 +25,9 @@ function progresserSearching(key, errors = 0) {
                 return;
             }
 
-            if (srher != 1) {
+            if (srher !== 1) {
                 NProgress.set(Number(srher));
-                setTimeout("progresserSearching('" + key + "')", 200);
+                setTimeout("progresserSearching('" + key + "')", 500);
             } else {
                 NProgress.done();
                 return;
@@ -39,93 +39,78 @@ function progresserSearching(key, errors = 0) {
                 return;
             }
             NProgress.done();
-            setTimeout("progresserSearching('" + key + "', " + (errors + 1) + ")", 200);
+            setTimeout("progresserSearching('" + key + "', " + (errors + 1) + ")", 500);
         }
     });
 }
 
-function progresserDownloading(key, errors = 0) {
+function progresserDownloading_auto() {
     $.ajax({
         type: "GET",
         async: true,
         url: "api/biu/get/status",
         data: {
             'type': 'download',
-            'key': key
+            'key': "__all__"
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
-            var id = '#dl_' + key + ' d';
-            var thu = '#art_' + key + " a:first";
-            var num = 1;
-            var fin = 0;
-            var err = 0;
+            let data = rep["msg"]["rst"];
+            for (let key in downloadList) {
+                let tmp = downloadList[String(key)];
+                let hrefBak = tmp[0], errors = tmp[1];
+                if (data.hasOwnProperty(key)) {
+                    let tips = $('#dl_' + key + ' d');
+                    let id = '#dl_' + key + ' d';
+                    let thu = '#art_' + key + " a:first";
+                    let num = 1, fin = 0, err = 0;
 
-            if (rep['code']) {
-                num = rep['msg']['rst'].length;
-                for (let i = 0; i < num; i++) {
-                    if (rep['msg']['rst'][i] === true) {
-                        fin++;
-                    } else if (rep['msg']['rst'][i] === false) {
-                        err++;
+                    if ($(id).length <= 0)
+                        continue
+
+                    num = data[key].length;
+                    for (let i = 0; i < num; i++) {
+                        if (data[key][i] === "done")
+                            fin++;
+                        else if (data[key][i] === "failed")
+                            err++;
+                    }
+                    srher = (fin + err) / num;
+
+                    if (err > 0) {
+                        $(thu).attr('class', 'image proer-error');
+                        $(id).html('失败, 点击重试');
+                        bakToDlHref(key, hrefBak);
+                        continue;
+                    }
+
+                    if (srher === 1) {
+                        $(thu).attr('class', 'image proer-done');
+                        $(id).html('完成');
+                        bakToDlHref(key, hrefBak);
+                    } else {
+                        $(thu).attr('class', 'image proer-dling');
+                        if (tips.tooltipster('content') !== '取消下载') {
+                            $('#dl_' + key).attr('href', `javascript: doDownloadStopPic('${key}');`);
+                            tips.tooltipster('content', '取消下载');
+                        }
+                        if (num > 1)
+                            $(id).html('下载中 ' + fin + '/' + num);
+                        else
+                            $(id).html('下载中');
                     }
                 }
-                srher = (fin + err) / num;
-            } else {
-                return;
             }
-
-            if (err > 0) {
-                if ($(id).length > 0) {
-                    $(thu).attr('class', 'image proer-error');
-                    $(id).html('失败, 点击重试');
-                }
-                return;
-            }
-
-            if (srher == 1) {
-                if ($(id).length > 0) {
-                    $(thu).attr('class', 'image proer-done');
-                    $(id).html('完成');
-                } else {
-                    waitToChangeHTML(key, '完成');
-                }
-                return;
-            } else {
-                if ($(id).length > 0) {
-                    $(thu).attr('class', 'image proer-dling');
-                    if (num > 1)
-                        $(id).html('下载中 ' + fin + '/' + num);
-                    else
-                        $(id).html('下载中');
-                }
-                setTimeout("progresserDownloading('" + key + "')", 500);
-            }
+            setTimeout(`progresserDownloading_auto()`, 1000);
         },
         error: function (e) {
-            if (errors > 5) {
-                console.log(e);
-                if ($(id).length > 0) {
-                    $(thu).attr('class', 'image proer-error');
-                    $(id).html('错误, 点击重试');
-                } else {
-                    waitToChangeHTML(key, '错误, 点击重试', 'error');
-                }
-                return;
-            }
-            setTimeout("progresserDownloading('" + key + "', " + (errors + 1) + ")", 500);
+            setTimeout(`progresserDownloading_auto()`, 3000);
         }
     });
 }
 
-function waitToChangeHTML(key, c, css = 'done') {
-    var id = '#dl_' + key + ' d';
-    var thu = '#art_' + key + " a:first";
-    if ($(id).length > 0) {
-        $(thu).attr('class', 'image proer-' + css);
-        $(id).html(c);
-        return;
-    } else {
-        setTimeout("waitToChangeHTML('" + key + "', '" + c + "', '" + css + "')", 1000);
-    }
+function bakToDlHref(key, hrefBak) {
+    delete downloadList[String(key)];
+    $('#dl_' + key).attr('href', unescape(hrefBak).replaceAll("%sq%", "'").replaceAll("%dq%", "\""));
+    $('#dl_' + key + ' d').tooltipster('content', "下载");
 }

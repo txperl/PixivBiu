@@ -14,12 +14,12 @@ class CMDProcessor(object):
     CORES_LIST = []
 
     def process(self, cmd):
-        if not cmd in self.PLUGINS.keys():
+        if cmd not in self.PLUGINS.keys():
             return {"code": 0, "msg": "no method"}
 
-        for x in self.CORES_LIST:
-            f = getattr(self, x)()
-            setattr(self, x, f)
+        for core in self.CORES_LIST:
+            fun = getattr(self, core)()
+            setattr(self, core, fun)
         self.ENVIRON = ENVIRON
 
         try:

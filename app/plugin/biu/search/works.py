@@ -1,7 +1,7 @@
 # coding=utf-8
-# pylint: disable=relative-beyond-top-level
-from ....platform import CMDProcessor
 from concurrent.futures import as_completed
+
+from ....platform import CMDProcessor
 
 
 @CMDProcessor.plugin_register("api/biu/search/works")
@@ -29,32 +29,32 @@ class searchWorks(object):
         code = 1
 
         isCache = (
-            int(args["ops"]["isCache"])
-            and self.MOD.biu.sets["biu"]["search"]["loadCacheFirst"]
+                int(args["ops"]["isCache"])
+                and self.MOD.biu.sets["biu"]["search"]["loadCacheFirst"]
         )
 
         cachePath = self.MOD.ENVIRON["ROOTPATH"] + "usr/cache/data_search/"
         fileName = (
             (
-                "%s@%s_%s+%s_%s%s.json"
-                % (
-                    args["fun"]["kt"],
-                    args["fun"]["mode"],
-                    args["ops"]["totalPage"],
-                    args["ops"]["groupIndex"],
-                    args["ops"]["sortMode"],
-                    args["ops"]["isSort"],
-                )
+                    "%s@%s_%s+%s_%s%s.json"
+                    % (
+                        args["fun"]["kt"],
+                        args["fun"]["mode"],
+                        args["ops"]["totalPage"],
+                        args["ops"]["groupIndex"],
+                        args["ops"]["sortMode"],
+                        args["ops"]["isSort"],
+                    )
             )
-            .replace("\\", "#")
-            .replace("/", "#")
-            .replace(":", "#")
-            .replace("*", "#")
-            .replace("?", "#")
-            .replace('"', "#")
-            .replace("<", "#")
-            .replace(">", "#")
-            .replace("|", "#")
+                .replace("\\", "#")
+                .replace("/", "#")
+                .replace(":", "#")
+                .replace("*", "#")
+                .replace("?", "#")
+                .replace('"', "#")
+                .replace("<", "#")
+                .replace(">", "#")
+                .replace("|", "#")
         )
 
         if isCache:

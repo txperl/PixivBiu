@@ -1,5 +1,4 @@
 # coding=utf-8
-# pylint: disable=relative-beyond-top-level
 from ....platform import CMDProcessor
 
 
@@ -15,8 +14,8 @@ class getRank(object):
                 [
                     "workID",
                     (
-                        "publicity=%s"
-                        % self.MOD.biu.sets["biu"]["common"]["defaultActionType"]
+                            "publicity=%s"
+                            % self.MOD.biu.sets["biu"]["common"]["defaultActionType"]
                     ),
                 ],
             )

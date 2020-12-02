@@ -1,7 +1,7 @@
 function searchForWorks(key, grpIdx = 0, isCache = 1, mode = tmpSearchSettings['pixivbiu_searchMode']) {
     cssShowLoading();
     setTimeout("progresserSearching('" + key + '_' + String(tmpSearchSettings['pixivbiu_searchPageNum']) + '+' + String(grpIdx) + "')", 200);
-    if (mode != 'tag' && mode != 'otag' && mode != 'des')
+    if (mode !== 'tag' && mode !== 'otag' && mode !== 'des')
         mode = 'tag';
     $.ajax({
         type: "GET",
@@ -41,7 +41,7 @@ function getUserWorks(user, type, grpIdx = 0) {
             'userID': user,
             'type': type,
             'sortMode': String(tmpSearchSettings['pixivbiu_sortMode']),
-            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] == 'on'),
+            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] === 'on'),
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
             'groupIndex': Number(grpIdx)
         },
@@ -104,7 +104,7 @@ function getRecommend(type = 'illust', grpIdx = 0) {
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
             'groupIndex': Number(grpIdx),
             'sortMode': String(tmpSearchSettings['pixivbiu_sortMode']),
-            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] == 'on')
+            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] === 'on')
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
@@ -135,7 +135,7 @@ function getNewToMe(mode = 'public', grpIdx = 0) {
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
             'groupIndex': Number(grpIdx),
             'sortMode': String(tmpSearchSettings['pixivbiu_sortMode']),
-            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] == 'on')
+            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] === 'on')
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
@@ -158,11 +158,11 @@ function getNewToMe(mode = 'public', grpIdx = 0) {
 function getMarks(user = '', mode = 'public', grp = '0@0') {
     NProgress.inc();
     cssShowLoading();
-    if (user == 'my') {
+    if (user === 'my') {
         mode = 'private';
         user = '';
     }
-    if (user == '' || user == 'my')
+    if (user === '' || user === 'my')
         $('#srhBox').val('');
     var grpIdx = Number(grp.split('@')[0]);
     var grpArr = grp.split('@')[1].split('_');
@@ -173,18 +173,18 @@ function getMarks(user = '', mode = 'public', grp = '0@0') {
             'userID': user,
             'restrict': mode,
             'sortMode': String(tmpSearchSettings['pixivbiu_sortMode']),
-            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] == 'on'),
+            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] === 'on'),
             'groupIndex': String(grpArr[grpIdx]),
             'tmp': grp
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                if (grpIdx == grpArr.length - 1 && rep['msg']['args']['ops']['markNex'] != 'None')
+                if (grpIdx === grpArr.length - 1 && rep['msg']['args']['ops']['markNex'] != 'None')
                     rep['msg']['args']['ops']['tmp'] = grp.split('@')[0] + '@' + grp.split('@')[1] + '_' + rep['msg']['args']['ops']['markNex'];
                 console.log(rep);
                 tmpPageData = rep.msg;
-                if (user == '' || user == 'my') {
+                if (user === '' || user === 'my') {
                     showPics('我的收藏@' + mode, ['main', 'header']);
                 } else {
                     showPics('TA 的收藏', ['main', 'header']);
@@ -204,7 +204,7 @@ function getMarks(user = '', mode = 'public', grp = '0@0') {
 function getFollowing(user = '', mode = 'public', grpIdx = 0) {
     NProgress.inc();
     cssShowLoading();
-    if (user == 'my') {
+    if (user === 'my') {
         mode = 'private';
         user = '';
     }
@@ -222,7 +222,7 @@ function getFollowing(user = '', mode = 'public', grpIdx = 0) {
             if (rep.code) {
                 console.log(rep);
                 tmpPageData = rep.msg;
-                if (user == '' || user == 'my') {
+                if (user === '' || user === 'my') {
                     showPics('我的关注@' + mode, ['main', 'header']);
                 } else {
                     showPics('TA 的关注', ['main', 'header']);
@@ -296,17 +296,20 @@ function getOneWork(id) {
 }
 
 function doBookmark(id, action = 'add') {
-    if (action == 'add') {
-        var tURL = "api/biu/do/mark";
-        var icon = '💘';
-        var de = 'javascript: doBookmark(' + id + ', \'del\');';
-        var des = '取消收藏';
+    let des, de, icon, tURL;
+
+    if (action === 'add') {
+        tURL = "api/biu/do/mark";
+        icon = '💘';
+        de = 'javascript: doBookmark(' + id + ', \'del\');';
+        des = '取消收藏';
     } else {
-        var tURL = "api/biu/do/unmark";
-        var icon = '💗';
-        var de = 'javascript: doBookmark(' + id + ', \'add\');';
-        var des = '收藏';
+        tURL = "api/biu/do/unmark";
+        icon = '💗';
+        de = 'javascript: doBookmark(' + id + ', \'add\');';
+        des = '收藏';
     }
+
     $.ajax({
         type: "GET",
         url: tURL,
@@ -329,17 +332,20 @@ function doBookmark(id, action = 'add') {
 }
 
 function doFollow(id, action = 'add') {
-    if (action == 'add') {
-        var tURL = "api/biu/do/follow";
-        var icon = '💘';
-        var de = 'javascript: doFollow(' + id + ', \'del\');';
-        var des = '取消关注';
+    let des, de, icon, tURL;
+
+    if (action === 'add') {
+        tURL = "api/biu/do/follow";
+        icon = '💘';
+        de = 'javascript: doFollow(' + id + ', \'del\');';
+        des = '取消关注';
     } else {
-        var tURL = "api/biu/do/unfollow";
-        var icon = '💗';
-        var de = 'javascript: doFollow(' + id + ', \'add\');';
-        var des = '关注';
+        tURL = "api/biu/do/unfollow";
+        icon = '💗';
+        de = 'javascript: doFollow(' + id + ', \'add\');';
+        des = '关注';
     }
+
     $.ajax({
         type: "GET",
         url: tURL,
@@ -348,7 +354,7 @@ function doFollow(id, action = 'add') {
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
-            if (rep.code && rep.msg.rst.data.msg == 'ok') {
+            if (rep.code && rep.msg.rst.data.msg === 'ok') {
                 console.log(rep);
                 $('#follow_' + id + ' b hicon').html(icon);
                 $('#follow_' + id + ' b').tooltipster('content', des);
@@ -362,11 +368,14 @@ function doFollow(id, action = 'add') {
 }
 
 function doDownloadPic(kt, workID = 0, idx = -1) {
-    if (idx != -1) {
-        var data = JSON.stringify(tmpPageData['rst']['data'][idx]['all']);
-    } else {
-        var data = 0;
-    }
+    if (downloadList.hasOwnProperty(workID))
+        return;
+
+    let data;
+    if (idx !== -1)
+        data = JSON.stringify(tmpPageData['rst']['data'][idx]['all']);
+    else
+        data = 0;
 
     $.ajax({
         type: "GET",
@@ -378,9 +387,9 @@ function doDownloadPic(kt, workID = 0, idx = -1) {
             'data': data
         },
         success: function (rep) {
-            console.log(rep);
-            if (rep['msg']['rst'] == 'running') {
-                setTimeout("progresserDownloading('" + workID + "')", 500);
+            if (rep['msg']['rst'] === 'running') {
+                let bakJS = escape($('#dl_' + workID).attr('href').replaceAll("'", "%sq%").replaceAll("\"", "%dq%"));
+                downloadList[String(workID)] = ([bakJS, 0]);
             } else {
                 $('#art_' + workID + ' a:first').attr('class', 'image proer-error');
                 $('#dl_' + workID + ' d').html('错误, 点击重试');
@@ -394,11 +403,28 @@ function doDownloadPic(kt, workID = 0, idx = -1) {
     });
 }
 
+function doDownloadStopPic(workID) {
+    $.ajax({
+        type: "GET",
+        async: true,
+        url: "api/biu/do/dl_stop",
+        data: {
+            'key': workID
+        },
+        success: function (rep) {
+            console.log(rep);
+        },
+        error: function (e) {
+            console.log(e);
+        }
+    });
+}
+
 function grpActChon(type, grpIdx = -1, args = tmpPageData['args']) {
-    var meth = args['ops']['method'];
+    const meth = args['ops']['method'];
 
     if (grpIdx <= -1) {
-        if (meth == 'userMarks') {
+        if (meth === 'userMarks') {
             grpIdx = Number(args['ops']['tmp'].split('@')[0]);
             var grp = args['ops']['tmp'].split('@')[1];
         } else {
@@ -406,25 +432,25 @@ function grpActChon(type, grpIdx = -1, args = tmpPageData['args']) {
         }
     }
 
-    if (type == 'back' && grpIdx > 0) {
+    if (type === 'back' && grpIdx > 0) {
         grpIdx--;
-    } else if (type == 'next') {
+    } else if (type === 'next') {
         grpIdx++;
     }
 
-    if (meth == 'rank') {
+    if (meth === 'rank') {
         getRank(args['fun']['mode'], grpIdx);
-    } else if (meth == 'userWorks') {
+    } else if (meth === 'userWorks') {
         getUserWorks(args['fun']['userID'], args['fun']['type'], grpIdx);
-    } else if (meth == 'works') {
+    } else if (meth === 'works') {
         searchForWorks(args['fun']['kt'], grpIdx);
-    } else if (meth == 'recommend') {
+    } else if (meth === 'recommend') {
         getRecommend(args['fun']['type'], grpIdx);
-    } else if (meth == 'userFollowing') {
+    } else if (meth === 'userFollowing') {
         getFollowing(args['fun']['userID'], args['fun']['restrict'], grpIdx);
-    } else if (meth == 'newToMe') {
+    } else if (meth === 'newToMe') {
         getNewToMe(args['fun']['mode'], grpIdx);
-    } else if (meth == 'userMarks') {
+    } else if (meth === 'userMarks') {
         if (grpIdx < args['ops']['tmp'].split('_').length) {
             getMarks(args['fun']['userID'], args['fun']['restrict'], String(grpIdx) + '@' + grp);
         } else {

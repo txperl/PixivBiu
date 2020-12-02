@@ -1,8 +1,9 @@
 # coding=utf-8
-# pylint: disable=relative-beyond-top-level
-from ....platform import CMDProcessor
-import requests
 import json
+import os
+import re
+
+from ....platform import CMDProcessor
 
 
 @CMDProcessor.plugin_register("api/biu/do/dl")
@@ -46,8 +47,8 @@ class doDownload(object):
         isSingle = len(r["meta_pages"]) is 0
         rootURI = (
             self.MOD.biu.sets["biu"]["download"]["saveURI"]
-            .replace("{ROOTPATH}", self.MOD.ENVIRON["ROOTPATH"])
-            .replace("{KT}", self.__pureName(funArg["kt"]))
+                .replace("{ROOTPATH}", self.MOD.ENVIRON["ROOTPATH"])
+                .replace("{KT}", self.__pureName(funArg["kt"]))
         )
 
         if rootURI[-1] != "/":
@@ -65,14 +66,8 @@ class doDownload(object):
             url = r["meta_single_page"]["original_image_url"].replace(
                 "https://i.pximg.net", self.MOD.biu.pximgURL
             )
-            extraURI = (
-                rootURI
-                + picTitle
-                + "."
-                + r["meta_single_page"]["original_image_url"].split(".")[-1]
-            )
-
-            status.append(self.MOD.biu.pool.submit(self.__thread_dlPics, url, extraURI))
+            status.append(
+                self.getTemp(url, rootURI, picTitle + "." + r["meta_single_page"]["original_image_url"].split(".")[-1]))
         elif r["type"] != "ugoira" and not isSingle:
             # 多图下载
             index = 0
@@ -84,104 +79,87 @@ class doDownload(object):
             for x in r["meta_pages"]:
                 picURL = x["image_urls"]["original"]
                 url = picURL.replace("https://i.pximg.net", self.MOD.biu.pximgURL)
-                extraURI = (
-                    rootURI
-                    + ext
-                    + picTitle
-                    + "_"
-                    + str(index)
-                    + "."
-                    + picURL.split(".")[-1]
+                status.append(
+                    self.getTemp(url, rootURI + ext, picTitle + "_" + str(index) + "." + picURL.split(".")[-1])
                 )
                 index = index + 1
-
-                status.append(
-                    self.MOD.biu.pool.submit(self.__thread_dlPics, url, extraURI)
-                )
         else:
             # 动图下载
-            extraURI = rootURI + picTitle + "/"
-            status.append(
-                self.MOD.biu.pool.submit(
-                    self.__thread_dlUgoiraPics, r["id"], picTitle, extraURI
-                )
-            )
+            zipUrl, r_ = self.__getdlUgoiraPicsUrl(r["id"])
+            temp = self.getTemp(zipUrl, rootURI + picTitle, "ugoira.zip", self.__callback_merge)
+            temp["dlArgs"]["@ugoira"] = {
+                "r": r_,
+                "name": picTitle
+            }
+            status.append(temp)
 
-        self.MOD.biu.updateStatus("download", str(r["id"]), status)
+        if self.MOD.dl.add(str(r["id"]), status):
+            return "running"
+        else:
+            return False
 
-        return "running"
+    def getTemp(self, url, path, name, fun=None):
+        return {
+            "url": url,
+            "folder": path,
+            "name": name,
+            "dlArgs": {
+                "_headers": {
+                    "referer": "https://app-api.pixiv.net/"
+                },
+                "@requests": {
+                    "proxies": {"https": self.MOD.biu.proxy}
+                },
+                "@aria2": {
+                    "referer": "https://app-api.pixiv.net/",
+                    "all-proxy": self.MOD.biu.proxy
+                }
+            },
+            "callback": fun
+        }
 
     def __deName(self, name, data):
         return (
             name.replace("{title}", self.__pureName(str(data["title"])))
-            .replace("{work_id}", self.__pureName(str(data["id"])))
-            .replace("{user_name}", self.__pureName(str(data["user"]["name"])))
-            .replace("{user_id}", self.__pureName(str(data["user"]["id"])))
-            .replace("{type}", self.__pureName(str(data["type"])))
+                .replace("{work_id}", self.__pureName(str(data["id"])))
+                .replace("{user_name}", self.__pureName(str(data["user"]["name"])))
+                .replace("{user_id}", self.__pureName(str(data["user"]["id"])))
+                .replace("{type}", self.__pureName(str(data["type"])))
         )
 
     def __pureName(self, name):
-        return (
-            name.replace("\\", "#")
-            .replace("/", "#")
-            .replace(":", "#")
-            .replace("*", "#")
-            .replace("?", "#")
-            .replace('"', "#")
-            .replace("<", "#")
-            .replace(">", "#")
-            .replace("|", "#")
-        )
+        return re.sub(r'[/\\:*?"<>|]', "_", name)
 
-    def __thread_dlPics(self, url, uri):
-        header = {"Referer": "https://app-api.pixiv.net/"}
-        if self.MOD.biu.proxy != "":
-            proxy = {"https": self.MOD.biu.proxy}
-        else:
-            proxy = {}
-
+    def __getdlUgoiraPicsUrl(self, id_):
         try:
-            imgData = requests.get(url, headers=header, proxies=proxy)
-            self.MOD.file.aout(uri, imgData.content, "wb")
-        except:
-            return False
-
-        return True
-
-    def __thread_dlUgoiraPics(self, id, name, uri):
-        header = {"Referer": "https://app-api.pixiv.net/"}
-        if self.MOD.biu.proxy != "":
-            proxy = {"https": self.MOD.biu.proxy}
-        else:
-            proxy = {}
-
-        try:
-            r = self.MOD.biu.apiAssist.ugoira_metadata(id)
+            r = self.MOD.biu.apiAssist.ugoira_metadata(id_)
             r = r["ugoira_metadata"]
         except:
             return False
-
         url = (
             r["zip_urls"]["medium"]
-            .replace("600x600", "1920x1080")
-            .replace("https://i.pximg.net", self.MOD.biu.pximgURL)
+                .replace("600x600", "1920x1080")
+                .replace("https://i.pximg.net", self.MOD.biu.pximgURL)
         )
-        j = r["frames"]
-        pl = []
-        dl = []
-        for x in j:
-            pl.append(uri + "data/" + x["file"])
-            dl.append(x["delay"])
+        return url, r
 
-        try:
-            zipData = requests.get(url, headers=header, proxies=proxy)
-            self.MOD.file.aout(uri + "data/ugoira.zip", zipData.content, "wb", False)
-            self.MOD.file.unzip(uri + "data/", uri + "data/ugoira.zip")
-            self.MOD.file.rm(uri + "data/ugoira.zip")
-            if self.MOD.biu.sets["biu"]["download"]["whatsUgoira"] == "gif":
-                self.MOD.file.cov2gif(uri + name + ".gif", pl, dl)
-            else:
-                self.MOD.file.cov2webp(uri + name + ".webp", pl, dl)
-        except:
-            return False
-        return True
+    def __callback_merge(self, this):
+        if this.status(self.MOD.dl.mod.CODE_GOOD_SUCCESS):
+            if self.MOD.dl.modName == "aria2" and self.MOD.dl.mod.HOST not in ("127.0.0.1", "localhost"):
+                return False
+            j = this._dlArgs["@ugoira"]["r"]["frames"]
+            pl = []
+            dl = []
+            for x in j:
+                pl.append(os.path.join(this._dlSaveDir, "./data", x["file"]))
+                dl.append(x["delay"])
+            try:
+                self.MOD.file.unzip(os.path.join(this._dlSaveDir, "./data"), os.path.join(this._dlSaveDir, "ugoira.zip"))
+                self.MOD.file.rm(os.path.join(this._dlSaveDir, "ugoira.zip"))
+                if self.MOD.biu.sets["biu"]["download"]["whatsUgoira"] == "gif":
+                    self.MOD.file.cov2gif(os.path.join(this._dlSaveDir, this._dlArgs["@ugoira"]["name"] + ".gif"), pl, dl)
+                else:
+                    self.MOD.file.cov2webp(os.path.join(this._dlSaveDir, this._dlArgs["@ugoira"]["name"] + ".webp"), pl, dl)
+            except:
+                return False
+            return True

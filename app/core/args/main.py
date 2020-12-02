@@ -1,7 +1,7 @@
 # coding=utf-8
-# pylint: disable=relative-beyond-top-level,unused-wildcard-import
-from ...platform import CMDProcessor
 from flask import request
+
+from ...platform import CMDProcessor
 
 
 @CMDProcessor.core_register('args')
@@ -40,7 +40,7 @@ class core_module_param(object):
             return {'header': self.header, 'get': self.get, 'post': self.post}
         else:
             return self.msgCode
-    
+
     def getArgs(self, method, li):
         rst = {"ops": {"method": method}, "fun": {}}
         for x in li:
@@ -57,7 +57,7 @@ class core_module_param(object):
             else:
                 rst[group][c[0]] = request.args.get(c[0])
         return rst
-    
+
     def argsPurer(self, fun, li):
         for x in li:
             fun[li[x]] = fun[x]

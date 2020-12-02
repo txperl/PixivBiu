@@ -23,15 +23,16 @@ def pixivbiu(path):
         return render_template(
             "%s/index.html" % (sets["sys"]["theme"]), ENVIRON=ENVIRON
         )
-
     return jsonify(CMDProcessor().process(path))
 
 
 if __name__ == "__main__":
-    sets = CMDProcessor.loadSet("{ROOTPATH}config.yml")  # 获取配置
+    # 获取配置
+    sets = CMDProcessor.loadSet("{ROOTPATH}config.yml")
+    # 调整日志等级
     if not sets["sys"]["isDebug"]:
-        logging.getLogger("werkzeug").setLevel(logging.ERROR)  # 调整日志等级
-
+        logging.getLogger("werkzeug").setLevel(logging.ERROR)
+    # 启动
     try:
         if sets["sys"]["autoOpen"]:
             webbrowser.open("http://" + sets["sys"]["host"])

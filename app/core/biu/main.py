@@ -1,17 +1,17 @@
 # coding=utf-8
-# pylint: disable=relative-beyond-top-level,unused-wildcard-import
-from ...platform import CMDProcessor
-from ..file.main import core_module_file as ifile
-from concurrent.futures import ThreadPoolExecutor
-from flask import request
-from pixivpy3 import *
-import threading
-import telnetlib
-import requests
 import json
-import sys
 import os
 import re
+import sys
+import telnetlib
+import threading
+from concurrent.futures import ThreadPoolExecutor
+
+import requests
+from pixivpy3 import *
+
+from ..file.main import core_module_file as ifile
+from ...platform import CMDProcessor
 
 if os.name == "nt":
     os.system("color")
@@ -20,7 +20,7 @@ if os.name == "nt":
 @CMDProcessor.core_register_auto("biu", {"config": "{ROOTPATH}config.yml"})
 class core_module_biu(object):
     def __init__(self, info=None):
-        self.ver = 200007
+        self.ver = 200008
         self.lowestConfVer = 2
         self.place = "local"
         self.apiType = "public"
@@ -36,10 +36,10 @@ class core_module_biu(object):
         self.pool_srh = ThreadPoolExecutor(
             max_workers=info["config"]["biu"]["search"]["maxThreads"]
         )
-        self.pool = ThreadPoolExecutor(
-            max_workers=info["config"]["biu"]["download"]["maxThreads"]
-        )
         self.STATUS = {"rate_search": {}, "rate_download": {}}
+
+    def __del__(self):
+        self.pool_srh.shutdown(False)
 
     def auto(self):
         self.__prepConfig()  # 加载配置项
@@ -128,13 +128,15 @@ class core_module_biu(object):
                 requests.get("https://biu.tls.moe/d/biuinfo.json", timeout=6).text
             )
         except:
-            return {"version": self.ver + 1, "pApiURL": "public-api.secure.pixiv.net"}
+            return {"version": -1, "pApiURL": "public-api.secure.pixiv.net"}
 
     def __checkForUpdate(self):
         """
         检测是否有更新（仅本地版本号对比）
         """
-        if self.ver < self.biuInfo["version"]:
+        if self.biuInfo["version"] == -1:
+            print("[pixivbiu] 检测更新失败，可能是目标服务器过长时间未响应。")
+        elif self.ver < self.biuInfo["version"]:
             print(
                 "\033[31m有新版本可用@%s！\033[0m访问 https://biu.tls.moe/ 即可下载"
                 % self.biuInfo["version"]
@@ -163,7 +165,7 @@ class core_module_biu(object):
         登录函数。
         """
         try:
-            tokenFile = ifile.ain(self.ENVORON["ROOTPATH"] + "usr/.token.json",)
+            tokenFile = ifile.ain(self.ENVORON["ROOTPATH"] + "usr/.token.json", )
             if self.sets["account"]["isToken"] and tokenFile:
                 args = {
                     "token": tokenFile["token"],
@@ -188,8 +190,8 @@ class core_module_biu(object):
         要求用户输入 Pixiv 邮箱、密码信息。
         """
         if (
-            self.sets["account"]["username"] == ""
-            or self.sets["account"]["password"] == ""
+                self.sets["account"]["username"] == ""
+                or self.sets["account"]["password"] == ""
         ):
             print("[pixivbiu] 请输入 Pixiv 的\033[1;37;45m 邮箱、密码 \033[0m(本程序不会保存与上传)")
             self.sets["account"]["username"] = input("\033[1;37;45m邮箱:\033[0m ")
@@ -204,7 +206,7 @@ class core_module_biu(object):
         _REQUESTS_KWARGS = {}
         if self.proxy != "":
             _REQUESTS_KWARGS = {
-                "proxies": {"https": self.proxy,},
+                "proxies": {"https": self.proxy, },
             }
         self.api = PixivAPI(**_REQUESTS_KWARGS)
         self.apiAssist = AppPixivAPI(**_REQUESTS_KWARGS)
@@ -225,7 +227,7 @@ class core_module_biu(object):
         if self.sets["account"]["isToken"]:
             ifile.aout(
                 self.ENVORON["ROOTPATH"] + "usr/.token.json",
-                {"token": self.api.refresh_token,},
+                {"token": self.api.refresh_token, },
                 dRename=False,
             )
 
@@ -238,7 +240,7 @@ class core_module_biu(object):
         _REQUESTS_KWARGS = {}
         if self.proxy != "" and self.apiType != "byPassSni":
             _REQUESTS_KWARGS = {
-                "proxies": {"https": self.proxy,},
+                "proxies": {"https": self.proxy, },
             }
         if self.apiType == "app":
             self.api = AppPixivAPI(**_REQUESTS_KWARGS)
@@ -260,7 +262,7 @@ class core_module_biu(object):
         if self.sets["account"]["isToken"]:
             ifile.aout(
                 self.ENVORON["ROOTPATH"] + "usr/.token.json",
-                {"token": self.api.refresh_token,},
+                {"token": self.api.refresh_token, },
                 dRename=False,
             )
         self.apiAssist = self.api
@@ -275,10 +277,13 @@ class core_module_biu(object):
         """
         展示初始化成功消息。
         """
-        if self.ver >= self.biuInfo["version"]:
-            des = "最新"
+        if self.biuInfo["version"] == -1:
+            des = "\033[31m检测更新失败\033[0m"
         else:
-            des = "\033[31m有新版本可用@%s\033[0m" % self.biuInfo["version"]
+            if self.ver >= self.biuInfo["version"]:
+                des = "最新"
+            else:
+                des = "\033[31m有新版本可用@%s\033[0m" % self.biuInfo["version"]
         print("[pixivbiu] 初始化完成")
         print("------------")
         print("\033[1;37;40m PixivBiu \033[0m")

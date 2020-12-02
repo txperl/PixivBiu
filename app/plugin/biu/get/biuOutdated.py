@@ -1,8 +1,10 @@
 # coding=utf-8
-# pylint: disable=relative-beyond-top-level
-from ....platform import CMDProcessor
-import requests
 import json
+
+import requests
+
+from ....platform import CMDProcessor
+
 
 @CMDProcessor.plugin_register("api/biu/get/outdated")
 class outdated(object):
@@ -19,4 +21,3 @@ class outdated(object):
             r = {"version": self.MOD.biu.ver + 1, "pApiURL": "public-api.secure.pixiv.net"}
 
         return {"code": 1, "msg": self.MOD.biu.ver >= r["version"]}
-

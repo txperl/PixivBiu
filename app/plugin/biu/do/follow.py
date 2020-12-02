@@ -1,5 +1,4 @@
 # coding=utf-8
-# pylint: disable=relative-beyond-top-level
 from ....platform import CMDProcessor
 
 
@@ -18,8 +17,8 @@ class doFollow(object):
                 [
                     "userID",
                     (
-                        "restrict=%s"
-                        % self.MOD.biu.sets["biu"]["common"]["defaultActionType"]
+                            "restrict=%s"
+                            % self.MOD.biu.sets["biu"]["common"]["defaultActionType"]
                     ),
                 ],
             )

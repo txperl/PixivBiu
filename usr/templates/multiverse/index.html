@@ -118,7 +118,7 @@
             <div class="inner split">
                 <div>
                     <section>
-                        <h2>PixivBiu@2.0.0b6</h2>
+                        <h2>PixivBiu@2.0.0</h2>
                         <p>一款不错的 Pixiv 搜索<b>辅助</b>工具。<br>基于 Python@3.7 构建。</p>
                     </section>
                     <section>
@@ -180,6 +180,7 @@
         var tmpCode;
         var tmpPageData;
         var tmpSearchSettings = {};
+        var downloadList = {};
         var settingsMods = {
             '#settingsPageNum': ['pixivbiu_searchPageNum', 5, '每组页数'],
             '#settingsIsOriPic': ['pixivbiu_displayIsOriPic', 'off', '大图预览'],
@@ -191,6 +192,7 @@
 
         $(document).ready(function () {
             loadSearchSettings();
+            progresserDownloading_auto();
             $('#myBox').popmenu();
             $('#codeBox').popmenu();
             $('#rankBox').popmenu();
