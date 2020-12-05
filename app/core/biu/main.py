@@ -21,7 +21,7 @@ if os.name == "nt":
 class core_module_biu(object):
     def __init__(self, info=None):
         self.ver = 200008
-        self.lowestConfVer = 2
+        self.lowestConfVer = 3
         self.place = "local"
         self.apiType = "public"
         self.api = None
