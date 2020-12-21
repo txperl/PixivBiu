@@ -24,7 +24,7 @@ function checkOutdated() {
 
 // 结果 HTML 内容加载
 function btnGetHTML(type) {
-    if (type == 'none') {
+    if (type === 'none') {
         return '<article class="thumb"><a href="./" class="imageBtn"><img src="https://i.loli.net/2018/08/09/5b6bff9e96b22.jpg" alt="无"" /></a><h2>什么都没有找到...</h2><p>这里什么都没有哦~</p></article>';
     }
 }
@@ -37,12 +37,12 @@ function getGetArg(variable) {
         var pair = vars[i].split("=");
         if (pair[0] == variable) { return pair[1]; }
     }
-    return (false);
+    return false;
 }
 
 // 修改搜索框内容
 function changeSrhBox(c, is = 1) {
-    if (c != '') {
+    if (c !== '') {
         $('#srhBox').val(c);
         srhBoxStu();
     }
@@ -50,7 +50,7 @@ function changeSrhBox(c, is = 1) {
         $('.poptrox-popup').trigger('poptrox_close');
         $(window).scrollTop(0);
         $('#srhBox').focus();
-        if (is > 1 && $('#srhBox').val() != '') {
+        if (is > 1 && $('#srhBox').val() !== '') {
             srhBoxDo();
         }
     }
@@ -83,7 +83,7 @@ function loadTooltip(c = '.tooltip') {
 
 // 搜索设置显示动画
 function isShowSettings() {
-    if ($('#settings').css('display') == 'none') {
+    if ($('#settings').css('display') === 'none') {
         $('#main').addClass('aniMoveDown');
         $('#settings').css('z-index', '999');
         $('#settings').delay(300).fadeIn();
