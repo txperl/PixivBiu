@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import time
 
 from ....platform import CMDProcessor
 
@@ -44,7 +45,7 @@ class doDownload(object):
             self.code = 0
             return "only support illustration, manga and ugoira"
 
-        isSingle = len(r["meta_pages"]) is 0
+        isSingle = len(r["meta_pages"]) == 0
         rootURI = (
             self.MOD.biu.sets["biu"]["download"]["saveURI"]
                 .replace("{ROOTPATH}", self.MOD.ENVIRON["ROOTPATH"])
@@ -66,27 +67,41 @@ class doDownload(object):
             url = r["meta_single_page"]["original_image_url"].replace(
                 "https://i.pximg.net", self.MOD.biu.pximgURL
             )
+            suf = r["meta_single_page"]["original_image_url"].split(".")[-1]
+            wholeTitle = picTitle + "." + suf
+            # 重名文件判断
+            if os.path.exists(rootURI + wholeTitle):
+                wholeTitle = f"{picTitle}_{int(time.time())}.{suf}"
             status.append(
-                self.getTemp(url, rootURI, picTitle + "." + r["meta_single_page"]["original_image_url"].split(".")[-1]))
+                self.getTemp(url, rootURI, wholeTitle))
         elif r["type"] != "ugoira" and not isSingle:
             # 多图下载
             index = 0
             # 判断是否自动归档
             if self.MOD.biu.sets["biu"]["download"]["autoArchive"]:
                 ext = picTitle + "/"
+                # 重名文件夹判断
+                if os.path.exists(rootURI + ext):
+                    ext = f"{picTitle}_{int(time.time())}/"
             else:
                 ext = ""
             for x in r["meta_pages"]:
                 picURL = x["image_urls"]["original"]
                 url = picURL.replace("https://i.pximg.net", self.MOD.biu.pximgURL)
+                suf = picURL.split(".")[-1]
+                wholeTitle = f"{picTitle}_{str(index)}.{suf}"
                 status.append(
-                    self.getTemp(url, rootURI + ext, picTitle + "_" + str(index) + "." + picURL.split(".")[-1])
+                    self.getTemp(url, rootURI + ext, wholeTitle)
                 )
                 index = index + 1
         else:
             # 动图下载
             zipUrl, r_ = self.__getdlUgoiraPicsUrl(r["id"])
-            temp = self.getTemp(zipUrl, rootURI + picTitle, "ugoira.zip", self.__callback_merge)
+            wholePath = rootURI + picTitle
+            # 重名文件夹判断
+            if os.path.exists(wholePath):
+                wholePath = f"{rootURI}{picTitle}_{int(time.time())}"
+            temp = self.getTemp(zipUrl, wholePath, "ugoira.zip", self.__callback_merge)
             temp["dlArgs"]["@ugoira"] = {
                 "r": r_,
                 "name": picTitle
@@ -154,12 +169,15 @@ class doDownload(object):
                 pl.append(os.path.join(this._dlSaveDir, "./data", x["file"]))
                 dl.append(x["delay"])
             try:
-                self.MOD.file.unzip(os.path.join(this._dlSaveDir, "./data"), os.path.join(this._dlSaveDir, "ugoira.zip"))
+                self.MOD.file.unzip(os.path.join(this._dlSaveDir, "./data"),
+                                    os.path.join(this._dlSaveDir, "ugoira.zip"))
                 self.MOD.file.rm(os.path.join(this._dlSaveDir, "ugoira.zip"))
                 if self.MOD.biu.sets["biu"]["download"]["whatsUgoira"] == "gif":
-                    self.MOD.file.cov2gif(os.path.join(this._dlSaveDir, this._dlArgs["@ugoira"]["name"] + ".gif"), pl, dl)
+                    self.MOD.file.cov2gif(os.path.join(this._dlSaveDir, this._dlArgs["@ugoira"]["name"] + ".gif"), pl,
+                                          dl)
                 else:
-                    self.MOD.file.cov2webp(os.path.join(this._dlSaveDir, this._dlArgs["@ugoira"]["name"] + ".webp"), pl, dl)
+                    self.MOD.file.cov2webp(os.path.join(this._dlSaveDir, this._dlArgs["@ugoira"]["name"] + ".webp"), pl,
+                                           dl)
             except:
                 return False
             return True

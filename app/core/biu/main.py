@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sys
+import platform
 import telnetlib
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -20,9 +21,10 @@ if os.name == "nt":
 @CMDProcessor.core_register_auto("biu", {"config": "{ROOTPATH}config.yml"})
 class core_module_biu(object):
     def __init__(self, info=None):
-        self.ver = 200008
+        self.ver = 200009
         self.lowestConfVer = 3
         self.place = "local"
+        self.sysPlc = platform.system()
         self.apiType = "public"
         self.api = None
         self.apiAssist = None
@@ -82,7 +84,7 @@ class core_module_biu(object):
         """
         检测系统本地设置中的代理地址，并验证是否可用。
         @Windows: 通过注册表项获取
-        @macOS: 暂时未实现
+        @macOS: 通过 scutil 获取
         @Linux: 暂时未实现
         """
         if self.sets["biu"]["common"]["proxy"] == "no":
@@ -92,28 +94,48 @@ class core_module_biu(object):
             return self.sets["biu"]["common"]["proxy"]
 
         proxies = []
+        cmd = ""
 
-        if os.name == "nt":
-            tmp = os.popen(
-                'reg query "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings" | findstr "ProxyServer AutoConfigURL"'
-            )
-            oriProxy = tmp.read()
-            tmp.close()
-            t = oriProxy.split("\n")[:-1]
-            proxies = [re.split("\s+", x)[1:] for x in t]
+        if self.sysPlc == "Windows":
+            cmd = 'reg query "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings" | findstr "ProxyServer AutoConfigURL"'
+        elif self.sysPlc == "Darwin":
+            cmd = "scutil --proxy"
         else:
-            # MBP 不在身边，之后再更新...（（
-            pass
+            return ""
+
+        # 获取系统 console 执行结果
+        cmdRstObj = os.popen(cmd)
+        cmdRst = cmdRstObj.read()
+        cmdRstObj.close()
+        cmdRstArr = cmdRst.split("\n")[:-1]
+        proxies = [re.split("\s+", x)[1:] for x in cmdRstArr]
 
         # 筛选出可用代理地址
-        for x in proxies:
-            proxy = x[2]
-            t = re.match(r"https?:\/\/(.*?):(\d+)", proxy)
-            if t:
+        for i in range(len(proxies) - 1, -1, -1):
+            x = proxies[i]
+            if len(x) < 3:
+                continue
+            add = prt = None
+
+            if self.sysPlc == "Windows":
+                tmp = re.match(r"https?:\/\/(.*?):(\d+)", x[2], re.IGNORECASE)
+                if tmp is None:
+                    continue
+                add = tmp.group(1)
+                prt = int(tmp.group(2))
+            elif self.sysPlc == "Darwin":
+                tmp = re.match(r"https?proxy", x[0], re.IGNORECASE)
+                if tmp is None:
+                    continue
+                add = proxies[i][2]
+                prt = int(proxies[i - 1][2])
+
+            # 检测本地是否可通
+            if add and prt:
                 try:
-                    telnetlib.Telnet(t.group(1), port=int(t.group(2)), timeout=1)
-                    print("[pixivbiu] 已启用系统代理地址: %s" % proxy)
-                    return proxy
+                    telnetlib.Telnet(add, port=prt, timeout=1)
+                    print("[pixivbiu] 已启用系统代理地址: %s" % f"http://{add}:{prt}")
+                    return f"http://{add}:{prt}"
                 except:
                     pass
 
