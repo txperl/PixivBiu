@@ -12,16 +12,14 @@ import requests
 from pixivpy3 import *
 
 from ..file.main import core_module_file as ifile
+from ...lib.common.msg import biuMsg
 from ...platform import CMDProcessor
-
-if os.name == "nt":
-    os.system("color")
 
 
 @CMDProcessor.core_register_auto("biu", {"config": "{ROOTPATH}config.yml"})
 class core_module_biu(object):
     def __init__(self, info=None):
-        self.ver = 200009
+        self.ver = 200010
         self.lowestConfVer = 3
         self.place = "local"
         self.sysPlc = platform.system()
@@ -39,6 +37,8 @@ class core_module_biu(object):
             max_workers=info["config"]["biu"]["search"]["maxThreads"]
         )
         self.STATUS = {"rate_search": {}, "rate_download": {}}
+        # lib-common 类
+        self.msger = biuMsg("PixivBiu")
 
     def __del__(self):
         self.pool_srh.shutdown(False)
@@ -59,13 +59,13 @@ class core_module_biu(object):
         """
         加载 pixivbiu 的全局配置项
         """
-        if self.sets == None:
-            input("[pixivbiu] \033[31m读取配置文件失败，PixivBiu 将无法正常运行\033[0m\n按任意键继续...")
+        if self.sets is None:
+            self.msger.red("读取配置文件失败，程序无法正常运行")
+            input("按任意键退出...")
             sys.exit(0)
         if self.sets["sys"]["confVersion"] < self.lowestConfVer:
-            input(
-                "[pixivbiu] \033[31m配置文件版本过低，请使用新版本中的配置文件（config.yml）\033[0m\n按任意键继续..."
-            )
+            self.msger.red("配置文件版本过低，请使用新版本中的配置文件 (config.yml)")
+            input("按任意键退出...")
             sys.exit(0)
         self.apiType = self.sets["sys"]["api"]
 
@@ -76,7 +76,7 @@ class core_module_biu(object):
         """
         # 检测端口是否被占用
         if CMDProcessor.isPortInUse(self.sets["sys"]["host"].split(":")[1]):
-            print("现端口已被占用，请修改 config.yml 中 sys-host 配置。")
+            self.msger.red("现端口已被占用，请修改 config.yml 中 sys-host 配置项")
             input("按任意键退出...")
             sys.exit(0)
 
@@ -97,7 +97,8 @@ class core_module_biu(object):
         cmd = ""
 
         if self.sysPlc == "Windows":
-            cmd = 'reg query "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings" | findstr "ProxyServer AutoConfigURL"'
+            cmd = r'reg query "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings" | ' \
+                  r'findstr "ProxyServer AutoConfigURL" '
         elif self.sysPlc == "Darwin":
             cmd = "scutil --proxy"
         else:
@@ -108,7 +109,7 @@ class core_module_biu(object):
         cmdRst = cmdRstObj.read()
         cmdRstObj.close()
         cmdRstArr = cmdRst.split("\n")[:-1]
-        proxies = [re.split("\s+", x)[1:] for x in cmdRstArr]
+        proxies = [re.split(r"\s+", x)[1:] for x in cmdRstArr]
 
         # 筛选出可用代理地址
         for i in range(len(proxies) - 1, -1, -1):
@@ -134,8 +135,9 @@ class core_module_biu(object):
             if add and prt:
                 try:
                     telnetlib.Telnet(add, port=prt, timeout=1)
-                    print("[pixivbiu] 已启用系统代理地址: %s" % f"http://{add}:{prt}")
-                    return f"http://{add}:{prt}"
+                    url = f"http://{add}:{prt}/"
+                    self.msger.msg(f"已启用系统代理地址: {url}")
+                    return url
                 except:
                     pass
 
@@ -157,19 +159,16 @@ class core_module_biu(object):
         检测是否有更新（仅本地版本号对比）
         """
         if self.biuInfo["version"] == -1:
-            print("[pixivbiu] 检测更新失败，可能是目标服务器过长时间未响应。")
+            self.msger.red("检测更新失败，可能是目标服务器过长时间未响应")
         elif self.ver < self.biuInfo["version"]:
-            print(
-                "\033[31m有新版本可用@%s！\033[0m访问 https://biu.tls.moe/ 即可下载"
-                % self.biuInfo["version"]
-            )
+            self.msger.red(f"有新版本可用@{self.biuInfo['version']}！访问 https://biu.tls.moe/ 即可下载")
             input("按任意键以继续使用旧版本...")
 
     def __checkNetwork(self):
         """
         检测网络是否可通。若不可通，则启用 bypass 模式。
         """
-        print("[pixivbiu] 检测网络状态...")
+        self.msger.msg("检测网络状态...")
         try:
             if self.proxy != "":
                 requests.get(
@@ -178,7 +177,7 @@ class core_module_biu(object):
             else:
                 requests.get("https://pixiv.net/", timeout=6)
         except:
-            print("[pixivbiu] 无法访问 pixiv，启用 byPassSni api")
+            self.msger.msg("无法访问 Pixiv，启用 byPassSni API")
             self.apiType = "byPassSni"
             self.proxy = ""
 
@@ -203,8 +202,9 @@ class core_module_biu(object):
             else:
                 self.__loginPublicAPI(**args)
         except Exception as e:
-            print(e)
-            input("[pixivbiu] \033[31mPixiv 登陆失败\033[0m\n按任意键退出...")
+            self.msger.error(e, header=False)
+            self.msger.red("Pixiv 登陆失败")
+            input("按任意键退出...")
             sys.exit(0)
 
     def __loadAccountInfo(self):
@@ -215,9 +215,9 @@ class core_module_biu(object):
                 self.sets["account"]["username"] == ""
                 or self.sets["account"]["password"] == ""
         ):
-            print("[pixivbiu] 请输入 Pixiv 的\033[1;37;45m 邮箱、密码 \033[0m(本程序不会保存与上传)")
-            self.sets["account"]["username"] = input("\033[1;37;45m邮箱:\033[0m ")
-            self.sets["account"]["password"] = input("\033[1;37;45m密码:\033[0m ")
+            self.msger.msg("请输入您 Pixiv 的邮箱、密码 (本程序不会记录)", header=False)
+            self.sets["account"]["username"] = input(self.msger.green("邮箱: ", header=False, out=False))
+            self.sets["account"]["password"] = input(self.msger.green("密码: ", header=False, out=False))
             self.__clear()
         return self.sets["account"]["username"], self.sets["account"]["password"]
 
@@ -233,11 +233,11 @@ class core_module_biu(object):
         self.api = PixivAPI(**_REQUESTS_KWARGS)
         self.apiAssist = AppPixivAPI(**_REQUESTS_KWARGS)
 
-        if token != None:
+        if token is not None:
             try:
                 self.api.auth(refresh_token=token)
                 self.apiAssist.auth(refresh_token=token)
-                print("[pixivbiu] 读取 token 成功")
+                self.msger.msg("使用 Token 登陆")
             except:
                 account = self.__loadAccountInfo()
                 self.api.login(*account)
@@ -253,7 +253,7 @@ class core_module_biu(object):
                 dRename=False,
             )
 
-        print("[pixivbiu] %s api 登录成功" % self.apiType)
+        self.msger.msg(f"{self.apiType} API 登陆成功")
 
     def __loginAppAPI(self, username=None, password=None, token=None):
         """
@@ -271,10 +271,10 @@ class core_module_biu(object):
             self.api.require_appapi_hosts(hostname=self.biuInfo["pApiURL"])
             self.api.set_accept_language("zh-cn")
 
-        if token != None:
+        if token is not None:
             try:
                 self.api.auth(refresh_token=token)
-                print("[pixivbiu] 读取 token 成功")
+                self.msger.msg("使用 Token 登陆")
             except:
                 account = self.__loadAccountInfo()
                 self.api.login(*account)
@@ -288,55 +288,55 @@ class core_module_biu(object):
                 dRename=False,
             )
         self.apiAssist = self.api
-        print("[pixivbiu] %s api 登录成功" % self.apiType)
+
+        self.msger.msg(f"{self.apiType} API 登陆成功")
+
         if self.apiType != "app":
             try:
                 self.__getPximgTrueIP()
             except:
-                print("[pixivbiu] Pixiv 图片服务器 IP 获取失败")
+                self.msger.msg("Pixiv 图片服务器 IP 获取失败")
 
     def __showRdyInfo(self):
         """
         展示初始化成功消息。
         """
         if self.biuInfo["version"] == -1:
-            des = "\033[31m检测更新失败\033[0m"
+            des = self.msger.red("检测更新失败", header=False, out=False)
         else:
-            if self.ver >= self.biuInfo["version"]:
+            if self.ver >= int(self.biuInfo["version"]):
                 des = "最新"
             else:
-                des = "\033[31m有新版本可用@%s\033[0m" % self.biuInfo["version"]
-        print("[pixivbiu] 初始化完成")
-        print("------------")
-        print("\033[1;37;40m PixivBiu \033[0m")
-        print("-")
-        print(
-            "运行: \033[32mhttp://%s/\033[0m (将地址输入现代浏览器即可使用)" % self.sets["sys"]["host"]
+                des = self.msger.red(f"有新版本可用@{self.biuInfo['version']}", header=False, out=False)
+        self.msger.arr(
+            self.msger.msg("初始化完成", out=False),
+            "------------",
+            self.msger.sign(" PixivBiu ", header=False, out=False),
+            "-",
+            ("运行",
+             "%s (将地址输入现代浏览器即可使用)" % self.msger.green("http://" + self.sets["sys"]["host"], header=False, out=False)),
+            ("版本", "%s (%s)" % (self.ver, des)),
+            ("API 类型", self.apiType),
+            ("图片服务器", self.pximgURL + "/"),
+            ("下载保存路径", self.sets["biu"]["download"]["saveURI"].replace("{ROOTPATH}", "程序目录")),
+            "-",
+            self.msger.sign(" Biu ", header=False, out=False),
+            "------------"
         )
-        print("版本: %s (%s)" % (self.ver, des))
-        print("API 类型: %s" % self.apiType)
-        print("图片服务器: %s/" % self.pximgURL)
-        print(
-            "下载保存路径: %s"
-            % self.sets["biu"]["download"]["saveURI"].replace("{ROOTPATH}", "程序目录")
-        )
-        print("-")
-        print("\033[1;37;40m Biu \033[0m")
-        print("------------")
 
-    def updateStatus(self, type, key, c):
+    def updateStatus(self, type_, key, c):
         """
         线程池状态更新函数。
-        @type(str): search || download
+        @type_(str): search || download
         @key(str): 线程的唯一 key
         @c(thread): 线程引用
         """
         if not key or c == []:
             return
         self.lock.acquire()
-        if type == "search":
+        if type_ == "search":
             self.STATUS["rate_search"][key] = c
-        elif type == "download":
+        elif type_ == "download":
             self.STATUS["rate_download"][key] = c
         self.lock.release()
 
@@ -345,7 +345,7 @@ class core_module_biu(object):
         格式化返回的图片信息。
         """
         for i in range(len(da)):
-            total = 0
+            total = views = 0
             typer = "other"
             typea = {
                 "illust": "illustration",

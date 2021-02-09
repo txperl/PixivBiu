@@ -93,4 +93,3 @@ class CMDProcessor(object):
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 return s.connect_ex(("localhost", port)) == 0
         return False
-

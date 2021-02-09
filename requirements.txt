@@ -3,3 +3,4 @@ requests
 pyyaml
 Pillow
 pixivpy
+PySocks
