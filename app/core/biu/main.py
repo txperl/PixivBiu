@@ -43,6 +43,8 @@ class core_module_biu(object):
         self.msger = biuMsg("PixivBiu")
         # 暂时
         self.sets["account"]["isToken"] = True
+        self.sets["account"]["username"] = "1"
+        self.sets["account"]["password"] = "1"
 
     def __del__(self):
         self.pool_srh.shutdown(False)
