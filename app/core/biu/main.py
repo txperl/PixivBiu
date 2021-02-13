@@ -11,8 +11,10 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 from pixivpy3 import *
 
+from .login_token import login_with_token
 from ..file.main import core_module_file as ifile
 from ...lib.common.msg import biuMsg
+from ...lib.common.util import util
 from ...platform import CMDProcessor
 
 
@@ -39,6 +41,8 @@ class core_module_biu(object):
         self.STATUS = {"rate_search": {}, "rate_download": {}}
         # lib-common 类
         self.msger = biuMsg("PixivBiu")
+        # 暂时
+        self.sets["account"]["isToken"] = True
 
     def __del__(self):
         self.pool_srh.shutdown(False)
@@ -81,67 +85,16 @@ class core_module_biu(object):
             sys.exit(0)
 
     def __getSystemProxy(self):
-        """
-        检测系统本地设置中的代理地址，并验证是否可用。
-        @Windows: 通过注册表项获取
-        @macOS: 通过 scutil 获取
-        @Linux: 暂时未实现
-        """
         if self.sets["biu"]["common"]["proxy"] == "no":
             return ""
-
         if self.apiType == "byPassSni" or self.sets["biu"]["common"]["proxy"] != "":
             return self.sets["biu"]["common"]["proxy"]
 
-        proxies = []
-        cmd = ""
+        url = util.getSystemProxy(self.sysPlc)
+        if url != "":
+            self.msger.msg(f"已启用系统代理地址: {url}")
 
-        if self.sysPlc == "Windows":
-            cmd = r'reg query "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings" | ' \
-                  r'findstr "ProxyServer AutoConfigURL" '
-        elif self.sysPlc == "Darwin":
-            cmd = "scutil --proxy"
-        else:
-            return ""
-
-        # 获取系统 console 执行结果
-        cmdRstObj = os.popen(cmd)
-        cmdRst = cmdRstObj.read()
-        cmdRstObj.close()
-        cmdRstArr = cmdRst.split("\n")[:-1]
-        proxies = [re.split(r"\s+", x)[1:] for x in cmdRstArr]
-
-        # 筛选出可用代理地址
-        for i in range(len(proxies) - 1, -1, -1):
-            x = proxies[i]
-            if len(x) < 3:
-                continue
-            add = prt = None
-
-            if self.sysPlc == "Windows":
-                tmp = re.match(r"https?:\/\/(.*?):(\d+)", x[2], re.IGNORECASE)
-                if tmp is None:
-                    continue
-                add = tmp.group(1)
-                prt = int(tmp.group(2))
-            elif self.sysPlc == "Darwin":
-                tmp = re.match(r"https?proxy", x[0], re.IGNORECASE)
-                if tmp is None:
-                    continue
-                add = proxies[i][2]
-                prt = int(proxies[i - 1][2])
-
-            # 检测本地是否可通
-            if add and prt:
-                try:
-                    telnetlib.Telnet(add, port=prt, timeout=1)
-                    url = f"http://{add}:{prt}/"
-                    self.msger.msg(f"已启用系统代理地址: {url}")
-                    return url
-                except:
-                    pass
-
-        return ""
+        return url
 
     def __getBiuInfo(self):
         """
@@ -202,10 +155,27 @@ class core_module_biu(object):
             else:
                 self.__loginPublicAPI(**args)
         except Exception as e:
-            self.msger.error(e, header=False)
-            self.msger.red("Pixiv 登陆失败")
-            input("按任意键退出...")
-            sys.exit(0)
+            try:
+                self.msger.msg("由于 Pixiv 禁止了目前使用的 Login API 账号密码登陆方式，暂时只能使用 Token 进行登陆")
+                if input("是否开始手动获取 Token 后继续? (y / n): ") != "y":
+                    raise Exception("user cancelled")
+                login = login_with_token()
+                token = login.run()
+                if token is None:
+                    raise Exception("request error")
+                if self.sets["account"]["isToken"]:
+                    ifile.aout(
+                        self.ENVORON["ROOTPATH"] + "usr/.token.json",
+                        {"token": token, },
+                        dRename=False,
+                    )
+                self.__login()
+            except Exception as ee:
+                self.msger.error(e, header=False)
+                self.msger.error(ee, header=False)
+                self.msger.red("Pixiv 登陆失败")
+                input("按任意键退出...")
+                sys.exit(0)
 
     def __loadAccountInfo(self):
         """
