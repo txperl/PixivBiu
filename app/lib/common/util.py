@@ -7,14 +7,13 @@ class util(object):
     @staticmethod
     def getSystemProxy(sysPlc):
         """
-        检测系统本地设置中的代理地址，并验证是否可用。
+        检测系统本地设置中的代理地址。
         @Windows: 通过注册表项获取
         @macOS: 通过 scutil 获取
         @Linux: 暂时未实现
         """
-        proxies = []
-        cmd = ""
 
+        # 命令选择
         if sysPlc == "Windows":
             cmd = r'reg query "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings" | ' \
                   r'findstr "ProxyServer AutoConfigURL" '
@@ -23,40 +22,48 @@ class util(object):
         else:
             return ""
 
-        # 获取系统 console 执行结果
+        # 获取系统终端执行结果
         cmdRstObj = os.popen(cmd)
         cmdRst = cmdRstObj.read()
         cmdRstObj.close()
-        cmdRstArr = cmdRst.split("\n")[:-1]
-        proxies = [re.split(r"\s+", x)[1:] for x in cmdRstArr]
 
-        # 筛选出可用代理地址
-        for i in range(len(proxies) - 1, -1, -1):
-            x = proxies[i]
-            if len(x) < 3:
-                continue
-            add = prt = None
-
-            if sysPlc == "Windows":
-                tmp = re.match(r"https?:\/\/(.*?):(\d+)", x[2], re.IGNORECASE)
-                if tmp is None:
+        # 获取代理地址
+        dic = {}
+        if sysPlc == "Windows":
+            # Windows
+            for x in [re.split(r"\s+", x)[1:] for x in cmdRst.split("\n")]:
+                if len(x) != 3:
                     continue
-                add = tmp.group(1)
-                prt = int(tmp.group(2))
-            elif sysPlc == "Darwin":
-                tmp = re.match(r"https?proxy", x[0], re.IGNORECASE)
-                if tmp is None:
+                dic[x[0]] = x[2]
+            MAY = ["AutoConfigURL", "ProxyServer"]
+            for key in MAY:
+                if key in dic:
+                    return dic[key]
+        elif sysPlc == "Darwin":
+            # macOS
+            for x in cmdRst.replace(" ", "").split("\n"):
+                if ":" not in x:
                     continue
-                add = proxies[i][2]
-                prt = int(proxies[i - 1][2])
-
-            # 检测本地是否可通
-            if add and prt:
-                try:
-                    telnetlib.Telnet(add, port=prt, timeout=1)
-                    url = f"http://{add}:{prt}/"
-                    return url
-                except:
-                    pass
+                tmp = x.split(":")
+                dic[tmp[0]] = ":".join(tmp[1:])
+            SUP = ["ProxyAutoConfig", "HTTP", "HTTPS", "SOCKS"]
+            for ptl in SUP:
+                if dic[f"{ptl}Enable"] == "1":
+                    if ptl == "ProxyAutoConfig":
+                        proxy = dic["ProxyAutoConfigURLString"]
+                    else:
+                        proxy = "%s://%s:%s/" % (
+                            ptl.lower() if ptl != "SOCKS" else "socks5", dic[ptl + 'Proxy'], dic[ptl + 'Port']
+                        )
+                    return proxy
 
         return ""
+
+    @staticmethod
+    def isLocalCon(add, prt):
+        # 检测本地是否可通
+        try:
+            telnetlib.Telnet(add, port=prt, timeout=1)
+            return True
+        except:
+            return False

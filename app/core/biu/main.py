@@ -159,7 +159,7 @@ class core_module_biu(object):
         except Exception as e:
             try:
                 self.msger.msg("由于 Pixiv 禁止了目前使用的 Login API 账号密码登陆方式，暂时只能使用 Token 进行登陆")
-                if input("是否开始手动获取 Token 后继续? (y / n): ") != "y":
+                if input("是否开始手动获取 Token 后使用? (y / n): ") != "y":
                     raise Exception("user cancelled")
                 login = login_with_token()
                 token = login.run()
@@ -286,7 +286,7 @@ class core_module_biu(object):
             self.msger.sign(" PixivBiu ", header=False, out=False),
             "-",
             ("运行",
-             "%s (将地址输入现代浏览器即可使用)" % self.msger.green("http://" + self.sets["sys"]["host"], header=False, out=False)),
+             "%s (将地址输入现代浏览器即可使用)" % self.msger.green("http://" + self.sets["sys"]["host"] + "/", header=False, out=False)),
             ("版本", "%s (%s)" % (self.ver, des)),
             ("API 类型", self.apiType),
             ("图片服务器", self.pximgURL + "/"),

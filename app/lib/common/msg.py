@@ -45,7 +45,7 @@ class biuMsg(object):
         r = self.mformat(text, "red", header=header)
         if not out:
             return r
-        print("Error: \n\t" + r.replace("\n", "\n\t") + "\nEnd;")
+        print("Error: \n" + r + "\nEnd;")
 
     def green(self, text, header=True, out=True):
         r = self.mformat(text, "green", header=header)

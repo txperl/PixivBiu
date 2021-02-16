@@ -40,9 +40,9 @@ class login_with_token(object):
         self.msger.arr(
             "请按以下步骤进行操作:",
             f"1. 访问「{LOGIN_URL}?{urlencode(self.login_params)}」",
-            "2. 打开浏览器的「开发者工具 / dev console / F12」，切换至「Network」标签",
-            "3. 开启「Preserve log」",
-            "4. 在「Filter」文本框中输入「callback?」",
+            "2. 打开浏览器的「开发者工具 / Dev Console / F12」，切换至「Network」标签",
+            "3. 开启「Preserve log / 持续记录」",
+            "4. 在「Filter / 筛选」文本框中输入「callback?」",
             "5. 登入您的 Pixiv 账号",
             "6. 成功登陆后，会出现一个类似「https://app-api.pixiv.net/.../callback?state=...&code=...」的字段，"
             "将「code」后面的参数输入本程序"
