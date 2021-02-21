@@ -1,10 +1,8 @@
 # coding=utf-8
 import json
 import os
-import re
 import sys
 import platform
-import telnetlib
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -21,7 +19,7 @@ from ...platform import CMDProcessor
 @CMDProcessor.core_register_auto("biu", {"config": "{ROOTPATH}config.yml"})
 class core_module_biu(object):
     def __init__(self, info=None):
-        self.ver = 200010
+        self.ver = 200020
         self.lowestConfVer = 3
         self.place = "local"
         self.sysPlc = platform.system()
@@ -158,13 +156,18 @@ class core_module_biu(object):
                 self.__loginPublicAPI(**args)
         except Exception as e:
             try:
-                self.msger.msg("由于 Pixiv 禁止了目前使用的 Login API 账号密码登陆方式，暂时只能使用 Token 进行登陆")
+                self.msger.msg("由于 Pixiv 禁止了目前使用的 Login API 账号密码登陆方式，暂时只能使用 Token 进行登录")
                 if input("是否开始手动获取 Token 后使用? (y / n): ") != "y":
-                    raise Exception("user cancelled")
+                    raise Exception("User Cancelled.")
                 login = login_with_token()
-                token = login.run()
-                if token is None:
-                    raise Exception("request error")
+                try:
+                    ip = login.get_host_ip(self.biuInfo["pApiURL"])
+                    token = login.login(host=ip, newCode=True)
+                except Exception as te:
+                    self.msger.error(te, header=False)
+                    self.msger.red("免代理请求失败。开始尝试代理方式，请务必确保程序可通过您的设置访问 Pixiv")
+                    proxy = login.get_proxy(self.proxy)
+                    token = login.login(kw={"proxies": {"https": proxy}})
                 if self.sets["account"]["isToken"]:
                     ifile.aout(
                         self.ENVORON["ROOTPATH"] + "usr/.token.json",
@@ -286,7 +289,8 @@ class core_module_biu(object):
             self.msger.sign(" PixivBiu ", header=False, out=False),
             "-",
             ("运行",
-             "%s (将地址输入现代浏览器即可使用)" % self.msger.green("http://" + self.sets["sys"]["host"] + "/", header=False, out=False)),
+             "%s (将地址输入现代浏览器即可使用)" % self.msger.green("http://" + self.sets["sys"]["host"] + "/", header=False,
+                                                      out=False)),
             ("版本", "%s (%s)" % (self.ver, des)),
             ("API 类型", self.apiType),
             ("图片服务器", self.pximgURL + "/"),
@@ -376,27 +380,6 @@ class core_module_biu(object):
         # 暂时
         self.pximgURL = "https://i.pixiv.cat"
         return
-
-        # url = "https://1.0.0.1/dns-query"
-        # params = {
-        #     "ct": "application/dns-json",
-        #     "name": "i.pximg.net",
-        #     "type": "A",
-        #     "do": "false",
-        #     "cd": "false",
-        # }
-        # try:
-        #     response = requests.get(url, params=params, timeout=6)
-        # except:
-        #     url = "https://cloudflare-dns.com/dns-query"
-        #     try:
-        #         response = requests.get(url, params=params, timeout=6)
-        #     except:
-        #         self.pximgURL = "https://i.pixiv.cat"
-        #         return
-
-        # if "data" in response.json()["Answer"][0]:
-        #     self.pximgURL = "http://" + response.json()["Answer"][0]["data"]
 
     def __clear(self):
         if os.name == "nt":
