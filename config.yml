@@ -9,7 +9,7 @@ account:
     # 是否使用 token 登录
 
 sys:
-  confVersion: 3
+  confVersion: 4
     # 配置文件版本，请勿修改
 
   host: "127.0.0.1:4001"
@@ -101,3 +101,10 @@ biu:
     whatsUgoira: "webp"
       # 将动图转换为指定格式
       # 可选 webp, gif
+
+    imageHost: ""
+      # 下载时使用的 Pixiv 图片服务器
+      # 留空则程序自动判断
+      # 参考如下：
+      # https://i.pximg.net 官方图片服务器（需代理）
+      # https://i.pixiv.cat 第三方反代图片服务器（无需代理）

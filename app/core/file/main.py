@@ -24,13 +24,15 @@ class core_module_file(object):
             with open(uri, mode) as f:
                 fileType = uri.split(".")[-1]
                 if fileType == "json":
-                    f = json.load(f)
+                    r = json.load(f)
                 elif fileType == "yml" or fileType == "yaml":
-                    f = yaml.safe_load(f)
+                    r = yaml.safe_load(f)
+                else:
+                    r = f.read()
         except:
             print("\033[31m[load@failed] %s\033[0m" % (uri))
             return False
-        return f
+        return r
 
     @staticmethod
     def aout(uri, data, mode="w", dRename=True, msg=False):

@@ -1,8 +1,8 @@
 # coding=utf-8
 import json
 import os
-import sys
 import platform
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -19,8 +19,8 @@ from ...platform import CMDProcessor
 @CMDProcessor.core_register_auto("biu", {"config": "{ROOTPATH}config.yml"})
 class core_module_biu(object):
     def __init__(self, info=None):
-        self.ver = 200020
-        self.lowestConfVer = 3
+        self.ver = 200030
+        self.lowestConfVer = 4
         self.place = "local"
         self.sysPlc = platform.system()
         self.apiType = "public"
@@ -56,6 +56,7 @@ class core_module_biu(object):
         if self.apiType != "byPassSni":
             self.__checkNetwork()  # 检测网络是否可通
         self.__login()  # 登录
+        self.__setImageHost()  # 设置图片服务器地址
         self.__showRdyInfo()  # 展示初始化完成信息
         return self
 
@@ -102,7 +103,7 @@ class core_module_biu(object):
         """
         try:
             return json.loads(
-                requests.get("https://biu.tls.moe/d/biuinfo.json", timeout=6).text
+                requests.get("https://biu.tls.moe/d/biuinfo.json", timeout=6, verify=False).text
             )
         except:
             return {"version": -1, "pApiURL": "public-api.secure.pixiv.net"}
@@ -125,10 +126,10 @@ class core_module_biu(object):
         try:
             if self.proxy != "":
                 requests.get(
-                    "https://pixiv.net/", proxies={"https": self.proxy}, timeout=6,
+                    "https://pixiv.net/", proxies={"https": self.proxy}, timeout=10, verify=False
                 )
             else:
-                requests.get("https://pixiv.net/", timeout=6)
+                requests.get("https://pixiv.net/", timeout=10, verify=False)
         except:
             self.msger.msg("无法访问 Pixiv，启用 byPassSni API")
             self.apiType = "byPassSni"
@@ -155,19 +156,32 @@ class core_module_biu(object):
             else:
                 self.__loginPublicAPI(**args)
         except Exception as e:
+            token = 0
+            self.msger.msg("由于 Pixiv 禁止了目前使用的 Login API 账号密码登陆方式，暂时只能使用 Token 进行登录")
             try:
-                self.msger.msg("由于 Pixiv 禁止了目前使用的 Login API 账号密码登陆方式，暂时只能使用 Token 进行登录")
                 if input("是否开始手动获取 Token 后使用? (y / n): ") != "y":
-                    raise Exception("User Cancelled.")
+                    raise Exception("用户取消操作。")
                 login = login_with_token()
                 try:
                     ip = login.get_host_ip(self.biuInfo["pApiURL"])
                     token = login.login(host=ip, newCode=True)
                 except Exception as te:
-                    self.msger.error(te, header=False)
-                    self.msger.red("免代理请求失败。开始尝试代理方式，请务必确保程序可通过您的设置访问 Pixiv")
-                    proxy = login.get_proxy(self.proxy)
-                    token = login.login(kw={"proxies": {"https": proxy}})
+                    err = str(te)
+                    if "'code': 918" in err:
+                        self.msger.red(
+                            "Code 错误。请注意程序每次启动时要求获取的 Code 都不同，不可复用之前获取到的，且 Code 不带有任何引号或等号。")
+                        if input("是否立即重试? (y / n): ") != "y":
+                            raise Exception("用户取消操作。")
+                    elif "'code': 1508" in err:
+                        self.msger.red(
+                            "Code 已过期。请在手动进行 Token 获取操作时快一些即可。")
+                        if input("是否立即重试? (y / n): ") != "y":
+                            raise Exception("用户取消操作。")
+                    else:
+                        self.msger.error(err, header=False)
+                        self.msger.red("免代理请求失败。开始尝试代理方式，请务必确保程序可通过您的设置访问 Pixiv")
+                        proxy = login.get_proxy(self.proxy)
+                        token = login.login(kw={"proxies": {"https": proxy}})
                 if self.sets["account"]["isToken"]:
                     ifile.aout(
                         self.ENVORON["ROOTPATH"] + "usr/.token.json",
@@ -265,12 +279,6 @@ class core_module_biu(object):
         self.apiAssist = self.api
 
         self.msger.msg(f"{self.apiType} API 登陆成功")
-
-        if self.apiType != "app":
-            try:
-                self.__getPximgTrueIP()
-            except:
-                self.msger.msg("Pixiv 图片服务器 IP 获取失败")
 
     def __showRdyInfo(self):
         """
@@ -372,14 +380,14 @@ class core_module_biu(object):
             }
             da[i] = r
 
-    def __getPximgTrueIP(self):
+    def __setImageHost(self):
         """
-        获取 pixiv 图片服务器地址。
-        （现暂时直接返回第三方反代地址）
+        设置 pixiv 图片服务器地址。
         """
-        # 暂时
-        self.pximgURL = "https://i.pixiv.cat"
-        return
+        if self.sets["biu"]["download"]["imageHost"] != "":
+            self.pximgURL = self.sets["biu"]["download"]["imageHost"]
+        if self.apiType == "byPassSni":
+            self.pximgURL = "https://i.pixiv.cat"
 
     def __clear(self):
         if os.name == "nt":

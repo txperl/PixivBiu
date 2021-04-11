@@ -1,10 +1,11 @@
 # thanks to @github/ZipFile, https://gist.github.com/ZipFile/c9ebedb224406f4f11845ab700124362
 import platform
-import requests
 from base64 import urlsafe_b64encode
 from hashlib import sha256
 from secrets import token_urlsafe
 from urllib.parse import urlencode
+
+import requests
 from requests_toolbelt.adapters import host_header_ssl
 
 from ...lib.common.msg import biuMsg
@@ -58,6 +59,7 @@ class login_with_token(object):
         else:
             self.msger.arr(
                 "[Login] 请按以下步骤进行操作:",
+                "注意: 程序每次启动时要求获取的 Code 都不同，不可复用之前获取到的，且 Code 不带有任何引号或等号",
                 f"1. 访问「{LOGIN_URL}?{urlencode(self.login_params)}」",
                 "（若您别无他法，还是不能访问以上网址，那可参考此方式「https://github.com/mashirozx/Pixiv-Nginx」先进行配置）",
                 "2. 打开浏览器的「开发者工具 / Dev Console / F12」，切换至「Network」标签",
