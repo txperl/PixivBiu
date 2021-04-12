@@ -83,6 +83,8 @@ class login_with_token(object):
                 "include_policy": "true",
                 "redirect_uri": REDIRECT_URI,
             },
+            verify=False,
+            timeout=10,
             headers={"User-Agent": USER_AGENT, "host": "oauth.secure.pixiv.net"},
             **kw
         )
@@ -93,7 +95,38 @@ class login_with_token(object):
         else:
             raise Exception("Request Error.\nResponse: " + str(rst))
 
-    def get_proxy(self, proxy=""):
+    def refresh(self, refresh_token, host=AUTH_TOKEN_URL_HOST, kw={}):
+        """
+        刷新 refresh token。
+        :param refresh_token: 目前可用的 refresh token
+        :param host: token api 的主机域
+        :param kw: requests 请求的额外参数
+        :return: 新 refresh token
+        """
+        response = self.requests.post(
+            "%s/auth/token" % host,
+            data={
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "grant_type": "refresh_token",
+                "include_policy": "true",
+                "refresh_token": refresh_token,
+            },
+            verify=False,
+            timeout=10,
+            headers={"User-Agent": USER_AGENT, "host": "oauth.secure.pixiv.net"},
+            **kw
+        )
+
+        rst = response.json()
+
+        if "refresh_token" in rst:
+            return rst["refresh_token"]
+        else:
+            raise Exception("Request Error.\nResponse: " + str(rst))
+
+    @staticmethod
+    def get_proxy(proxy=""):
         """
         引导获取代理监听地址。
         :param proxy: 默认地址
@@ -101,15 +134,16 @@ class login_with_token(object):
         """
         proxy_ = proxy if proxy != "" else util.getSystemProxy(platform.system())
         if proxy_ == "":
-            tip = self.msger.msg("无法获取代理监听地址，是否要手动输入? (y / n): ", out=False)
+            tip = "无法获取代理监听地址，是否要手动输入? (y / n): "
         else:
-            tip = self.msger.msg(f"获取到值为 {proxy_} 的代理监听地址，是否需要修改? (y / n): ", out=False)
+            tip = f"获取到值为 {proxy_} 的代理监听地址，是否需要修改? (y / n): "
         tmp = input(tip)
         if tmp == "y":
             proxy_ = input("请输入代理监听地址: ")
         return proxy_
 
-    def get_host_ip(self, hostname, timeout=3):
+    @staticmethod
+    def get_host_ip(hostname, timeout=5):
         """
         获取域名的真实 IP 地址。
         :param hostname: 域名
@@ -126,7 +160,7 @@ class login_with_token(object):
         }
 
         try:
-            response = requests.get(url, params=params, timeout=timeout)
+            response = requests.get(url, verify=False, params=params, timeout=timeout)
         except Exception:
             url = "https://cloudflare-dns.com/dns-query"
             response = requests.get(url, params=params, timeout=timeout)

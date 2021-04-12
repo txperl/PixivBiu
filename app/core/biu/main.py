@@ -4,6 +4,7 @@ import os
 import platform
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
@@ -19,7 +20,7 @@ from ...platform import CMDProcessor
 @CMDProcessor.core_register_auto("biu", {"config": "{ROOTPATH}config.yml"})
 class core_module_biu(object):
     def __init__(self, info=None):
-        self.ver = 200030
+        self.ver = 200040
         self.lowestConfVer = 4
         self.place = "local"
         self.sysPlc = platform.system()
@@ -135,12 +136,13 @@ class core_module_biu(object):
             self.apiType = "byPassSni"
             self.proxy = ""
 
-    def __login(self):
+    def __login(self, refreshToken=None):
         """
         登录函数。
         """
         try:
-            tokenFile = ifile.ain(self.ENVORON["ROOTPATH"] + "usr/.token.json", )
+            tokenFile = ifile.ain(
+                self.ENVORON["ROOTPATH"] + "usr/.token.json") if refreshToken is None else {"token": refreshToken}
             if self.sets["account"]["isToken"] and tokenFile:
                 args = {
                     "token": tokenFile["token"],
@@ -156,6 +158,20 @@ class core_module_biu(object):
             else:
                 self.__loginPublicAPI(**args)
         except Exception as e:
+            if refreshToken is not None:
+                self.msger.error(e, header=False)
+                return
+            if "timed out" in str(e):
+                self.msger.red(
+                    "您的网络可能比较缓慢，或是暂时无法连接至 Cloudflare，因此无法进行登录。可以尝试开启代理。")
+                if input("是否立即重试? (y / n): ") == "y":
+                    self.__login()
+                    return
+                else:
+                    self.msger.error(e, header=False)
+                    self.msger.red("Pixiv 登陆失败")
+                    input("按任意键退出...")
+                    sys.exit(0)
             token = 0
             self.msger.msg("由于 Pixiv 禁止了目前使用的 Login API 账号密码登陆方式，暂时只能使用 Token 进行登录")
             try:
@@ -307,6 +323,28 @@ class core_module_biu(object):
             self.msger.sign(" Biu ", header=False, out=False),
             "------------"
         )
+        t = threading.Timer(60 * 1, self.__pro_refreshToken)
+        t.setDaemon(True)
+        t.start()
+
+    def __pro_refreshToken(self):
+        """
+        子线程，每 20 分钟刷新一次 refresh token 并重新登录，以持久化 Token 登录状态。
+        :return: none
+        """
+        login = login_with_token()
+        while True:
+            self.msger.msg("updating token at %s" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
+            try:
+                if self.proxy == "":
+                    ip = login.get_host_ip(self.biuInfo["pApiURL"])
+                    token = login.refresh(self.api.refresh_token, host=ip)
+                else:
+                    token = login.refresh(self.api.refresh_token, kw={"proxies": {"https": self.proxy}})
+                self.__login(refreshToken=token)
+            except Exception as e:
+                self.msger.error(e, header=False)
+            time.sleep(60 * 2)
 
     def updateStatus(self, type_, key, c):
         """
