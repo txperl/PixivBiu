@@ -3,7 +3,7 @@ function checkOutdated() {
     $('#btnCheckUP').tooltipster('content', '检测中...');
     $.ajax({
         type: "GET",
-        url: 'api/biu/get/outdated',
+        url: 'api/biu/get/outdated/',
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {

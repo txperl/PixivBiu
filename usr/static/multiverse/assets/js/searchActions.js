@@ -5,7 +5,7 @@ function searchForWorks(key, grpIdx = 0, isCache = 1, mode = tmpSearchSettings['
         mode = 'tag';
     $.ajax({
         type: "GET",
-        url: "api/biu/search/works",
+        url: "api/biu/search/works/",
         data: {
             'kt': key,
             'mode': mode,
@@ -36,7 +36,7 @@ function getUserWorks(user, type, grpIdx = 0) {
     cssShowLoading();
     $.ajax({
         type: "GET",
-        url: "api/biu/get/idworks",
+        url: "api/biu/get/idworks/",
         data: {
             'userID': user,
             'type': type,
@@ -69,7 +69,7 @@ function getRank(mode = 'day', grpIdx = 0) {
     cssShowLoading();
     $.ajax({
         type: "GET",
-        url: "api/biu/get/rank",
+        url: "api/biu/get/rank/",
         data: {
             'mode': mode,
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
@@ -98,7 +98,7 @@ function getRecommend(type = 'illust', grpIdx = 0) {
     cssShowLoading();
     $.ajax({
         type: "GET",
-        url: "api/biu/get/recommend",
+        url: "api/biu/get/recommend/",
         data: {
             'type': type,
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
@@ -129,7 +129,7 @@ function getNewToMe(mode = 'public', grpIdx = 0) {
     cssShowLoading();
     $.ajax({
         type: "GET",
-        url: "api/biu/get/newtome",
+        url: "api/biu/get/newtome/",
         data: {
             'restrict': mode,
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
@@ -168,7 +168,7 @@ function getMarks(user = '', mode = 'public', grp = '0@0') {
     var grpArr = grp.split('@')[1].split('_');
     $.ajax({
         type: "GET",
-        url: "api/biu/get/idmarks",
+        url: "api/biu/get/idmarks/",
         data: {
             'userID': user,
             'restrict': mode,
@@ -210,7 +210,7 @@ function getFollowing(user = '', mode = 'public', grpIdx = 0) {
     }
     $.ajax({
         type: "GET",
-        url: "api/biu/get/idfollowing",
+        url: "api/biu/get/idfollowing/",
         data: {
             'userID': user,
             'restrict': mode,
@@ -244,7 +244,7 @@ function searchForUsers(key, grpIdx = 0) {
     cssShowLoading();
     $.ajax({
         type: "GET",
-        url: "api/biu/search/users",
+        url: "api/biu/search/users/",
         data: {
             'kt': key,
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
@@ -273,7 +273,7 @@ function getOneWork(id) {
     cssShowLoading();
     $.ajax({
         type: "GET",
-        url: "api/biu/get/onework",
+        url: "api/biu/get/onework/",
         data: {
             'workID': id
         },
@@ -299,12 +299,12 @@ function doBookmark(id, action = 'add') {
     let des, de, icon, tURL;
 
     if (action === 'add') {
-        tURL = "api/biu/do/mark";
+        tURL = "api/biu/do/mark/";
         icon = '💘';
         de = 'javascript: doBookmark(' + id + ', \'del\');';
         des = '取消收藏';
     } else {
-        tURL = "api/biu/do/unmark";
+        tURL = "api/biu/do/unmark/";
         icon = '💗';
         de = 'javascript: doBookmark(' + id + ', \'add\');';
         des = '收藏';
@@ -335,12 +335,12 @@ function doFollow(id, action = 'add') {
     let des, de, icon, tURL;
 
     if (action === 'add') {
-        tURL = "api/biu/do/follow";
+        tURL = "api/biu/do/follow/";
         icon = '💘';
         de = 'javascript: doFollow(' + id + ', \'del\');';
         des = '取消关注';
     } else {
-        tURL = "api/biu/do/unfollow";
+        tURL = "api/biu/do/unfollow/";
         icon = '💗';
         de = 'javascript: doFollow(' + id + ', \'add\');';
         des = '关注';
@@ -380,7 +380,7 @@ function doDownloadPic(kt, workID = 0, idx = -1) {
     $.ajax({
         type: "GET",
         async: true,
-        url: "api/biu/do/dl",
+        url: "api/biu/do/dl/",
         data: {
             'kt': kt,
             'workID': workID,
@@ -407,7 +407,7 @@ function doDownloadStopPic(workID) {
     $.ajax({
         type: "GET",
         async: true,
-        url: "api/biu/do/dl_stop",
+        url: "api/biu/do/dl_stop/",
         data: {
             'key': workID
         },

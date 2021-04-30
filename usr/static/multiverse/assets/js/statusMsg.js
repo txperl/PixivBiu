@@ -4,7 +4,7 @@ function progresserSearching(key, errors = 0) {
     $.ajax({
         type: "GET",
         async: true,
-        url: "api/biu/get/status",
+        url: "api/biu/get/status/",
         data: {
             'type': 'search',
             'key': key
@@ -48,7 +48,7 @@ function progresserDownloading_auto() {
     $.ajax({
         type: "GET",
         async: true,
-        url: "api/biu/get/status",
+        url: "api/biu/get/status/",
         data: {
             'type': 'download',
             'key': "__all__"
