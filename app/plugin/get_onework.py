@@ -3,7 +3,7 @@ from altfe.interface.root import interRoot
 
 @interRoot.bind("api/biu/get/onework/", "PLUGIN")
 class getRank(interRoot):
-    def __init__(self, MOD):
+    def __init__(self):
         self.code = 1
 
     def run(self, cmd):
