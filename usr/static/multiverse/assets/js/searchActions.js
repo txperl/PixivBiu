@@ -17,7 +17,6 @@ function searchForWorks(key, grpIdx = 0, isCache = 1, mode = tmpSearchSettings['
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                console.log(rep);
                 tmpCode = rep.code;
                 tmpPageData = rep.msg;
                 showPics('Biu~');
@@ -48,7 +47,6 @@ function getUserWorks(user, type, grpIdx = 0) {
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                console.log(rep);
                 tmpCode = rep.code;
                 tmpPageData = rep.msg;
                 showPics('Biu~');
@@ -78,7 +76,6 @@ function getRank(mode = 'day', grpIdx = 0) {
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                console.log(rep);
                 tmpPageData = rep.msg;
                 showPics('排行榜@' + mode, ['main', 'header']);
             } else {
@@ -109,7 +106,6 @@ function getRecommend(type = 'illust', grpIdx = 0) {
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                console.log(rep);
                 tmpPageData = rep.msg;
                 showPics('推荐@' + type, ['main', 'header']);
             } else {
@@ -140,7 +136,6 @@ function getNewToMe(mode = 'public', grpIdx = 0) {
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                console.log(rep);
                 tmpPageData = rep.msg;
                 showPics('用户新作@' + mode, ['main', 'header']);
             } else {
@@ -182,7 +177,6 @@ function getMarks(user = '', mode = 'public', grp = '0@0') {
             if (rep.code) {
                 if (grpIdx === grpArr.length - 1 && rep['msg']['args']['ops']['markNex'] != 'None')
                     rep['msg']['args']['ops']['tmp'] = grp.split('@')[0] + '@' + grp.split('@')[1] + '_' + rep['msg']['args']['ops']['markNex'];
-                console.log(rep);
                 tmpPageData = rep.msg;
                 if (user === '' || user === 'my') {
                     showPics('我的收藏@' + mode, ['main', 'header']);
@@ -220,7 +214,6 @@ function getFollowing(user = '', mode = 'public', grpIdx = 0) {
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                console.log(rep);
                 tmpPageData = rep.msg;
                 if (user === '' || user === 'my') {
                     showPics('我的关注@' + mode, ['main', 'header']);
@@ -253,7 +246,6 @@ function searchForUsers(key, grpIdx = 0) {
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                console.log(rep);
                 tmpPageData = rep.msg;
                 showPics('用户搜索', ['main', 'header']);
             } else {
@@ -280,7 +272,6 @@ function getOneWork(id) {
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                console.log(rep);
                 tmpPageData = rep.msg;
                 showPics('Biu~', ['main', 'header']);
             } else {
@@ -319,7 +310,6 @@ function doBookmark(id, action = 'add') {
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                console.log(rep);
                 $('#marks_' + id + ' b hicon').html(icon);
                 $('#marks_' + id + ' b').tooltipster('content', des);
                 $('#marks_' + id).attr('href', de);
@@ -354,8 +344,7 @@ function doFollow(id, action = 'add') {
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
-            if (rep.code && rep.msg.rst.data.msg === 'ok') {
-                console.log(rep);
+            if (rep.code) {
                 $('#follow_' + id + ' b hicon').html(icon);
                 $('#follow_' + id + ' b').tooltipster('content', des);
                 $('#follow_' + id).attr('href', de);
@@ -412,7 +401,7 @@ function doDownloadStopPic(workID) {
             'key': workID
         },
         success: function (rep) {
-            console.log(rep);
+            // console.log(rep);
         },
         error: function (e) {
             console.log(e);

@@ -56,7 +56,7 @@ class core_module_biu(interRoot):
 
     def __prepConfig(self):
         """
-        加载 pixivbiu 的全局配置项
+        加载 pixivbiu 的全局配置项。
         """
         if self.sets is None:
             self.STATIC.localMsger.red("读取配置文件失败，程序无法正常运行")
@@ -80,6 +80,10 @@ class core_module_biu(interRoot):
             sys.exit(0)
 
     def __getSystemProxy(self):
+        """
+        获取系统代理设置。
+        :return:
+        """
         if self.sets["biu"]["common"]["proxy"] == "no":
             return ""
         if self.apiType == "byPassSni" or self.sets["biu"]["common"]["proxy"] != "":
@@ -93,7 +97,7 @@ class core_module_biu(interRoot):
 
     def __getBiuInfo(self):
         """
-        获取联网 pixivbiu 相关信息
+        获取联网 pixivbiu 相关信息。
         """
         try:
             return json.loads(
@@ -104,7 +108,7 @@ class core_module_biu(interRoot):
 
     def __checkForUpdate(self):
         """
-        检测是否有更新（仅本地版本号对比）
+        检测是否有更新，仅本地版本号对比。
         """
         if self.biuInfo["version"] == -1:
             self.STATIC.localMsger.red("检测更新失败，可能是目标服务器过长时间未响应")
@@ -129,7 +133,7 @@ class core_module_biu(interRoot):
             self.apiType = "byPassSni"
             self.proxy = ""
 
-    def __login(self, refreshToken=None):
+    def __login(self, refreshToken=None, retry=True):
         """
         登录函数。
         """
@@ -151,59 +155,31 @@ class core_module_biu(interRoot):
             else:
                 self.__loginPublicAPI(**args)
         except Exception as e:
-            if refreshToken is not None:
-                self.STATIC.localMsger.error(e, header=False)
-                return
-            if "timed out" in str(e):
-                self.STATIC.localMsger.red(
-                    "您的网络可能比较缓慢，或是暂时无法连接至 Cloudflare，因此无法进行登录。可以尝试开启代理。")
-                if input("是否立即重试? (y / n): ") == "y":
-                    self.__login()
-                    return
-                else:
-                    self.STATIC.localMsger.error(e, header=False)
-                    self.STATIC.localMsger.red("Pixiv 登陆失败")
-                    input("按任意键退出...")
-                    sys.exit(0)
-            token = 0
-            self.STATIC.localMsger.msg("由于 Pixiv 禁止了目前使用的 Login API 账号密码登陆方式，暂时只能使用 Token 进行登录")
-            try:
-                if input("是否开始手动获取 Token 后使用? (y / n): ") != "y":
-                    raise Exception("用户取消操作。")
-                login = self.COMMON.token()
-                try:
-                    ip = login.get_host_ip(self.biuInfo["pApiURL"])
-                    token = login.login(host=ip, newCode=True)
-                except Exception as te:
-                    err = str(te)
-                    if "'code': 918" in err:
-                        self.STATIC.localMsger.red(
-                            "Code 错误。请注意程序每次启动时要求获取的 Code 都不同，不可复用之前获取到的，且 Code 不带有任何引号或等号。")
-                        if input("是否立即重试? (y / n): ") != "y":
-                            raise Exception("用户取消操作。")
-                    elif "'code': 1508" in err:
-                        self.STATIC.localMsger.red(
-                            "Code 已过期。请在手动进行 Token 获取操作时快一些即可。")
-                        if input("是否立即重试? (y / n): ") != "y":
-                            raise Exception("用户取消操作。")
-                    else:
-                        self.STATIC.localMsger.error(err, header=False)
-                        self.STATIC.localMsger.red("免代理请求失败。开始尝试代理方式，请务必确保程序可通过您的设置访问 Pixiv")
-                        proxy = login.get_proxy(self.proxy)
-                        token = login.login(kw={"proxies": {"https": proxy}})
-                if self.sets["account"]["isToken"]:
-                    self.STATIC.file.aout(
-                        self.getENV("rootPath") + "usr/.token.json",
-                        {"token": token, },
-                        dRename=False,
-                    )
-                self.__login()
-            except Exception as ee:
-                self.STATIC.localMsger.error(e, header=False)
-                self.STATIC.localMsger.error(ee, header=False)
-                self.STATIC.localMsger.red("Pixiv 登陆失败")
+            if retry is False:
+                self.STATIC.localMsger.error(e)
                 input("按任意键退出...")
                 sys.exit(0)
+            self.STATIC.localMsger.green("由于 Pixiv 禁止了账号密码登陆方式，暂时只能使用 Token 进行登录")
+            if input("是否开始手动获取 Token 后继续使用? (y / n): ") != "y":
+                input("按任意键退出...")
+                sys.exit(0)
+            self.STATIC.localMsger.msg("即将开始进行网络检测，此过程可以减少因网络问题导致的无法正常使用 PixivBiu 的概率", header="Login Helper")
+            helper = self.COMMON.loginHelper()
+            if helper.check_network() is False:
+                self.STATIC.localMsger.red("您的网络无法正常进行 Pixiv Token 登陆，请调整后重试。")
+                input("按任意键退出...")
+                sys.exit(0)
+            token = helper.login()
+            if token is False:
+                self.STATIC.localMsger.red("获取 Token 时出错，请重试。")
+                input("按任意键退出...")
+                sys.exit(0)
+            self.STATIC.file.aout(
+                self.getENV("rootPath") + "usr/.token.json",
+                {"token": token, },
+                dRename=False,
+            )
+            self.__login(retry=False)
 
     def __loadAccountInfo(self):
         """
@@ -235,7 +211,7 @@ class core_module_biu(interRoot):
             try:
                 self.api.auth(refresh_token=token)
                 self.apiAssist.auth(refresh_token=token)
-                self.STATIC.localMsger.msg("使用 Token 登陆")
+                # self.STATIC.localMsger.msg("使用 Token 登陆")
             except:
                 account = self.__loadAccountInfo()
                 self.api.login(*account)
@@ -272,7 +248,7 @@ class core_module_biu(interRoot):
         if token is not None:
             try:
                 self.api.auth(refresh_token=token)
-                self.STATIC.localMsger.msg("使用 Token 登陆")
+                # self.STATIC.localMsger.msg("使用 Token 登陆")
             except:
                 account = self.__loadAccountInfo()
                 self.api.login(*account)
@@ -300,6 +276,8 @@ class core_module_biu(interRoot):
                 des = "最新"
             else:
                 des = self.STATIC.localMsger.red(f"有新版本可用@{self.biuInfo['version']}", header=False, out=False)
+        WORDS = "abcdefghij"
+        version = str(self.ver)
         self.STATIC.localMsger.arr(
             self.STATIC.localMsger.msg("初始化完成", out=False),
             "------------",
@@ -309,7 +287,7 @@ class core_module_biu(interRoot):
              "%s (将地址输入现代浏览器即可使用)" % self.STATIC.localMsger.green("http://" + self.sets["sys"]["host"] + "/",
                                                                   header=False,
                                                                   out=False)),
-            ("版本", "%s (%s)" % (self.ver, des)),
+            ("版本", "2.%s.%s%s (%s)" % (int(version[1:3]), int(version[3:5]), WORDS[int(version[-1])], des)),
             ("API 类型", self.apiType),
             ("图片服务器", self.pximgURL + "/"),
             ("下载保存路径", self.sets["biu"]["download"]["saveURI"].replace("{ROOTPATH}", "程序目录")),
@@ -317,26 +295,30 @@ class core_module_biu(interRoot):
             self.STATIC.localMsger.sign(" Biu ", header=False, out=False),
             "------------"
         )
-        t = threading.Timer(60 * 10, self.__pro_refreshToken)
+        t = threading.Timer(60 * 20, self.__pro_refreshToken)
         t.setDaemon(True)
         t.start()
 
     def __pro_refreshToken(self):
         """
-        子线程，每 20 分钟刷新一次 refresh token 并重新登录，以持久化 Token 登录状态。
+        子线程，每 20 分钟刷新一次 refresh token 并重新登录，以持久化登录状态。
         :return: none
         """
-        login = self.COMMON.token()
+        helper = self.COMMON.loginHelper()
         while True:
             self.STATIC.localMsger.msg(
                 "updating token at %s" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
             try:
-                if self.proxy == "":
-                    ip = login.get_host_ip(self.biuInfo["pApiURL"])
-                    token = login.refresh(self.api.refresh_token, host=ip)
-                else:
-                    token = login.refresh(self.api.refresh_token, kw={"proxies": {"https": self.proxy}})
-                self.__login(refreshToken=token)
+                try:
+                    helper.check_network(slient=True, proxy_="")
+                except:
+                    try:
+                        helper.check_network(slient=True, proxy_="auto")
+                    except:
+                        helper.check_network(slient=True, proxy_=self.proxy)
+                token = helper.refresh(refresh_token=self.api.refresh_token)
+                if token is not False:
+                    self.__login(refreshToken=token)
             except Exception as e:
                 self.STATIC.localMsger.error(e, header=False)
             time.sleep(60 * 20)

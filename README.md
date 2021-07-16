@@ -15,7 +15,7 @@ PixivBiu 是一款不错的 Pixiv 搜索**辅助**工具。
 
 ### 源码
 
-* 安装依赖，执行 `pip3 install -r requirements.txt`
+* 安装依赖，执行 `pip install -r requirements.txt`
   + [flask](https://github.com/pallets/flask)
   + [requests](https://github.com/psf/requests)
   + [PyYAML](https://github.com/yaml/pyyaml)
@@ -23,7 +23,7 @@ PixivBiu 是一款不错的 Pixiv 搜索**辅助**工具。
   + [PixivPy](https://github.com/upbit/pixivpy)
   + [PySocks](https://github.com/Anorov/PySocks)
 * 修改 `./config.yml` 相关配置选项，具体参见注释，或[配置文档](https://biu.tls.moe/#/usage/quickstart?id=配置)
-* 执行 `python3 run.py`
+* 执行 `python run.py`
 * 访问运行地址，默认为 `http://127.0.0.1:4001/`
 
 ### 已编译程序
