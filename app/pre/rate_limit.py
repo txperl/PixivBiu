@@ -10,7 +10,7 @@ class pre_rate_limit(interRoot):
     """
 
     def __init__(self):
-        self.conf = self.loadConfig(self.getENV("rootPath") + "app/config/switch.yml")
+        self.conf = self.loadConfig(self.getENV("rootPathFrozen") + "app/config/switch.yml")
         self.maxRequests = self.conf["Security"]["rateLimit"]["maxRequests"]
         self.timeSeconds = self.conf["Security"]["rateLimit"]["timeSeconds"]
         self.allowOrigin = self.conf["Security"]["rateLimit"]["allowOrigin"]

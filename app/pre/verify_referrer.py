@@ -12,7 +12,7 @@ class pre_verify_referrer(interRoot):
     """
 
     def __init__(self):
-        self.conf = self.loadConfig(self.getENV("rootPath") + "app/config/switch.yml")
+        self.conf = self.loadConfig(self.getENV("rootPathFrozen") + "app/config/switch.yml")
         self.type_ = self.conf["Security"]["onlyReferrer"]["type"]
         self.origin = self.conf["Security"]["onlyReferrer"]["origin"]
         if self.origin is None:

@@ -10,6 +10,8 @@ from altfe import bridge, handle
 from altfe.interface.root import classRoot
 
 rootPath = os.path.split(os.path.realpath(sys.argv[0]))[0] + "/"
+rootPathFrozen = sys._MEIPASS + "/" if getattr(sys, "frozen", False) else rootPath
+
 app = Flask(
     __name__,
     template_folder=rootPath + "usr/templates",
@@ -36,6 +38,7 @@ def pixivbiu(path):
 if __name__ == '__main__':
     # Altfe 框架初始化
     classRoot.setENV("rootPath", rootPath)
+    classRoot.setENV("rootPathFrozen", rootPathFrozen)
     bridge.bridgeInit().run()
     SETS = classRoot.loadConfig(rootPath + "config.yml")
 

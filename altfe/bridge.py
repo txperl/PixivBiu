@@ -10,7 +10,7 @@ class bridgeInit(classRoot):
     """
 
     def __init__(self):
-        self.rootPath = self.getENV("rootPath")
+        self.rootPath = self.getENV("rootPathFrozen")
         self.APP_PATH = {
             "static": self.rootPath + "app/lib/static/",
             "common": self.rootPath + "app/lib/common/",
@@ -26,7 +26,7 @@ class bridgeInit(classRoot):
         classRoot.mount(["LIB_CORE", "PRE", "PLUGIN"])
 
     def loadAllModules(self):
-        conf = classRoot.loadConfig(classRoot.getENV("rootPath") + "app/config/switch.yml")["OnOff"]
+        conf = classRoot.loadConfig(self.rootPath + "app/config/switch.yml")["OnOff"]
         for dirName in self.APP_PATH:
             rPath = self.APP_PATH[dirName]
             files = os.listdir(rPath)
