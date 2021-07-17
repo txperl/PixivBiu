@@ -15,6 +15,10 @@ class pre_rate_limit(interRoot):
         self.timeSeconds = self.conf["Security"]["rateLimit"]["timeSeconds"]
         self.allowOrigin = self.conf["Security"]["rateLimit"]["allowOrigin"]
         self.banOrigin = self.conf["Security"]["rateLimit"]["banOrigin"]
+        if self.allowOrigin is None:
+            self.allowOrigin = []
+        if self.banOrigin is None:
+            self.banOrigin = []
 
     def run(self, cmd):
         ip = request.environ.get("HTTP_X_FORWARDED_FOR")

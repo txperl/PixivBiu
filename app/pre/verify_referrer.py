@@ -15,6 +15,8 @@ class pre_verify_referrer(interRoot):
         self.conf = self.loadConfig(self.getENV("rootPath") + "app/config/switch.yml")
         self.type_ = self.conf["Security"]["onlyReferrer"]["type"]
         self.origin = self.conf["Security"]["onlyReferrer"]["origin"]
+        if self.origin is None:
+            self.origin = []
 
     def run(self, cmd):
         if cmd in ("file/", "api/get/text/"):

@@ -124,10 +124,10 @@ class core_module_biu(interRoot):
         try:
             if self.proxy != "":
                 requests.get(
-                    "https://pixiv.net/", proxies={"https": self.proxy}, timeout=10, verify=False
+                    "https://pixiv.net/", proxies={"https": self.proxy}, timeout=3, verify=False
                 )
             else:
-                requests.get("https://pixiv.net/", timeout=10, verify=False)
+                requests.get("https://pixiv.net/", timeout=3, verify=False)
         except:
             self.STATIC.localMsger.msg("无法访问 Pixiv，启用 byPassSni API")
             self.apiType = "byPassSni"
