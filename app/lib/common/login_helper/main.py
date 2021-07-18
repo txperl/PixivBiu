@@ -20,11 +20,11 @@ class common_loginHelper(interRoot):
         self.proxy = ""
         self.authTokenURL = ""
 
-    def check_network(self, URLS=None, slient=False, proxy_="auto"):
+    def check_network(self, URLS=None, silent=False, proxy_="auto"):
         """
         网络检测。筛选出本机可通的 Pixiv API 服务器。
         :param URLS: 全部 URL
-        :param slient: 是否静默进行
+        :param silent: 是否静默进行
         :param proxy_: 代理设置，auto 为程序自动判断
         :return: bool
         """
@@ -37,7 +37,7 @@ class common_loginHelper(interRoot):
             "https://cloudflare-dns.com/dns-query"
         ) if URLS is None else URLS
         proxy = self.STATIC.util.getSystemProxy(platform.system()) if proxy_ == "auto" else proxy_
-        if slient is False:
+        if silent is False:
             self.STATIC.localMsger.msg("开始进行网络检测...", header="Login Helper")
             if proxy == "":
                 if input("未能检测到系统代理地址，是否需要手动设置? (y / n): ") == "y":
@@ -49,7 +49,7 @@ class common_loginHelper(interRoot):
         self.proxy = proxy
         self.authTokenURL = URLS[0]
 
-        isCanConn = [self._get(url, self.proxy) for url in URLS]
+        isCanConn = [self._get(url, proxy=self.proxy, silent=silent) for url in URLS]
 
         if isCanConn[0] is True:
             return True
@@ -129,11 +129,12 @@ class common_loginHelper(interRoot):
         return r
 
     @classmethod
-    def _get(cls, url, proxy=""):
+    def _get(cls, url, proxy="", silent=False):
         """
         request get 请求。
         :param url: URL
         :param proxy: 代理，留空则不使用
+        :param silent: 是否静默运行
         :return: bool
         """
         try:
@@ -147,9 +148,11 @@ class common_loginHelper(interRoot):
             else:
                 requests.get(url, timeout=3, verify=False)
         except:
-            cls.STATIC.localMsger.msg(f"{url} ❌", header="Network Checker")
+            if silent is False:
+                cls.STATIC.localMsger.msg(f"{url} ❌", header="Network Checker")
             return False
-        cls.STATIC.localMsger.msg(f"{url} ✔️", header="Network Checker")
+        if silent is False:
+            cls.STATIC.localMsger.msg(f"{url} ✔️", header="Network Checker")
         return True
 
 

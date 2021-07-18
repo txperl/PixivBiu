@@ -310,12 +310,12 @@ class core_module_biu(interRoot):
                 "updating token at %s" % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
             try:
                 try:
-                    helper.check_network(slient=True, proxy_="")
+                    helper.check_network(silent=True, proxy_="")
                 except:
                     try:
-                        helper.check_network(slient=True, proxy_="auto")
+                        helper.check_network(silent=True, proxy_="auto")
                     except:
-                        helper.check_network(slient=True, proxy_=self.proxy)
+                        helper.check_network(silent=True, proxy_=self.proxy)
                 token = helper.refresh(refresh_token=self.api.refresh_token)
                 if token is not False:
                     self.__login(refreshToken=token)
