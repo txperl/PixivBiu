@@ -66,40 +66,34 @@ class doDownload(interRoot):
                 "https://i.pximg.net", self.CORE.biu.pximgURL
             )
             suf = r["meta_single_page"]["original_image_url"].split(".")[-1]
-            wholeTitle = picTitle + "." + suf
-            # 重名文件判断
-            if os.path.exists(rootURI + wholeTitle):
-                wholeTitle = f"{picTitle}_{int(time.time())}.{suf}"
-            status.append(
-                self.getTemp(url, rootURI, wholeTitle))
+            status.append(self.getTemp(url, folder=rootURI, name=picTitle, suf=f".{suf}", type_="file"))
         elif r["type"] != "ugoira" and not isSingle:
             # 多图下载
-            index = 0
             # 判断是否自动归档
             if self.CORE.biu.sets["biu"]["download"]["autoArchive"]:
                 ext = picTitle + "/"
-                # 重名文件夹判断
-                if os.path.exists(rootURI + ext):
-                    ext = f"{picTitle}_{int(time.time())}/"
+                mod = "folder"
+                new = self.STATIC.file.md5(StringList=[ext, time.time()])
             else:
                 ext = ""
-            for x in r["meta_pages"]:
+                mod = "file"
+                new = None
+            for index in range(len(r["meta_pages"])):
+                x = r["meta_pages"][index]
                 picURL = x["image_urls"]["original"]
                 url = picURL.replace("https://i.pximg.net", self.CORE.biu.pximgURL)
                 suf = picURL.split(".")[-1]
-                wholeTitle = f"{picTitle}_{str(index)}.{suf}"
+                id_ = str(r["id"]) if (index + 1 == len(r["meta_pages"])) else "%end%"
                 status.append(
-                    self.getTemp(url, rootURI + ext, wholeTitle)
+                    self.getTemp(url, folder=rootURI + ext, name=f"{picTitle}_{str(index)}", suf=f".{suf}", type_=mod,
+                                 id_=id_, tmp_name=new)
                 )
-                index = index + 1
         else:
             # 动图下载
             zipUrl, r_ = self.__getdlUgoiraPicsUrl(r["id"])
-            wholePath = rootURI + picTitle
-            # 重名文件夹判断
-            if os.path.exists(wholePath):
-                wholePath = f"{rootURI}{picTitle}_{int(time.time())}"
-            temp = self.getTemp(zipUrl, wholePath, "ugoira.zip", self.__callback_merge)
+            wholePath = rootURI + picTitle + "/"
+            temp = self.getTemp(zipUrl, folder=wholePath, name="ugoira", suf=".zip", fun=self.__callback_merge,
+                                type_="folder")
             temp["dlArgs"]["@ugoira"] = {
                 "r": r_,
                 "name": picTitle
@@ -111,11 +105,12 @@ class doDownload(interRoot):
         else:
             return False
 
-    def getTemp(self, url, path, name, fun=None):
-        return {
+    def getTemp(self, url, folder, name, suf="", fun=None, id_="-1", type_="file", tmp_name=None,
+                no_deter_the_same=False):
+        r = {
             "url": url,
-            "folder": path,
-            "name": name,
+            "folder": folder,
+            "name": name + suf,
             "dlArgs": {
                 "_headers": {
                     "referer": "https://app-api.pixiv.net/"
@@ -130,6 +125,42 @@ class doDownload(interRoot):
             },
             "callback": fun
         }
+        deterPath = folder + name + suf if type_ == "file" else folder
+        if no_deter_the_same is False and os.path.exists(deterPath):
+            folder = folder.replace("\\\\", "/").replace("\\", "/").replace("//", "/")
+            path_, name_, fun_ = folder, name, fun
+            splitPath = path_[:-1].split("/")
+            new_ = ".cache." + self.STATIC.file.md5(StringList=[url]) if tmp_name is None else ".cache." + tmp_name
+            timeStr = time.strftime(f"%Y-%m-%d_{new_[7:12]}", time.localtime())
+            timeStr2 = f"{new_[7:12]}_{str(time.time()).replace('.', '')}"
+            if self.CORE.biu.sets["biu"]["download"]["autoDeterTheSame"]:
+                if type_ == "file":
+                    name_ = new_
+                elif type_ == "folder":
+                    path_ = "/".join(splitPath[:-1]) + "/" + new_ + "/"
+                finalPath = path_ + name_ if type_ == "file" else path_
+                maybePath = path_ + name + f"_{timeStr}{suf}" if type_ == "file" else folder[:-1] + f"_{timeStr}/"
+                impossiblePath = path_ + name + f"_{timeStr2}{suf}" if type_ == "file" else folder[:-1] + f"_{timeStr2}/"
+                atdeterPaths = {
+                    "ori": deterPath,
+                    "dst": finalPath,
+                    "maybe": maybePath,
+                    "impossible": impossiblePath,
+                    "type": type_,
+                    "id": id_
+                }
+                r["folder"], r["name"] = path_, name_ if type_ == "file" else f"{name_}{suf}"
+                r["dlArgs"]["@deterPaths"] = atdeterPaths
+                if fun_ is not None:
+                    r["callback"] = [fun_, self.__callback_isTheSame]
+                else:
+                    r["callback"] = [self.__callback_isTheSame]
+            else:
+                if type_ == "file":
+                    r["name"] = name + f"_{timeStr2}{suf}"
+                elif type_ == "folder":
+                    r["folder"] = folder[:-1] + f"_{timeStr2}/"
+        return r
 
     def __deName(self, name, data):
         return (
@@ -155,6 +186,43 @@ class doDownload(interRoot):
                 .replace("https://i.pximg.net", self.CORE.biu.pximgURL)
         )
         return url, r
+
+    def __callback_isTheSame(self, this):
+        if this._dlArgs["@deterPaths"]["id"] == "%end%":
+            return True
+        if this.status(self.CORE.dl.mod.CODE_GOOD_SUCCESS):
+            if self.CORE.dl.modName == "aria2" and self.CORE.dl.mod.HOST not in ("127.0.0.1", "localhost"):
+                return False
+            while this._dlArgs["@deterPaths"]["id"] != "-1":
+                isContinue = True
+                status_arr = self.CORE.dl.status(this._dlArgs["@deterPaths"]["id"])
+                for x in status_arr:
+                    if x != "done":
+                        isContinue = False
+                if isContinue:
+                    break
+                time.sleep(0.5)
+            rMD5Fun, rRemoveFun = lambda x: False, lambda x: False
+            if this._dlArgs["@deterPaths"]["type"] == "file":
+                rMD5Fun = self.STATIC.file.md5
+                rRemoveFun = self.STATIC.file.rm
+            elif this._dlArgs["@deterPaths"]["type"] == "folder":
+                rMD5Fun = self.STATIC.file.folderMD5
+                rRemoveFun = lambda path: self.STATIC.file.clearDIR(path, nothing=True)
+            oriMD5 = rMD5Fun(this._dlArgs["@deterPaths"]["ori"])
+            dstMD5 = rMD5Fun(this._dlArgs["@deterPaths"]["dst"])
+            if oriMD5 == dstMD5:
+                rRemoveFun(this._dlArgs["@deterPaths"]["dst"])
+            else:
+                if os.path.exists(this._dlArgs["@deterPaths"]["maybe"]):
+                    maybeMD5 = rMD5Fun(this._dlArgs["@deterPaths"]["maybe"])
+                    if dstMD5 == maybeMD5:
+                        rRemoveFun(this._dlArgs["@deterPaths"]["dst"])
+                    else:
+                        self.STATIC.file.rename(this._dlArgs["@deterPaths"]["dst"],
+                                                this._dlArgs["@deterPaths"]["impossible"])
+                else:
+                    self.STATIC.file.rename(this._dlArgs["@deterPaths"]["dst"], this._dlArgs["@deterPaths"]["maybe"])
 
     def __callback_merge(self, this):
         if this.status(self.CORE.dl.mod.CODE_GOOD_SUCCESS):

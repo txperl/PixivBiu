@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import shutil
@@ -79,11 +80,13 @@ class static_file(object):
                 os.makedirs(path)
         except Exception as e:
             print("\033[31m%s\033[0m" % e)
+            return False
+        return True
 
     @staticmethod
-    def clearDIR(folder, nameList=[]):
+    def clearDIR(folder, nameList=[], nothing=False):
         if not os.path.exists(folder):
-            return
+            return False
         for filename in os.listdir(folder):
             if len(nameList) > 0 and filename not in nameList:
                 continue
@@ -95,6 +98,10 @@ class static_file(object):
                     shutil.rmtree(file_path)
             except Exception as e:
                 print("Failed to delete %s. Reason: %s" % (file_path, e))
+                return False
+        if nothing:
+            os.rmdir(folder)
+        return True
 
     @staticmethod
     def rm(uri, msg=False):
@@ -113,6 +120,13 @@ class static_file(object):
                 print("\033[32m[remove]\033[0m \033[36m%s\033[0m" % (x))
             r.append(True)
         return r if len(r) > 1 else r[0]
+
+    @staticmethod
+    def rename(oriPath, dstPath):
+        if not os.path.exists(oriPath) or os.path.exists(dstPath):
+            return False
+        os.rename(oriPath, dstPath)
+        return True
 
     @staticmethod
     def unzip(ruri, furi, msg=False):
@@ -163,3 +177,30 @@ class static_file(object):
         except:
             return False
         return True
+
+    @staticmethod
+    def md5(filePath=None, StringList=None):
+        if filePath is None and StringList is None:
+            return None
+        hash_md5 = hashlib.md5()
+        if filePath is not None:
+            with open(filePath, "rb") as f:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hash_md5.update(chunk)
+        elif StringList is not None:
+            for x in StringList:
+                hash_md5.update(str(x).encode("utf-8"))
+        return hash_md5.hexdigest()
+
+    @classmethod
+    def folderMD5(cls, folderPath):
+        if not os.path.exists(folderPath):
+            return None
+        r = []
+        for file in os.listdir(folderPath):
+            nowPath = os.path.join(folderPath, file)
+            if os.path.isdir(nowPath):
+                r.append(cls.folderMD5(nowPath))
+            else:
+                r.append(cls.md5(filePath=nowPath))
+        return cls.md5(StringList=r)

@@ -85,7 +85,7 @@ class common_loginHelper(interRoot):
                 self.STATIC.localMsger.red("Code 已过期。请在进行 Code 获取操作时快一些。")
             else:
                 self.STATIC.localMsger.error(e, header=False)
-            return False
+        return False
 
     def refresh(self, refresh_token):
         """

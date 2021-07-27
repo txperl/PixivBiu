@@ -78,8 +78,12 @@ class Dler(object):
 
     # 下载回调
     def callback(self):
-        if self._funCallback is not None and hasattr(self._funCallback, "__call__"):
-            self._funCallback(self)
+        if self._funCallback is None:
+            return
+        r = [self._funCallback] if type(self._funCallback) is not list else self._funCallback
+        for fun in r:
+            if hasattr(fun, "__call__"):
+                fun(self)
 
     @staticmethod
     def pure_size(size, dig=2, space=1):

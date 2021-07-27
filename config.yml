@@ -9,7 +9,7 @@ account:
     # 是否使用 token 登录
 
 sys:
-  confVersion: 4
+  confVersion: 5
     # 配置文件版本，请勿修改
 
   host: "127.0.0.1:4001"
@@ -18,13 +18,12 @@ sys:
 
   isDebug: false
     # 调试模式
-    # true 为开启
-    # false 为关闭
+    # true 为开启；false 为关闭
 
   api: "public"
     # 默认 api 模式
     # public: 可以使用全功能，但必须需要代理（翻墙）
-    # byPassSni: 无法使用关注功能，其他功能相同，但无需代理（无需翻墙）
+    # byPassSni: 可以使用全功能，但无需代理（无需翻墙）
 
   theme: "multiverse"
     # 默认主题
@@ -52,8 +51,7 @@ biu:
 
     loadCacheFirst: true
       # 搜索时优先加载本地缓存
-      # true 为开启
-      # false 为关闭
+      # true 为开启；false 为关闭
 
   download:
     mode: "dl-single"
@@ -83,7 +81,7 @@ biu:
       # - {user_id}: 作者 ID
       # - {type}: 作品类型
 
-    saveFileName: "{title}"
+    saveFileName: "{title}_{work_id}"
       # 下载图片的标题
       # 不可使用 \ 符号，请将其替换为 \\
       # 可选变量
@@ -95,8 +93,12 @@ biu:
 
     autoArchive: true
       # 自动将拥有多张图片的作品归档（放入一个文件夹中）
-      # true 为开启
-      # false 为关闭
+      # true 为开启；false 为关闭
+
+    autoDeterTheSame: true
+      # 自动判断下载目录中重名图片是否相同
+      # 若相同，则只保留一份；若不同，则自动将新图片重命名
+      # true 为开启；false 为关闭
 
     whatsUgoira: "webp"
       # 将动图转换为指定格式

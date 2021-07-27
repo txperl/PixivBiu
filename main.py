@@ -58,6 +58,7 @@ if __name__ == '__main__':
             debug=SETS["sys"]["isDebug"],
             threaded=True,
             use_reloader=False,
+            # ssl_context="adhoc"
         )
     except UnicodeDecodeError:
         print("您的计算机名可能存在特殊字符，程序无法正常运行。")

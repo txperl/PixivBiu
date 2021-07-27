@@ -15,8 +15,8 @@ from altfe.interface.root import interRoot
 @interRoot.bind("biu", "LIB_CORE")
 class core_module_biu(interRoot):
     def __init__(self):
-        self.ver = 201000
-        self.lowestConfVer = 4
+        self.ver = 201010
+        self.lowestConfVer = 5
         self.place = "local"
         self.sysPlc = platform.system()
         self.apiType = "public"
