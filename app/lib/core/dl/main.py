@@ -56,7 +56,7 @@ class core_module_dl(interRoot):
     def status(self, key="__all__"):
         r = {}
         if key == "__all__":
-            for x in self.tasks:
+            for x in self.tasks.copy():
                 r[x] = (self._status(x))
         else:
             if key in self.tasks:
