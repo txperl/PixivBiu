@@ -74,6 +74,7 @@ biu:
       # 不可使用 \ 符号，请将其替换为 / 或 \\
       # 可选变量
       # - {ROOTPATH}: 程序根目录
+      # - {HOMEPATH}: 用户主目录，可能为 /Users/user/、C:/Users/user/、/home/user/
       # - {KT}: 搜索关键词
       # - {title}: 作品标题
       # - {work_id}: 作品 ID

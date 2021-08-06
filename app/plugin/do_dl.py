@@ -47,6 +47,7 @@ class doDownload(interRoot):
         rootURI = (
             self.CORE.biu.sets["biu"]["download"]["saveURI"]
                 .replace("{ROOTPATH}", self.getENV("rootPath"))
+                .replace("{HOMEPATH}",  os.path.expanduser('~') + "/")
                 .replace("{KT}", self.__pureName(funArg["kt"]))
         )
 
@@ -107,6 +108,7 @@ class doDownload(interRoot):
 
     def getTemp(self, url, folder, name, suf="", fun=None, id_="-1", type_="file", tmp_name=None,
                 no_deter_the_same=False):
+        folder = folder.replace("\\\\", "/").replace("\\", "/").replace("//", "/")
         r = {
             "url": url,
             "folder": folder,
@@ -127,7 +129,6 @@ class doDownload(interRoot):
         }
         deterPath = folder + name + suf if type_ == "file" else folder
         if no_deter_the_same is False and os.path.exists(deterPath):
-            folder = folder.replace("\\\\", "/").replace("\\", "/").replace("//", "/")
             path_, name_, fun_ = folder, name, fun
             splitPath = path_[:-1].split("/")
             new_ = ".cache." + self.STATIC.file.md5(StringList=[url]) if tmp_name is None else ".cache." + tmp_name

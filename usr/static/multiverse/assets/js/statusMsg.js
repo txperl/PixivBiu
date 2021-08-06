@@ -15,7 +15,7 @@ function progresserSearching(key, errors = 0) {
                 now = 0;
                 num = rep['msg']['rst'].length;
                 for (let i = 0; i < num; i++) {
-                    if (rep['msg']['rst'][i] === true) {
+                    if (rep['msg']['rst'][i] === "done") {
                         now++;
                     }
                 }

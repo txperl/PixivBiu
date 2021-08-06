@@ -25,15 +25,15 @@ class getStatus(interRoot):
             else:
                 for x in self.CORE.dl.status(key):
                     if x == "done":
-                        rep.append(True)
+                        rep.append("done")
                     elif x is None or x == "failed":
-                        rep.append(False)
+                        rep.append("failed")
                     else:
                         rep.append("running")
         elif idx == "rate_search":
             for x in self.CORE.biu.STATUS[idx][key]:
                 if x.done():
-                    rep.append(True)
+                    rep.append("done")
                 else:
                     rep.append("running")
 

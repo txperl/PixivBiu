@@ -211,7 +211,6 @@ class core_module_biu(interRoot):
             try:
                 self.api.auth(refresh_token=token)
                 self.apiAssist.auth(refresh_token=token)
-                # self.STATIC.localMsger.msg("使用 Token 登陆")
             except:
                 account = self.__loadAccountInfo()
                 self.api.login(*account)
