@@ -1,0 +1,119 @@
+name: 📦 Package
+
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  # push:
+  #   branches: [ master ]
+  # pull_request:
+  #   branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      releaseTag:
+        description: 'Release Tag' 
+        required: true
+        default: 'v'
+      releaseName:
+        description: 'Release Name' 
+        required: true
+        default: 'test'
+      releaseBody:
+        description: 'Release Body' 
+        required: true
+        default: 'Enjoy.'
+
+jobs:
+  build-win-mac:
+    name: Package on ${{ matrix.version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # os: [windows-2019, windows-2019, macos-10.15]
+        include:
+        - os: windows-2019
+          version: win_x64
+          pythonArch: 'x64'
+        - os: windows-2019
+          version: win_x86
+          pythonArch: 'x86'
+        - os: macos-10.15
+          version: mac
+          pythonArch: 'x64'
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Classify files, prepare to be packaged
+        run: |
+          mkdir ./.pkg/code
+          mkdir ./.pkg/public
+          cp -r ./altfe/ ./.pkg/code/altfe/
+          cp -r ./app/ ./.pkg/code/app/
+          cp ./main.py ./.pkg/code/
+          cp -r ./usr/ ./.pkg/public/usr/
+          cp ./config.yml ./.pkg/public/
+          cp ./LICENSE ./.pkg/public/
+          cp ./README.md ./.pkg/public/
+
+      - name: Setup Python 3.7
+        uses: actions/setup-python@v2.2.2
+        with:
+          python-version: 3.7
+          architecture: ${{ matrix.pythonArch }}
+      
+      - name: Install Requirements
+        run: |
+          pip install -r ./requirements.txt
+          pip install pyinstaller  
+      
+      - name: Run py-pkger.py
+        run: |
+          cd ./.pkg/
+          python ./py-pkger.py auto
+        
+      - name: Compress to ZIP (win)
+        if: ${{ matrix.os == 'windows-2019' }}
+        run: |
+          cd ./.pkg/dist/
+          mv ./main.exe ./PixivBiu.exe
+          Compress-Archive * ../../${{ matrix.version }}.zip
+      
+      - name: Compress to ZIP (mac)
+        if: ${{ matrix.os == 'macos-10.15' }}
+        run: |
+          cd ./.pkg/dist/
+          mv ./main ./PixivBiu
+          zip -r ../../${{ matrix.version }}.zip *
+    
+      - name: Upload to Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: pixivbiuArt
+          path: ./${{ matrix.version }}.zip
+
+  Release:
+    needs: [build-win-mac]
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Download from Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: pixivbiuArt
+      
+      - name: Rename
+        run: |
+          mv ./win_x86.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip
+          mv ./win_x64.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_win_x64.zip
+          mv ./mac.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip
+        
+      - name: Release and Done
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip,PixivBiu_${{ github.event.inputs.releaseTag }}_win_x64.zip,PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip"
+          tag: ${{ github.event.inputs.releaseTag }}
+          name: ${{ github.event.inputs.releaseName }}
+          body: ${{ github.event.inputs.releaseBody }}
+          token: ${{ secrets.GITHUB_TOKEN }}

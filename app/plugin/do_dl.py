@@ -47,7 +47,7 @@ class doDownload(interRoot):
         rootURI = (
             self.CORE.biu.sets["biu"]["download"]["saveURI"]
                 .replace("{ROOTPATH}", self.getENV("rootPath"))
-                .replace("{HOMEPATH}",  os.path.expanduser('~') + "/")
+                .replace("{HOMEPATH}", os.path.expanduser('~') + "/")
                 .replace("{KT}", self.__pureName(funArg["kt"]))
         )
 
