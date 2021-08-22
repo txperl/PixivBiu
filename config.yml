@@ -81,6 +81,8 @@ biu:
       # - {user_name}: 作者名称
       # - {user_id}: 作者 ID
       # - {type}: 作品类型
+      # - {date_image}: 作品的日期
+      # - {date_today}: 今天的日期
 
     saveFileName: "{title}_{work_id}"
       # 下载图片的标题
@@ -91,6 +93,8 @@ biu:
       # - {user_name}: 作者名称
       # - {user_id}: 作者 ID
       # - {type}: 作品类型
+      # - {date_image}: 作品的日期
+      # - {date_today}: 今天的日期
 
     autoArchive: true
       # 自动将拥有多张图片的作品归档（放入一个文件夹中）

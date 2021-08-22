@@ -374,7 +374,7 @@ class core_module_biu(interRoot):
                 "type": typer,
                 "title": c["title"],
                 "caption": c["caption"],
-                "created_time": c["create_date"][:10],
+                "created_time": c["create_date"],
                 "image_urls": {
                     "small": c["image_urls"]["square_medium"],
                     "medium": c["image_urls"]["medium"],

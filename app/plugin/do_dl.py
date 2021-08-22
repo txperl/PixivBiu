@@ -2,6 +2,7 @@ import json
 import os
 import re
 import time
+from datetime import datetime, timedelta, timezone
 
 from altfe.interface.root import interRoot
 
@@ -141,7 +142,8 @@ class doDownload(interRoot):
                     path_ = "/".join(splitPath[:-1]) + "/" + new_ + "/"
                 finalPath = path_ + name_ if type_ == "file" else path_
                 maybePath = path_ + name + f"_{timeStr}{suf}" if type_ == "file" else folder[:-1] + f"_{timeStr}/"
-                impossiblePath = path_ + name + f"_{timeStr2}{suf}" if type_ == "file" else folder[:-1] + f"_{timeStr2}/"
+                impossiblePath = path_ + name + f"_{timeStr2}{suf}" if type_ == "file" else folder[
+                                                                                            :-1] + f"_{timeStr2}/"
                 atdeterPaths = {
                     "ori": deterPath,
                     "dst": finalPath,
@@ -164,12 +166,26 @@ class doDownload(interRoot):
         return r
 
     def __deName(self, name, data):
+        # name = time.strftime(name, time.localtime())
+        # 格式化图片时间
+        localTimeZone = time.strftime("%z")
+        try:
+            timeImageLocal = datetime.strptime(data["create_date"], "%Y-%m-%dT%H:%M:%S%z").astimezone(
+                timezone(timedelta(hours=int(localTimeZone[1:3]), minutes=int(localTimeZone[3:5]))))
+            timeImageLocalStr = timeImageLocal.strftime("%Y-%m-%d")
+        except:
+            timeImageLocalStr = "unknown"
+        # 格式化现在时间
+        timeNowLocalStr = time.strftime("%Y-%m-%d", time.localtime())
+
         return (
             name.replace("{title}", self.__pureName(str(data["title"])))
                 .replace("{work_id}", self.__pureName(str(data["id"])))
                 .replace("{user_name}", self.__pureName(str(data["user"]["name"])))
                 .replace("{user_id}", self.__pureName(str(data["user"]["id"])))
                 .replace("{type}", self.__pureName(str(data["type"])))
+                .replace("{date_image}", timeImageLocalStr)
+                .replace("{date_today}", timeNowLocalStr)
         )
 
     def __pureName(self, name):
