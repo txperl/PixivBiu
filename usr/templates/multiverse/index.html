@@ -118,7 +118,7 @@
             <div class="inner split">
                 <div>
                     <section>
-                        <h2>PixivBiu@2.1.1</h2>
+                        <h2>PixivBiu@2.1.2</h2>
                         <p>一款不错的 Pixiv 搜索<b>辅助</b>工具。<br>基于 Python@3.7(+) 构建。</p>
                     </section>
                     <section>
@@ -187,7 +187,7 @@
             '#settingsIsAllSort': ['pixivbiu_funIsAllSort', 'off', '更多排序'],
             '#settingsSortMode': ['pixivbiu_sortMode', '0', '排序模式'],
             '#settingsSearchMode': ['pixivbiu_searchMode', 'tag', '搜索模式'],
-            '#settingsRvrProxyUrl': ['pixivbiu_RvrProxyUrl', 'https://i.pixiv.cat', '图片反代地址'],
+            '#settingsRvrProxyUrl': ['pixivbiu_RvrProxyUrl', 'https://i.pixiv.re', '图片反代地址'],
         };
 
         $(document).ready(function () {
@@ -354,7 +354,7 @@
                     }
                     li += '<a target="_blank" href="https://www.pixiv.net/users/' + data[0]['author']['id'] + '"><d class="tooltip" title="打开画师 Pixiv 主页">Pixiv</d></a>';
                     li += '<a target="_blank" href=".?code=%40u%3d' + data[0]['author']['id'] + '%20-f"><op class="tooltip" title="获取 TA 的关注列表">关注列表</op></a>';
-                    rstHtml += '<article class="thumb"><a class="imageBtn"><img src="' + data[0]['all']['user']['profile_image_urls']['medium'].replace('i.pximg.net', 'i.pixiv.cat') + '" alt="" /></a><h2>画师@' + data[0]['author']['name'] + '</h2><section class="thumbAction">' + li + '</section></article>';
+                    rstHtml += '<article class="thumb"><a class="imageBtn"><img src="' + data[0]['all']['user']['profile_image_urls']['medium'].replace('i.pximg.net', 'i.pixiv.re') + '" alt="" /></a><h2>画师@' + data[0]['author']['name'] + '</h2><section class="thumbAction">' + li + '</section></article>';
                 }
 
                 // 用户列表整理
@@ -366,7 +366,7 @@
                         li = '<a id="follow_' + data[i]['id'] + '" href="javascript: doFollow(' + data[i]['id'] + ', \'add\');"><b class="tooltip" title="关注"><hicon>💗</hicon></b></a>';
                     }
                     li += '<a target="_blank" href=".?code=%40u%3d' + data[i]['id'] + '%20-i"><d class="tooltip" title="获取 TA 的作品">🔍作品</d></a>';
-                    rstHtml += '<article class="thumb"><a class="imageBtn"><img src="' + data[i]['profile_image_urls']['medium'].replace('i.pximg.net', 'i.pixiv.cat') + '" alt="" /></a><h2>' + data[i]['name'] + '</h2><section class="thumbAction">' + li + '</section></article>';
+                    rstHtml += '<article class="thumb"><a class="imageBtn"><img src="' + data[i]['profile_image_urls']['medium'].replace('i.pximg.net', 'i.pixiv.re') + '" alt="" /></a><h2>' + data[i]['name'] + '</h2><section class="thumbAction">' + li + '</section></article>';
                 }
 
                 // 通用作品整理

@@ -15,7 +15,7 @@ from altfe.interface.root import interRoot
 @interRoot.bind("biu", "LIB_CORE")
 class core_module_biu(interRoot):
     def __init__(self):
-        self.ver = 201010
+        self.ver = 201020
         self.lowestConfVer = 5
         self.place = "local"
         self.sysPlc = platform.system()
@@ -401,7 +401,7 @@ class core_module_biu(interRoot):
         if self.sets["biu"]["download"]["imageHost"] != "":
             self.pximgURL = self.sets["biu"]["download"]["imageHost"]
         if self.apiType == "byPassSni":
-            self.pximgURL = "https://i.pixiv.cat"
+            self.pximgURL = "https://i.pixiv.re"
 
     def __clear(self):
         if os.name == "nt":
