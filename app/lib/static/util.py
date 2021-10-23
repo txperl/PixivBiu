@@ -50,14 +50,15 @@ class util(object):
                     continue
                 tmp = x.split(":")
                 dic[tmp[0]] = ":".join(tmp[1:])
-            SUP = ["ProxyAutoConfig", "HTTP", "HTTPS", "SOCKS"]
+            SUP = ["HTTP", "HTTPS", "SOCKS", "ProxyAutoConfig"]
             for ptl in SUP:
-                if dic[f"{ptl}Enable"] == "1":
+                subKey = f"{ptl}Enable"
+                if subKey in dic and dic[subKey] == "1":
                     if ptl == "ProxyAutoConfig":
                         proxy = dic["ProxyAutoConfigURLString"]
                     else:
                         proxy = "%s://%s:%s/" % (
-                            ptl.lower() if ptl != "SOCKS" else "socks5", dic[ptl + 'Proxy'], dic[ptl + 'Port']
+                            ptl.lower() if ptl != "SOCKS" else "socks5", dic[ptl + "Proxy"], dic[ptl + "Port"]
                         )
                     return proxy
 
