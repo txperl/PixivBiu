@@ -24,7 +24,7 @@ sys.proxy: ""
 
 sys.language: ""
   # 语言设置，留空为程序自动判断
-  # 可选：cn、en
+  # 可选：zh、en
 
 sys.theme: "multiverse"
   # 默认主题

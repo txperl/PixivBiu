@@ -8,7 +8,7 @@ from app.lib.ins.conf.wrapper import ConfigWrapper
 class InsConf(interRoot):
     def __init__(self):
         self.rootConfigFolderPath = self.getENV("rootPathFrozen") + "app/config/"
-        self.customConfigPath = self.getENV("rootPathFrozen") + "config.yml"
+        self.customConfigPath = self.getENV("rootPath") + "config.yml"
         self._configs = {}
         self.load_config()
 
