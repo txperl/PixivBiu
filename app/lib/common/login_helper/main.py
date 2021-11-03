@@ -14,9 +14,10 @@ class common_loginHelper(interRoot):
     """
 
     def __init__(self):
+        self.lang = self.INS.i18n.get_bundle("app.common.loginHelper", func=True)
         self.requests = requests.Session()
         self.requests.mount("https://", CustomAdapter())
-        self.tokenG = tokenGetter(self.requests)
+        self.tokenG = tokenGetter(lang=self.lang, requests=self.requests)
         self.proxy = ""
         self.authTokenURL = ""
 
@@ -38,13 +39,13 @@ class common_loginHelper(interRoot):
         ) if URLS is None else URLS
         proxy = self.STATIC.util.getSystemProxy(platform.system()) if proxy_ == "auto" else proxy_
         if silent is False:
-            self.STATIC.localMsger.msg("开始进行网络检测...", header="Login Helper")
+            self.STATIC.localMsger.msg(self.lang("network.hint_in_check"), header="Login Helper")
             if proxy == "":
-                if input("未能检测到系统代理地址，是否需要手动设置? (y / n): ") == "y":
-                    proxy = input("请输入代理监听地址(可留空): ")
+                if input(self.lang("network.is_need_to_type_proxy")) == "y":
+                    proxy = input(self.lang("network.press_need_to_type_proxy"))
             else:
-                if input(f"检测到内容为 {proxy} 的代理监听地址，是否需要更改? (y / n): ") == "y":
-                    proxy = input("请输入代理监听地址(可留空): ")
+                if input(self.lang("network.hint_detect_proxy") % proxy) == "y":
+                    proxy = input(self.lang("network.press_need_to_type_proxy"))
 
         self.proxy = proxy
         self.authTokenURL = URLS[0]
@@ -78,11 +79,9 @@ class common_loginHelper(interRoot):
         except Exception as e:
             err = str(e)
             if "'code': 918" in err:
-                self.STATIC.localMsger.red(
-                    "Code 错误。请注意程序每次启动时要求获取的 Code 都不同，不可复用之前获取到的，且 Code 不带有引号。"
-                )
+                self.STATIC.localMsger.red(self.lang("login.fail_code_918"))
             elif "'code': 1508" in err:
-                self.STATIC.localMsger.red("Code 已过期。请在进行 Code 获取操作时快一些。")
+                self.STATIC.localMsger.red(self.lang("login.fail_code_1508"))
             else:
                 self.STATIC.localMsger.error(e, header=False)
         return False
@@ -149,10 +148,10 @@ class common_loginHelper(interRoot):
                 requests.get(url, timeout=3, verify=False)
         except:
             if silent is False:
-                cls.STATIC.localMsger.msg(f"{url} ❌", header="Network Checker")
+                cls.STATIC.localMsger.red(f"{url} [failed]", header="Network Checker")
             return False
         if silent is False:
-            cls.STATIC.localMsger.msg(f"{url} ✔️", header="Network Checker")
+            cls.STATIC.localMsger.green(f"{url} [succeeded]", header="Network Checker")
         return True
 
 

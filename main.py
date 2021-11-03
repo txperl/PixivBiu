@@ -4,7 +4,7 @@ import sys
 import traceback
 import webbrowser
 
-from flask import Flask, jsonify, render_template, abort
+from flask import Flask, jsonify, render_template
 
 from altfe import bridge, handle
 from altfe.interface.root import classRoot
@@ -20,11 +20,6 @@ app = Flask(
 
 
 # 路由
-@app.route("/favicon.ico")
-def favicon():
-    return abort(404)
-
-
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def pixivbiu(path):
@@ -39,8 +34,10 @@ if __name__ == '__main__':
     # Altfe 框架初始化
     classRoot.setENV("rootPath", rootPath)
     classRoot.setENV("rootPathFrozen", rootPathFrozen)
-    bridge.bridgeInit().run()
-    SETS = classRoot.loadConfig(rootPath + "config.yml")
+    bridge.bridgeInit().run(hint=True)
+
+    # 加载配置项
+    SETS = classRoot.osGet("LIB_INS", "conf").dict("biu_default")
 
     # 调整日志等级
     if not SETS["sys"]["isDebug"]:
@@ -64,5 +61,5 @@ if __name__ == '__main__':
         print("您的计算机名可能存在特殊字符，程序无法正常运行。")
         print("若是 Windows 系统，可以尝试进入「计算机-属性-高级系统设置-计算机名-更改」，修改计算机名，只可含有 ASCII 码支持的字符。")
         input("按任意键退出...")
-    except:
+    except Exception:
         print(traceback.format_exc())

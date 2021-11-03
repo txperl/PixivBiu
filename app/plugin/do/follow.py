@@ -5,16 +5,7 @@ from altfe.interface.root import interRoot
 class doFollow(interRoot):
     def run(self, cmd):
         try:
-            args = self.STATIC.arg.getArgs(
-                "follow",
-                [
-                    "userID",
-                    (
-                            "restrict=%s"
-                            % self.CORE.biu.sets["biu"]["common"]["defaultActionType"]
-                    ),
-                ],
-            )
+            args = self.STATIC.arg.getArgs("follow", ["userID", "publicity=public"])
         except:
             return {"code": 0, "msg": "missing parameters"}
 
@@ -29,7 +20,7 @@ class doFollow(interRoot):
 
     def follow(self, opsArg, funArg):
         self.STATIC.arg.argsPurer(
-            funArg, {"userID": "user_id", "restrict": "restrict"}
+            funArg, {"userID": "user_id", "publicity": "restrict"}
         )
         r = self.CORE.biu.apiAssist.user_follow_add(**funArg)
-        return {"api": "public", "data": r}
+        return {"api": "app", "data": r}

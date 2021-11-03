@@ -122,17 +122,3 @@ class Dler(object):
             name = re.findall("filename=(.+)", headers["content-disposition"])[0]
             return re.sub(r"[\/\\\:\*\?\"\<\>\|]", "", name)
         return urlLastPart
-
-    # @staticmethod
-    # def get_dl_file_size(self):
-    #     """
-    #     获取预下载文件大小。
-    #     :return:
-    #     int: 文件大小
-    #     """
-    #     contentLength = -1
-    #     try:
-    #         with requests.head(self._dlUrl, headers=self._dlArgs["_headers"], **self._dlArgs["@requests"]) as rep:
-    #             contentLength = int(rep.headers["Content-Length"])
-    #     finally:
-    #         return contentLength

@@ -14,6 +14,7 @@ class classRoot(object):
     """
     __ENV = {}
     __MODULE = {
+        "LIB_INS": {},
         "LIB_STATIC": {},
         "LIB_COMMON": {},
         "LIB_CORE": {},
@@ -80,9 +81,9 @@ class classRoot(object):
         return wrapper
 
     @staticmethod
-    def loadConfig(uri):
+    def loadConfig(uri, default=False):
         if not os.path.exists(uri):
-            return False
+            return default
         with open(uri, "r", encoding="UTF-8") as f:
             sfx = uri.split(".")[-1]
             if sfx == "json":

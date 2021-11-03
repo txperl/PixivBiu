@@ -5,16 +5,7 @@ from altfe.interface.root import interRoot
 class getRank(interRoot):
     def run(self, cmd):
         try:
-            args = self.STATIC.arg.getArgs(
-                "mark",
-                [
-                    "workID",
-                    (
-                            "publicity=%s"
-                            % self.CORE.biu.sets["biu"]["common"]["defaultActionType"]
-                    ),
-                ],
-            )
+            args = self.STATIC.arg.getArgs("mark", ["workID", "publicity=public"])
         except:
             return {"code": 0, "msg": "missing parameters"}
 

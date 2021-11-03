@@ -27,22 +27,6 @@
         <div class="bar">
             <input id="srhBox" class="tooltip" placeholder="Biu~" autocomplete="off" title="搜索 · 回车执行">
         </div>
-        <div id="settings">
-            <input id="settingsPageNum" class="tooltip" placeholder="每组页数" autocomplete="off" title="单次搜索页数，建议参数不要过大">
-            <input id="settingsIsOriPic" class="tooltip" placeholder="大图预览" autocomplete="off"
-                title="在图片详情页显示较大尺寸的图片。on: 开启，off: 关闭（若图片加载时间过长，建议关闭）">
-            <input id="settingsSearchMode" class="tooltip" placeholder="搜索模式" autocomplete="off"
-                title="tag: 匹配部分标签(默认)，otag: 全标签，des: 标题或描述">
-            <input id="settingsSortMode" class="tooltip" placeholder="排序模式" autocomplete="off"
-                title="0: 按收藏数排序，1: 按人气(浏览数)排序">
-            <input id="settingsIsAllSort" class="tooltip" placeholder="更多排序" autocomplete="off"
-                title="为所有结果排序。on: 开启，off: 关闭（关闭时仅为关键词搜索排序）">
-            <input id="settingsRvrProxyUrl" class="tooltip" placeholder="图片反代地址" autocomplete="off"
-                title="Pixiv 图片反向代理地址（如果不是很懂请勿修改）" hidden>
-            <br>
-            <button id="btnSaveSettings" onclick="javascript:
-                    saveSettingsCookie();">保存</button>
-        </div>
     </div>
 
     <!-- Wrapper -->
@@ -50,12 +34,12 @@
 
         <!-- Header -->
         <header id="header">
-            <h1><a href="./"><strong>PixivBiu</strong>@2.1</a></h1>
+            <h1><a href="./"><strong>PixivBiu</strong>@v2</a></h1>
             <h1 id="progressDownloadingPics"></h1>
             <nav>
                 <ul id="rstHeaderShow">
-                    <li><a href="javascript: isShowSettings();">搜索设置</a></li>
-                    <li><a href="#footer" class="icon solid fa-info-circle">关于</a></li>
+                    <li><a href="#setting">设置</a></li>
+                    <li><a href="#about" class="icon solid fa-info-circle">关于</a></li>
                 </ul>
             </nav>
         </header>
@@ -113,12 +97,50 @@
             </article>
         </div>
 
-        <!-- Footer -->
-        <footer id="footer" class="panel">
+        <div id="setting" class="panel">
+            <div class="inner split">
+                <div class="settings">
+                    <section>
+                        <h2>搜索</h2>
+                        <input id="settingsPageNum" class="tooltip" placeholder="每组页数" autocomplete="off"
+                            title="单次搜索页数，建议参数不要过大">
+                        <input id="settingsSearchMode" class="tooltip" placeholder="搜索模式" autocomplete="off"
+                            title="tag: 匹配部分标签（默认），otag: 全标签，des: 标题或描述">
+                        <input id="settingsSortMode" class="tooltip" placeholder="排序模式" autocomplete="off"
+                            title="0: 按收藏数排序，1: 按人气（浏览数）排序">
+                        <input id="settingsIsAllSort" class="tooltip" placeholder="更多排序" autocomplete="off"
+                            title="为所有结果排序。on: 开启，off: 关闭（关闭时仅为关键词搜索排序）">
+                    </section>
+                    <section>
+                        <h2>图片</h2>
+                        <input id="settingsIsOriPic" class="tooltip" placeholder="大图预览" autocomplete="off"
+                            title="在图片详情页显示较大尺寸的图片。on: 开启，off: 关闭（若图片加载时间过长，建议关闭）">
+                        <input id="settingsRvrProxyUrl" class="tooltip" placeholder="图片反代地址" autocomplete="off"
+                            title="Pixiv 图片反向代理地址（如果不是很懂请勿修改）">
+                    </section>
+                </div>
+                <div class="settings">
+                    <section>
+                        <h2>功能</h2>
+                        <input id="settingsActionType" class="tooltip" placeholder="操作类型" autocomplete="off"
+                            title="public: 当进行收藏、关注等操作时默认放入公开类别；private: 私人类别">
+                        <input id="settingsIsR18" class="tooltip" placeholder="R18 内容" autocomplete="off"
+                            title="是否展示 R18 内容。on: 开启，off: 关闭">
+                        <p>更多设置请于 <b>config.yml</b> 文件中修改。</p>
+                    </section>
+                    <section>
+                        <button class="primary" onclick="javascript: saveSettingsCookie();">保存</button>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <!-- About -->
+        <div id="about" class="panel">
             <div class="inner split">
                 <div>
                     <section>
-                        <h2>PixivBiu@2.1.2</h2>
+                        <h2>PixivBiu@<span id="hint-current-verson">?</span></h2>
                         <p>一款不错的 Pixiv 搜索<b>辅助</b>工具。<br>基于 Python@3.7(+) 构建。</p>
                     </section>
                     <section>
@@ -157,7 +179,7 @@
                     </section>
                 </div>
             </div>
-        </footer>
+        </div>
 
     </div>
 
@@ -184,13 +206,16 @@
         var settingsMods = {
             '#settingsPageNum': ['pixivbiu_searchPageNum', 5, '每组页数'],
             '#settingsIsOriPic': ['pixivbiu_displayIsOriPic', 'off', '大图预览'],
+            '#settingsIsR18': ['pixivbiu_displayIsR18', 'off', 'R18 内容'],
             '#settingsIsAllSort': ['pixivbiu_funIsAllSort', 'off', '更多排序'],
             '#settingsSortMode': ['pixivbiu_sortMode', '0', '排序模式'],
             '#settingsSearchMode': ['pixivbiu_searchMode', 'tag', '搜索模式'],
+            '#settingsActionType': ['pixivbiu_actionType', 'public', '操作类型'],
             '#settingsRvrProxyUrl': ['pixivbiu_RvrProxyUrl', 'https://i.pixiv.re', '图片反代地址'],
         };
 
         $(document).ready(function () {
+            getVersion();
             loadSearchSettings();
             progresserDownloading_auto();
             $('#myBox').popmenu();
@@ -277,11 +302,11 @@
             } else if ((m = regMatch(/@s=(.*?) -(.)/g, c)).length == 3) {
                 code = m[2];
                 if (code === 't') {
-                    $('#srhBox').tooltipster('content', '指令 · 匹配部分标签搜索');
+                    $('#srhBox').tooltipster('content', '指令 · 匹配部分标签');
                 } else if (code === 'o') {
-                    $('#srhBox').tooltipster('content', '指令 · 匹配全标签搜索');
+                    $('#srhBox').tooltipster('content', '指令 · 匹配全标签');
                 } else if (code === 'd') {
-                    $('#srhBox').tooltipster('content', '指令 · 匹配标题或描述搜索');
+                    $('#srhBox').tooltipster('content', '指令 · 匹配标题或描述');
                 } else {
                     $('#srhBox').tooltipster('content', '指令 · -t 部分标签、-o 全标签、-d 标题或描述');
                 }
@@ -331,7 +356,7 @@
 
         function showPics(title = '', reLoadList = ['main', 'header'], c = tmpPageData) {
             let rstHtml = '', kt;
-            let headerHtml = '<li><a href="javascript: isShowSettings();">搜索设置</a></li>';
+            let headerHtml = '';
             const typeName = {
                 "illustration": "图",
                 "manga": "漫",
@@ -413,18 +438,19 @@
                         kt = c['args']['ops']['method'];
                     }
                     kt = kt.replaceAll("'", "\\'").replaceAll("\"", "\\\"");
+
                     // 下载按钮
                     extra += '<a id="dl_' + data[i]['id'] + '" href="javascript: doDownloadPic(\'' + kt + '\', ' + data[i]['id'] + ', ' + String(i) + ');"><d class="tooltip" title="下载">' + typeName[data[i]['type']] + '</d></a>';
 
                     // 图片预览内容
-                    var extraText = '<a target="_blank" href=".?code=%40u%3d' + data[i]['author']['id'] + '%20-i">🔍作者插画</a> <a target="_blank" href=".?code=%40u%3d' + data[i]['author']['id'] + '%20-c">🔍作者漫画</a>';
+                    var extraText = '<a target="_blank" href=".?code=%40u%3d' + data[i]['author']['id'] + '%20-i">🔍作者插画</a> <a target="_blank" href=".?code=%40u%3d' + data[i]['author']['id'] + '%20-c">🔍作者漫画</a> <a href="javascript: doDownloadPic(\'' + kt + '\', ' + data[i]['id'] + ', ' + String(i) + ');">下载</a>';
 
                     if (data[i]['all']['meta_pages'].length > 0) {
                         extraText = '<a target="_blank" href=".?code=%40w%3d' + data[i]['id'] + '">👀查看</a> ' + extraText;
                     }
 
                     // 图片信息展示
-                    var desText = '<h2><a target="_blank" href="https://www.pixiv.net/artworks/' + data[i]['id'] + '">' + data[i]['title'] + '</a></h2><p>Created by <a target="_blank" href="https://www.pixiv.net/users/' + data[i]['author']['id'] + '">' + data[i]['author']['name'] + '</a> on ' + data[i]['created_time'] + '<br>#收藏' + data[i]['total_bookmarked'] + ' #浏览' + data[i]['total_viewed'] + '</p>';
+                    var desText = '<h2><a target="_blank" href="https://www.pixiv.net/artworks/' + data[i]['id'] + '">' + data[i]['title'] + '</a></h2><p>Created by <a target="_blank" href="https://www.pixiv.net/users/' + data[i]['author']['id'] + '">' + data[i]['author']['name'] + '</a> on ' + data[i]['created_time'] + '<br>收藏@' + data[i]['total_bookmarked'] + '，浏览@' + data[i]['total_viewed'] + '</p>';
                     //// 标签
                     var tagss = '<p style="max-width: 25%;">';
                     for (let kk = 0; kk < data[i]['tags'].length; kk++) {
@@ -438,8 +464,14 @@
                         desText = '';
                     }
 
+                    extraClass = "";
+
+                    // R18 过滤
+                    if (tmpSearchSettings["pixivbiu_displayIsR18"] !== 'on' && data[i]['all']['x_restrict'] > 0)
+                        extraClass += " mask-r18";
+
                     // 最终结果
-                    rstHtml += '<article id="art_' + data[i]['id'] + '" class="thumb"><a href="' + imgUrl + '" class="image"><img src="' + imgUrlCover + '" alt="' + data[i]['title'] + '" /></a>' + desText + '<p>' + extraText + '</p><section class="thumbAction">' + extra + '</section></article>';
+                    rstHtml += '<article id="art_' + data[i]['id'] + '" class="thumb"><a href="' + imgUrl + '" class="image' + extraClass + '"><img src="' + imgUrlCover + '" alt="' + data[i]['title'] + '" /></a>' + desText + '<p>' + extraText + '</p><section class="thumbAction">' + extra + '</section></article>';
                 }
 
                 // 一键下载

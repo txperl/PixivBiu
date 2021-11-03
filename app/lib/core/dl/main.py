@@ -13,7 +13,7 @@ class core_module_dl(interRoot):
         self.WAYS = {"aria2": Aria2Dler, "dl": DlDler, "dl-single": DlSingleDler}
         self.modName = None
         self.mod = None
-        self.sets = self.loadConfig(self.getENV("rootPath") + "config.yml")
+        self.sets = self.INS.conf.dict("biu_default")
         self.tasks = {}
         self._lock = threading.Lock()
         self._pool = ThreadPoolExecutor(max_workers=self.sets["biu"]["download"]["maxDownloading"])

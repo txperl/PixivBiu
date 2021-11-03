@@ -305,7 +305,8 @@ function doBookmark(id, action = 'add') {
         type: "GET",
         url: tURL,
         data: {
-            'workID': id
+            'workID': id,
+            'publicity': tmpSearchSettings['pixivbiu_actionType'] === 'private' ? 'private' : 'public'
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
@@ -340,7 +341,8 @@ function doFollow(id, action = 'add') {
         type: "GET",
         url: tURL,
         data: {
-            'userID': id
+            'userID': id,
+            'publicity': tmpSearchSettings['pixivbiu_actionType'] === 'private' ? 'private' : 'public'
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));

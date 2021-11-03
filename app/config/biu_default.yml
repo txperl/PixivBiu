@@ -1,0 +1,108 @@
+# It is the default configuration file for PixivBiu.
+# There is no English version yet... It will be available soon.
+# You can use the translation tool to read it, for now.
+
+## 系统相关 ##
+sys.host: "127.0.0.1:4001"
+  # 程序运行的地址，如果不是很懂请不要修改
+  # 不可带有 http:// 前缀
+
+sys.isDebug: false
+  # 调试模式
+  # true 为开启；false 为关闭
+
+sys.api: "public"
+  # 默认 api 模式
+  # public: 可以使用全功能，但必须需要代理（翻墙）
+  # byPassSni: 可以使用全功能，但无需代理（无需翻墙）
+
+sys.proxy: ""
+  # 本地代理服务监听地址
+  # 如 http://127.0.0.1:1080/
+  # 留空则程序会自动检测系统代理设置（仅 Windows、macOS）
+  # 填入 no 则不使用任何代理
+
+sys.language: ""
+  # 语言设置，留空为程序自动判断
+  # 可选：cn、en
+
+sys.theme: "multiverse"
+  # 默认主题
+  # 暂无其他，请保持默认为 multiverse
+
+sys.autoOpen: true
+  # 启动后自动打开程序运行网址
+
+
+## 搜索相关 ##
+biu.search.maxThreads: 8
+  # 搜索池最大线程数
+
+biu.search.loadCacheFirst: true
+  # 搜索时优先加载本地缓存
+  # true 为开启；false 为关闭
+
+
+## 下载相关 ##
+biu.download.mode: "dl-single"
+  # 下载模式
+  # dl-single: 程序单线程下载
+  # aria2: 使用 aria2 下载，如果启用此项，还需填写下方的 aria2Host、aria2Secret
+  # dl: [暂不推荐] 程序多线程下载，暂时不稳定
+
+biu.download.aria2Host: "localhost:6800"
+  # aria2 RPC 监听地址，如 localhost:6800
+
+biu.download.aria2Secret: ""
+  # aria2 RPC 密钥，如未设置请留空
+
+biu.download.maxDownloading: 8
+  # 最大同时下载任务数
+
+biu.download.saveURI: "{ROOTPATH}/downloads/{KT}/"
+  # 下载保存路径，以 / 结尾
+  # 不可使用 \ 符号，请将其替换为 / 或 \\
+  # 可选变量
+  # - {ROOTPATH}: 程序根目录
+  # - {HOMEPATH}: 用户主目录，可能为 /Users/user/、C:/Users/user/、/home/user/
+  # - {KT}: 搜索关键词
+  # - {title}: 作品标题
+  # - {work_id}: 作品 ID
+  # - {user_name}: 作者名称
+  # - {user_id}: 作者 ID
+  # - {type}: 作品类型
+  # - {date_image}: 作品的日期
+  # - {date_today}: 今天的日期
+
+biu.download.saveFileName: "{title}_{work_id}"
+  # 下载图片的标题
+  # 不可使用 \ 符号，请将其替换为 \\
+  # 可选变量
+  # - {title}: 作品标题
+  # - {work_id}: 作品 ID
+  # - {user_name}: 作者名称
+  # - {user_id}: 作者 ID
+  # - {type}: 作品类型
+  # - {date_image}: 作品的日期
+  # - {date_today}: 今天的日期
+
+biu.download.autoArchive: true
+  # 自动将拥有多张图片的作品归档（放入一个文件夹中）
+  # true 为开启；false 为关闭
+
+biu.download.autoDeterTheSame: true
+  # 自动判断下载目录中重名图片是否相同
+  # 若相同，则只保留一份；若不同，则自动将新图片重命名
+  # true 为开启；false 为关闭
+
+biu.download.whatsUgoira: "webp"
+  # 将动图转换为指定格式
+  # 可选 webp, gif
+
+biu.download.imageHost: ""
+  # 下载时使用的 Pixiv 图片服务器
+  # 留空则程序自动判断
+  # 参考如下：
+  # https://i.pximg.net 官方图片服务器（需代理）
+  # https://i.pixiv.cat 第三方反代图片服务器（需代理）
+  # https://i.pixiv.re 第三方反代图片服务器（无需代理）

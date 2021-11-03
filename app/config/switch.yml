@@ -1,20 +1,13 @@
 # 开启或停用模块
 # true 为开启，false 为停用
 OnOff:
-  core:
-    _cache.py: false
+  ins:
+    cache.py: false
   pre:
     rate_limit.py: false
       # rate limit 预处理，开启后请修改下方相关配置
     verify_referrer.py: false
       # 简单防盗链预处理，开启后请修改下方相关配置
-  plugin:
-    do_dl.py: true
-    do_dl_stop.py: true
-    do_follow.py: true
-    do_mark.py: true
-    do_unfollow.py: true
-    do_unmark.py: true
 
 # 预处理安全相关
 Security:

@@ -129,6 +129,8 @@ if __name__ == "__main__":
             finder.run_script(x[0])
             for name, mod in finder.modules.items():
                 module = name.split(".")[0] if os.name == "nt" else name
+                if module[0] == "_" and module[1:] in hiddenImport:
+                    continue
                 if module not in hiddenImport:
                     hiddenImport.append(module)
     for x in hiddenImport:
@@ -150,7 +152,7 @@ if __name__ == "__main__":
         deleteDIR(DIST_PATH)
 
     # 复制 PUBLIC 文件
-    copyDIR(PUBLIC_PATH, DIST_PATH, True, ["cache", ".token.json", ".DS_Store"])
+    copyDIR(PUBLIC_PATH, DIST_PATH, True, ["cache", "__pycache__", ".token.json", ".DS_Store"])
 
     # PyInstaller 打包
     os.system("pyinstaller%s %s" % (forarg, os.path.join(CODE_PATH, "main.py")))

@@ -6,7 +6,7 @@
 }
 
 .aniMoveDown {
-    margin-top: 120px !important;
+    margin-top: 100% !important;
 }
 
 .search-area {
@@ -99,14 +99,16 @@
     border: 25px solid #880E4F !important;
 }
 
-.search-area #settings {
-    display: none;
-    padding: 1em 1.35em 0 1.35em;
-    z-index: -999;
-    position: absolute;
+.mask-r18 {
+    /* opacity: 0.05 !important; */
+    filter: blur(15px) !important;
 }
 
-.search-area #settings>input {
+.settings section {
+    margin: 0 0 1.2em 0;
+}
+
+.settings input {
     -moz-appearance: none;
     -webkit-appearance: none;
     -ms-appearance: none;
@@ -114,15 +116,12 @@
     background: #34363b;
     border: 0;
     border-radius: 0;
-    color: #a0a0a1;
-    /* display: block; */
     outline: 0;
-    padding: 0 1em;
     text-decoration: none;
-    width: 200px;
+    width: 49%;
     padding: .5em;
     color: #fff;
-    margin: 0 10px 20px 0;
+    margin: 5px 0;
 }
 
 #headerGrpIdxBox {
@@ -190,9 +189,6 @@
     }
     .search-area {
         padding: 100px 1em 3em 1em;
-    }
-    .aniMoveDown {
-        margin-top: 150px !important;
     }
     .poptrox-popup .caption {
         display: block !important;

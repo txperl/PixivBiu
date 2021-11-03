@@ -1,3 +1,22 @@
+// 获取版本号
+function getVersion() {
+    $.ajax({
+        type: "GET",
+        url: 'api/biu/get/outdated/',
+        success: function (rep) {
+            rep = jQuery.parseJSON(JSON.stringify(rep));
+            if (rep.code) {
+                if (rep.msg.latest) {
+                    $('#hint-current-verson').html(rep.msg.current);
+                }
+            }
+        },
+        error: function (e) {
+            console.log(e);
+        }
+    });
+}
+
 // 检测更新
 function checkOutdated() {
     $('#btnCheckUP').tooltipster('content', '检测中...');
@@ -7,7 +26,7 @@ function checkOutdated() {
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                if (rep.msg) {
+                if (rep.msg.latest) {
                     $('#btnCheckUP').tooltipster('content', '哇哦，这就是最新版本哦');
                 } else {
                     $('#btnCheckUP').attr('onclick', 'javascript: window.open("https://biu.tls.moe/", "_blank")');
@@ -25,7 +44,7 @@ function checkOutdated() {
 // 结果 HTML 内容加载
 function btnGetHTML(type) {
     if (type === 'none') {
-        return '<article class="thumb"><a href="./" class="imageBtn"><img src="https://i.loli.net/2018/08/09/5b6bff9e96b22.jpg" alt="无"" /></a><h2>什么都没有找到...</h2><p>这里什么都没有哦~</p></article>';
+        return '<article class="thumb"><a href="./" class="imageBtn"><img src="static/multiverse/images/tea.jpg" alt="无"" /></a><h2>什么都没有找到...</h2><p>这里什么都没有哦~</p></article>';
     }
 }
 
@@ -82,17 +101,17 @@ function loadTooltip(c = '.tooltip') {
 }
 
 // 搜索设置显示动画
-function isShowSettings() {
-    if ($('#settings').css('display') === 'none') {
-        $('#main').addClass('aniMoveDown');
-        $('#settings').css('z-index', '999');
-        $('#settings').delay(300).fadeIn();
-    } else {
-        $('#settings').fadeOut(300);
-        $('#settings').css('z-index', '-999');
-        $('#main').removeClass('aniMoveDown');
-    }
-}
+// function isShowSettings() {
+//     if ($('#settings').css('display') === 'none') {
+//         $('#main').addClass('aniMoveDown');
+//         $('#settings').css('z-index', '999');
+//         $('#settings').delay(300).fadeIn();
+//     } else {
+//         $('#settings').fadeOut(300);
+//         $('#settings').css('z-index', '-999');
+//         $('#main').removeClass('aniMoveDown');
+//     }
+// }
 
 // 搜索动画
 function cssShowLoading() {

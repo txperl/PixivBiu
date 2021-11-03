@@ -17,7 +17,8 @@ HASH_SECRET = "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c"
 
 
 class tokenGetter(object):
-    def __init__(self, requests=requests):
+    def __init__(self, lang, requests=requests):
+        self.lang = lang
         self.code = ""
         self.requests = requests
         self.code_verifier, self.code_challenge = self.oauth_pkce(self.s256)
@@ -51,20 +52,16 @@ class tokenGetter(object):
         if newCode is False and self.code != "":
             code = self.code
         else:
-            print("[Login] 请按以下步骤进行操作:")
-            print("注意: 程序每次启动时要求获取的 Code 都不同，不可复用之前获取到的，且 Code 不带有引号")
-            print(f"1. 访问「{LOGIN_URL}?{urlencode(self.login_params)}」")
-            print(
-                "   (若您别无他法，还是不能访问以上网址，那可参考此方式 https://github.com/mashirozx/Pixiv-Nginx 先进行配置)"
-            )
-            print("2. 打开浏览器的「Dev Console / 开发者工具 / F12」，切换至「Network / 网络」标签")
-            print("3. 开启「Preserve log / 持续记录」")
-            print("4. 在「Filter / 筛选」文本框中输入「callback?」")
-            print("5. 登录您的 Pixiv 账号")
-            print(
-                "6. 成功登录后，会出现一个类似「https://app-api.pixiv.net/.../callback?state=...&code=...」的字段"
-            )
-            print("7. 将「code」后面的参数输入本程序")
+            print(self.lang("login.hint_intro_step_head"))
+            print(self.lang("login.hint_intro_step_body"))
+            print(self.lang("login.hint_intro_step_1") % (LOGIN_URL, urlencode(self.login_params)))
+            print(self.lang("login.hint_intro_step_1_extra"))
+            print(self.lang("login.hint_intro_step_2"))
+            print(self.lang("login.hint_intro_step_3"))
+            print(self.lang("login.hint_intro_step_4"))
+            print(self.lang("login.hint_intro_step_5"))
+            print(self.lang("login.hint_intro_step_6"))
+            print(self.lang("login.hint_intro_step_7"))
             code = input("Code: ").strip()
         self.code = code
 
