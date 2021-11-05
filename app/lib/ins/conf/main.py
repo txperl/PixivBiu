@@ -28,21 +28,22 @@ class InsConf(interRoot):
         """
         Export the final dict data that includes customized and default configs.
         Of course, if the customized setting item conflicts with the default, only the customized one is retained.
+        Environment > Custom > Default.
         :param configName: name of config file(the same with "./app/config/xxx.yml"), customized one is called "config"
         :param flat: weather to be formatted as a flat-like dict
         :return: final config dict
         """
-        dic = self.get_wrapper(configName)
-        if dic is None:
+        defaultDic = self.get_wrapper(configName)
+        if defaultDic is None:
             return None
-        customDic = self.get_wrapper("config").format2flat()
-        finaleDic = ConfigWrapper(config=dic.dict(), error=False)
-        for key in customDic:
-            if customDic[key] != ConfigWrapper.SIGN_EMPTY:
-                finaleDic.set(key, customDic[key])
-        if flat:
-            return finaleDic.format2flat()
-        return finaleDic.dict()
+        finalDic = ConfigWrapper(config=defaultDic.dict(), error=False)
+        for key in defaultDic.format2flat():
+            maybe = self.get("config", key, default=ConfigWrapper.SIGN_EMPTY)
+            if maybe != ConfigWrapper.SIGN_EMPTY:
+                finalDic.set(key, maybe)
+        if flat is True:
+            return finalDic.format2flat()
+        return finalDic.dict()
 
     def get_wrapper(self, configName: str, default=None):
         """
@@ -55,23 +56,42 @@ class InsConf(interRoot):
             return self._configs[configName]
         return default
 
+    def get_bundle(self, configName: str, beforeKey: str, default=None, func=True):
+        """
+        Get the bundle of config.
+        :param configName: name of config file
+        :param beforeKey: header
+        :param default: default value
+        :param func: weather to return a lambda function
+        :return: dict or lambda function
+        """
+        if func:
+            return lambda key: self.get(configName, f"{beforeKey}.{key}", default=default)
+        else:
+            return self.get(configName, beforeKey, default=default)
+
     def get(self, configName: str, key: str, default=None):
         """
         Get the setting item via $subKey$ in the config called $key$.
         If there is a hierarchical relationship in the subKey, use dot instead. E.g, ["a"]["b"] -> "a.b".
         If the setting item exists in customized config, system will return it instead of the one in default config.
+        Environment > Custom > Default.
         :param configName: name of config file
         :param key: key of the setting item in the dict
         :param default: the default value returned if the key doesn't exist
         :return: the value of setting item
         """
-        dic = self.get_wrapper(configName)
-        if dic is None:
+        envVar = os.environ.get(key, ConfigWrapper.SIGN_EMPTY)
+        if envVar != ConfigWrapper.SIGN_EMPTY:
+            if envVar in ("true", "false"):
+                envVar = True if envVar == "true" else False
+            return envVar
+        defaultDic = self.get_wrapper(configName)
+        if defaultDic is None:
             return default
-        customDic = self.get_wrapper("config")
-        customRst = customDic.get(key)
+        customRst = self.get_wrapper("config").get(key)
         if customRst is None:
-            return dic.get(key, default)
+            return defaultDic.get(key, default)
         return customRst
 
     def set(self, key: str, value: any):

@@ -40,7 +40,7 @@ if __name__ == '__main__':
     SETS = classRoot.osGet("LIB_INS", "conf").dict("biu_default")
 
     # 调整日志等级
-    if not SETS["sys"]["isDebug"]:
+    if not SETS["sys"]["debug"]:
         cli = sys.modules['flask.cli']
         cli.show_server_banner = lambda *x: None
         logging.getLogger("werkzeug").setLevel(logging.ERROR)
@@ -52,7 +52,7 @@ if __name__ == '__main__':
         app.run(
             host=SETS["sys"]["host"].split(":")[0],
             port=SETS["sys"]["host"].split(":")[1],
-            debug=SETS["sys"]["isDebug"],
+            debug=SETS["sys"]["debug"],
             threaded=True,
             use_reloader=False,
             # ssl_context="adhoc"

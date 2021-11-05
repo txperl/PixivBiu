@@ -1,5 +1,3 @@
-# coding=utf-8
-
 import base64
 import pickle
 import threading
@@ -8,8 +6,8 @@ import time
 from altfe.interface.root import interRoot
 
 
-@interRoot.bind("cache", "LIB_CORE")
-class core_module_cache(object):
+@interRoot.bind("cache", "LIB_INS")
+class InsCache(object):
     def __init__(self):
         self._check_time = 5
         self._cache = {}

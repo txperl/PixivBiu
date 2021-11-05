@@ -7,7 +7,7 @@ sys.host: "127.0.0.1:4001"
   # 程序运行的地址，如果不是很懂请不要修改
   # 不可带有 http:// 前缀
 
-sys.isDebug: false
+sys.debug: false
   # 调试模式
   # true 为开启；false 为关闭
 

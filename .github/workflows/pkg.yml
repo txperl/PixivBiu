@@ -52,10 +52,9 @@ jobs:
           cp -r ./app/ ./.pkg/code/app/
           cp ./main.py ./.pkg/code/
           cp -r ./usr/ ./.pkg/public/usr/
-          cp ./app/config/biu_default.yml ./.pkg/public/
+          cp ./app/config/biu_default.yml ./.pkg/public/config.yml
           cp ./LICENSE ./.pkg/public/
           cp ./README.md ./.pkg/public/
-          mv ./.pkg/public/biu_default.yml ./.pkg/public/config.yml
 
       - name: Setup Python 3.7
         uses: actions/setup-python@v2.2.2

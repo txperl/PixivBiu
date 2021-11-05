@@ -13,7 +13,7 @@ class ConfigWrapper(object):
     def __init__(self, path=None, config=None, error=True):
         if config is None:
             config = interRoot.loadConfig(path)
-            if config is False:
+            if config is False or config is None:
                 if error:
                     raise FileNotFoundError(errno.ENOENT, "Cannot load the language file", path)
                 else:
