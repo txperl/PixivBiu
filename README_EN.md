@@ -19,7 +19,7 @@ PixivBiu is a nice Pixiv **assistant** tool.
 
 * Install dependencies, run `pip install -r requirements.txt`
   + [Flask](https://github.com/pallets/flask)
-  + [requirements](https://github.com/psf/requests)
+  + [requests](https://github.com/psf/requests)
   + [PyYAML](https://github.com/yaml/pyyaml)
   + [Pillow](https://github.com/python-pillow/Pillow)
   + [PixivPy](https://github.com/upbit/pixivpy)

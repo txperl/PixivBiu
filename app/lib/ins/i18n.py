@@ -10,7 +10,7 @@ class InsI18n(classRoot):
     def __init__(self):
         self.rootLangFolderPath = self.getENV("rootPathFrozen") + "app/config/language/"
         self.langCode = self.__deter_lang_code()
-        self._lang = ConfigWrapper(self.rootLangFolderPath + self.langCode + ".yml")
+        self._lang = ConfigWrapper(self.rootLangFolderPath + self.langCode + ".yml", error=False)
 
     def __deter_lang_code(self, code_=None):
         """

@@ -1,3 +1,4 @@
+import ast
 import errno
 
 from altfe.interface.root import interRoot
@@ -118,3 +119,14 @@ class ConfigWrapper(object):
                     now.update({subKey: {}})
                 now = now[subKey]
         return r
+
+    @staticmethod
+    def literal_eval(_: str):
+        if _ == "false":
+            return False
+        if _ == "true":
+            return True
+        try:
+            return ast.literal_eval(_)
+        except:
+            return _
