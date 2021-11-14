@@ -32,10 +32,13 @@ class common_loginHelper(interRoot):
         URLS = (
             "https://public-api.secure.pixiv.net",
             "https://1.0.0.1/dns-query",
-            "https://1.1.1.1/dns-query",
+            "https://dns.alidns.com/dns-query",
+            "https://doh.dns.sb/dns-query",
+            "https://doh.opendns.com/dns-query",
             "https://[2606:4700:4700::1001]/dns-query",
             "https://[2606:4700:4700::1111]/dns-query",
-            "https://cloudflare-dns.com/dns-query"
+            "https://cloudflare-dns.com/dns-query",
+            "https://dns.google/dns-query"
         ) if URLS is None else URLS
         proxy = self.STATIC.util.getSystemProxy(platform.system()) if proxy_ == "auto" else proxy_
         if silent is False:

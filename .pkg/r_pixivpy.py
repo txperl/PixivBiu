@@ -20,10 +20,13 @@ class ByPassSniApi(AppPixivAPI):
         """
         URLS = (
             "https://1.0.0.1/dns-query",
-            "https://1.1.1.1/dns-query",
+            "https://dns.alidns.com/dns-query",
+            "https://doh.dns.sb/dns-query",
+            "https://doh.opendns.com/dns-query",
             "https://[2606:4700:4700::1001]/dns-query",
             "https://[2606:4700:4700::1111]/dns-query",
             "https://cloudflare-dns.com/dns-query",
+            "https://dns.google/dns-query"
         )
         params = {
             "ct": "application/dns-json",
