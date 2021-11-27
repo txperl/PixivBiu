@@ -103,20 +103,31 @@
                     <section>
                         <h2>搜索</h2>
                         <input id="settingsPageNum" class="tooltip" placeholder="每组页数" autocomplete="off"
-                            title="单次搜索页数，建议参数不要过大">
+                               title="单次搜索页数，建议参数不要过大">
                         <input id="settingsSearchMode" class="tooltip" placeholder="搜索模式" autocomplete="off"
-                            title="tag: 匹配部分标签（默认），otag: 全标签，des: 标题或描述">
+                               title="tag: 匹配部分标签（默认），otag: 全标签，des: 标题或描述">
                         <input id="settingsSortMode" class="tooltip" placeholder="排序模式" autocomplete="off"
-                            title="0: 按收藏数排序，1: 按人气（浏览数）排序">
+                               title="0: 按收藏数排序，1: 按人气（浏览数）排序">
                         <input id="settingsIsAllSort" class="tooltip" placeholder="更多排序" autocomplete="off"
-                            title="为所有结果排序。on: 开启，off: 关闭（关闭时仅为关键词搜索排序）">
+                               title="为所有结果排序。on: 开启，off: 关闭（关闭时仅为关键词搜索排序）">
                     </section>
                     <section>
                         <h2>图片</h2>
                         <input id="settingsIsOriPic" class="tooltip" placeholder="大图预览" autocomplete="off"
-                            title="在图片详情页显示较大尺寸的图片。on: 开启，off: 关闭（若图片加载时间过长，建议关闭）">
+                               title="在图片详情页显示较大尺寸的图片。on: 开启，off: 关闭（若图片加载时间过长，建议关闭）">
                         <input id="settingsRvrProxyUrl" class="tooltip" placeholder="图片反代地址" autocomplete="off"
-                            title="Pixiv 图片反向代理地址（如果不是很懂请勿修改）">
+                               title="Pixiv 图片反向代理地址（如果不是很懂请勿修改）">
+                    </section>
+                    <section>
+                        <h2>下载</h2>
+                        <input id="settingsIsDownloadMode" class="tooltip" placeholder="下载方式" autocomplete="off"
+                               title="下载方式。dl-single：默认单线程下载，aria2：使用 aria2 下载，如果启用此项，还需填写下方的 aria2Host、aria2Secret，dl：多线程下载（不稳定）">
+                        <input id="settingsaria2Host" class="tooltip" placeholder="aria2 RPC 监听地址" autocomplete="off"
+                               title="默认为localhost:6800">
+                        <input id="settingsaria2Secret" class="tooltip" placeholder="aria2 RPC 密钥" autocomplete="off"
+                               title="默认为空">
+                        <input id="settingsDownloadPath" class="tooltip" placeholder="下载地址" autocomplete="off"
+                               title="默认为./Download/">
                     </section>
                 </div>
                 <div class="settings">
@@ -212,6 +223,10 @@
             '#settingsSearchMode': ['pixivbiu_searchMode', 'tag', '搜索模式'],
             '#settingsActionType': ['pixivbiu_actionType', 'public', '操作类型'],
             '#settingsRvrProxyUrl': ['pixivbiu_RvrProxyUrl', 'https://i.pixiv.re', '图片反代地址'],
+            '#settingsDownloadMode': ['pixivbiu_DownloadMode', '单线程', '下载方式'],
+            '#settingsaria2Host': ['pixivbiu_aria2Host', 'localhost:6800', 'RPC地址'],
+            '#settingsaria2Secret': ['pixivbiu_aria2Secret', '单线程', 'RPC密码'],
+            '#settingsDownloadPath': ['pixivbiu_DownloadPath', './Download', '下载地址'],
         };
 
         $(document).ready(function () {
