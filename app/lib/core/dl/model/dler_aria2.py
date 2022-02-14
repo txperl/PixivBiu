@@ -21,7 +21,6 @@ class Aria2Dler(Dler):
     def run(self):
         args = self.args.copy()
         args.update(self._dlArgs["@aria2"])
-
         parms = [
             self._dlUrl if type(self._dlUrl) == list else [self._dlUrl],
             dict(args),

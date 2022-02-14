@@ -257,12 +257,10 @@ class doDownload(interRoot):
                 self.STATIC.file.rm(os.path.join(this._dlSaveDir, "ugoira.zip"))
                 if self.CORE.biu.sets["biu"]["download"]["whatsUgoira"] == "gif":
                     self.STATIC.file.cov2gif(os.path.join(this._dlSaveDir, this._dlArgs["@ugoira"]["name"] + ".gif"),
-                                             pl,
-                                             dl)
+                                             pl, dl)
                 else:
                     self.STATIC.file.cov2webp(os.path.join(this._dlSaveDir, this._dlArgs["@ugoira"]["name"] + ".webp"),
-                                              pl,
-                                              dl)
+                                              pl, dl)
             except:
                 return False
             return True

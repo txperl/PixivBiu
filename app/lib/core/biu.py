@@ -221,7 +221,7 @@ class core_module_biu(interRoot):
         """
         self.__clear()
         if self.biuInfo["version"] == -1:
-            des = self.STATIC.localMsger.red({self.lang("outdated.fail_to_check")}, header=False, out=False)
+            des = self.STATIC.localMsger.red(self.lang("outdated.fail_to_check"), header=False, out=False)
         else:
             if self.ver >= int(self.biuInfo["version"]):
                 des = self.lang("outdated.hint_latest")

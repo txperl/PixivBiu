@@ -96,7 +96,6 @@ class core_module_dl(interRoot):
         if key not in self.tasks:
             return {}
 
-        r = {}
         totalSize = 0
         totalIngSize = 0
         totalIngSpeed = 0
@@ -109,11 +108,9 @@ class core_module_dl(interRoot):
             totalIngSize += x["ingSize"]
             totalIngSpeed += x["ingSpeed"]
 
-        r = {
+        return {
             "totalSize": totalSize,
             "totalIngSize": totalIngSize,
             "totalIngSpeed": totalIngSpeed,
             "tasks": tmp
         }
-
-        return r

@@ -85,13 +85,19 @@ class classRoot(object):
         if not os.path.exists(uri):
             return default
         with open(uri, "r", encoding="UTF-8") as f:
-            sfx = uri.split(".")[-1]
-            if sfx == "json":
-                return json.load(f)
-            elif sfx == "yml" or sfx == "yaml":
-                return yaml.safe_load(f)
-            else:
-                return f.read()
+            try:
+                sfx = uri.split(".")[-1]
+                if sfx == "json":
+                    final = json.load(f)
+                elif sfx == "yml" or sfx == "yaml":
+                    final = yaml.safe_load(f)
+                else:
+                    final = f.read()
+                if final is None:
+                    return default
+                return final
+            except:
+                return default
 
 
 class interRoot(classRoot):

@@ -36,9 +36,9 @@ class ConfigWrapper(object):
         for key in dic:
             item = dic[key]
             if type(item) != dict:
-                r.update({".".join(finalKeys + [key]): item})
+                r.update({".".join(finalKeys + [str(key)]): item})
             else:
-                r.update(self.format2flat(item, finalKeys + [key]))
+                r.update(self.format2flat(item, finalKeys + [str(key)]))
         return r
 
     def dict(self):

@@ -106,3 +106,7 @@ biu.download.imageHost: ""
   # https://i.pximg.net 官方图片服务器（需代理）
   # https://i.pixiv.cat 第三方反代图片服务器（需代理）
   # https://i.pixiv.re 第三方反代图片服务器（无需代理）
+
+
+# 私密
+secret.key.apiSauceNAO: ""
