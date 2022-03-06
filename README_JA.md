@@ -1,6 +1,6 @@
 # PixivBiu
 
-PixivBiuはPixivのための **補助的な** ツールです。
+PixivBiuはPixivのための**補助的な**ツールです。
 
 中文的 README 在[这里](./README.md)。
 
@@ -8,9 +8,9 @@ English README is [here](./README_EN.md).
 
 ## 機能
 
-* お気に入り数(会員除外可)順や人気順でのPixiv検索
+* お気に入り数(会員の除外可)順や人気順でのPixiv検索
 * イラストや漫画、うごイラを含むオリジナル画質での画像ダウンロード
-* シングル/マルチスレッドや[aria2](https://github.com/aria2/aria2)など複数のダウンロード方法に対応
+* シングル/マルチスレッドや[aria2](https://github.com/aria2/aria2)などでのダウンロード
 * 指定したユーザの投稿作品/ブックマーク/フォロワー/関連するおすすめなどの取得
 * 当日/週間/月間別などでのランキングの取得
 * ブックマークやフォロー中のユーザなどの取得
@@ -21,7 +21,7 @@ English README is [here](./README_EN.md).
 
 * 依存ライブラリのインストール: `pip install -r requirements.txt`
   * [Flask](https://github.com/pallets/flask), [requests](https://github.com/psf/requests), [PyYAML](https://github.com/yaml/pyyaml), [Pillow](https://github.com/python-pillow/Pillow), [PixivPy](https://github.com/upbit/pixivpy), [PySocks](https://github.com/Anorov/PySocks)
-* `./config.yml` の設定 (凡例: [default configuration file](./app/config/biu_default.yml))
+* `./config.yml` の設定 (例: [デフォルトの設定ファイル](./app/config/biu_default.yml))
 * 実行:  `python main.py`
 * 実行中のページを開く (デフォルトのURL: `http://127.0.0.1:4001/`)
 
@@ -58,5 +58,5 @@ Windows版とMac版が利用可能ですが、もし必要であれば自分で�
 ### 告知事項
 
 * 本プログラム (PixivBiu) は学習と交流のみを目的としておりますので、当初の目的を達成した後は自分で削除してください。
-* いかなる使用後の予期せぬ問題は作者には一切関係なく、また作者は一切の責任を負いません。
+* 使用後の如何なる問題も作者には一切関係なく、また作者は一切の責任を負いません。
 * [MITライセンス](https://choosealicense.com/licenses/mit/)です。
