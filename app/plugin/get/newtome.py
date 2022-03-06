@@ -47,13 +47,13 @@ class getNewWorksFromFollowings(interRoot):
                 r = sorted(r, key=lambda kv: kv["total_view"], reverse=True)
             else:
                 r = sorted(r, key=lambda kv: kv["total_bookmarks"], reverse=True)
-        self.CORE.biu.appWorksPurer(r)
+        self.CORE.biu.app_works_purer(r)
 
         return {"api": "app", "data": r}
 
     def __thread_gank(self, kw):
         try:
-            data = self.CORE.biu.apiAssist.illust_follow(**kw)
+            data = self.CORE.biu.api.illust_follow(**kw)
         except:
             return []
         if "illusts" in data and len(data["illusts"]) != 0:

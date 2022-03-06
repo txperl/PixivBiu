@@ -11,10 +11,10 @@ sys.debug: false
   # 调试模式
   # true 为开启；false 为关闭
 
-sys.api: "public"
-  # 默认 api 模式
-  # public: 可以使用全功能，但必须需要代理（翻墙）
-  # byPassSni: 可以使用全功能，但无需代理（无需翻墙）
+sys.apiRoute: "direct"
+  # 默认 api 线路
+  # direct: 稳定，需要代理（翻墙）
+  # bypassSNI: 稳定性一般，但无需代理（无需翻墙）
 
 sys.proxy: ""
   # 本地代理服务监听地址

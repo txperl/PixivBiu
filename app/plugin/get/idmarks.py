@@ -8,7 +8,7 @@ class getIDWorks(interRoot):
             args = self.STATIC.arg.getArgs(
                 "userMarks",
                 [
-                    "userID=%s" % self.CORE.biu.apiAssist.user_id,
+                    "userID=%s" % self.CORE.biu.api.user_id,
                     "restrict=public",
                     "&sortMode=0",
                     "&isSort=0",
@@ -45,13 +45,13 @@ class getIDWorks(interRoot):
         argg = funArg.copy()
         argg["max_bookmark_id"] = mstart
         for p in range(ttlPage):
-            t = self.CORE.biu.apiAssist.user_bookmarks_illust(**argg)
+            t = self.CORE.biu.api.user_bookmarks_illust(**argg)
             if "illusts" in t and len(t["illusts"]) != 0:
                 r = r + t["illusts"]
                 if not t["next_url"]:
                     opsArg["markNex"] = "None"
                     break
-                argg = self.CORE.biu.apiAssist.parse_qs(t["next_url"])
+                argg = self.CORE.biu.api.parse_qs(t["next_url"])
                 opsArg["markNex"] = argg["max_bookmark_id"]
             else:
                 opsArg["markNex"] = "None"
@@ -62,6 +62,6 @@ class getIDWorks(interRoot):
                 r = sorted(r, key=lambda kv: kv["total_view"], reverse=True)
             else:
                 r = sorted(r, key=lambda kv: kv["total_bookmarks"], reverse=True)
-        self.CORE.biu.appWorksPurer(r)
+        self.CORE.biu.app_works_purer(r)
 
         return {"api": "app", "data": r}

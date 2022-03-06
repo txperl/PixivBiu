@@ -23,14 +23,14 @@ class getRank(interRoot):
         }
 
     def one(self, opsArg, funArg):
-        r = self.CORE.biu.apiAssist.illust_detail(funArg["workID"])
+        r = self.CORE.biu.api.illust_detail(funArg["workID"])
 
         if "illust" not in r:
             self.code = 0
             return "error"
         r = [r["illust"]]
 
-        self.CORE.biu.appWorksPurer(r)
+        self.CORE.biu.app_works_purer(r)
 
         if len(r[0]["all"]["meta_pages"]) > 0:
             num = len(r[0]["all"]["meta_pages"])

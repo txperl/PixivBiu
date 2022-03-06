@@ -22,5 +22,5 @@ class doFollow(interRoot):
         self.STATIC.arg.argsPurer(
             funArg, {"userID": "user_id", "publicity": "restrict"}
         )
-        r = self.CORE.biu.apiAssist.user_follow_add(**funArg)
+        r = self.CORE.biu.api.user_follow_add(**funArg)
         return {"api": "app", "data": r}

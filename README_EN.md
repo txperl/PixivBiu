@@ -31,6 +31,10 @@ There are only Windows and macOS version available here, so please build yoursel
 
 They can be downloaded in [GitHub Releases](https://github.com/txperl/PixivBiu/releases), or [here](https://biu.tls.moe/#/lib/dl).
 
+### Docker
+
+[Docker_Buildx_PixivBiu](https://github.com/zzcabc/Docker_Buildx_PixivBiu) by [zzcabc](https://github.com/zzcabc), thanks!
+
 ## Document
 
 Currently, there are only **usage and API** documents, please visit [here](https://biu.tls.moe/) if you need it.

@@ -15,12 +15,11 @@ from altfe.interface.root import interRoot
 @interRoot.bind("biu", "LIB_CORE")
 class core_module_biu(interRoot):
     def __init__(self):
-        self.ver = 202001
+        self.ver = 203000
         self.place = "local"
         self.sysPlc = platform.system()
-        self.apiType = "public"
+        self.api_route = "direct"
         self.api = None
-        self.apiAssist = None
         self.sets = self.INS.conf.dict("biu_default")
         self.pximgURL = "https://i.pximg.net"
         self.proxy = ""
@@ -38,19 +37,19 @@ class core_module_biu(interRoot):
         self.pool_srh.shutdown(False)
 
     def auto(self):
-        self.__prepConfig()  # 加载配置项
-        self.__preCheck()  # 运行前检测
-        self.proxy = self.__getSystemProxy()  # 加载代理地址
-        self.biuInfo = self.__getBiuInfo()  # 加载联网信息
-        self.__checkForUpdate()  # 检测更新
-        if self.apiType != "byPassSni":
-            self.__checkNetwork()  # 检测网络是否可通
+        self.__load_config()  # 加载配置项
+        self.__pre_check()  # 运行前检测
+        self.proxy = self.__get_system_proxy()  # 加载代理地址
+        self.biuInfo = self.__get_biu_info()  # 加载联网信息
+        self.__check_for_update()  # 检测更新
+        if self.api_route != "bypassSNI":
+            self.__check_out_network()  # 检测网络是否可通
         self.__login()  # 登录
-        self.__setImageHost()  # 设置图片服务器地址
-        self.__showRdyInfo()  # 展示初始化完成信息
+        self.__set_image_host()  # 设置图片服务器地址
+        self.__show_ready_info()  # 展示初始化完成信息
         return self
 
-    def __prepConfig(self):
+    def __load_config(self):
         """
         加载 pixivbiu 的全局配置项。
         """
@@ -58,9 +57,9 @@ class core_module_biu(interRoot):
             self.STATIC.localMsger.red(self.lang("config.fail_to_load_config"))
             input(self.lang("common.press_to_exit"))
             sys.exit(0)
-        self.apiType = self.sets["sys"]["api"]
+        self.api_route = self.sets["sys"]["apiRoute"]
 
-    def __preCheck(self):
+    def __pre_check(self):
         """
         进行运行前的检测，目前有如下功能：
         1. 检测端口是否已被占用
@@ -71,23 +70,21 @@ class core_module_biu(interRoot):
             input(self.lang("common.press_to_exit"))
             sys.exit(0)
 
-    def __getSystemProxy(self):
+    def __get_system_proxy(self):
         """
         获取系统代理设置。
         :return:
         """
         if self.sets["sys"]["proxy"] == "no":
             return ""
-        if self.apiType == "byPassSni" or self.sets["sys"]["proxy"] != "":
+        if self.sets["sys"]["proxy"] != "":
             return self.sets["sys"]["proxy"]
+        proxy_address = self.STATIC.util.getSystemProxy(self.sysPlc)
+        if proxy_address != "":
+            self.STATIC.localMsger.msg(f"{self.lang('config.hint_proxy_in_use')}: {proxy_address}")
+        return proxy_address
 
-        url = self.STATIC.util.getSystemProxy(self.sysPlc)
-        if url != "":
-            self.STATIC.localMsger.msg(f"{self.lang('config.hint_proxy_in_use')}: {url}")
-
-        return url
-
-    def __getBiuInfo(self):
+    def __get_biu_info(self):
         """
         获取联网 pixivbiu 相关信息。
         """
@@ -98,7 +95,7 @@ class core_module_biu(interRoot):
         except:
             return {"version": -1, "pApiURL": "public-api.secure.pixiv.net"}
 
-    def __checkForUpdate(self):
+    def __check_for_update(self):
         """
         检测是否有更新，仅本地版本号对比。
         """
@@ -109,7 +106,7 @@ class core_module_biu(interRoot):
                 f"{self.lang('outdated.hint_exist_new')}@{self.biuInfo['version']}! {self.lang('tell_to_download')}")
             input(self.lang("outdated.press_to_use_old"))
 
-    def __checkNetwork(self):
+    def __check_out_network(self):
         """
         检测网络是否可通。若不可通，则启用 bypass 模式。
         """
@@ -123,7 +120,7 @@ class core_module_biu(interRoot):
                 requests.get("https://pixiv.net/", timeout=3, verify=False)
         except:
             self.STATIC.localMsger.msg(self.lang("network.fail_pixiv_and_use_bypass"))
-            self.apiType = "byPassSni"
+            self.api_route = "bypassSNI"
             self.proxy = ""
 
     def __login(self, refreshToken=None, retry=True):
@@ -131,13 +128,9 @@ class core_module_biu(interRoot):
         登录函数。
         """
         try:
-            tokenFile = self.STATIC.file.ain(
+            temp = self.STATIC.file.ain(
                 self.getENV("rootPath") + "usr/.token.json") if refreshToken is None else {"token": refreshToken}
-            args = {"token": tokenFile["token"], }
-            if self.apiType == "app" or self.apiType == "byPassSni":
-                self.__loginAppAPI(**args)
-            else:
-                self.__loginPublicAPI(**args)
+            self.__login_app_api(token=temp["token"])
         except Exception as e:
             if retry is False:
                 self.STATIC.localMsger.error(e)
@@ -165,47 +158,23 @@ class core_module_biu(interRoot):
             )
             self.__login(retry=False)
 
-    def __loginPublicAPI(self, username=None, password=None, token=None):
+    def __login_app_api(self, token):
         """
-        public 模式登录。
+        app 模式登录。
         """
         _REQUESTS_KWARGS = {}
         if self.proxy != "":
             _REQUESTS_KWARGS = {
                 "proxies": {"https": self.proxy, },
             }
-        self.api = PixivAPI(**_REQUESTS_KWARGS)
-        self.apiAssist = AppPixivAPI(**_REQUESTS_KWARGS)
-
-        self.api.auth(refresh_token=token)
-        self.apiAssist.auth(refresh_token=token)
-
-        self.STATIC.file.aout(
-            self.getENV("rootPath") + "usr/.token.json",
-            {"token": self.api.refresh_token, },
-            dRename=False,
-        )
-
-        self.STATIC.localMsger.msg(f"{self.apiType.lower()} api {self.lang('common.success_to_login')}")
-
-    def __loginAppAPI(self, token=None):
-        """
-        app 模式登录。
-        """
-        _REQUESTS_KWARGS = {}
-        if self.proxy != "" and self.apiType != "byPassSni":
-            _REQUESTS_KWARGS = {
-                "proxies": {"https": self.proxy, },
-            }
-        if self.apiType == "app":
-            self.api = AppPixivAPI(**_REQUESTS_KWARGS)
-        else:
+        if self.api_route == "bypassSNI":
             self.api = ByPassSniApi(**_REQUESTS_KWARGS)
             self.api.require_appapi_hosts(hostname=self.biuInfo["pApiURL"])
             self.api.set_accept_language("zh-cn")
+        else:
+            self.api = AppPixivAPI(**_REQUESTS_KWARGS)
 
         self.api.auth(refresh_token=token)
-        self.apiAssist = self.api
 
         self.STATIC.file.aout(
             self.getENV("rootPath") + "usr/.token.json",
@@ -213,9 +182,9 @@ class core_module_biu(interRoot):
             dRename=False,
         )
 
-        self.STATIC.localMsger.msg(f"{self.apiType.lower()} api {self.lang('common.success_to_login')}")
+        self.STATIC.localMsger.msg(f"{self.api_route} {self.lang('common.success_to_login')}")
 
-    def __showRdyInfo(self):
+    def __show_ready_info(self):
         """
         展示初始化成功消息。
         """
@@ -241,7 +210,7 @@ class core_module_biu(interRoot):
                 )
             ),
             (self.lang("ready.hint_version"), "%s (%s)" % (self.format_version(), des)),
-            (f"API {self.lang('ready.hint_type')}", self.apiType),
+            (self.lang('ready.hint_route_type'), self.api_route),
             (self.lang("ready.hint_image_service"), self.pximgURL + "/"),
             (
                 self.lang("ready.hint_download_path"),
@@ -251,11 +220,11 @@ class core_module_biu(interRoot):
             self.STATIC.localMsger.sign(" Biu ", header=False, out=False),
             "------------"
         )
-        t = threading.Timer(60 * 20, self.__pro_refreshToken)
+        t = threading.Timer(60 * 20, self.__pro_refresh_token)
         t.setDaemon(True)
         t.start()
 
-    def __pro_refreshToken(self):
+    def __pro_refresh_token(self):
         """
         子线程，每 20 分钟刷新一次 refresh token 并重新登录，以持久化登录状态。
         :return: none
@@ -280,7 +249,7 @@ class core_module_biu(interRoot):
                 self.STATIC.localMsger.error(e, header=False)
             time.sleep(60 * 20)
 
-    def updateStatus(self, type_, key, c):
+    def update_status(self, type_, key, c):
         """
         线程池状态更新函数。
         @type_(str): search || download
@@ -296,7 +265,7 @@ class core_module_biu(interRoot):
             self.STATUS["rate_download"][key] = c
         self.lock.release()
 
-    def appWorksPurer(self, da):
+    def app_works_purer(self, da):
         """
         格式化返回的图片信息。
         """
@@ -359,13 +328,13 @@ class core_module_biu(interRoot):
         WORDS = "abcdefghij"
         return "2.%s.%s%s" % (int(version[1:3]), int(version[3:5]), WORDS[int(version[-1])])
 
-    def __setImageHost(self):
+    def __set_image_host(self):
         """
         设置 pixiv 图片服务器地址。
         """
         if self.sets["biu"]["download"]["imageHost"] != "":
             self.pximgURL = self.sets["biu"]["download"]["imageHost"]
-        if self.apiType == "byPassSni":
+        if self.api_route == "bypassSNI":
             self.pximgURL = "https://i.pixiv.re"
 
     def __clear(self):

@@ -45,7 +45,7 @@ class searchUsers(interRoot):
 
     def __thread_gank(self, kw):
         try:
-            data = self.CORE.biu.apiAssist.search_user(**kw)
+            data = self.CORE.biu.api.search_user(**kw)
         except:
             return []
         if "user_previews" in data and len(data["user_previews"]) != 0:

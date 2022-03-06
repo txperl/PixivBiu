@@ -22,5 +22,5 @@ class getRank(interRoot):
         self.STATIC.arg.argsPurer(
             funArg, {"workID": "illust_id", "publicity": "restrict"}
         )
-        r = self.CORE.biu.apiAssist.illust_bookmark_add(**funArg)
+        r = self.CORE.biu.api.illust_bookmark_add(**funArg)
         return {"api": "app", "data": r}

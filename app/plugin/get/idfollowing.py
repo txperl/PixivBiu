@@ -8,7 +8,7 @@ class getIDFollowing(interRoot):
             args = self.STATIC.arg.getArgs(
                 "userFollowing",
                 [
-                    "userID=%s" % self.CORE.biu.apiAssist.user_id,
+                    "userID=%s" % self.CORE.biu.api.user_id,
                     "restrict=public",
                     "&totalPage=5",
                     "&groupIndex=0",
@@ -46,7 +46,7 @@ class getIDFollowing(interRoot):
 
     def __thread_gank(self, kw):
         try:
-            data = self.CORE.biu.apiAssist.user_following(**kw)
+            data = self.CORE.biu.api.user_following(**kw)
         except:
             return []
         if "user_previews" in data and len(data["user_previews"]) != 0:

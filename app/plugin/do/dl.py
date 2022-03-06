@@ -8,7 +8,7 @@ from altfe.interface.root import interRoot
 
 
 @interRoot.bind("api/biu/do/dl/", "PLUGIN")
-class doDownload(interRoot):
+class DoDownload(interRoot):
     def __init__(self):
         self.code = 1
 
@@ -32,7 +32,7 @@ class doDownload(interRoot):
 
     def dl(self, opsArg, funArg):
         if funArg["data"] == 0:
-            r = self.CORE.biu.apiAssist.illust_detail(funArg["workID"])
+            r = self.CORE.biu.api.illust_detail(funArg["workID"])
             if "illust" not in r:
                 self.code = 0
                 return "error"
@@ -44,36 +44,37 @@ class doDownload(interRoot):
             self.code = 0
             return "only support illustration, manga and ugoira"
 
-        isSingle = len(r["meta_pages"]) == 0
-        rootURI = (
+        is_single = len(r["meta_pages"]) == 0
+        root_uri = (
             self.CORE.biu.sets["biu"]["download"]["saveURI"]
                 .replace("{ROOTPATH}", self.getENV("rootPath"))
                 .replace("{HOMEPATH}", os.path.expanduser('~') + "/")
                 .replace("{KT}", self.__pureName(funArg["kt"]))
         )
 
-        if rootURI[-1] != "/":
-            rootURI = rootURI + "/"
+        if root_uri[-1] != "/":
+            root_uri = root_uri + "/"
 
-        rootURI = self.__deName(rootURI, r)
-        picTitle = self.__pureName(
+        root_uri = self.__deName(root_uri, r)
+        image_save_name = self.__pureName(
             self.__deName(self.CORE.biu.sets["biu"]["download"]["saveFileName"], r)
         )
 
         status = []
 
-        if r["type"] != "ugoira" and isSingle:
+        if r["type"] != "ugoira" and is_single:
             # 单图下载
             url = r["meta_single_page"]["original_image_url"].replace(
                 "https://i.pximg.net", self.CORE.biu.pximgURL
             )
             suf = r["meta_single_page"]["original_image_url"].split(".")[-1]
-            status.append(self.getTemp(url, folder=rootURI, name=picTitle, suf=f".{suf}", type_="file"))
-        elif r["type"] != "ugoira" and not isSingle:
+            status.append(
+                self.get_download_args(url, folder=root_uri, name=image_save_name, suf=f".{suf}", type_="file"))
+        elif r["type"] != "ugoira" and not is_single:
             # 多图下载
             # 判断是否自动归档
             if self.CORE.biu.sets["biu"]["download"]["autoArchive"]:
-                ext = picTitle + "/"
+                ext = image_save_name + "/"
                 mod = "folder"
                 new = self.STATIC.file.md5(StringList=[ext, time.time()])
             else:
@@ -82,23 +83,25 @@ class doDownload(interRoot):
                 new = None
             for index in range(len(r["meta_pages"])):
                 x = r["meta_pages"][index]
-                picURL = x["image_urls"]["original"]
-                url = picURL.replace("https://i.pximg.net", self.CORE.biu.pximgURL)
-                suf = picURL.split(".")[-1]
+                image_url = x["image_urls"]["original"]
+                url = image_url.replace("https://i.pximg.net", self.CORE.biu.pximgURL)
+                suf = image_url.split(".")[-1]
                 id_ = str(r["id"]) if (index + 1 == len(r["meta_pages"])) else "%end%"
                 status.append(
-                    self.getTemp(url, folder=rootURI + ext, name=f"{picTitle}_{str(index)}", suf=f".{suf}", type_=mod,
-                                 id_=id_, tmp_name=new)
+                    self.get_download_args(url, folder=root_uri + ext, name=f"{image_save_name}_{str(index)}",
+                                           suf=f".{suf}",
+                                           type_=mod,
+                                           id_=id_, tmp_name=new)
                 )
         else:
             # 动图下载
-            zipUrl, r_ = self.__getdlUgoiraPicsUrl(r["id"])
-            wholePath = rootURI + picTitle + "/"
-            temp = self.getTemp(zipUrl, folder=wholePath, name="ugoira", suf=".zip", fun=self.__callback_merge,
-                                type_="folder")
+            zip_url, r_ = self.__getdlUgoiraPicsUrl(r["id"])
+            temp = self.get_download_args(zip_url, folder=root_uri + image_save_name + "/", name="ugoira", suf=".zip",
+                                          fun=self.__callback_merge,
+                                          type_="folder")
             temp["dlArgs"]["@ugoira"] = {
                 "r": r_,
-                "name": picTitle
+                "name": image_save_name
             }
             status.append(temp)
 
@@ -107,8 +110,8 @@ class doDownload(interRoot):
         else:
             return False
 
-    def getTemp(self, url, folder, name, suf="", fun=None, id_="-1", type_="file", tmp_name=None,
-                no_deter_the_same=False):
+    def get_download_args(self, url, folder, name, suf="", fun=None, id_="-1", type_="file", tmp_name=None,
+                          ignore_the_same=False):
         folder = folder.replace("\\\\", "/").replace("\\", "/").replace("//", "/")
         r = {
             "url": url,
@@ -129,7 +132,7 @@ class doDownload(interRoot):
             "callback": fun
         }
         deterPath = folder + name + suf if type_ == "file" else folder
-        if no_deter_the_same is False and os.path.exists(deterPath):
+        if ignore_the_same is False and os.path.exists(deterPath):
             path_, name_, fun_ = folder, name, fun
             splitPath = path_[:-1].split("/")
             new_ = ".cache." + self.STATIC.file.md5(StringList=[url]) if tmp_name is None else ".cache." + tmp_name
@@ -193,7 +196,7 @@ class doDownload(interRoot):
 
     def __getdlUgoiraPicsUrl(self, id_):
         try:
-            r = self.CORE.biu.apiAssist.ugoira_metadata(id_)
+            r = self.CORE.biu.api.ugoira_metadata(id_)
             r = r["ugoira_metadata"]
         except:
             return False

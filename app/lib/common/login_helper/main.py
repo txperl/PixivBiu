@@ -35,8 +35,6 @@ class common_loginHelper(interRoot):
             "https://dns.alidns.com/dns-query",
             "https://doh.dns.sb/dns-query",
             "https://doh.opendns.com/dns-query",
-            "https://[2606:4700:4700::1001]/dns-query",
-            "https://[2606:4700:4700::1111]/dns-query",
             "https://cloudflare-dns.com/dns-query",
             "https://dns.google/dns-query"
         ) if URLS is None else URLS

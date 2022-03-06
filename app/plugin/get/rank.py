@@ -34,13 +34,13 @@ class getRank(interRoot):
 
         for x in self.CORE.biu.pool_srh.map(self.__thread_rank, status_arg):
             r += x
-        self.CORE.biu.appWorksPurer(r)
+        self.CORE.biu.app_works_purer(r)
 
         return {"api": "app", "data": r}
 
     def __thread_rank(self, kw):
         try:
-            data = self.CORE.biu.apiAssist.illust_ranking(**kw)
+            data = self.CORE.biu.api.illust_ranking(**kw)
         except:
             return []
         if "illusts" in data and len(data["illusts"]) != 0:

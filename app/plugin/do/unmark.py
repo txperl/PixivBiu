@@ -20,5 +20,5 @@ class getRank(interRoot):
 
     def unmark(self, opsArg, funArg):
         self.STATIC.arg.argsPurer(funArg, {"workID": "illust_id"})
-        r = self.CORE.biu.apiAssist.illust_bookmark_delete(**funArg)
+        r = self.CORE.biu.api.illust_bookmark_delete(**funArg)
         return {"api": "app", "data": r}

@@ -31,6 +31,10 @@ English README is [here](./README_EN.md).
 
 具体可在 [GitHub Releases](https://github.com/txperl/PixivBiu/releases) 中下载，或者[在这](https://biu.tls.moe/#/lib/dl)下载。
 
+### Docker
+
+来自 [zzcabc](https://github.com/zzcabc) 的 [Docker_Buildx_PixivBiu](https://github.com/zzcabc/Docker_Buildx_PixivBiu) 支持，感谢。
+
 ## 文档
 
 目前已有**使用、API**类文档，如有需要请访问[这里](https://biu.tls.moe/)。

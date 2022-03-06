@@ -23,5 +23,5 @@ class doUnFollow(interRoot):
 
     def unFollow(self, opsArg, funArg):
         self.STATIC.arg.argsPurer(funArg, {"userID": "user_id"})
-        r = self.CORE.biu.apiAssist.user_follow_delete(**funArg)
+        r = self.CORE.biu.api.user_follow_delete(**funArg)
         return {"api": "public", "data": r}

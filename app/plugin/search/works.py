@@ -90,7 +90,7 @@ class searchWorks(interRoot):
             argg["offset"] = p * 30
             status.append(self.CORE.biu.pool_srh.submit(self.__thread_appWorks, **argg))
 
-        self.CORE.biu.updateStatus(
+        self.CORE.biu.update_status(
             "search", (funArg["word"] + "_" + str(ttlPage) + "+" + str(grpIdx)), status,
         )
 
@@ -108,12 +108,12 @@ class searchWorks(interRoot):
                 r["data"] = sorted(
                     r["data"], key=lambda kv: kv["total_bookmarks"], reverse=True
                 )
-        self.CORE.biu.appWorksPurer(r["data"])
+        self.CORE.biu.app_works_purer(r["data"])
 
         return r
 
     def __thread_appWorks(self, **kw):
-        data = self.CORE.biu.apiAssist.search_illust(**kw)
+        data = self.CORE.biu.api.search_illust(**kw)
         if "illusts" in data and len(data["illusts"]) != 0:
             return data["illusts"]
         return []
