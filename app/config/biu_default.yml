@@ -110,3 +110,7 @@ biu.download.imageHost: ""
 
 # 私密
 secret.key.apiSauceNAO: ""
+  # SauceNAO 服务的 API key，若填写则可使用图片搜索功能
+  # https://saucenao.com/user.php?page=search-api
+  # 进入以上网址登录后，即可在页面上找到「api key」内容
+

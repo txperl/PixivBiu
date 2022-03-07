@@ -15,7 +15,7 @@ from altfe.interface.root import interRoot
 @interRoot.bind("biu", "LIB_CORE")
 class core_module_biu(interRoot):
     def __init__(self):
-        self.ver = 203000
+        self.ver = 203010
         self.place = "local"
         self.sysPlc = platform.system()
         self.api_route = "direct"
@@ -23,7 +23,7 @@ class core_module_biu(interRoot):
         self.sets = self.INS.conf.dict("biu_default")
         self.pximgURL = "https://i.pximg.net"
         self.proxy = ""
-        self.biuInfo = ""
+        self.biuInfo = None
         self.lang = self.INS.i18n.get_bundle("app.core.biu", func=True)
         # 线程相关
         self.lock = threading.Lock()

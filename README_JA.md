@@ -2,9 +2,8 @@
 
 PixivBiuはPixivのための**補助的な**ツールです。
 
-中文的 README 在[这里](./README.md)。
-
-English README is [here](./README_EN.md).
+- [中文](./README.md)
+- [English](./README_EN.md)
 
 ## 機能
 

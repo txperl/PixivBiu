@@ -45,7 +45,8 @@
 #main .thumb>h2 {
     bottom: 1.475em;
     font-size: 1.2em;
-    left: 1.6875em;
+    left: 0;
+    padding: 0 1.6875em;
 }
 
 #main .thumb .thumbAction a>b, #main .thumb .thumbAction a>d, #main .thumb .thumbAction a>op {

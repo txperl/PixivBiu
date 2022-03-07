@@ -47,22 +47,20 @@
         <!-- Main -->
         <div id="main">
             <article id="codeBox" class="thumb">
-                <a href="javascript: 0;" class="imageBtn pop_ctrl"><img src="static/multiverse/images/thumbs/01.jpg"
-                        alt="" /></a>
-                <h2>指令合集</h2>
+                <a href="javascript: void(0);" class="imageBtn pop_ctrl"><img
+                        src="static/multiverse/images/thumbs/01.jpg" /></a>
+                <h2>建议</h2>
                 <ul>
-                    <li><a href="javascript: changeSrhBox('@su={user_name}');">@su={user_name}</a> #用户搜索</li>
-                    <li><a href="javascript: changeSrhBox('@w={work_id}');">@w={work_id}</a> #指定作品</li>
-                    <li><a href="javascript: changeSrhBox('@u={user_id} -i');">@u={user_id} -i</a> #用户插画</li>
-                    <li><a href="javascript: changeSrhBox('@u={user_id} -c');">@u={user_id} -c</a> #～漫画</li>
-                    <li><a href="javascript: changeSrhBox('@u={user_id} -m');">@u={user_id} -m</a> #～收藏</li>
-                    <li><a href="javascript: changeSrhBox('@u={user_id} -f');">@u={user_id} -f</a> #～关注列表</li><br>
-                    <li>（将 {xxxx_id} 替换为相应 ID）</li>
+                    <li>Biu 为搜索框</li>
+                    <li>输入 @ 可以进入指令模式</li>
+                    <br>
+                    <li style="display: block; color: rgb(255, 255, 255); width: 100%; text-align: right; padding: 0px 10px; font-size: 1.1em; font-weight: 400; cursor: default;"
+                        v-for="advice in advice_block_list">[[ advice ]]</li>
                 </ul>
             </article>
             <article id="rankBox" class="thumb">
-                <a href="javascript: 0;" class="imageBtn pop_ctrl"><img src="static/multiverse/images/thumbs/02.jpg"
-                        alt="" /></a>
+                <a href="javascript: void(0);" class="imageBtn pop_ctrl"><img
+                        src="static/multiverse/images/thumbs/02.jpg" /></a>
                 <h2>排行榜</h2>
                 <ul>
                     <li><a href="javascript: getRank('day');">日图</a></li>
@@ -77,7 +75,7 @@
                 </ul>
             </article>
             <article id="myBox" class="thumb">
-                <a class="imageBtn pop_ctrl"><img src="static/multiverse/images/thumbs/03.jpg" alt="" /></a>
+                <a class="imageBtn pop_ctrl"><img src="static/multiverse/images/thumbs/03.jpg" /></a>
                 <h2>我的</h2>
                 <ul>
                     <li><a href="javascript: getMarks();">收藏@公开</a></li>
@@ -91,9 +89,10 @@
                 </ul>
             </article>
             <article class="thumb">
-                <a href="javascript: changeSrhBox('', 2);" class="imageBtn"><img
-                        src="static/multiverse/images/thumbs/04.jpg" alt="" /></a>
-                <h2>搜索</h2>
+                <input id="image-input" type="file" accept="image/*" @change="searchImage($event)" hidden>
+                <a id="preview-searchImage" href="javascript: void(0);" class="imageBtn"
+                    @click="$('#image-input').click()"><img src="static/multiverse/images/thumbs/04.jpg" /></a>
+                <h2 id="title-block-searchImage">图片搜索</h2>
             </article>
         </div>
 
@@ -198,6 +197,8 @@
     <script src="static/multiverse/assets/js/statusMsg.js"></script>
     <script src="static/multiverse/assets/js/searchActions.js"></script>
     <script src="static/multiverse/assets/js/functions.js"></script>
+    <script src="static/multiverse/assets/js/vue.min.js"></script>
+    <script src="static/multiverse/assets/js/axios.min.js"></script>
     <script>
         var tmpCode;
         var tmpPageData;
@@ -213,6 +214,54 @@
             '#settingsActionType': ['pixivbiu_actionType', 'public', '操作类型'],
             '#settingsRvrProxyUrl': ['pixivbiu_RvrProxyUrl', 'https://i.pixiv.re', '图片反代地址'],
         };
+
+        const blockMain = new Vue({
+            el: '#main',
+            data: {
+                advice_block_list: []
+            },
+            created: function () {
+            },
+            mounted: function () {
+            },
+            delimiters: ['[[', ']]'],
+            watch: {
+            },
+            methods: {
+                searchImage(event) {
+                    const image = event.target.files[0];
+                    const reader = new FileReader();
+                    $("#title-block-searchImage").text("🔍 图片搜索中...");
+                    reader.readAsDataURL(image);
+                    reader.onload = (e) => {
+                        $("#preview-searchImage").css("background-image", `url(${e.target.result})`);
+                    };
+                    let data = new FormData();
+                    data.append("image", image);
+                    const vm = this;
+                    axios.post("api/biu/search/images/", data).then(rep => {
+                        const content = rep.data.code === 1 ? rep.data.msg.rst : {};
+                        if (Object.keys(content).includes("results") && content.results.length > 0) {
+                            $("#srhBox").val(`@w=${content.results[0].data.pixiv_id}`);
+                            srhBoxDo();
+                        } else {
+                            if (rep.data.msg.includes("offline"))
+                                vm.advice_block_list = ["若要使用图片搜索功能，必须设置", "secret.key.apiSauceNAO", "你可以在配置文件的末尾找到它"];
+                            else if (rep.data.msg.includes("wrong"))
+                                vm.advice_block_list = ["设置的 SauceNAO API Key 错误"];
+                            else if (rep.data.msg.includes("plugin"))
+                                vm.advice_block_list = ["程序错误，可能是由于网络问题所致", "请重新尝试"];
+                            else
+                                vm.advice_block_list = [rep.data.msg];
+                            $("#title-block-searchImage").text("搜索失败，可以查看左侧建议中的可能原因");
+                            $("#codeBox .pop_ctrl").click()
+                        }
+                    }, err => {
+                        $("#title-block-searchImage").text("搜索失败，原因未知");
+                    });
+                }
+            }
+        });
 
         $(document).ready(function () {
             getVersion();
@@ -245,16 +294,16 @@
                 const user = m[1];
                 const code = m[2];
                 if (code === 'i') {
-                    $('title').html('TA 插画 - PixivBiu');
+                    $('title').html('TA 的插画 - PixivBiu');
                     getUserWorks(user, 'illust');
                 } else if (code === 'c') {
-                    $('title').html('TA 漫画 - PixivBiu');
+                    $('title').html('TA 的漫画 - PixivBiu');
                     getUserWorks(user, 'manga');
                 } else if (code === 'm') {
-                    $('title').html('TA 收藏 - PixivBiu');
+                    $('title').html('TA 的收藏 - PixivBiu');
                     getMarks(user);
                 } else if (code === 'f') {
-                    $('title').html('TA 关注 - PixivBiu');
+                    $('title').html('TA 的关注 - PixivBiu');
                     getFollowing(user);
                 }
             } else if ((m = regMatch(/@s=(.*?) -(.)/g, c)).length === 3) {
@@ -289,17 +338,17 @@
             if ((m = regMatch(/@u=(.*?) -(.)/g, c)).length === 3) {
                 code = m[2];
                 if (code === 'i') {
-                    $('#srhBox').tooltipster('content', '指令 · 获取TA的 插画 作品');
+                    $('#srhBox').tooltipster('content', '指令 · 查看 插画 作品');
                 } else if (code === 'c') {
-                    $('#srhBox').tooltipster('content', '指令 · 获取TA的 漫画 作品');
+                    $('#srhBox').tooltipster('content', '指令 · 查看 漫画 作品');
                 } else if (code === 'm') {
-                    $('#srhBox').tooltipster('content', '指令 · 获取TA的 收藏 列表');
+                    $('#srhBox').tooltipster('content', '指令 · 查看 收藏 列表');
                 } else if (code === 'f') {
-                    $('#srhBox').tooltipster('content', '指令 · 获取TA的 关注 列表');
+                    $('#srhBox').tooltipster('content', '指令 · 查看 关注 列表');
                 } else {
                     $('#srhBox').tooltipster('content', '指令 · -i 插画、-c 漫画、-m 收藏列表、-f 关注列表');
                 }
-            } else if ((m = regMatch(/@s=(.*?) -(.)/g, c)).length == 3) {
+            } else if ((m = regMatch(/@s=(.*?) -(.)/g, c)).length === 3) {
                 code = m[2];
                 if (code === 't') {
                     $('#srhBox').tooltipster('content', '指令 · 匹配部分标签');
@@ -311,13 +360,15 @@
                     $('#srhBox').tooltipster('content', '指令 · -t 部分标签、-o 全标签、-d 标题或描述');
                 }
             } else if (regMatch(/@u=(.*?)$/g, c).length === 2) {
-                $('#srhBox').tooltipster('content', '指令 @u={user_id} -{type} · 获取指定用户的 -i 插画、-c 漫画、-m 收藏列表、-f 关注列表');
+                $('#srhBox').tooltipster('content', '指令 @u={user_id} -[i,c,m,f] · 查看指定用户的 -i 插画、-c 漫画、-m 收藏列表、-f 关注列表');
             } else if (regMatch(/@s=(.*?)$/g, c).length === 2) {
-                $('#srhBox').tooltipster('content', '指令 · 以指定匹配模式搜索 -t 部分标签、-o 全标签、-d 标题或描述');
+                $('#srhBox').tooltipster('content', '指令 @s={keyword} -[t,o,d] · 以指定匹配模式搜索 -t 部分标签、-o 全标签、-d 标题或描述');
             } else if (regMatch(/@w=(.*?)$/g, c).length === 2) {
-                $('#srhBox').tooltipster('content', '指令 @w={work_id} · 搜索指定 ID 的作品');
+                $('#srhBox').tooltipster('content', '指令 @w={work_id} · 查看指定 ID 的作品');
             } else if (regMatch(/@su=(.*?)$/g, c).length === 2) {
                 $('#srhBox').tooltipster('content', '指令 @su={keyword} · 搜索相关用户');
+            } else if (regMatch(/@$/g, c).length === 1) {
+                $('#srhBox').tooltipster('content', '指令集 · @s= 搜索模式、@su= 搜索用户、@u= 指定用户、@w= 指定作品');
             } else {
                 $('#srhBox').tooltipster('content', '搜索 · 回车执行');
             }

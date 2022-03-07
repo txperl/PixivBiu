@@ -1,5 +1,3 @@
-import json
-
 import requests
 from flask import request
 
@@ -14,14 +12,14 @@ class searchImages(interRoot):
         except:
             return {"code": 0, "msg": "missing parameters"}
 
-        api_key = self.INS.conf.get("biu_default", "secret.key.apiSauceNAO")
-        if api_key is None or api_key == "":
-            return {"code": 0, "msg": "function offline"}
-
         image_url = str(args["fun"]["url"])
         image_file = request.files.get("image")
         if image_url == "no" and image_file is None:
             return {"code": 0, "msg": "need url or image file"}
+
+        api_key = self.INS.conf.get("biu_default", "secret.key.apiSauceNAO")
+        if api_key is None or api_key == "":
+            return {"code": 0, "msg": "function offline"}
 
         params = {
             "output_type": 2,
@@ -34,14 +32,21 @@ class searchImages(interRoot):
             params.update({"url": image_url})
         else:
             others.update({"files": {"file": image_file}})
+        if self.CORE.biu.proxy != "":
+            others.update({"proxies": {"https": self.CORE.biu.proxy}})
 
-        rep = requests.post("https://saucenao.com/search.php", params=params, **others)
+        rep = requests.post("https://saucenao.com/search.php", timeout=10, verify=False, params=params, **others).json()
+
+        if rep["header"].get("status") != 0:
+            if "anonymous" in rep["header"].get("message"):
+                return {"code": 0, "msg": "wrong key"}
+            return {"code": 0, "msg": rep["header"].get("message")}
 
         return {
             "code": 1,
             "msg": {
-                "way": "search",
+                "way": "searchImages",
                 "args": args,
-                "rst": json.loads(rep.text),
+                "rst": rep,
             },
         }

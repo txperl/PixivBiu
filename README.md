@@ -2,9 +2,8 @@
 
 PixivBiu 是一款不错的 Pixiv **辅助**工具。
 
-English README is [here](./README_EN.md).
-
-日本語版READMEは[こちら](./README_JA.md)。
+- [English](./README_EN.md)
+- [日本語](./README_JA.md)
 
 ## 基础功能
 

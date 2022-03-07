@@ -2,7 +2,8 @@
 
 PixivBiu is a nice Pixiv **assistant** tool.
 
-中文的 README 在[这里](./README.md)。
+- [中文](./README.md)
+- [日本語](./README_JA.md)
 
 ## Features
 

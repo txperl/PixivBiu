@@ -35,8 +35,6 @@ class common_loginHelper(interRoot):
             "https://dns.alidns.com/dns-query",
             "https://doh.dns.sb/dns-query",
             "https://doh.opendns.com/dns-query",
-            "https://cloudflare-dns.com/dns-query",
-            "https://dns.google/dns-query"
         ) if URLS is None else URLS
         proxy = self.STATIC.util.getSystemProxy(platform.system()) if proxy_ == "auto" else proxy_
         if silent is False:

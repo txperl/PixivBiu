@@ -20,13 +20,13 @@ app = Flask(
 
 
 # 路由
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def pixivbiu(path):
-    if path == "":
-        return render_template(
-            "%s/index.html" % (SETS["sys"]["theme"])
-        )
+@app.route("/")
+def home():
+    return render_template("%s/index.html" % (SETS["sys"]["theme"]))
+
+
+@app.route("/<path:path>", methods=["GET", "POST"])
+def api(path):
     return jsonify(handle.handleRoute.do(path))
 
 
@@ -55,7 +55,6 @@ if __name__ == '__main__':
             debug=SETS["sys"]["debug"],
             threaded=True,
             use_reloader=False,
-            # ssl_context="adhoc"
         )
     except UnicodeDecodeError:
         print("您的计算机名可能存在特殊字符，程序无法正常运行。")
