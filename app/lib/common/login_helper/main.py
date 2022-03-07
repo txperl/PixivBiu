@@ -32,9 +32,9 @@ class common_loginHelper(interRoot):
         URLS = (
             "https://public-api.secure.pixiv.net",
             "https://1.0.0.1/dns-query",
-            "https://dns.alidns.com/dns-query",
+            "https://1.1.1.1/dns-query",
             "https://doh.dns.sb/dns-query",
-            "https://doh.opendns.com/dns-query",
+            "https://cloudflare-dns.com/dns-query",
         ) if URLS is None else URLS
         proxy = self.STATIC.util.getSystemProxy(platform.system()) if proxy_ == "auto" else proxy_
         if silent is False:
@@ -104,14 +104,14 @@ class common_loginHelper(interRoot):
 
     def _get_host_ip(self, hostname, timeout=5, url="https://1.0.0.1/dns-query"):
         """
-        通过 Cloudflare 的 DNS over HTTPS 获取主机的真实 IP 地址。
+        通过 DNS over HTTPS 服务获取主机的真实 IP 地址。
         :param hostname: 主机名
         :param timeout: 超时时间
         :return: str:{host ip} | False
         """
         hostname = hostname.replace("https://", "").replace("http://", "")
+        headers = {"Accept": "application/dns-json"}
         params = {
-            "ct": "application/dns-json",
             "name": hostname,
             "type": "A",
             "do": "false",
@@ -119,7 +119,7 @@ class common_loginHelper(interRoot):
         }
         try:
             response = self.requests.get(
-                url, verify=False, params=params, timeout=timeout
+                url, headers=headers, params=params, timeout=timeout, verify=False
             )
             r = "https://" + response.json()["Answer"][0]["data"]
         except:
