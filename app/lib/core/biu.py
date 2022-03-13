@@ -15,7 +15,7 @@ from altfe.interface.root import interRoot
 @interRoot.bind("biu", "LIB_CORE")
 class core_module_biu(interRoot):
     def __init__(self):
-        self.ver = 203020
+        self.ver = 204000
         self.place = "local"
         self.sysPlc = platform.system()
         self.api_route = "direct"
@@ -302,7 +302,7 @@ class core_module_biu(interRoot):
                 "type": typer,
                 "title": c["title"],
                 "caption": c["caption"],
-                "created_time": c["create_date"],
+                "created_time": self.STATIC.util.format_time(c["create_date"], "%Y-%m-%dT%H:%M:%S%z"),
                 "image_urls": {
                     "small": c["image_urls"]["square_medium"],
                     "medium": c["image_urls"]["medium"],

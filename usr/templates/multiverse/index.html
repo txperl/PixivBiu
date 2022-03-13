@@ -38,6 +38,7 @@
             <h1 id="progressDownloadingPics"></h1>
             <nav>
                 <ul id="rstHeaderShow">
+                    <li><a href="#filter">筛选</a></li>
                     <li><a href="#setting">设置</a></li>
                     <li><a href="#about" class="icon solid fa-info-circle">关于</a></li>
                 </ul>
@@ -96,26 +97,61 @@
             </article>
         </div>
 
-        <div id="setting" class="panel">
+        <div id="filter" class="panel">
             <div class="inner split">
-                <div class="settings">
+                <div class="filters">
+                    <section>
+                        <h2>属性</h2>
+                        <input id="filtersImageWidth" class="tooltip" placeholder="宽度范围" autocomplete="off"
+                            title="图片的宽度范围，如 100:200 或 100: 或 :200">
+                        <input id="filtersImageHeight" class="tooltip" placeholder="高度范围" autocomplete="off"
+                            title="图片的高度范围，如 100:200 或 100: 或 :200">
+                        <input id="filtersImageTime" class="tooltip" placeholder="时间范围" autocomplete="off"
+                            title="图片的时间范围，如 2020-03-13:2022-03-13 或 start: 或 :end">
+                        <input id="filtersImageType" class="tooltip" placeholder="类型" autocomplete="off"
+                            title="图片的类型，可填入 i(插图), m(漫画), u(动图), o(其他)，在其后加 s 可仅显示多图，加 o 仅显示单图。多个类型以逗号隔开，如 i,ms,oo">
+                    </section>
+                    <section>
+                        <h2>名称</h2>
+                        <input style="width: 98.5%;" id="filtersNameTag" class="tooltip" placeholder="标签关键词"
+                            autocomplete="off" title="标签中必须包含全部关键词，多个标签以逗号隔开，如 tag1,tag2">
+                    </section>
+                </div>
+                <div class="filters">
                     <section>
                         <h2>搜索</h2>
                         <input id="settingsPageNum" class="tooltip" placeholder="每组页数" autocomplete="off"
-                            title="单次搜索页数，建议参数不要过大">
+                            title="单次搜索的页数，建议参数不要过大">
                         <input id="settingsSearchMode" class="tooltip" placeholder="搜索模式" autocomplete="off"
                             title="tag: 匹配部分标签（默认），otag: 全标签，des: 标题或描述">
                         <input id="settingsSortMode" class="tooltip" placeholder="排序模式" autocomplete="off"
                             title="0: 按收藏数排序，1: 按人气（浏览数）排序">
-                        <input id="settingsIsAllSort" class="tooltip" placeholder="更多排序" autocomplete="off"
-                            title="为所有结果排序。on: 开启，off: 关闭（关闭时仅为关键词搜索排序）">
+                        <p>搜索以外的筛选项留空时为取消，或点击<a href="javascript: saveFiltersCookie(true);">此处</a>以重置。</p>
                     </section>
+                    <section>
+                        <button class="primary"
+                            onclick="javascript: saveFiltersCookie(); saveSettingsCookie();">保存</button>
+                        <button id="btn-save-refresh" style="display: none;" class="primary"
+                            onclick="javascript: saveFiltersCookie(); saveSettingsCookie(); grpActChon('now');">保存并刷新</button>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <div id="setting" class="panel">
+            <div class="inner split">
+                <div class="settings">
                     <section>
                         <h2>图片</h2>
                         <input id="settingsIsOriPic" class="tooltip" placeholder="大图预览" autocomplete="off"
                             title="在图片详情页显示较大尺寸的图片。on: 开启，off: 关闭（若图片加载时间过长，建议关闭）">
                         <input id="settingsRvrProxyUrl" class="tooltip" placeholder="图片反代地址" autocomplete="off"
                             title="Pixiv 图片反向代理地址（如果不是很懂请勿修改）">
+                    </section>
+                    <section>
+                        <h2>其他</h2>
+                        <input style="width: 98.5%;" id="settingsIsAllSort" class="tooltip" placeholder="更多排序"
+                            autocomplete="off" title="为所有结果进行收藏数或人气排序。on: 开启，off: 关闭（关闭时仅为关键词搜索排序）">
                     </section>
                 </div>
                 <div class="settings">
@@ -193,16 +229,18 @@
     <script src="static/multiverse/assets/js/util.js"></script>
     <script src="static/multiverse/assets/js/main.js"></script>
     <script src="static/multiverse/assets/js/tooltipster.bundle.min.js"></script>
-    <script src="static/multiverse/assets/js/searchSettings.js"></script>
-    <script src="static/multiverse/assets/js/statusMsg.js"></script>
-    <script src="static/multiverse/assets/js/searchActions.js"></script>
-    <script src="static/multiverse/assets/js/functions.js"></script>
     <script src="static/multiverse/assets/js/vue.min.js"></script>
     <script src="static/multiverse/assets/js/axios.min.js"></script>
+    <script src="static/multiverse/assets/js/biu/settings.js"></script>
+    <script src="static/multiverse/assets/js/biu/statusMsg.js"></script>
+    <script src="static/multiverse/assets/js/biu/actions.js"></script>
+    <script src="static/multiverse/assets/js/biu/functions.js"></script>
+    <script src="static/multiverse/assets/js/biu/blocks/blockMain.js"></script>
     <script>
         var tmpCode;
         var tmpPageData;
         var tmpSearchSettings = {};
+        var tmpFilters = {};
         var downloadList = {};
         var settingsMods = {
             '#settingsPageNum': ['pixivbiu_searchPageNum', 5, '每组页数'],
@@ -214,57 +252,17 @@
             '#settingsActionType': ['pixivbiu_actionType', 'public', '操作类型'],
             '#settingsRvrProxyUrl': ['pixivbiu_RvrProxyUrl', 'https://i.pixiv.re', '图片反代地址'],
         };
-
-        const blockMain = new Vue({
-            el: '#main',
-            data: {
-                advice_block_list: []
-            },
-            created: function () {
-            },
-            mounted: function () {
-            },
-            delimiters: ['[[', ']]'],
-            watch: {
-            },
-            methods: {
-                searchImage(event) {
-                    const image = event.target.files[0];
-                    const reader = new FileReader();
-                    $("#title-block-searchImage").text("🔍 图片搜索中...");
-                    reader.readAsDataURL(image);
-                    reader.onload = (e) => {
-                        $("#preview-searchImage").css("background-image", `url(${e.target.result})`);
-                    };
-                    let data = new FormData();
-                    data.append("image", image);
-                    const vm = this;
-                    axios.post("api/biu/search/images/", data).then(rep => {
-                        const content = rep.data.code === 1 ? rep.data.msg.rst : {};
-                        if (Object.keys(content).includes("results") && content.results.length > 0) {
-                            $("#srhBox").val(`@w=${content.results[0].data.pixiv_id}`);
-                            srhBoxDo();
-                        } else {
-                            if (rep.data.msg.includes("offline"))
-                                vm.advice_block_list = ["若要使用图片搜索功能，必须设置", "secret.key.apiSauceNAO", "你可以在配置文件的末尾找到它"];
-                            else if (rep.data.msg.includes("wrong"))
-                                vm.advice_block_list = ["设置的 SauceNAO API Key 错误"];
-                            else if (rep.data.msg.includes("plugin"))
-                                vm.advice_block_list = ["程序错误，可能是由于网络问题所致", "请重新尝试"];
-                            else
-                                vm.advice_block_list = [rep.data.msg];
-                            $("#title-block-searchImage").text("搜索失败，可以查看左侧建议中的可能原因");
-                            $("#codeBox .pop_ctrl").click()
-                        }
-                    }, err => {
-                        $("#title-block-searchImage").text("搜索失败，原因未知");
-                    });
-                }
-            }
-        });
+        var filtersMods = {
+            '#filtersImageWidth': ['pixivbiu_fitlerImWidth', '宽度范围'],
+            '#filtersImageHeight': ['pixivbiu_fitlerImHeight', '高度范围'],
+            '#filtersImageTime': ['pixivbiu_filterImTime', '时间范围'],
+            '#filtersImageType': ['pixivbiu_filterImType', '类型'],
+            '#filtersNameTag': ['pixivbiu_filterNaTag', '标签关键词'],
+        };
 
         $(document).ready(function () {
             getVersion();
+            loadFilters();
             loadSearchSettings();
             progresserDownloading_auto();
             $('#myBox').popmenu();
@@ -396,15 +394,6 @@
             }
         }
 
-        function dlPageAll() {
-            if (confirm("你确定要一下子下载全部的图片嘛？！还是原图哎...\n其实点击图片右上角也可以下载。"))
-                $('.thumbAction').each(function () {
-                    if ($(this).children('a:last')[0]['target'] !== '_blank') {
-                        $(this).children('a:last')[0].click();
-                    }
-                });
-        }
-
         function showPics(title = '', reLoadList = ['main', 'header'], c = tmpPageData) {
             let rstHtml = '', kt;
             let headerHtml = '';
@@ -447,6 +436,70 @@
 
                 // 通用作品整理
                 for (i = 0; i < data.length && (c['args']['ops']['method'] !== 'userFollowing' && c['args']['ops']['method'] !== 'searchUsers'); i++) {
+                    // 筛选
+                    if (["works", "recommend", "rank", "newToMe", "userWorks", "userMarks"].includes(c.args.ops.method)) {
+                        const _im_width = tmpFilters["pixivbiu_fitlerImWidth"].split(":");
+                        const _im_height = tmpFilters["pixivbiu_fitlerImHeight"].split(":");
+                        const _im_time = tmpFilters["pixivbiu_filterImTime"].split(":");
+                        const _im_type = splitNoEmpty(tmpFilters["pixivbiu_filterImType"], ",");
+                        const _name_tag = splitNoEmpty(tmpFilters["pixivbiu_filterNaTag"], ",");
+                        if (_im_width.length === 2) {
+                            const min = _im_width[0];
+                            const max = _im_width[1];
+                            if (min && data[i].all.width < Number(min))
+                                continue;
+                            if (max && data[i].all.width > Number(max))
+                                continue;
+                        }
+                        if (_im_height.length === 2) {
+                            const min = _im_height[0];
+                            const max = _im_height[1];
+                            if (min && data[i].all.height < Number(min))
+                                continue;
+                            if (max && data[i].all.height > Number(max))
+                                continue;
+                        }
+                        if (_im_time.length > 0) {
+                            const min = _im_time[0];
+                            const max = _im_time[1];
+                            const time = Number(data[i].created_time.replaceAll("-", "").split(" ")[0]);
+                            if (min && time < Number(min.replaceAll("-", "")))
+                                continue;
+                            if (max && time > Number(max.replaceAll("-", "")))
+                                continue;
+                        }
+                        if (_im_type.length > 0) {
+                            let isNeed = false;
+                            for (let j = 0; j < _im_type.length; j++) {
+                                const type = _im_type[j];
+                                if (type[0] && type[0] === data[i].type[0]) {
+                                    isNeed = true
+                                    if (type[1] && type[1] === "o" && data[i].all.meta_pages.length > 0)
+                                        isNeed = false
+                                    if (type[1] && type[1] === "s" && data[i].all.meta_pages.length <= 0)
+                                        isNeed = false
+                                    break;
+                                }
+                            }
+                            if (!isNeed) continue;
+                        }
+                        if (_name_tag.length > 0) {
+                            let isNeed = true;
+                            for (let j = 0; j < _name_tag.length; j++) {
+                                const tag = _name_tag[j].toLowerCase();
+                                let _isNeed = false;
+                                for (let k = 0; k < data[i].tags.length; k++) {
+                                    if (data[i].tags[k].toLowerCase().includes(tag)) {
+                                        _isNeed = true;
+                                        break;
+                                    }
+                                }
+                                isNeed = isNeed && _isNeed;
+                            }
+                            if (!isNeed) continue;
+                        }
+                    }
+
                     var extra = '';
                     var imgUrlCover = data[i]['image_urls']['medium'].replace('https://i.pximg.net', tmpSearchSettings['pixivbiu_RvrProxyUrl']);
                     var imgUrl = data[i]['image_urls']['large'].replace('https://i.pximg.net', tmpSearchSettings['pixivbiu_RvrProxyUrl']);
@@ -501,7 +554,7 @@
                     }
 
                     // 图片信息展示
-                    var desText = '<h2><a target="_blank" href="https://www.pixiv.net/artworks/' + data[i]['id'] + '">' + data[i]['title'] + '</a></h2><p>Created by <a target="_blank" href="https://www.pixiv.net/users/' + data[i]['author']['id'] + '">' + data[i]['author']['name'] + '</a> on ' + data[i]['created_time'] + '<br>收藏@' + data[i]['total_bookmarked'] + '，浏览@' + data[i]['total_viewed'] + '</p>';
+                    var desText = '<h2><a style="border-bottom: solid 1px;" target="_blank" href="https://www.pixiv.net/artworks/' + data[i]['id'] + '">' + data[i]['title'] + '</a></h2><p>Created by <a style="border-bottom: solid 1px;" target="_blank" href="https://www.pixiv.net/users/' + data[i]['author']['id'] + '">' + data[i]['author']['name'] + '</a> on ' + data[i]['created_time'] + '<br>收藏@' + data[i]['total_bookmarked'] + '，浏览@' + data[i]['total_viewed'] + '</p>';
                     //// 标签
                     var tagss = '<p style="max-width: 25%;">';
                     for (let kk = 0; kk < data[i]['tags'].length; kk++) {
@@ -524,6 +577,10 @@
                     // 最终结果
                     rstHtml += '<article id="art_' + data[i]['id'] + '" class="thumb"><a href="' + imgUrl + '" class="image' + extraClass + '"><img src="' + imgUrlCover + '" alt="' + data[i]['title'] + '" /></a>' + desText + '<p>' + extraText + '</p><section class="thumbAction">' + extra + '</section></article>';
                 }
+
+                // 筛选
+                headerHtml += '<li><a href="javascript: togglePanel(\'#filter\');">筛选</a></li>';
+                $('#btn-save-refresh').show();
 
                 // 一键下载
                 headerHtml += '<li><a class="tooltip" href="javascript: dlPageAll();" title="下载本页所有图片（原图）">下载</a></li>';

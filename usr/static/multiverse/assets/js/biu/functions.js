@@ -134,3 +134,38 @@ function regMatch(regex, str) {
     }
     return r;
 }
+
+// 下载全部图片
+function dlPageAll() {
+    if (confirm("你确定要一下子下载全部的图片嘛？！还是原图哎...\n其实点击图片右上角也可以下载。"))
+        $('.thumbAction').each(function () {
+            if ($(this).children('a:last')[0]['target'] !== '_blank') {
+                $(this).children('a:last')[0].click();
+            }
+        });
+}
+
+// 切换面板
+function togglePanel(id) {
+    function toggleClassActive(_, className = "active") {
+        if (_) {
+            if (_.attr("class") && _.attr("class").includes(className))
+                _.removeClass(className);
+            else
+                _.addClass(className);
+        }
+    }
+    toggleClassActive($(id));
+    // toggleClassActive($("body"), "content-active");
+}
+
+// 分割并排除空白项
+function splitNoEmpty(c, symbol) {
+    let r = [];
+    const li = c.replace(" ", "").split(symbol);
+    for (let i = 0; i < li.length; i++) {
+        if (li[i])
+            r.push(li[i])
+    }
+    return r;
+}

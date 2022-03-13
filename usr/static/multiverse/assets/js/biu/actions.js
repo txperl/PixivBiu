@@ -429,23 +429,27 @@ function grpActChon(type, grpIdx = -1, args = tmpPageData['args']) {
         grpIdx++;
     }
 
-    if (meth === 'rank') {
-        getRank(args['fun']['mode'], grpIdx);
-    } else if (meth === 'userWorks') {
-        getUserWorks(args['fun']['userID'], args['fun']['type'], grpIdx);
-    } else if (meth === 'works') {
+    if (meth === 'works') {
         searchForWorks(args['fun']['kt'], grpIdx);
+    } else if (meth === 'searchUsers') {
+        searchForUsers(args['fun']['kt']);
     } else if (meth === 'recommend') {
         getRecommend(args['fun']['type'], grpIdx);
-    } else if (meth === 'userFollowing') {
-        getFollowing(args['fun']['userID'], args['fun']['restrict'], grpIdx);
+    } else if (meth === 'rank') {
+        getRank(args['fun']['mode'], grpIdx);
     } else if (meth === 'newToMe') {
         getNewToMe(args['fun']['mode'], grpIdx);
+    } else if (meth === 'userWorks') {
+        getUserWorks(args['fun']['userID'], args['fun']['type'], grpIdx);
+    } else if (meth === 'userFollowing') {
+        getFollowing(args['fun']['userID'], args['fun']['restrict'], grpIdx);
     } else if (meth === 'userMarks') {
         if (grpIdx < args['ops']['tmp'].split('_').length) {
             getMarks(args['fun']['userID'], args['fun']['restrict'], String(grpIdx) + '@' + grp);
         } else {
             $('#btnHeaderNext i').tooltipster('content', '没有了...');
         }
+    } else if (meth === 'oneWork') {
+        getOneWork(args['fun']['workID']);
     }
 }

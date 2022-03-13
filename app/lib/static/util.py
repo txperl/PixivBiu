@@ -2,6 +2,7 @@ import os
 import re
 import socket
 import telnetlib
+import time
 
 from altfe.interface.root import interRoot
 
@@ -80,3 +81,10 @@ class util(object):
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 return s.connect_ex(("localhost", port)) == 0
         return False
+
+    @staticmethod
+    def format_time(date_string, style, to="%Y-%m-%d %H:%M:%S"):
+        try:
+            return time.strftime(to, time.strptime(str(date_string), style))
+        except:
+            return "Unknown"

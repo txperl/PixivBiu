@@ -50,7 +50,7 @@ biu.download.mode: "dl-single"
   # aria2: 使用 aria2 下载，如果启用此项，还需填写下方的 aria2Host、aria2Secret
   # dl: [暂不推荐] 程序多线程下载，暂时不稳定
 
-biu.download.aria2Host: "localhost:6800"
+biu.download.aria2Host: ""
   # aria2 RPC 监听地址，如 localhost:6800
 
 biu.download.aria2Secret: ""

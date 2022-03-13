@@ -125,6 +125,44 @@
     margin: 5px 0;
 }
 
+#filter{
+    padding: 2em 4em 1em 4em;
+}
+
+.filters h2 {
+    margin-bottom: 0.3em;
+}
+
+.filters p {
+    margin: 0 0 1.5em 0;
+}
+
+.filters section {
+    margin: 0 0 0.6em 0;
+}
+
+.filters button {
+    height: 2.7em;
+    line-height: 2.7em;
+    padding: 0 1.5em;
+}
+
+.filters input {
+    -moz-appearance: none;
+    -webkit-appearance: none;
+    -ms-appearance: none;
+    appearance: none;
+    background: #34363b;
+    border: 0;
+    border-radius: 0;
+    outline: 0;
+    text-decoration: none;
+    width: 49%;
+    padding: .35em .6em;
+    color: #fff;
+    margin: 5px 0;
+}
+
 #headerGrpIdxBox {
     cursor: text;
     outline: 0;
@@ -140,7 +178,7 @@
 }
 
 .thumb h2 a {
-    border-bottom: none;
+    border-bottom: none !important;
 }
 
 .poptrox-popup a {

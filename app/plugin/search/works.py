@@ -32,7 +32,7 @@ class searchWorks(interRoot):
         cachePath = self.getENV("rootPath") + "usr/cache/data_search/"
         fileName = (
             (
-                    "%s@%s_%s+%s_%s%s.json"
+                    "%s@%s_%sx%s_%s%s.json"
                     % (
                         args["fun"]["kt"],
                         args["fun"]["mode"],
@@ -77,6 +77,7 @@ class searchWorks(interRoot):
         }
 
         r = {"api": "app", "total": 0, "data": []}
+        # search_target
         self.STATIC.arg.argsPurer(funArg, {"kt": "word", "mode": "search_target"})
         funArg["search_target"] = modes[funArg["search_target"]]
 
