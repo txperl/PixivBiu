@@ -10,9 +10,10 @@ PixivBiu is a nice Pixiv **assistant** tool.
 * Pixiv searching, sort by favorites and popularity without membership
 * Download original images, including illustrations, comics and motion pictures
 * Multiple download modes, single and multi-threaded mode and aria2 support
-* Get user's works, favorites, followers, related recommendations, etc.
-* Get rankings, including today's, this week's, and this month's rankings, etc.
-* Favorite works, followers, etc.
+* Filter image width, height, type, time and tags
+* Get user's works, favorites, followers, related recommendations
+* Get rankings, including today's, week's, and month's rankings
+* Favorite works and followers
 
 ## Usage
 
@@ -34,7 +35,7 @@ They can be downloaded in [GitHub Releases](https://github.com/txperl/PixivBiu/r
 
 ### Docker
 
-[Docker_Buildx_PixivBiu](https://github.com/zzcabc/Docker_Buildx_PixivBiu) by [zzcabc](https://github.com/zzcabc), thanks!
+- [Docker_Buildx_PixivBiu](https://github.com/zzcabc/Docker_Buildx_PixivBiu) by [zzcabc](https://github.com/zzcabc)
 
 ## Document
 

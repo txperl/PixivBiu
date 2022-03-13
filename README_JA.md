@@ -10,6 +10,7 @@ PixivBiuはPixivのための**補助的な**ツールです。
 * お気に入り数(会員の除外可)順や人気順でのPixiv検索
 * イラスト/漫画/うごイラを含む画像のオリジナル画質でのダウンロード
 * シングル/マルチスレッドや[aria2](https://github.com/aria2/aria2)などでのダウンロード
+* 画像の幅、高さ、タイプ、時間、ラベルなどをフィルタリングします
 * 指定したユーザの投稿作品/ブックマーク/フォロワー/関連するおすすめなどの取得
 * 当日/週間/月間別などでのランキングの取得
 * ブックマークやフォロー中のユーザなどの取得
@@ -21,22 +22,20 @@ PixivBiuはPixivのための**補助的な**ツールです。
 * 依存ライブラリのインストール: `pip install -r requirements.txt`
   * [Flask](https://github.com/pallets/flask), [requests](https://github.com/psf/requests), [PyYAML](https://github.com/yaml/pyyaml), [Pillow](https://github.com/python-pillow/Pillow), [PixivPy](https://github.com/upbit/pixivpy), [PySocks](https://github.com/Anorov/PySocks)
 * `./config.yml` の設定 (例: [デフォルトの設定ファイル](./app/config/biu_default.yml))
-* 実行:  `python main.py`
+* 実行: `python main.py`
 * 実行中のページを開く (デフォルトのURL: `http://127.0.0.1:4001/`)
 
 ### 実行バイナリから
 
-このプロジェクトは Python 3.7以上で開発されており、実行バイナリのビルドには`PyInstaller`を使用しています。
+このプロジェクトは Python 3.7 以上で開発されており、実行バイナリのビルドには `PyInstaller` を使用しています。
 
-Windows版とMac版が利用可能ですが、もし必要であれば自分でビルドを試してください。
+Windows 版と macOS 版が利用可能ですが、もし必要であれば自分でビルドを試してください。
 
-ビルド済バイナリは[GitHub Releases](https://github.com/txperl/PixivBiu/releases)もしくは[こちら](https://biu.tls.moe/#/lib/dl)からダウンロードできます。
+ビルド済バイナリは [GitHub Releases](https://github.com/txperl/PixivBiu/releases) もしくは[こちら](https://biu.tls.moe/#/lib/dl)からダウンロードできます。
 
 ### Dockerから
 
-[Docker_Buildx_PixivBiu](https://github.com/zzcabc/Docker_Buildx_PixivBiu)
-
-[zzcabc](https://github.com/zzcabc)に感謝します！
+- [Docker_Buildx_PixivBiu](https://github.com/zzcabc/Docker_Buildx_PixivBiu) by [zzcabc](https://github.com/zzcabc)
 
 ## ドキュメント
 
@@ -56,6 +55,6 @@ Windows版とMac版が利用可能ですが、もし必要であれば自分で�
 
 ### 告知事項
 
-* 本プログラム (PixivBiu) は学習と交流のみを目的としておりますので、当初の目的を達成した後は自分で削除してください。
-* 使用後の如何なる問題も作者には一切関係なく、また作者は一切の責任を負いません。
-* [MITライセンス](https://choosealicense.com/licenses/mit/)です。
+* 本プログラム (PixivBiu) は学習と交流のみを目的としておりますので、当初の目的を達成した後は自分で削除してください
+* 使用後の如何なる問題も作者には一切関係なく、また作者は一切の責任を負いません
+* [MITライセンス](https://choosealicense.com/licenses/mit/)です

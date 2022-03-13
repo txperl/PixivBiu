@@ -10,6 +10,7 @@ PixivBiu 是一款不错的 Pixiv **辅助**工具。
 * Pixiv 搜索，可免会员按收藏数、人气排序
 * 下载原始图片，包括插画、漫画、动图
 * 多种下载模式，单、多线程模式以及 aria2 支持
+* 筛选图片的宽高、类型、时间、标签等
 * 获取用户的作品、收藏夹、关注列表、相关推荐等
 * 获取排行榜，包括今日、本周、本月排行等
 * 收藏作品、关注等
@@ -34,7 +35,7 @@ PixivBiu 是一款不错的 Pixiv **辅助**工具。
 
 ### Docker
 
-来自 [zzcabc](https://github.com/zzcabc) 的 [Docker_Buildx_PixivBiu](https://github.com/zzcabc/Docker_Buildx_PixivBiu) 支持，感谢。
+- [Docker_Buildx_PixivBiu](https://github.com/zzcabc/Docker_Buildx_PixivBiu) by [zzcabc](https://github.com/zzcabc)
 
 ## 文档
 
