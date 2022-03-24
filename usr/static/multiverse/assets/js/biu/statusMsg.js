@@ -24,10 +24,9 @@ function progresserSearching(key, errors = 0) {
                 NProgress.done();
                 return;
             }
-
             if (srher !== 1) {
                 NProgress.set(Number(srher));
-                setTimeout("progresserSearching('" + key + "')", 500);
+                setTimeout((c = key) => progresserSearching(c), 500);
             } else {
                 NProgress.done();
                 return;
@@ -39,7 +38,7 @@ function progresserSearching(key, errors = 0) {
                 return;
             }
             NProgress.done();
-            setTimeout("progresserSearching('" + key + "', " + (errors + 1) + ")", 500);
+            setTimeout((c = key, err = errors) => progresserSearching(c, err + 1), 500);
         }
     });
 }
@@ -57,16 +56,15 @@ function progresserDownloading_auto() {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             let data = rep["msg"]["rst"];
             for (let key in downloadList) {
-                let tmp = downloadList[String(key)];
+                let tmp = downloadList[key];
                 let hrefBak = tmp[0], errors = tmp[1];
                 if (data.hasOwnProperty(key)) {
-                    let tips = $('#dl_' + key + ' d');
                     let id = '#dl_' + key + ' d';
-                    let thu = '#art_' + key + " a:first";
-                    let num = 1, fin = 0, err = 0;
-
                     if ($(id).length <= 0)
                         continue
+                    let tips = $('#dl_' + key + ' d');
+                    let thu = '#art_' + key + " a:first";
+                    let num = 1, fin = 0, err = 0;
 
                     num = data[key].length;
                     for (let i = 0; i < num; i++) {
@@ -80,14 +78,13 @@ function progresserDownloading_auto() {
                     if (err > 0) {
                         $(thu).attr('class', 'image proer-error');
                         $(id).html('失败, 点击重试');
-                        bakToDlHref(key, hrefBak);
+                        restoreBlockDownloadHref(key, hrefBak);
                         continue;
                     }
-
                     if (srher === 1) {
                         $(thu).attr('class', 'image proer-done');
                         $(id).html('完成');
-                        bakToDlHref(key, hrefBak);
+                        restoreBlockDownloadHref(key, hrefBak);
                     } else {
                         $(thu).attr('class', 'image proer-dling');
                         if (tips.tooltipster('content') !== '取消下载') {
@@ -101,16 +98,19 @@ function progresserDownloading_auto() {
                     }
                 }
             }
-            setTimeout(`progresserDownloading_auto()`, 1000);
+            setTimeout(progresserDownloading_auto, 1000);
         },
-        error: function (e) {
-            setTimeout(`progresserDownloading_auto()`, 3000);
+        error: function () {
+            setTimeout(progresserDownloading_auto, 3000);
         }
     });
 }
 
-function bakToDlHref(key, hrefBak) {
-    delete downloadList[String(key)];
-    $('#dl_' + key).attr('href', unescape(hrefBak).replaceAll("%sq%", "'").replaceAll("%dq%", "\""));
-    $('#dl_' + key + ' d').tooltipster('content', "下载");
+function restoreBlockDownloadHref(key, href) {
+    if (!Object.keys(downloadList).includes(key))
+        return false;
+    delete downloadList[key];
+    $(`#dl_${key}`).attr('href', decodeURIComponent(href).replaceAll("%sq%", "'").replaceAll("%dq%", "\""));
+    $(`#dl_${key} d`).tooltipster('content', "下载");
+    return true;
 }

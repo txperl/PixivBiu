@@ -1,5 +1,3 @@
-import platform
-
 import requests
 
 from altfe.interface.root import interRoot
@@ -7,7 +5,7 @@ from app.lib.common.login_helper.token import tokenGetter
 
 
 @interRoot.bind("loginHelper", "LIB_COMMON")
-class common_loginHelper(interRoot):
+class CommonLoginHelper(interRoot):
     """
     Pixiv 登陆助手。
     可以优先进行网络检测以及筛选，以提高在网络不佳情况下的 Token 获取概率。
@@ -36,7 +34,7 @@ class common_loginHelper(interRoot):
             "https://doh.dns.sb/dns-query",
             "https://cloudflare-dns.com/dns-query",
         ) if URLS is None else URLS
-        proxy = self.STATIC.util.getSystemProxy(platform.system()) if proxy_ == "auto" else proxy_
+        proxy = self.STATIC.util.get_system_proxy() if proxy_ == "auto" else proxy_
         if silent is False:
             self.STATIC.localMsger.msg(self.lang("network.hint_in_check"), header="Login Helper")
             if proxy == "":

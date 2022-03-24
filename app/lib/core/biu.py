@@ -15,7 +15,7 @@ from altfe.interface.root import interRoot
 @interRoot.bind("biu", "LIB_CORE")
 class core_module_biu(interRoot):
     def __init__(self):
-        self.ver = 204000
+        self.ver = 205000
         self.place = "local"
         self.sysPlc = platform.system()
         self.api_route = "direct"
@@ -65,7 +65,7 @@ class core_module_biu(interRoot):
         1. 检测端口是否已被占用
         """
         # 检测端口是否被占用
-        if self.STATIC.util.isPortInUse(self.sets["sys"]["host"].split(":")[1]):
+        if self.STATIC.util.is_prot_in_use(self.sets["sys"]["host"].split(":")[1]):
             self.STATIC.localMsger.red(self.lang("config.hint_port_is_in_use"))
             input(self.lang("common.press_to_exit"))
             sys.exit(0)
@@ -79,7 +79,7 @@ class core_module_biu(interRoot):
             return ""
         if self.sets["sys"]["proxy"] != "":
             return self.sets["sys"]["proxy"]
-        proxy_address = self.STATIC.util.getSystemProxy(self.sysPlc)
+        proxy_address = self.STATIC.util.get_system_proxy(self.sysPlc)
         if proxy_address != "":
             self.STATIC.localMsger.msg(f"{self.lang('config.hint_proxy_in_use')}: {proxy_address}")
         return proxy_address

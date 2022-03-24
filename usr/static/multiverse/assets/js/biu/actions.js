@@ -1,6 +1,13 @@
-function searchForWorks(key, grpIdx = 0, isCache = 1, mode = tmpSearchSettings['pixivbiu_searchMode']) {
+function searchForWorks(key = null, grpIdx = 0, isCache = 1, mode = tmpSearchSettings['pixivbiu_searchMode']) {
     cssShowLoading();
-    setTimeout("progresserSearching('" + key + '_' + String(tmpSearchSettings['pixivbiu_searchPageNum']) + '+' + String(grpIdx) + "')", 200);
+    if (!key) {
+        if (!tmpPageData || !tmpPageData.args || !tmpPageData.args.fun || !tmpPageData.args.fun.kt)
+            showPics('Error :<', ['main'], []);
+        else
+            key = tmpPageData.args.fun.kt;
+    }
+    const searchID = key + '_' + String(tmpSearchSettings['pixivbiu_searchPageNum']) + '+' + String(grpIdx);
+    setTimeout((c = searchID) => progresserSearching(c), 200)
     if (mode !== 'tag' && mode !== 'otag' && mode !== 'des')
         mode = 'tag';
     $.ajax({
@@ -12,7 +19,6 @@ function searchForWorks(key, grpIdx = 0, isCache = 1, mode = tmpSearchSettings['
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
             'isCache': Number(isCache),
             'groupIndex': Number(grpIdx),
-            'sortMode': String(tmpSearchSettings['pixivbiu_sortMode'])
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
@@ -39,10 +45,8 @@ function getUserWorks(user, type, grpIdx = 0) {
         data: {
             'userID': user,
             'type': type,
-            'sortMode': String(tmpSearchSettings['pixivbiu_sortMode']),
-            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] === 'on'),
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
-            'groupIndex': Number(grpIdx)
+            'groupIndex': Number(grpIdx),
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
@@ -70,6 +74,7 @@ function getRank(mode = 'day', grpIdx = 0) {
         url: "api/biu/get/rank/",
         data: {
             'mode': mode,
+            'date': tmpFilters['pixivbiu_filterRkDate'] ? tmpFilters['pixivbiu_filterRkDate'] : 0,
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
             'groupIndex': Number(grpIdx)
         },
@@ -100,8 +105,6 @@ function getRecommend(type = 'illust', grpIdx = 0) {
             'type': type,
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
             'groupIndex': Number(grpIdx),
-            'sortMode': String(tmpSearchSettings['pixivbiu_sortMode']),
-            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] === 'on')
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
@@ -130,8 +133,6 @@ function getNewToMe(mode = 'public', grpIdx = 0) {
             'restrict': mode,
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
             'groupIndex': Number(grpIdx),
-            'sortMode': String(tmpSearchSettings['pixivbiu_sortMode']),
-            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] === 'on')
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
@@ -167,10 +168,8 @@ function getMarks(user = '', mode = 'public', grp = '0@0') {
         data: {
             'userID': user,
             'restrict': mode,
-            'sortMode': String(tmpSearchSettings['pixivbiu_sortMode']),
-            'isSort': Number(tmpSearchSettings['pixivbiu_funIsAllSort'] === 'on'),
             'groupIndex': String(grpArr[grpIdx]),
-            'tmp': grp
+            'tmp': grp,
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
@@ -361,13 +360,11 @@ function doFollow(id, action = 'add') {
 function doDownloadPic(kt, workID = 0, idx = -1) {
     if (downloadList.hasOwnProperty(workID))
         return;
-
     let data;
     if (idx !== -1)
         data = JSON.stringify(tmpPageData['rst']['data'][idx]['all']);
     else
         data = 0;
-
     $.ajax({
         type: "GET",
         async: true,
@@ -379,7 +376,7 @@ function doDownloadPic(kt, workID = 0, idx = -1) {
         },
         success: function (rep) {
             if (rep['msg']['rst'] === 'running') {
-                let bakJS = escape($('#dl_' + workID).attr('href').replaceAll("'", "%sq%").replaceAll("\"", "%dq%"));
+                let bakJS = maybeEncode($('#dl_' + workID).attr('href'));
                 downloadList[String(workID)] = ([bakJS, 0]);
             } else {
                 $('#art_' + workID + ' a:first').attr('class', 'image proer-error');

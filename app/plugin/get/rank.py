@@ -6,10 +6,13 @@ class getRank(interRoot):
     def run(self, cmd):
         try:
             args = self.STATIC.arg.getArgs(
-                "rank", ["mode=day", "&totalPage=5", "&groupIndex=0"]
+                "rank", ["mode=day", "date=0", "&totalPage=5", "&groupIndex=0"]
             )
         except:
             return {"code": 0, "msg": "missing parameters"}
+
+        if len(str(args["fun"]["date"]).split("-")) != 3:
+            args["fun"]["date"] = None
 
         return {
             "code": 1,

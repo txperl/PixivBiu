@@ -1,3 +1,4 @@
+import re
 from concurrent.futures import as_completed
 
 from altfe.interface.root import interRoot
@@ -15,7 +16,7 @@ class searchWorks(interRoot):
                     "&totalPage=5",
                     "&groupIndex=0",
                     "&sortMode=0",
-                    "&isSort=1",
+                    "&isSort=0",
                     "&isCache=1",
                 ],
             )
@@ -23,39 +24,20 @@ class searchWorks(interRoot):
             return {"code": 0, "msg": "missing parameters"}
 
         code = 1
-
-        isCache = (
-                int(args["ops"]["isCache"])
-                and self.CORE.biu.sets["biu"]["search"]["loadCacheFirst"]
-        )
-
+        isCache = int(args["ops"]["isCache"]) and self.CORE.biu.sets["biu"]["search"]["loadCacheFirst"]
         cachePath = self.getENV("rootPath") + "usr/cache/data_search/"
-        fileName = (
-            (
-                    "%s@%s_%sx%s_%s%s.json"
-                    % (
-                        args["fun"]["kt"],
-                        args["fun"]["mode"],
-                        args["ops"]["totalPage"],
-                        args["ops"]["groupIndex"],
-                        args["ops"]["sortMode"],
-                        args["ops"]["isSort"],
-                    )
-            )
-                .replace("\\", "#")
-                .replace("/", "#")
-                .replace(":", "#")
-                .replace("*", "#")
-                .replace("?", "#")
-                .replace('"', "#")
-                .replace("<", "#")
-                .replace(">", "#")
-                .replace("|", "#")
+        fileName = "%s@%s_%sx%s_%s%s.json" % (
+            args["fun"]["kt"],
+            args["fun"]["mode"],
+            args["ops"]["totalPage"],
+            args["ops"]["groupIndex"],
+            args["ops"]["sortMode"],
+            args["ops"]["isSort"],
         )
+        fileName = re.sub(r'[/\\:*?"<>|]', "_", fileName)
 
         if isCache:
             isCacheFile = self.STATIC.file.ain(cachePath + fileName)
-
         if isCache and isCacheFile:
             rst = isCacheFile
             code = 2

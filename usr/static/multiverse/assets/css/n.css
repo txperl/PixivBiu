@@ -1,3 +1,7 @@
+.weight-6 {
+    font-weight: 600 !important;
+}
+
 #main {
     transition-property: margin-top;
     transition-duration: 1s;
@@ -105,27 +109,15 @@
     filter: blur(15px) !important;
 }
 
+#setting {
+    padding: 2em 4em 1em 4em;
+}
+
 .settings section {
     margin: 0 0 1.2em 0;
 }
 
-.settings input {
-    -moz-appearance: none;
-    -webkit-appearance: none;
-    -ms-appearance: none;
-    appearance: none;
-    background: #34363b;
-    border: 0;
-    border-radius: 0;
-    outline: 0;
-    text-decoration: none;
-    width: 49%;
-    padding: .5em;
-    color: #fff;
-    margin: 5px 0;
-}
-
-#filter{
+#filter {
     padding: 2em 4em 1em 4em;
 }
 
@@ -152,15 +144,24 @@
     -webkit-appearance: none;
     -ms-appearance: none;
     appearance: none;
+    color: #fff;
     background: #34363b;
     border: 0;
     border-radius: 0;
     outline: 0;
     text-decoration: none;
-    width: 49%;
     padding: .35em .6em;
-    color: #fff;
     margin: 5px 0;
+}
+
+.filters section div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-gap: 0 3px;
+}
+
+.filters section .grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 #headerGrpIdxBox {
@@ -241,8 +242,6 @@
         font-size: 12pt;
     }
 }
-
-html::-webkit-scrollbar-track-piece {}
 
 html::-webkit-scrollbar {
     width: 8px;

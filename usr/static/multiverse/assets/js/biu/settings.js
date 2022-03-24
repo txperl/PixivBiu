@@ -17,18 +17,18 @@ function loadSearchSettings(mods = settingsMods) {
     }
 }
 
-function saveSettingsCookie(mods = settingsMods) {
-    for (var id in mods) {
+function saveSettingsCookie(reset = false, mods = settingsMods) {
+    for (const id in mods) {
         if (!mods.hasOwnProperty(id)) continue;
-
-        if ($(id).val() != "") {
-            var name = mods[id][0]
+        const name = mods[id][0];
+        if (reset) {
             Cookies.remove(name);
-            Cookies.set(name, $(id).val(), { expires: 7 })
-            $(id).val('');
+        } else if ($(id).val() != "") {
+            Cookies.remove(name);
+            Cookies.set(name, $(id).val(), { expires: 30 })
         }
+        $(id).val("");
     }
-
     loadSearchSettings(mods);
 }
 
@@ -44,6 +44,12 @@ function loadFilters(mods = filtersMods) {
         if ($(keys[i]))
             $(keys[i]).val(tmpFilters[cookieID]);
     }
+    if ($(".label-btn-filter")) {
+        if (checkCookies(Object.keys(filtersMods), filtersMods))
+            $(".label-btn-filter").addClass("weight-6");
+        else
+            $(".label-btn-filter").removeClass("weight-6");
+    }
 }
 
 function saveFiltersCookie(reset = false, mods = filtersMods) {
@@ -56,4 +62,14 @@ function saveFiltersCookie(reset = false, mods = filtersMods) {
             Cookies.set(cookieID, obj.val(), { expires: 7 })
     }
     loadFilters(mods);
+}
+
+function checkCookies(li, mods = null) {
+    const cookies = Cookies.get();
+    for (let i = 0; i < li.length; i++) {
+        const cookieID = !mods ? li[i] : mods[li[i]][0];
+        if (cookies[cookieID])
+            return true;
+    }
+    return false;
 }

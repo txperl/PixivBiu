@@ -7,12 +7,12 @@ PixivBiuはPixivのための**補助的な**ツールです。
 
 ## 機能
 
-* お気に入り数(会員の除外可)順や人気順でのPixiv検索
+* お気に入り数（会員の除外可）順や人気順でのPixiv検索
 * イラスト/漫画/うごイラを含む画像のオリジナル画質でのダウンロード
-* シングル/マルチスレッドや[aria2](https://github.com/aria2/aria2)などでのダウンロード
-* 画像の幅、高さ、タイプ、時間、ラベルなどをフィルタリングします
+* シングル/マルチスレッドや [aria2](https://github.com/aria2/aria2) などでのダウンロード
+* 画像の幅、高さ、アスペクト比、タイプ、時間、ラベルなどをフィルタリングします
 * 指定したユーザの投稿作品/ブックマーク/フォロワー/関連するおすすめなどの取得
-* 当日/週間/月間別などでのランキングの取得
+* 当日/週間/月間/特定の日付別などでのランキングの取得
 * ブックマークやフォロー中のユーザなどの取得
 
 ## 使い方
@@ -21,9 +21,9 @@ PixivBiuはPixivのための**補助的な**ツールです。
 
 * 依存ライブラリのインストール: `pip install -r requirements.txt`
   * [Flask](https://github.com/pallets/flask), [requests](https://github.com/psf/requests), [PyYAML](https://github.com/yaml/pyyaml), [Pillow](https://github.com/python-pillow/Pillow), [PixivPy](https://github.com/upbit/pixivpy), [PySocks](https://github.com/Anorov/PySocks)
-* `./config.yml` の設定 (例: [デフォルトの設定ファイル](./app/config/biu_default.yml))
+* `./config.yml` の設定（例：[デフォルトの設定ファイル](./app/config/biu_default.yml)）
 * 実行: `python main.py`
-* 実行中のページを開く (デフォルトのURL: `http://127.0.0.1:4001/`)
+* 実行中のページを開く（デフォルトのURL: `http://127.0.0.1:4001/`）
 
 ### 実行バイナリから
 
@@ -39,11 +39,11 @@ Windows 版と macOS 版が利用可能ですが、もし必要であれば自�
 
 ## ドキュメント
 
-現在、 **使い方とAPI**のドキュメントのみがあります。必要に応じて[こちら](https://biu.tls.moe/)をご参照ください。
+現在，**使い方とAPI**のドキュメントのみがあります，必要に応じて[こちら](https://biu.tls.moe/)をご参照ください。
 
 ## 貢献
 
-もしこのプロジェクトの開発に参加したいのであれば、お気軽に[開発ドキュメント(中文)](https://biu.tls.moe/#/develop/quickin)をご参照ください。
+もしこのプロジェクトの開発に参加したいのであれば、お気軽に[開発ドキュメント（中文）](https://biu.tls.moe/#/develop/quickin)をご参照ください。
 
 ## その他
 
@@ -55,6 +55,6 @@ Windows 版と macOS 版が利用可能ですが、もし必要であれば自�
 
 ### 告知事項
 
-* 本プログラム (PixivBiu) は学習と交流のみを目的としておりますので、当初の目的を達成した後は自分で削除してください
+* 本プログラム（PixivBiu）は学習と交流のみを目的としておりますので、当初の目的を達成した後は自分で削除してください
 * 使用後の如何なる問題も作者には一切関係なく、また作者は一切の責任を負いません
 * [MITライセンス](https://choosealicense.com/licenses/mit/)です

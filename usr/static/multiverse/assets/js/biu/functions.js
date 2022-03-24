@@ -169,3 +169,19 @@ function splitNoEmpty(c, symbol) {
     }
     return r;
 }
+
+// encodeURIComponent with [",']
+function maybeEncode(c) {
+    return encodeURIComponent(c).replaceAll("\"", "%22").replaceAll("'", "%27");
+}
+
+// XSS Prevention
+function maybeXSS(c) {
+    CHARS = { "<": "&lt;", "\"": "&quot;", "'": "&_quot;", "&": "&amp;" };
+    const KEYS = Object.keys(CHARS);
+    for (let i = 0; i < KEYS.length; i++) {
+        const key = KEYS[i];
+        c = c.replaceAll(key, CHARS[key]);
+    }
+    return c;
+}

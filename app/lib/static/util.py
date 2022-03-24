@@ -1,4 +1,5 @@
 import os
+import platform
 import re
 import socket
 import telnetlib
@@ -8,53 +9,54 @@ from altfe.interface.root import interRoot
 
 
 @interRoot.bind("util", "LIB_STATIC")
-class util(object):
+class StaticUtil(object):
     @staticmethod
-    def getSystemProxy(sysPlc):
+    def get_system_proxy(sys_plc=None):
         """
         检测系统本地设置中的代理地址。
         @Windows: 通过注册表项获取
         @macOS: 通过 scutil 获取
         @Linux: 暂时未实现
         """
-
+        if sys_plc is None:
+            sys_plc = platform.system()
         # 命令选择
-        if sysPlc == "Windows":
+        if sys_plc == "Windows":
             cmd = r'reg query "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings" | ' \
                   r'findstr "ProxyServer AutoConfigURL" '
-        elif sysPlc == "Darwin":
+        elif sys_plc == "Darwin":
             cmd = "scutil --proxy"
         else:
             return ""
 
         # 获取系统终端执行结果
-        cmdRstObj = os.popen(cmd)
-        cmdRst = cmdRstObj.read()
-        cmdRstObj.close()
+        cmd_rst_obj = os.popen(cmd)
+        cmd_rst = cmd_rst_obj.read()
+        cmd_rst_obj.close()
 
         # 获取代理地址
         dic = {}
-        if sysPlc == "Windows":
+        if sys_plc == "Windows":
             # Windows
-            for x in [re.split(r"\s+", x)[1:] for x in cmdRst.split("\n")]:
+            maybe = ["AutoConfigURL", "ProxyServer"]
+            for x in [re.split(r"\s+", x)[1:] for x in cmd_rst.split("\n")]:
                 if len(x) != 3:
                     continue
                 dic[x[0]] = x[2]
-            MAY = ["AutoConfigURL", "ProxyServer"]
-            for key in MAY:
+            for key in maybe:
                 if key in dic:
                     return dic[key]
-        elif sysPlc == "Darwin":
+        elif sys_plc == "Darwin":
             # macOS
-            for x in cmdRst.replace(" ", "").split("\n"):
+            maybe = ["HTTP", "HTTPS", "SOCKS", "ProxyAutoConfig"]
+            for x in cmd_rst.replace(" ", "").split("\n"):
                 if ":" not in x:
                     continue
                 tmp = x.split(":")
                 dic[tmp[0]] = ":".join(tmp[1:])
-            SUP = ["HTTP", "HTTPS", "SOCKS", "ProxyAutoConfig"]
-            for ptl in SUP:
-                subKey = f"{ptl}Enable"
-                if subKey in dic and dic[subKey] == "1":
+            for ptl in maybe:
+                subkey = f"{ptl}Enable"
+                if subkey in dic and dic[subkey] == "1":
                     if ptl == "ProxyAutoConfig":
                         proxy = dic["ProxyAutoConfigURLString"]
                     else:
@@ -62,11 +64,10 @@ class util(object):
                             ptl.lower() if ptl != "SOCKS" else "socks5", dic[ptl + "Proxy"], dic[ptl + "Port"]
                         )
                     return proxy
-
         return ""
 
     @staticmethod
-    def isLocalCon(add, prt):
+    def is_local_connect(add, prt):
         # 检测本地是否可通
         try:
             telnetlib.Telnet(add, port=prt, timeout=1)
@@ -75,7 +76,7 @@ class util(object):
             return False
 
     @staticmethod
-    def isPortInUse(port):
+    def is_prot_in_use(port):
         port = int(port)
         if port >= 0 and port <= 65535:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
