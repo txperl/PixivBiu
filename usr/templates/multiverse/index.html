@@ -304,16 +304,16 @@
                 const user = m[1];
                 const code = m[2];
                 if (code === 'i') {
-                    $('title').html('TA 的插画 - PixivBiu');
+                    $('title').html('TA 的插画');
                     getUserWorks(user, 'illust');
                 } else if (code === 'c') {
-                    $('title').html('TA 的漫画 - PixivBiu');
+                    $('title').html('TA 的漫画');
                     getUserWorks(user, 'manga');
                 } else if (code === 'm') {
-                    $('title').html('TA 的收藏 - PixivBiu');
+                    $('title').html('TA 的收藏');
                     getMarks(user);
                 } else if (code === 'f') {
-                    $('title').html('TA 的关注 - PixivBiu');
+                    $('title').html('TA 的关注');
                     getFollowing(user);
                 }
             } else if ((m = regMatch(/@s=(.*?) -(.)/g, c)).length === 3) {
@@ -330,10 +330,10 @@
                     searchForWorks(kt, 0, 1, 'des');
                 }
             } else if ((m = regMatch(/@w=(.*?)$/g, c)).length === 2) {
-                $('title').html('作品 - PixivBiu');
+                $('title').html('作品');
                 getOneWork(m[1]);
             } else if ((m = regMatch(/@su=(.*?)$/g, c)).length === 2) {
-                $('title').html('用户搜索 - PixivBiu');
+                $('title').html('用户搜索');
                 searchForUsers(m[1]);
             } else {
                 $('title').html('PixivBiu');
@@ -431,6 +431,7 @@
                     }
                     li += '<a target="_blank" href="https://www.pixiv.net/users/' + data[0]['author']['id'] + '"><d class="tooltip" title="打开画师 Pixiv 主页">Pixiv</d></a>';
                     li += '<a target="_blank" href=".?code=%40u%3D' + data[0]['author']['id'] + '%20-f"><op class="tooltip" title="获取 TA 的关注列表">关注列表</op></a>';
+                    li += '<a target="_blank" href=".?code=%40u%3D' + data[0]['author']['id'] + '%20-m"><sf class="tooltip" title="获取 TA 的作品收藏">作品收藏</op></a>';
                     rstHtml += '<article class="thumb"><a class="imageBtn"><img src="' + data[0]['all']['user']['profile_image_urls']['medium'].replace('i.pximg.net', 'i.pixiv.re') + '" alt="" /></a><h2>画师@' + data[0]['author']['name'] + '</h2><section class="thumbAction">' + li + '</section></article>';
                 }
 
@@ -442,7 +443,8 @@
                     } else {
                         li = '<a id="follow_' + data[i]['id'] + '" href="javascript: doFollow(' + data[i]['id'] + ', \'add\');"><b class="tooltip" title="关注"><hicon>💗</hicon></b></a>';
                     }
-                    li += '<a target="_blank" href=".?code=%40u%3D' + data[i]['id'] + '%20-i"><d class="tooltip" title="获取 TA 的作品">🔍作品</d></a>';
+                    li += '<a target="_blank" href=".?code=%40u%3D' + data[i]['id'] + '%20-i"><d class="tooltip" title="获取 TA 的插画作品">插画</d></a>';
+                    li += '<a target="_blank" href=".?code=%40u%3D' + data[i]['id'] + '%20-c"><op class="tooltip" title="获取 TA 的漫画作品">漫画</d></a>';
                     rstHtml += '<article class="thumb"><a class="imageBtn"><img src="' + data[i]['profile_image_urls']['medium'].replace('i.pximg.net', 'i.pixiv.re') + '" alt="" /></a><h2>' + data[i]['name'] + '</h2><section class="thumbAction">' + li + '</section></article>';
                 }
 
@@ -568,7 +570,7 @@
                     if (c['args']['fun']['kt']) {
                         kt = c['args']['fun']['kt'];
                     } else if (c['args']['ops']['method'] === 'userWorks') {
-                        kt = '画师_' + data[0]['author']['name'] + '@' + data[0]['author']['id'];
+                        kt = '画师_' + data[0]['author']['id'];
                     } else if (c['args']['ops']['method'] === 'userMarks') {
                         kt = '收藏_' + c['args']['fun']['userID'];
                     } else if (c['args']['ops']['method'] === 'rank') {

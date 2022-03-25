@@ -59,7 +59,7 @@ biu.download.aria2Secret: ""
 biu.download.maxDownloading: 8
   # 最大同时下载任务数
 
-biu.download.saveURI: "{ROOTPATH}/downloads/{KT}/"
+biu.download.saveURI: "{ROOTPATH}/downloads/{date_today}/"
   # 下载保存路径，以 / 结尾
   # 不可使用 \ 符号，请将其替换为 / 或 \\
   # 可选变量
@@ -91,8 +91,8 @@ biu.download.autoArchive: true
   # true 为开启；false 为关闭
 
 biu.download.autoDeterTheSame: true
-  # 自动判断下载目录中重名图片是否相同
-  # 若相同，则只保留一份；若不同，则自动将新图片重命名
+  # 自动判断下载目录中文件名相同的图片是否为同一作品
+  # 若是，则只保留一份；若不是，则自动将新图片重命名
   # true 为开启；false 为关闭
 
 biu.download.whatsUgoira: "webp"

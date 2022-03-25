@@ -185,3 +185,11 @@ function maybeXSS(c) {
     }
     return c;
 }
+
+// Title Name
+function changeTitleName(name, from = null) {
+    const final = from ? `${name} - ${from}` : name;
+    const _title = $("title");
+    if (_title) _title.html(final); else return false;
+    return true;
+}

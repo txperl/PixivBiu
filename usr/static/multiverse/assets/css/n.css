@@ -53,9 +53,12 @@
     padding: 0 1.6875em;
 }
 
-#main .thumb .thumbAction a>b, #main .thumb .thumbAction a>d, #main .thumb .thumbAction a>op {
+#main .thumb .thumbAction a>b,
+#main .thumb .thumbAction a>d,
+#main .thumb .thumbAction a>op,
+#main .thumb .thumbAction a>sf {
     position: absolute;
-    top: 8px;
+    top: .4em;
     background: rgba(0, 0, 0, .2);
     backdrop-filter: blur(3px);
     color: #FFF;
@@ -68,15 +71,20 @@
 }
 
 #main .thumb .thumbAction a>b {
-    left: 8px;
+    left: .4em;
 }
 
 #main .thumb .thumbAction a>d {
-    right: 8px;
+    right: .4em;
 }
 
 #main .thumb .thumbAction a>op {
-    right: 3.6em;
+    right: 3.8em;
+}
+
+#main .thumb .thumbAction a>sf {
+    top: 2.8em;
+    right: .4em;
 }
 
 #main .thumb>.imageBtn {

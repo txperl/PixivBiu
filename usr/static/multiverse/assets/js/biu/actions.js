@@ -25,6 +25,7 @@ function searchForWorks(key = null, grpIdx = 0, isCache = 1, mode = tmpSearchSet
             if (rep.code) {
                 tmpCode = rep.code;
                 tmpPageData = rep.msg;
+                changeTitleName(`搜索[${mode}]@${key}`);
                 showPics('Biu~');
             } else {
                 showPics('Error :<', ['main'], []);
@@ -37,6 +38,7 @@ function searchForWorks(key = null, grpIdx = 0, isCache = 1, mode = tmpSearchSet
 }
 
 function getUserWorks(user, type, grpIdx = 0) {
+    KEYS = { illust: "用户插画", manga: "用户漫画" };
     NProgress.inc();
     cssShowLoading();
     $.ajax({
@@ -53,6 +55,10 @@ function getUserWorks(user, type, grpIdx = 0) {
             if (rep.code) {
                 tmpCode = rep.code;
                 tmpPageData = rep.msg;
+                if (rep.msg.rst.data.length > 0)
+                    changeTitleName(`${KEYS[rep.msg.args.fun.type]}@${rep.msg.rst.data[0].author.name}`);
+                else
+                    changeTitleName(`${KEYS[rep.msg.args.fun.type]}@${user}`);
                 showPics('Biu~');
             } else {
                 showPics('Error :<', ['main'], []);
@@ -82,6 +88,7 @@ function getRank(mode = 'day', grpIdx = 0) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
                 tmpPageData = rep.msg;
+                changeTitleName(`排行榜@${mode}`);
                 showPics('排行榜@' + mode, ['main', 'header']);
             } else {
                 showPics('Error :<', ['main'], []);
@@ -110,6 +117,7 @@ function getRecommend(type = 'illust', grpIdx = 0) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
                 tmpPageData = rep.msg;
+                changeTitleName(`推荐@${type}`);
                 showPics('推荐@' + type, ['main', 'header']);
             } else {
                 showPics('Error :<', ['main'], []);
@@ -138,7 +146,8 @@ function getNewToMe(mode = 'public', grpIdx = 0) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
                 tmpPageData = rep.msg;
-                showPics('用户新作@' + mode, ['main', 'header']);
+                changeTitleName(`我关注的新作@${mode}`);
+                showPics('我关注的新作@' + mode, ['main', 'header']);
             } else {
                 showPics('Error :<', ['main'], []);
             }
@@ -178,8 +187,11 @@ function getMarks(user = '', mode = 'public', grp = '0@0') {
                     rep['msg']['args']['ops']['tmp'] = grp.split('@')[0] + '@' + grp.split('@')[1] + '_' + rep['msg']['args']['ops']['markNex'];
                 tmpPageData = rep.msg;
                 if (user === '' || user === 'my') {
+                    changeTitleName(`我的收藏@${mode}`);
                     showPics('我的收藏@' + mode, ['main', 'header']);
                 } else {
+                    const _name = rep.msg.rst.data.length ? rep.msg.rst.data[0].author.name : user;
+                    changeTitleName(`用户收藏@${_name}`);
                     showPics('TA 的收藏', ['main', 'header']);
                 }
             } else {
@@ -215,8 +227,10 @@ function getFollowing(user = '', mode = 'public', grpIdx = 0) {
             if (rep.code) {
                 tmpPageData = rep.msg;
                 if (user === '' || user === 'my') {
+                    changeTitleName(`我的关注@${mode}`);
                     showPics('我的关注@' + mode, ['main', 'header']);
                 } else {
+                    changeTitleName(`用户关注@${user}`);
                     showPics('TA 的关注', ['main', 'header']);
                 }
             } else {
@@ -246,6 +260,7 @@ function searchForUsers(key, grpIdx = 0) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
                 tmpPageData = rep.msg;
+                changeTitleName(`搜索用户@${key}`);
                 showPics('用户搜索', ['main', 'header']);
             } else {
                 showPics('Error :<', ['main'], []);
@@ -272,6 +287,7 @@ function getOneWork(id) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
                 tmpPageData = rep.msg;
+                changeTitleName(`作品@${id}`);
                 showPics('Biu~', ['main', 'header']);
             } else {
                 showPics('Error :<', ['main'], []);
@@ -287,7 +303,6 @@ function getOneWork(id) {
 
 function doBookmark(id, action = 'add') {
     let des, de, icon, tURL;
-
     if (action === 'add') {
         tURL = "api/biu/do/mark/";
         icon = '💘';
@@ -299,7 +314,6 @@ function doBookmark(id, action = 'add') {
         de = 'javascript: doBookmark(' + id + ', \'add\');';
         des = '收藏';
     }
-
     $.ajax({
         type: "GET",
         url: tURL,
@@ -323,7 +337,6 @@ function doBookmark(id, action = 'add') {
 
 function doFollow(id, action = 'add') {
     let des, de, icon, tURL;
-
     if (action === 'add') {
         tURL = "api/biu/do/follow/";
         icon = '💘';
@@ -335,7 +348,6 @@ function doFollow(id, action = 'add') {
         de = 'javascript: doFollow(' + id + ', \'add\');';
         des = '关注';
     }
-
     $.ajax({
         type: "GET",
         url: tURL,
@@ -410,7 +422,6 @@ function doDownloadStopPic(workID) {
 
 function grpActChon(type, grpIdx = -1, args = tmpPageData['args']) {
     const meth = args['ops']['method'];
-
     if (grpIdx <= -1) {
         if (meth === 'userMarks') {
             grpIdx = Number(args['ops']['tmp'].split('@')[0]);
@@ -419,13 +430,11 @@ function grpActChon(type, grpIdx = -1, args = tmpPageData['args']) {
             grpIdx = Number(args['ops']['groupIndex']);
         }
     }
-
     if (type === 'back' && grpIdx > 0) {
         grpIdx--;
     } else if (type === 'next') {
         grpIdx++;
     }
-
     if (meth === 'works') {
         searchForWorks(args['fun']['kt'], grpIdx);
     } else if (meth === 'searchUsers') {
