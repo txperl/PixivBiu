@@ -21,13 +21,12 @@ class Aria2Dler(Dler):
     def run(self):
         args = self.args.copy()
         args.update(self._dlArgs["@aria2"])
-        parms = [
+        params = [
             self._dlUrl if type(self._dlUrl) == list else [self._dlUrl],
             dict(args),
         ]
 
-        msg = self.call(parms, "aria2.addUri")
-
+        msg = self.call(params, "aria2.addUri")
         if "error" in msg:
             self.status(Dler.CODE_BAD_FAILED, True)
         else:
@@ -39,7 +38,7 @@ class Aria2Dler(Dler):
     def __monitor_schedule(self):
         while self.status(Dler.CODE_GOOD_RUNNING) or self.status(Dler.CODE_WAIT):
             msg = self.tell_status()
-            if "error" in msg or "result" not in msg:
+            if not self.is_success(msg):
                 self.status(Dler.CODE_BAD_FAILED, True)
                 break
             tmp = msg["result"]
@@ -61,19 +60,19 @@ class Aria2Dler(Dler):
         return self.call([self._a2TaskID], "aria2.tellStatus")
 
     def pause(self):
-        if self.isSuccess(self.call([self._a2TaskID], "aria2.pause")):
+        if self.is_success(self.call([self._a2TaskID], "aria2.pause")):
             self.status(Dler.CODE_WAIT_PAUSE, True)
             return True
         return False
 
     def unpause(self):
-        if self.isSuccess(self.call([self._a2TaskID], "aria2.unpause")):
+        if self.is_success(self.call([self._a2TaskID], "aria2.unpause")):
             self.status(Dler.CODE_GOOD_RUNNING, True)
             return True
         return False
 
     def cancel(self):
-        if self.isSuccess(self.call([self._a2TaskID], "aria2.remove")):
+        if self.is_success(self.call([self._a2TaskID], "aria2.remove")):
             self.status(Dler.CODE_BAD_CANCELLED, True)
             return True
         return False
@@ -82,21 +81,21 @@ class Aria2Dler(Dler):
         msg = {"error": "404 not found"}
         try:
             params.insert(0, "token:%s" % Aria2Dler.SECRET)
-            jsonreq = {
+            json_req = {
                 "jsonrpc": "2.0",
                 "id": self._id,
                 "method": method,
                 "params": params,
             }
-            rep = requests.post("http://%s:%s/jsonrpc" % (Aria2Dler.HOST, Aria2Dler.PORT), data=json.dumps(jsonreq))
+            rep = requests.post("http://%s:%s/jsonrpc" % (Aria2Dler.HOST, Aria2Dler.PORT), data=json.dumps(json_req))
             msg = json.loads(rep.text)
         finally:
             return msg
 
-    def isSuccess(self, rep):
+    def is_success(self, rep):
         if "error" in rep:
             return False
-        elif "result" in rep:
+        elif "result" in rep and (type(rep["result"]) != dict or rep["result"].get("errorCode") in (None, "0", 0)):
             return True
         else:
             return False

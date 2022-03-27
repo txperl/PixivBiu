@@ -85,7 +85,7 @@ class static_file(object):
 
     @staticmethod
     def clearDIR(folder, nameList=[], nothing=False):
-        if not os.path.exists(folder):
+        if not folder or not os.path.exists(folder):
             return False
         for filename in os.listdir(folder):
             if len(nameList) > 0 and filename not in nameList:
@@ -108,7 +108,7 @@ class static_file(object):
         uris = uri if type(uri) == list else [uri]
         r = []
         for x in uris:
-            if x == "" or not os.path.exists(x):
+            if not x or not os.path.exists(x):
                 r.append(False)
                 continue
             try:

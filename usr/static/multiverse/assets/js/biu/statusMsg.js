@@ -55,7 +55,7 @@ function progresserDownloading_auto() {
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             let data = rep["msg"]["rst"];
-            for (let key in downloadList) {
+            for (const key in downloadList) {
                 let tmp = downloadList[key];
                 let hrefBak = tmp[0], errors = tmp[1];
                 if (data.hasOwnProperty(key)) {

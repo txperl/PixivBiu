@@ -335,7 +335,7 @@ class CoreBiu(interRoot):
         """
         if self.sets["biu"]["download"]["imageHost"] != "":
             self.pximgURL = self.sets["biu"]["download"]["imageHost"]
-        if self.api_route == "bypassSNI":
+        elif self.api_route == "bypassSNI":
             self.pximgURL = "https://i.pixiv.re"
 
     def __clear(self):

@@ -33,12 +33,11 @@ class DlSingleDler(Dler):
     def __download_single(self):
         """
         单线程下载。
-        :return:
-        none
+        :return: bool
         """
         try:
-            rep = requests.get(self._dlUrl, headers=self._dlArgs["_headers"], **self._dlArgs["@requests"], stream=True,
-                               verify=False)
+            rep = requests.get(self._dlUrl, headers=self._dlArgs["_headers"], stream=True, verify=False,
+                               **self._dlArgs["@requests"])
             with open(self._dlSaveUri, "wb", buffering=1024) as f:
                 for chunk in rep.iter_content(chunk_size=2048):
                     # 若 CODE_BAD，则退出

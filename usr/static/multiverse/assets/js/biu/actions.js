@@ -411,9 +411,7 @@ function doDownloadStopPic(workID) {
         data: {
             'key': workID
         },
-        success: function (rep) {
-            // console.log(rep);
-        },
+        success: function (rep) { },
         error: function (e) {
             console.log(e);
         }

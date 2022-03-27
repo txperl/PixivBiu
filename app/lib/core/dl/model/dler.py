@@ -1,4 +1,5 @@
 import re
+import traceback
 import uuid
 
 
@@ -37,19 +38,22 @@ class Dler(object):
 
     # 线程启动函数
     def run(self):
-        return False
+        return True
 
     def pause(self):
-        self.status(Dler.CODE_WAIT_PAUSE, True)
-        return True
+        if self.status(Dler.CODE_GOOD_RUNNING):
+            return self.status(Dler.CODE_WAIT_PAUSE, True)
+        return False
 
     def unpause(self):
-        self.status(Dler.CODE_GOOD_RUNNING, True)
-        return True
+        if self.status(Dler.CODE_WAIT):
+            return self.status(Dler.CODE_GOOD_RUNNING, True)
+        return False
 
     def cancel(self):
-        self.status(Dler.CODE_BAD_CANCELLED, True)
-        return True
+        if self.status(Dler.CODE_GOOD_RUNNING):
+            return self.status(Dler.CODE_BAD_CANCELLED, True)
+        return False
 
     # 下载任务信息
     def info(self):
@@ -82,8 +86,12 @@ class Dler(object):
             return
         r = [self._funCallback] if type(self._funCallback) is not list else self._funCallback
         for fun in r:
-            if hasattr(fun, "__call__"):
+            if not hasattr(fun, "__call__"):
+                return
+            try:
                 fun(self)
+            except Exception:
+                print(traceback.format_exc())
 
     @staticmethod
     def pure_size(size, dig=2, space=1):
