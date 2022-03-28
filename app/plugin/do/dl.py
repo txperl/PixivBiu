@@ -71,16 +71,19 @@ class DoDownload(interRoot):
             extra = ""
             file_type = "file"
             url_hash = None
+            cache_name = None
             urls = sorted([x["image_urls"]["original"] for x in r["meta_pages"]])
             if self.CORE.biu.sets["biu"]["download"]["autoArchive"]:
                 extra = image_save_name + "/"
                 file_type = "folder"
                 url_hash = self.STATIC.file.md5(StringList=urls)
-            cache_name = uuid.uuid1().hex
+                cache_name = uuid.uuid1().hex
             for index in range(len(urls)):
                 image_url = urls[index]
                 suf = image_url.split(".")[-1]
-                sign = str(r["id"]) if (index + 1 == len(r["meta_pages"])) else "%not_last%"
+                sign = "-1"
+                if self.CORE.biu.sets["biu"]["download"]["autoArchive"]:
+                    sign = str(r["id"]) if (index + 1 == len(r["meta_pages"])) else "%not_last%"
                 status.append(
                     self.get_download_args(image_url, folder=f"{root_uri}{extra}",
                                            name=f"{image_save_name}_{str(index)}",
