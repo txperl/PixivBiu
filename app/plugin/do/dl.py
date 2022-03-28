@@ -219,8 +219,9 @@ class DoDownload(interRoot):
         group_sign = this._dlArgs["@others"]["groupSign"]
         if group_sign == "%not_last%":
             return True
-        elif group_sign == "-1" and this.status(self.CORE.dl.mod.CODE_BAD):
-            self.STATIC.file.rm(this._dlSaveUri)
+        elif group_sign == "-1":
+            if this.status(self.CORE.dl.mod.CODE_BAD):
+                self.STATIC.file.rm(this._dlSaveUri)
         else:
             status_arr = ["running"]
             while "running" in status_arr:
