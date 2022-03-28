@@ -31,7 +31,12 @@ sys.theme: "multiverse"
   # 暂无其他，请保持默认为 multiverse
 
 sys.autoOpen: true
-  # 启动后自动打开程序运行网址
+  # 启动后是否自动打开程序运行网址
+  # true 为开启；false 为关闭
+
+sys.ignoreOutdated: false
+  # 启动时是否禁用新版本提示
+  # true 为开启；false 为关闭
 
 
 ## 搜索相关 ##
@@ -48,7 +53,6 @@ biu.download.mode: "dl-single"
   # 下载模式
   # dl-single: 程序单线程下载
   # aria2: 使用 aria2 下载，如果启用此项，还需填写下方的 aria2Host、aria2Secret
-  # dl: 程序多线程下载，稳定性一般 [暂不推荐]
 
 biu.download.aria2Host: ""
   # aria2 RPC 监听地址，如 localhost:6800
@@ -57,6 +61,17 @@ biu.download.aria2Host: ""
 
 biu.download.aria2Secret: ""
   # aria2 RPC 密钥，如未设置请留空
+
+biu.download.deterPaths: true
+  # 程序动态决定文件名
+  # 启用后，程序会先以随机名称保存图片，后更改为自定义的 {saveFileName} 文件名
+  #   此过程中，会自动判断下载目录中，文件名相同的图片是否为同一作品
+  #   若是，则只保留一份；若不是，则自动将新图片重命名
+  #   新文件名格式为 {saveFileName}_{hash} 或 {saveFileName}_{hash}_{time}
+  # 停用后，程序会直接将图片保存为自定义的 {saveFileName} 文件名
+  #   若 {saveFileName} 格式存在唯一性，或欲使用 aria2 的重名文件策略，可将此功能关闭以提升性能
+  #   若 aria2 服务地址并非 localhost 或 127.0.0.1 时，程序会自动禁用此项
+  # true 为开启；false 为关闭
 
 biu.download.maxDownloading: 8
   # 最大同时下载任务数
@@ -90,12 +105,6 @@ biu.download.saveFileName: "{title}_{work_id}"
 
 biu.download.autoArchive: true
   # 自动将拥有多张图片的作品归档（放入一个文件夹中）
-  # true 为开启；false 为关闭
-
-biu.download.autoDeterTheSame: true
-  # 自动判断下载目录中文件名相同的图片是否为同一作品
-  # 若是，则只保留一份；若不是，则自动将新图片重命名
-  # 新文件名格式为 {file_name}_{hash} 或 {file_name}_{hash}_{time} 或 aria2 策略
   # true 为开启；false 为关闭
 
 biu.download.whatsUgoira: "webp"

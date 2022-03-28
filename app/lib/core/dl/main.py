@@ -55,18 +55,16 @@ class core_module_dl(interRoot):
 
     def status(self, key="__all__"):
         r = {}
+        if key in self.tasks:
+            return self._status(key)
         if key == "__all__":
             for x in self.tasks.copy():
-                r[x] = (self._status(x))
-        else:
-            if key in self.tasks:
-                return self._status(key)
+                r[x] = self._status(x)
         return r
 
     def _status(self, key):
         if key not in self.tasks:
             return []
-
         r = []
         group = self.tasks[key]
         for obj in group:

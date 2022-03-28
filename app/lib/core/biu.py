@@ -15,7 +15,7 @@ from altfe.interface.root import interRoot
 @interRoot.bind("biu", "LIB_CORE")
 class CoreBiu(interRoot):
     def __init__(self):
-        self.ver = 205010
+        self.ver = 205020
         self.place = "local"
         self.sysPlc = platform.system()
         self.api_route = "direct"
@@ -58,6 +58,10 @@ class CoreBiu(interRoot):
             input(self.lang("common.press_to_exit"))
             sys.exit(0)
         self.api_route = self.sets["sys"]["apiRoute"]
+        if self.sets["biu"]["download"]["mode"] == "aria2":
+            _host = self.sets["biu"]["download"]["aria2Host"]
+            if "localhost" not in _host and "127.0.0.1" not in _host:
+                self.sets["biu"]["download"]["deterPaths"] = False
 
     def __pre_check(self):
         """
@@ -89,9 +93,7 @@ class CoreBiu(interRoot):
         获取联网 pixivbiu 相关信息。
         """
         try:
-            return json.loads(
-                requests.get("https://biu.tls.moe/d/biuinfo.json", timeout=6, verify=False).text
-            )
+            return json.loads(requests.get("https://biu.tls.moe/d/biuinfo.json", timeout=6, verify=False).text)
         except:
             return {"version": -1, "pApiURL": "public-api.secure.pixiv.net"}
 
@@ -99,13 +101,15 @@ class CoreBiu(interRoot):
         """
         检测是否有更新，仅本地版本号对比。
         """
+        if self.sets["sys"]["ignoreOutdated"]:
+            return
         if self.biuInfo["version"] == -1:
             self.STATIC.localMsger.red(self.lang("outdated.fail_to_check_duo_to_network"))
         elif self.ver < self.biuInfo["version"]:
-            self.STATIC.localMsger.red(
-                f"{self.lang('outdated.hint_exist_new')}@{self.biuInfo['version']}! {self.lang('outdated.tell_to_download')}")
-            if self.biuInfo['version'] // 1000 > self.ver // 1000:
-                input(self.lang("outdated.press_to_use_old"))
+            self.STATIC.localMsger.red(f"%s@%s! %s." % (
+                self.lang("outdated.hint_exist_new"), self.format_version(self.biuInfo["version"]),
+                self.lang("outdated.tell_to_download")))
+            input(self.lang("outdated.press_to_use_old"))
 
     def __check_out_network(self):
         """
@@ -183,40 +187,37 @@ class CoreBiu(interRoot):
             dRename=False,
         )
 
-        self.STATIC.localMsger.msg(f"{self.api_route} {self.lang('common.success_to_login')}")
+        self.STATIC.localMsger.msg(f"{self.lang('common.success_to_login')} ({self.api_route})")
 
     def __show_ready_info(self):
         """
         展示初始化成功消息。
         """
         self.__clear()
-        if self.biuInfo["version"] == -1:
-            des = self.STATIC.localMsger.red(self.lang("outdated.fail_to_check"), header=False, out=False)
-        else:
+        ver_extra = ""
+        if not self.sets["sys"]["ignoreOutdated"] and self.biuInfo["version"] != -1:
             if self.ver >= int(self.biuInfo["version"]):
-                des = self.lang("outdated.hint_latest")
+                ver_extra = self.lang("outdated.hint_latest")
             else:
-                des = self.STATIC.localMsger.red(f"{self.lang('outdated.hint_exist_new')}@{self.biuInfo['version']}",
-                                                 header=False, out=False)
+                ver_extra = self.STATIC.localMsger.red(
+                    f"%s@%s" % (self.lang("outdated.hint_exist_new"), self.format_version(self.biuInfo["version"])),
+                    header=False, out=False)
+            ver_extra = f" ({ver_extra})"
         self.STATIC.localMsger.arr(
             self.STATIC.localMsger.msg(self.lang("ready.done_init"), out=False),
             "------------",
             self.STATIC.localMsger.sign(" PixivBiu ", header=False, out=False),
             "-",
-            (
-                self.lang("ready.hint_run"),
-                "%s (%s)" % (
-                    self.STATIC.localMsger.green("http://" + self.sets["sys"]["host"] + "/", header=False, out=False)
-                    , self.lang("ready.hint_how_to_use")
-                )
-            ),
-            (self.lang("ready.hint_version"), "%s (%s)" % (self.format_version(), des)),
-            (self.lang('ready.hint_route_type'), self.api_route),
+            (self.lang("ready.hint_run"), "%s (%s)" % (
+                self.STATIC.localMsger.green("http://" + self.sets["sys"]["host"] + "/", header=False, out=False),
+                self.lang("ready.hint_how_to_use"))),
+            (self.lang("ready.hint_version"), "%s%s" % (self.format_version(), ver_extra)),
+            (self.lang('ready.hint_function_types'), "%s, %s, deterPaths@%s" % (
+                self.api_route, self.sets["biu"]["download"]["mode"],
+                "on" if self.sets["biu"]["download"]["deterPaths"] else "off")),
             (self.lang("ready.hint_image_service"), self.pximgURL + "/"),
-            (
-                self.lang("ready.hint_download_path"),
-                self.sets["biu"]["download"]["saveURI"].replace("{ROOTPATH}", self.lang("ready.hint_program_path"))
-            ),
+            (self.lang("ready.hint_download_path"),
+             self.sets["biu"]["download"]["saveURI"].replace("{ROOTPATH}", self.lang("ready.hint_program_path"))),
             "-",
             self.STATIC.localMsger.sign(" Biu ", header=False, out=False),
             "------------"
@@ -338,7 +339,8 @@ class CoreBiu(interRoot):
         elif self.api_route == "bypassSNI":
             self.pximgURL = "https://i.pixiv.re"
 
-    def __clear(self):
+    @staticmethod
+    def __clear():
         if os.name == "nt":
             os.system("cls")
         else:

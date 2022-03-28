@@ -73,7 +73,7 @@ class Dler(object):
         if isBool is True:
             if type(code) == tuple:
                 self._stuING, self._stuExtra = code
-            return
+            return True
         if type(code) != tuple and self._stuING == code:
             return True
         if type(code) == tuple and (self._stuING, self._stuExtra) == code:

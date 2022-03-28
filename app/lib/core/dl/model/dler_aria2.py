@@ -19,20 +19,19 @@ class Aria2Dler(Dler):
             self.args["out"] = self._dlSaveName
 
     def run(self):
-        args = self.args.copy()
-        args.update(self._dlArgs["@aria2"])
-        params = [
-            self._dlUrl if type(self._dlUrl) == list else [self._dlUrl],
-            dict(args),
-        ]
-
-        msg = self.call(params, "aria2.addUri")
-        if "error" in msg:
-            self.status(Dler.CODE_BAD_FAILED, True)
-        else:
-            self._a2TaskID = msg["result"]
-            self.__monitor_schedule()
-
+        if self.status(Dler.CODE_WAIT):
+            args = self.args.copy()
+            args.update(self._dlArgs["@aria2"])
+            params = [
+                self._dlUrl if type(self._dlUrl) == list else [self._dlUrl],
+                dict(args),
+            ]
+            rep = self.call(params, "aria2.addUri")
+            if "error" in rep:
+                self.status(Dler.CODE_BAD_FAILED, True)
+            else:
+                self._a2TaskID = rep["result"]
+                self.__monitor_schedule()
         self.callback()
 
     def __monitor_schedule(self):

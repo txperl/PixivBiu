@@ -23,11 +23,15 @@ class DlSingleDler(Dler):
         interRoot.STATIC.file.mkdir(self._dlSaveDir)
 
     def run(self):
-        self.status(Dler.CODE_GOOD_RUNNING, True)
-        if self.__download_single():
-            self.status(Dler.CODE_GOOD_SUCCESS, True)
-        else:
-            self.status(Dler.CODE_BAD_FAILED, True)
+        if self.status(Dler.CODE_WAIT):
+            self.status(Dler.CODE_GOOD_RUNNING, True)
+            if self.__download_single():
+                if self._dlFileSize != -1 and self._dlFileSize != os.path.getsize(self._dlSaveUri):
+                    self.status(Dler.CODE_BAD_FAILED, True)
+                else:
+                    self.status(Dler.CODE_GOOD_SUCCESS, True)
+            else:
+                self.status(Dler.CODE_BAD_FAILED, True)
         self.callback()
 
     def __download_single(self):
@@ -36,19 +40,20 @@ class DlSingleDler(Dler):
         :return: bool
         """
         try:
-            rep = requests.get(self._dlUrl, headers=self._dlArgs["_headers"], stream=True, verify=False,
-                               **self._dlArgs["@requests"])
-            with open(self._dlSaveUri, "wb", buffering=1024) as f:
-                for chunk in rep.iter_content(chunk_size=2048):
-                    # 若 CODE_BAD，则退出
-                    if self.status(Dler.CODE_BAD):
-                        return False
-                    # 流写入
-                    if chunk:
-                        f.write(chunk)
-                    # 若 CODE_WAIT，则等待
-                    while self.status(Dler.CODE_WAIT):
-                        time.sleep(1)
+            with requests.get(self._dlUrl, headers=self._dlArgs["_headers"], stream=True, verify=False,
+                              **self._dlArgs["@requests"]) as rep:
+                self._dlFileSize = int(rep.headers.get("Content-Length", -1))
+                with open(self._dlSaveUri, "wb", buffering=1024) as f:
+                    for chunk in rep.iter_content(chunk_size=2048):
+                        # 若 CODE_BAD，则退出
+                        if self.status(Dler.CODE_BAD):
+                            return False
+                        # 流写入
+                        if chunk:
+                            f.write(chunk)
+                        # 若 CODE_WAIT，则等待
+                        while self.status(Dler.CODE_WAIT):
+                            time.sleep(1)
             return True
         except:
             return False

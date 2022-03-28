@@ -30,8 +30,7 @@ class DlDler(Dler):
     def run(self):
         """
         单下载任务的启动函数。
-        :return:
-        none
+        :return: none
         """
         # 判断是否超过最大尝试次数
         if self._dlFileSize == -1 or self._dlRetryNum > self._dlRetryMax:

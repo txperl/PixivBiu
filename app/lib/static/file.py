@@ -180,16 +180,16 @@ class static_file(object):
 
     @staticmethod
     def md5(filePath=None, StringList=None):
-        if filePath is None and StringList is None:
-            return None
         hash_md5 = hashlib.md5()
-        if filePath is not None:
+        if filePath is not None and os.path.exists(filePath):
             with open(filePath, "rb") as f:
                 for chunk in iter(lambda: f.read(4096), b""):
                     hash_md5.update(chunk)
         elif StringList is not None:
             for x in StringList:
                 hash_md5.update(str(x).encode("utf-8"))
+        else:
+            return None
         return hash_md5.hexdigest()
 
     @classmethod

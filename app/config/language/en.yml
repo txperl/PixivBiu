@@ -12,7 +12,7 @@ app.core.biu:
     fail_to_check: "Failed to check for update"
     fail_to_check_duo_to_network: "Failed to check for update, probably because the server didn't respond for a long time"
     tell_to_download: "Visit https://biu.tls.moe/ to download"
-    press_to_use_old: "Press any key to continue using this old version"
+    press_to_use_old: "Press any key to continue using this old version..."
   network:
     hint_in_check: "Checking network status..."
     fail_pixiv_and_use_bypass: "Cannot connect to Pixiv, enable bypassSNI route"
@@ -26,7 +26,7 @@ app.core.biu:
     hint_run: "Run"
     hint_how_to_use: "Enter the address into a modern browser"
     hint_version: "Version"
-    hint_route_type: "Route Type"
+    hint_function_types: "Function Types"
     hint_image_service: "Image Service"
     hint_download_path: "Download Save Path"
     hint_program_path: "Program Directory"
