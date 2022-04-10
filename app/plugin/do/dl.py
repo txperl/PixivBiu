@@ -15,11 +15,11 @@ class DoDownload(interRoot):
 
     def run(self, cmd):
         try:
-            args = self.STATIC.arg.getArgs("dl", ["kt", "workID=0", "data=0"])
+            args = self.STATIC.arg.getArgs("dl", ["kt", "workID=none", "data=none"], "POST")
         except:
             return {"code": 0, "msg": "missing parameters"}
 
-        if args["fun"]["workID"] == 0 and args["fun"]["data"] == 0:
+        if args["fun"]["workID"] == "none" and args["fun"]["data"] == "none":
             return {"code": 0, "msg": "missing parameters"}
 
         return {
@@ -27,12 +27,12 @@ class DoDownload(interRoot):
             "msg": {
                 "way": "do",
                 "args": args,
-                "rst": self.dl(args["ops"].copy(), args["fun"].copy()),
+                "rst": self.dl(args["ops"], args["fun"].copy()),
             },
         }
 
     def dl(self, opsArg, funArg):
-        if funArg["data"] == 0:
+        if funArg["data"] == "none":
             r = self.CORE.biu.api.illust_detail(funArg["workID"])
             if "illust" not in r:
                 self.code = 0
@@ -72,7 +72,7 @@ class DoDownload(interRoot):
             file_type = "file"
             url_hash = None
             cache_name = None
-            urls = sorted([x["image_urls"]["original"] for x in r["meta_pages"]])
+            urls = [x["image_urls"]["original"] for x in r["meta_pages"]]
             if self.CORE.biu.sets["biu"]["download"]["autoArchive"]:
                 extra = image_save_name + "/"
                 file_type = "folder"
