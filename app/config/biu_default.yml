@@ -13,8 +13,8 @@ sys.debug: false
 
 sys.apiRoute: "direct"
   # 默认 api 线路
-  # direct: 稳定，需要代理（翻墙）
-  # bypassSNI: 稳定性一般，但无需代理（无需翻墙）
+  # direct: 稳定，需要代理
+  # bypassSNI: 稳定性一般，无需代理
 
 sys.proxy: ""
   # 本地代理服务监听地址
@@ -88,8 +88,8 @@ biu.download.saveURI: "{ROOTPATH}/downloads/{date_today}/"
   # - {user_name}: 作者名称
   # - {user_id}: 作者 ID
   # - {type}: 作品类型
-  # - {date_image}: 作品的日期
-  # - {date_today}: 今天的日期
+  # - {date_image}: 作品日期
+  # - {date_today}: 当天日期
 
 biu.download.saveFileName: "{title}_{work_id}"
   # 下载图片的标题
@@ -100,8 +100,8 @@ biu.download.saveFileName: "{title}_{work_id}"
   # - {user_name}: 作者名称
   # - {user_id}: 作者 ID
   # - {type}: 作品类型
-  # - {date_image}: 作品的日期
-  # - {date_today}: 今天的日期
+  # - {date_image}: 作品日期
+  # - {date_today}: 当天日期
 
 biu.download.autoArchive: true
   # 自动将拥有多张图片的作品归档（放入一个文件夹中）

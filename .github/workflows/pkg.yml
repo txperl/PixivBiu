@@ -13,23 +13,23 @@ on:
       releaseTag:
         description: 'Release Tag' 
         required: true
-        default: 'v'
+        default: 'v2.x.x[a-z]'
       releaseName:
         description: 'Release Name' 
         required: true
-        default: 'test'
+        default: '2.x.x'
       releaseBody:
         description: 'Release Body' 
         required: true
         default: 'Enjoy.'
 
 jobs:
-  build-win-mac:
+  build-on-platform:
     name: Package on ${{ matrix.version }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # os: [windows-2019, windows-2019, macos-10.15]
+        # os: [windows-2019, windows-2019, macos-10.15, ubuntu-18.04]
         include:
         - os: windows-2019
           version: win_x64
@@ -39,6 +39,9 @@ jobs:
           pythonArch: 'x86'
         - os: macos-10.15
           version: mac
+          pythonArch: 'x64'
+        - os: ubuntu-18.04
+          version: ubuntu_x64
           pythonArch: 'x64'
 
     steps:
@@ -80,7 +83,7 @@ jobs:
           Compress-Archive * ../../${{ matrix.version }}.zip
       
       - name: Compress to ZIP (mac)
-        if: ${{ matrix.os == 'macos-10.15' }}
+        if: ${{ matrix.os == 'macos-10.15' || matrix.os == 'ubuntu-18.04' }}
         run: |
           cd ./.pkg/dist/
           mv ./main ./PixivBiu
@@ -93,7 +96,7 @@ jobs:
           path: ./${{ matrix.version }}.zip
 
   Release:
-    needs: [build-win-mac]
+    needs: [build-on-platform]
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -105,14 +108,15 @@ jobs:
       
       - name: Rename
         run: |
-          mv ./win_x86.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip
           mv ./win_x64.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_win_x64.zip
+          mv ./win_x86.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip
           mv ./mac.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip
+          mv ./ubuntu_x64.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_ubuntu_x64.zip
         
       - name: Release and Done
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip,PixivBiu_${{ github.event.inputs.releaseTag }}_win_x64.zip,PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip"
+          artifacts: "PixivBiu_${{ github.event.inputs.releaseTag }}_win_x64.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_ubuntu_x64.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip"
           tag: ${{ github.event.inputs.releaseTag }}
           name: ${{ github.event.inputs.releaseName }}
           body: ${{ github.event.inputs.releaseBody }}

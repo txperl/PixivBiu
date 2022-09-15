@@ -25,7 +25,7 @@ function searchForWorks(key = null, grpIdx = 0, isCache = 1, mode = tmpSearchSet
             if (rep.code) {
                 tmpCode = rep.code;
                 tmpPageData = rep.msg;
-                changeTitleName(`搜索[${mode}]@${key}`);
+                changeTitleName(`搜索@${mode} ${key}`);
                 showPics('Biu~');
             } else {
                 showPics('Error :<', ['main'], []);
@@ -190,8 +190,7 @@ function getMarks(user = '', mode = 'public', grp = '0@0') {
                     changeTitleName(`我的收藏@${mode}`);
                     showPics('我的收藏@' + mode, ['main', 'header']);
                 } else {
-                    const _name = rep.msg.rst.data.length ? rep.msg.rst.data[0].author.name : user;
-                    changeTitleName(`用户收藏@${_name}`);
+                    changeTitleName(`用户收藏@${user}`);
                     showPics('TA 的收藏', ['main', 'header']);
                 }
             } else {
@@ -428,7 +427,11 @@ function doDownloadStopPic(workID) {
     });
 }
 
-function grpActChon(type, grpIdx = -1, args = tmpPageData['args']) {
+function grpActChon(type, grpIdx = -1, args = null) {
+    if (args === null) {
+        if (!tmpPageData || !tmpPageData['args']) return;
+        args = tmpPageData['args'];
+    }
     const meth = args['ops']['method'];
     if (grpIdx <= -1) {
         if (meth === 'userMarks') {

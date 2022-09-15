@@ -104,27 +104,31 @@
                     <section>
                         <h2>属性</h2>
                         <div class="grid-3">
-                            <input id="filtersImageWidth" class="tooltip" placeholder="宽度范围" autocomplete="off"
-                                title="图片的宽度范围，如 100:200 或 100: 或 :200">
-                            <input id="filtersImageHeight" class="tooltip" placeholder="高度范围" autocomplete="off"
-                                title="图片的高度范围，如 500:600 或 500: 或 :600">
-                            <input id="filtersImageWidthHeightRate" class="tooltip" placeholder="宽高比范围"
-                                autocomplete="off" title="图片的宽高比范围，以 / 表示比，以 : 表示范围，如 1/1:4/3 或 1/1: 或 :4/3">
+                            <input id="filtersImageWidth" class="tooltip" placeholder="宽度" autocomplete="off"
+                                title="宽度范围，如 100:200 或 100: 或 :200">
+                            <input id="filtersImageHeight" class="tooltip" placeholder="高度" autocomplete="off"
+                                title="高度范围，如 100:200 或 100: 或 :200">
+                            <input id="filtersImageWidthHeightRate" class="tooltip" placeholder="宽高比" autocomplete="off"
+                                title="宽高比范围，以 / 表示比，以 : 表示范围，如 1/1:4/3 或 1/1: 或 :4/3">
                         </div>
-                        <div>
-                            <input id="filtersImageTime" class="tooltip" placeholder="时间范围" autocomplete="off"
-                                title="图片的时间范围，如 2020-03-13:2022-03-13 或 start: 或 :end">
-                            <input id="filtersRankDate" class="tooltip" placeholder="排行榜日期" autocomplete="off"
-                                title="仅对排行榜有效，查看指定日期的数据，如 2022-03-24">
+                        <div class="grid-3">
+                            <input id="filtersNumBookmark" class="tooltip" placeholder="收藏数" autocomplete="off"
+                                title="收藏数范围，如 100:200 或 100: 或 :200">
+                            <input id="filtersNumView" class="tooltip" placeholder="浏览数" autocomplete="off"
+                                title="浏览数范围，如 100:200 或 100: 或 :200">
+                            <input id="filtersImageTime" class="tooltip" placeholder="发布时间" autocomplete="off"
+                                title="发布时间范围，如 2020-03-13:2022-03-13 或 start: 或 :end">
                         </div>
                     </section>
                     <section>
                         <h2>类别</h2>
-                        <div>
+                        <div class="grid-3">
                             <input id="filtersImageType" class="tooltip" placeholder="类型" autocomplete="off"
-                                title="图片的类型，可填入 i(插图), m(漫画), u(动图), o(其他)，在其后加 s 可仅显示多图，加 o 仅显示单图。多个类型以逗号隔开，如 i,ms,oo">
+                                title="作品的类型，可填入 i(插图), m(漫画), u(动图), o(其他)，在其后加 s 可仅显示多图，加 o 仅显示单图。多个类型以逗号隔开，如 i,ms,oo">
                             <input id="filtersNameTag" class="tooltip" placeholder="标签关键词" autocomplete="off"
                                 title="标签中必须包含全部关键词，多个标签以逗号隔开，如 tag1,tag2">
+                            <input id="filtersRankDate" class="tooltip" placeholder="排行榜日期" autocomplete="off"
+                                title="仅对排行榜有效，查看指定日期的数据，如 2022-03-24">
                         </div>
                     </section>
                 </div>
@@ -139,13 +143,13 @@
                             <input id="settingsSortMode2" class="tooltip" placeholder="排序模式" autocomplete="off"
                                 title="0: 按收藏数降序，1: 按人气（浏览数）降序，2: 按日期降序，3: 按日期升序，在其后加 s 可为所有结果排序。如 0 或 0s">
                         </div>
-                        <p>搜索以外的筛选项留空时为取消，或点击<a href="javascript: saveFiltersCookie(true);">此处</a>以重置。</p>
+                        <p>搜索块以外的筛选项留空时为取消。</p>
                     </section>
                     <section>
                         <button class="primary"
-                            onclick="javascript: saveFiltersCookie(); saveSettingsCookie();">保存</button>
-                        <button id="btn-save-refresh" style="display: none;" class="primary"
-                            onclick="javascript: saveFiltersCookie(); saveSettingsCookie(); grpActChon('now');">保存并刷新</button>
+                            onclick="javascript: saveFiltersCookie(); saveSettingsCookie(); grpActChon('now');">保存</button>
+                        <button class="primary"
+                            onclick="javascript: saveFiltersCookie(true); saveSettingsCookie(true); grpActChon('now');">重置</button>
                     </section>
                 </div>
             </div>
@@ -169,7 +173,7 @@
                             <input id="settingsActionType" class="tooltip" placeholder="操作类型" autocomplete="off"
                                 title="public: 当进行收藏、关注等操作时默认放入公开类别；private: 私人类别">
                             <input id="settingsIsR18" class="tooltip" placeholder="R18 内容" autocomplete="off"
-                                title="是否展示 R18 内容。on: 开启，off: 关闭">
+                                title="是否展示 R18 内容。on: 开启，off: 遮蔽，gone: 不显示">
                         </div>
                         <p>更多设置请于 <b>config.yml</b> 文件中修改。</p>
                     </section>
@@ -266,13 +270,15 @@
             '#settingsRvrProxyUrl': ['pixivbiu_RvrProxyUrl', 'https://i.pixiv.re', '图片反代地址'],
         };
         var filtersMods = {
-            '#filtersImageWidth': ['pixivbiu_fitlerImWidth', '宽度范围'],
-            '#filtersImageHeight': ['pixivbiu_fitlerImHeight', '高度范围'],
-            '#filtersImageWidthHeightRate': ['pixivbiu_fitlerImWHRate', '宽高比范围'],
-            '#filtersImageTime': ['pixivbiu_filterImTime', '时间范围'],
+            '#filtersImageWidth': ['pixivbiu_fitlerImWidth', '宽度'],
+            '#filtersImageHeight': ['pixivbiu_fitlerImHeight', '高度'],
+            '#filtersImageWidthHeightRate': ['pixivbiu_fitlerImWHRate', '宽高比'],
+            '#filtersImageTime': ['pixivbiu_filterImTime', '发布时间'],
             '#filtersImageType': ['pixivbiu_filterImType', '类型'],
             '#filtersNameTag': ['pixivbiu_filterNaTag', '标签关键词'],
             '#filtersRankDate': ['pixivbiu_filterRkDate', '排行榜日期'],
+            '#filtersNumBookmark': ['pixivbiu_filterNmBookmark', '收藏数'],
+            '#filtersNumView': ['pixivbiu_filterNmView', '浏览数'],
         };
 
         $(document).ready(function () {
@@ -452,16 +458,11 @@
                 const _st_mode = String(tmpSearchSettings["pixivbiu_sortMode2"]);
                 if (_st_mode && c.args.ops.method === "works" || (_st_mode[1] && _st_mode[1] === "s")) {
                     const _type = Number(_st_mode[0]);
-                    console.log(_type)
                     data.sort((a, b) => {
-                        if (_type === 0)
-                            return b.total_bookmarked - a.total_bookmarked;
-                        else if (_type === 1)
-                            return b.total_viewed - a.total_viewed;
-                        else if (_type === 2)
-                            return a.created_time < b.created_time;
-                        else if (_type === 3)
-                            return a.created_time > b.created_time;
+                        if (_type === 0) return b.total_bookmarked - a.total_bookmarked;
+                        if (_type === 1) return b.total_viewed - a.total_viewed;
+                        if (_type === 2) return a.created_time < b.created_time;
+                        if (_type === 3) return a.created_time > b.created_time;
                     });
                 }
 
@@ -475,40 +476,46 @@
                         const _im_time = tmpFilters["pixivbiu_filterImTime"].split(":");
                         const _im_type = splitNoEmpty(tmpFilters["pixivbiu_filterImType"], ",");
                         const _name_tag = splitNoEmpty(tmpFilters["pixivbiu_filterNaTag"], ",");
+                        const _nm_bookmark = tmpFilters["pixivbiu_filterNmBookmark"].split(":");
+                        const _nm_view = tmpFilters["pixivbiu_filterNmView"].split(":");
                         if (_im_width.length === 2) {
                             const min = _im_width[0];
                             const max = _im_width[1];
-                            if (min && data[i].all.width < Number(min))
-                                continue;
-                            if (max && data[i].all.width > Number(max))
-                                continue;
+                            if (min && data[i].all.width < Number(min)) continue;
+                            if (max && data[i].all.width > Number(max)) continue;
                         }
                         if (_im_height.length === 2) {
                             const min = _im_height[0];
                             const max = _im_height[1];
-                            if (min && data[i].all.height < Number(min))
-                                continue;
-                            if (max && data[i].all.height > Number(max))
-                                continue;
+                            if (min && data[i].all.height < Number(min)) continue;
+                            if (max && data[i].all.height > Number(max)) continue;
                         }
                         if (_im_whrate.length === 2) {
                             const im_rate = data[i].all.width / data[i].all.height;
                             console.log(im_rate)
                             const mins = _im_whrate[0].split("/");
                             const maxs = _im_whrate[1].split("/");
-                            if (mins.length === 2 && im_rate < Number(mins[0]) / Number(mins[1]))
-                                continue
-                            if (maxs.length === 2 && im_rate > Number(maxs[0]) / Number(maxs[1]))
-                                continue
+                            if (mins.length === 2 && im_rate < Number(mins[0]) / Number(mins[1])) continue;
+                            if (maxs.length === 2 && im_rate > Number(maxs[0]) / Number(maxs[1])) continue;
+                        }
+                        if (_nm_bookmark.length === 2) {
+                            const min = _nm_bookmark[0];
+                            const max = _nm_bookmark[1];
+                            if (min && data[i].total_bookmarked < Number(min)) continue;
+                            if (max && data[i].total_bookmarked > Number(max)) continue;
+                        }
+                        if (_nm_view.length === 2) {
+                            const min = _nm_view[0];
+                            const max = _nm_view[1];
+                            if (min && data[i].total_viewed < Number(min)) continue;
+                            if (max && data[i].total_viewed > Number(max)) continue;
                         }
                         if (_im_time.length > 0) {
                             const min = _im_time[0];
                             const max = _im_time[1];
                             const time = Number(data[i].created_time.replaceAll("-", "").split(" ")[0]);
-                            if (min && time < Number(min.replaceAll("-", "")))
-                                continue;
-                            if (max && time > Number(max.replaceAll("-", "")))
-                                continue;
+                            if (min && time < Number(min.replaceAll("-", ""))) continue;
+                            if (max && time > Number(max.replaceAll("-", ""))) continue;
                         }
                         if (_im_type.length > 0) {
                             let isNeed = false;
@@ -610,8 +617,10 @@
                     extraClass = "";
 
                     // R18 过滤
-                    if (tmpSearchSettings['pixivbiu_displayIsR18'] !== 'on' && data[i]['all']['x_restrict'] > 0)
-                        extraClass += ' mask-r18';
+                    if (data[i]['all']['x_restrict'] > 0) {
+                        if (tmpSearchSettings['pixivbiu_displayIsR18'] === "gone") continue;
+                        if (tmpSearchSettings['pixivbiu_displayIsR18'] === "off") extraClass += ' mask-r18';
+                    }
 
                     // 最终结果
                     rstHtml += '<article id="art_' + data[i]['id'] + '" class="thumb"><a href="' + imgUrl + '" class="image' + extraClass + '"><img src="' + imgUrlCover + '" alt="' + data[i]['title'] + '" /></a>' + desText + '<p>' + extraText + '</p><section class="thumbAction">' + extra + '</section></article>';
@@ -620,7 +629,6 @@
                 // 筛选
                 const _filterClass = checkCookies(Object.keys(filtersMods), filtersMods) ? " weight-6" : "";
                 headerHtml += '<li><a href="javascript: togglePanel(\'#filter\');" class="label-btn-filter' + _filterClass + '">筛选</a></li>';
-                $('#btn-save-refresh').show();
 
                 // 一键下载
                 headerHtml += '<li><a class="tooltip" href="javascript: dlPageAll();" title="下载本页所有图片（原图）">下载</a></li>';

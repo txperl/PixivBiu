@@ -188,6 +188,8 @@ function maybeXSS(c) {
 
 // Title Name
 function changeTitleName(name, from = null) {
+    if (from === null) from = "PixivBiu";
+    name = name.replace(/[a-z]/, fl => fl.toUpperCase());
     const final = from ? `${name} - ${from}` : name;
     const _title = $("title");
     if (_title) _title.html(final); else return false;

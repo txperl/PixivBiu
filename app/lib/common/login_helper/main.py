@@ -145,10 +145,10 @@ class CommonLoginHelper(interRoot):
                 requests.get(url, timeout=3, verify=False)
         except:
             if silent is False:
-                cls.STATIC.localMsger.red(f"{url} [failed]", header="Network Checker")
+                cls.STATIC.localMsger.red(f"{url} [ops]", header="Network")
             return False
         if silent is False:
-            cls.STATIC.localMsger.green(f"{url} [succeeded]", header="Network Checker")
+            cls.STATIC.localMsger.green(f"{url} [yep]", header="Network")
         return True
 
 

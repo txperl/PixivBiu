@@ -53,9 +53,7 @@ class tokenGetter(object):
             code = self.code
         else:
             print(self.lang("login.hint_intro_step_head"))
-            print(self.lang("login.hint_intro_step_body"))
             print(self.lang("login.hint_intro_step_1") % (LOGIN_URL, urlencode(self.login_params)))
-            print(self.lang("login.hint_intro_step_1_extra"))
             print(self.lang("login.hint_intro_step_2"))
             print(self.lang("login.hint_intro_step_3"))
             print(self.lang("login.hint_intro_step_4"))
