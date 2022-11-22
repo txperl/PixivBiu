@@ -7,7 +7,7 @@ idna==3.3
 itsdangerous==2.0.1
 Jinja2==3.0.2
 MarkupSafe==2.0.1
-Pillow==9.0.1
+Pillow==9.3.0
 PixivPy==3.7.0
 pyparsing==3.0.4
 PySocks==1.7.1
