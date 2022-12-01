@@ -25,7 +25,7 @@ class searchWorks(interRoot):
 
         code = 1
         isCache = int(args["ops"]["isCache"]) and self.CORE.biu.sets["biu"]["search"]["loadCacheFirst"]
-        cachePath = self.getENV("rootPath") + "usr/cache/data_search/"
+        cachePath = self.getENV("rootPath") + "usr/cache/search/"
         fileName = "%s@%s_%sx%s_%s%s.json" % (
             args["fun"]["kt"],
             args["fun"]["mode"],
@@ -96,7 +96,9 @@ class searchWorks(interRoot):
         return r
 
     def __thread_appWorks(self, **kw):
-        data = self.CORE.biu.api.search_illust(**kw)
-        if "illusts" in data and len(data["illusts"]) != 0:
+        try:
+            data = self.CORE.biu.api.search_illust(**kw)
             return data["illusts"]
+        except Exception as e:
+            self.STATIC.localMsger.error(e)
         return []

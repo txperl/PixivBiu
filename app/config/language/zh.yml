@@ -15,12 +15,13 @@ app.core.biu:
     press_to_use_old: "按任意键以继续使用旧版本..."
   network:
     hint_in_check: "检测网络状态..."
-    fail_pixiv_and_use_bypass: "无法访问 Pixiv，启用 bypassSNI 线路"
+    fail_pixiv_and_use_bypass: "无法访问 Pixiv，启用 bypassSNI 线路 (暂时可能无法正常使用)"
   loginHelper:
     hint_token_only: "由于 Pixiv 禁止了账号密码登陆方式，暂时只能使用 Token 进行登录"
     hint_before_start: "即将开始进行网络检测，此过程可以减少因网络问题导致的无法正常使用 PixivBiu 的概率"
     fail_to_get_token_due_to_network: "您的网络无法正常进行 Pixiv Token 登陆，请调整后重试。"
     fail_to_get_token_anyway: "获取 Token 时出错，请重试。"
+    fail_by_cloudflare_captcha: "登录时遇到 Cloudflare 保护，可能是网络环境问题导致。您可以尝试重新获取 Token，或稍等片刻后再次登录"
     is_need_to_get_token: "是否继续? (y / n): "
   ready:
     hint_run: "运行"
@@ -32,7 +33,7 @@ app.core.biu:
     hint_program_path: "程序目录"
     done_init: "初始化完成"
   others:
-    hint_in_update_token: "更新 Token"
+    hint_in_update_token: "尝试 Token 更新"
 
 app.common.loginHelper:
   network:

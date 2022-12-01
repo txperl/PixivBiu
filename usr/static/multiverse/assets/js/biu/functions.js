@@ -6,9 +6,11 @@ function getVersion() {
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                if (rep.msg.latest) {
-                    $('#hint-current-verson').html(rep.msg.current);
-                }
+                biuInfo.pPximgRProxyURL = rep.msg.online.pPximgRProxyURL;
+                let currentVer = rep.msg.current;
+                if (!rep.msg.latest)
+                    currentVer += " (有新版本啦)";
+                $('#hint-current-verson').html(currentVer);
             }
         },
         error: function (e) {

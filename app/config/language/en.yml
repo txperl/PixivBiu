@@ -15,12 +15,13 @@ app.core.biu:
     press_to_use_old: "Press any key to continue using this old version..."
   network:
     hint_in_check: "Checking network status..."
-    fail_pixiv_and_use_bypass: "Cannot connect to Pixiv, enable bypassSNI route"
+    fail_pixiv_and_use_bypass: "Cannot connect to Pixiv, enable bypassSNI route (may not be available temporarily)"
   loginHelper:
     hint_token_only: "Since Pixiv disables password login, you can only use Token to login for now"
     hint_before_start: "Network detection is about to start, this process can reduce the probability of not being able to use PixivBiu due to network problems"
     fail_to_get_token_due_to_network: "Your network is not working properly for Pixiv Token login, please adjust it and try again."
     fail_to_get_token_anyway: "There was an error getting the Token, please try again."
+    fail_by_cloudflare_captcha: "Encountered Cloudflare protection when logging in, it may be caused by network environment issues. You can try to get the token again, or wait a while and log in again"
     is_need_to_get_token: "Continue? (y / n): "
   ready:
     hint_run: "Run"
@@ -32,7 +33,7 @@ app.core.biu:
     hint_program_path: "Program Directory"
     done_init: "Initialization completed"
   others:
-    hint_in_update_token: "Update token"
+    hint_in_update_token: "Trying to update token"
 
 app.common.loginHelper:
   network:

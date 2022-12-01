@@ -74,6 +74,15 @@ class static_file(object):
         return True
 
     @staticmethod
+    def get_dir_size_mib(path):
+        try:
+            if os.path.exists(path):
+                return sum(d.stat().st_size for d in os.scandir(path) if d.is_file()) / (1024.0 * 1024.0)
+        except Exception as e:
+            print("\033[31m%s\033[0m" % e)
+        return -1
+
+    @staticmethod
     def mkdir(path):
         try:
             if path != "" and not os.path.exists(path):

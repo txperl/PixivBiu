@@ -44,8 +44,7 @@ class getRank(interRoot):
     def __thread_rank(self, kw):
         try:
             data = self.CORE.biu.api.illust_ranking(**kw)
-        except:
-            return []
-        if "illusts" in data and len(data["illusts"]) != 0:
             return data["illusts"]
+        except Exception as e:
+            self.STATIC.localMsger.error(e)
         return []

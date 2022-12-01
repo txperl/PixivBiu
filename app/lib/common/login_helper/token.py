@@ -16,7 +16,7 @@ CLIENT_SECRET = "lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj"
 HASH_SECRET = "28c1fdd170a5204386cb1313c7077b34f83e4aaf4aa829ce78c231e05b0bae2c"
 
 
-class tokenGetter(object):
+class TokenGetter(object):
     def __init__(self, lang, requests=requests):
         self.lang = lang
         self.code = ""
@@ -47,7 +47,7 @@ class tokenGetter(object):
         :param host: token api 的主机域
         :param kw: requests 请求的额外参数
         :param newCode: 是否继承使用 code
-        :return: str: refresh token | except: raise error
+        :return: tuple(access token, refresh token, user id) || except: raise error
         """
         if newCode is False and self.code != "":
             code = self.code
@@ -80,11 +80,9 @@ class tokenGetter(object):
             **kw,
         )
         rst = response.json()
-
-        if "refresh_token" in rst:
-            return rst["refresh_token"]
-        else:
-            raise Exception("Request Error.\nResponse: " + str(rst))
+        if "access_token" in rst and "refresh_token" in rst:
+            return rst["access_token"], rst["refresh_token"], rst["user"]["id"]
+        raise Exception("Request Error.\nResponse: " + str(rst))
 
     def refresh(self, refresh_token, host=AUTH_TOKEN_URL_HOST, kw={}):
         """
@@ -92,7 +90,7 @@ class tokenGetter(object):
         :param refresh_token: 目前可用的 refresh token
         :param host: token api 的主机域
         :param kw: requests 请求的额外参数
-        :return: 新 refresh token | except: raise error
+        :return: tuple(access token, refresh token, user id) || except: raise error
         """
         response = self.requests.post(
             "%s/auth/token" % host,
@@ -110,11 +108,9 @@ class tokenGetter(object):
         )
 
         rst = response.json()
-
-        if "refresh_token" in rst:
-            return rst["refresh_token"]
-        else:
-            raise Exception("Request Error.\nResponse: " + str(rst))
+        if "access_token" in rst and "refresh_token" in rst:
+            return rst["access_token"], rst["refresh_token"], rst["user"]["id"]
+        raise Exception("Request Error.\nResponse: " + str(rst))
 
     @staticmethod
     def get_header(headers={}):

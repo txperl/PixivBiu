@@ -1,6 +1,8 @@
 # Created by https://www.gitignore.io/api/linux,macos,python,windows
 
-cache/
+### Biu ###
+usr/.token
+usr/cache/
 
 ### Linux ###
 *~

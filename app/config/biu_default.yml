@@ -47,6 +47,9 @@ biu.search.loadCacheFirst: true
   # 搜索时优先加载本地缓存
   # true 为开启；false 为关闭
 
+biu.search.maxCacheSizeMiB: 512
+  # 搜索缓存的最大容量（MB），达到后程序会自动清理
+
 
 ## 下载相关 ##
 biu.download.mode: "dl-single"
@@ -112,7 +115,7 @@ biu.download.whatsUgoira: "webp"
   # 可选 webp, gif
 
 biu.download.imageHost: ""
-  # 下载时使用的 Pixiv 图片服务器
+  # 后端程序下载时使用的 Pixiv 图片服务器
   # 留空则程序自动判断
   # 可参考地址
   # - https://i.pximg.net 官方图片服务器（需代理）

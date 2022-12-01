@@ -1,7 +1,7 @@
 import requests
 
 from altfe.interface.root import interRoot
-from app.lib.common.login_helper.token import tokenGetter
+from app.lib.common.login_helper.token import TokenGetter
 
 
 @interRoot.bind("loginHelper", "LIB_COMMON")
@@ -15,9 +15,9 @@ class CommonLoginHelper(interRoot):
         self.lang = self.INS.i18n.get_bundle("app.common.loginHelper", func=True)
         self.requests = requests.Session()
         self.requests.mount("https://", CustomAdapter())
-        self.tokenG = tokenGetter(lang=self.lang, requests=self.requests)
+        self.token_getter = TokenGetter(lang=self.lang, requests=self.requests)
         self.proxy = ""
-        self.authTokenURL = ""
+        self.auth_token_url = ""
 
     def check_network(self, URLS=None, silent=False, proxy_="auto"):
         """
@@ -30,10 +30,11 @@ class CommonLoginHelper(interRoot):
         URLS = (
             "https://public-api.secure.pixiv.net",
             "https://1.0.0.1/dns-query",
-            "https://1.1.1.1/dns-query",
-            "https://doh.dns.sb/dns-query",
-            "https://cloudflare-dns.com/dns-query",
+            # "https://1.1.1.1/dns-query",
+            # "https://doh.dns.sb/dns-query",
+            # "https://cloudflare-dns.com/dns-query",
         ) if URLS is None else URLS
+
         proxy = self.STATIC.util.get_system_proxy() if proxy_ == "auto" else proxy_
         if silent is False:
             self.STATIC.localMsger.msg(self.lang("network.hint_in_check"), header="Login Helper")
@@ -43,28 +44,25 @@ class CommonLoginHelper(interRoot):
             else:
                 if input(self.lang("network.hint_detect_proxy") % proxy) == "y":
                     proxy = input(self.lang("network.press_need_to_type_proxy"))
-
         self.proxy = proxy
-        self.authTokenURL = URLS[0]
 
-        isCanConn = [self._get(url, proxy=self.proxy, silent=silent) for url in URLS]
-
-        if isCanConn[0] is True:
+        self.auth_token_url = URLS[0]
+        is_conn = [self._get(url, proxy=self.proxy, silent=silent) for url in URLS]
+        if is_conn[0] is True:
             return True
 
         for i in range(len(URLS)):
-            if isCanConn[i]:
-                finalIP = self._get_host_ip(hostname=URLS[0], url=URLS[i])
-                if finalIP is not False:
-                    self.authTokenURL = finalIP
+            if is_conn[i]:
+                final_ip = self._get_host_ip(hostname=URLS[0], url=URLS[i])
+                if final_ip is not False:
+                    self.auth_token_url = final_ip
                     return True
-
         return False
 
     def login(self):
         """
         登陆操作。
-        :return: bool
+        :return: tuple(access token, refresh token, user id) || tuple(false, false, false)
         """
         kw = (
             {"proxies": {"http": self.proxy, "https": self.proxy}}
@@ -72,7 +70,7 @@ class CommonLoginHelper(interRoot):
             else {}
         )
         try:
-            return self.tokenG.login(host=self.authTokenURL, newCode=True, kw=kw)
+            return self.token_getter.login(host=self.auth_token_url, newCode=True, kw=kw)
         except Exception as e:
             err = str(e)
             if "'code': 918" in err:
@@ -81,13 +79,13 @@ class CommonLoginHelper(interRoot):
                 self.STATIC.localMsger.red(self.lang("login.fail_code_1508"))
             else:
                 self.STATIC.localMsger.error(e, header=False)
-        return False
+        return False, False, False
 
     def refresh(self, refresh_token):
         """
         Token 刷新操作。
         :param refresh_token: 目前已有的 refresh token
-        :return: bool
+        :return: tuple(access token, refresh token, user id) || tuple(false, false, false)
         """
         kw = (
             {"proxies": {"http": self.proxy, "https": self.proxy}}
@@ -95,10 +93,13 @@ class CommonLoginHelper(interRoot):
             else {}
         )
         try:
-            return self.tokenG.refresh(refresh_token=refresh_token, host=self.authTokenURL, **kw)
+            return self.token_getter.refresh(refresh_token=refresh_token, host=self.auth_token_url, kw=kw)
         except Exception as e:
-            self.STATIC.localMsger.error(e, header=False)
-            return False
+            if "Invalid refresh token" in str(e):
+                self.STATIC.localMsger.red("Common.LoginHelper.refresh: invalid refresh token")
+            else:
+                self.STATIC.localMsger.error(e, header=False)
+        return False, False, False
 
     def _get_host_ip(self, hostname, timeout=5, url="https://1.0.0.1/dns-query"):
         """

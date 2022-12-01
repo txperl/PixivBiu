@@ -1,31 +1,25 @@
 function loadSearchSettings(mods = settingsMods) {
+    const _cookie = Cookies.get();
     for (var id in mods) {
         if (!mods.hasOwnProperty(id)) continue;
-
-        var name = mods[id][0]
-        var arg = mods[id][1]
-        var des = mods[id][2]
-        var cokie = Cookies.get();
-
-        if (cokie[name]) {
-            tmpSearchSettings[name] = cokie[name]
-        } else {
-            tmpSearchSettings[name] = arg
-        }
-
+        const name = mods[id][0]
+        const arg = mods[id][1]
+        const des = mods[id][2]
+        tmpSearchSettings[name] = _cookie[name] ? _cookie[name] : arg;
         $(id).attr('placeholder', des + ': ' + tmpSearchSettings[name]);
     }
 }
 
-function saveSettingsCookie(reset = false, mods = settingsMods) {
+function saveSettingsCookie(reset = false, mods = settingsMods, only = null) {
     for (const id in mods) {
         if (!mods.hasOwnProperty(id)) continue;
+        if (only !== null && !only.includes(id)) continue;
         const name = mods[id][0];
         if (reset) {
             Cookies.remove(name);
         } else if ($(id).val() != "") {
             Cookies.remove(name);
-            Cookies.set(name, $(id).val(), { expires: 30 })
+            Cookies.set(name, $(id).val(), { expires: 30, sameSite: "strict" });
         }
         $(id).val("");
     }
@@ -59,7 +53,7 @@ function saveFiltersCookie(reset = false, mods = filtersMods) {
         const obj = $(keys[i]);
         Cookies.remove(cookieID);
         if (!reset && obj && obj.val())
-            Cookies.set(cookieID, obj.val(), { expires: 7 })
+            Cookies.set(cookieID, obj.val(), { expires: 7, sameSite: "strict" });
     }
     loadFilters(mods);
 }
