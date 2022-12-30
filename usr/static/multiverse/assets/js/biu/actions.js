@@ -427,6 +427,26 @@ function doDownloadStopPic(workID) {
     });
 }
 
+function doUpdateToken() {
+    const el = $("#btnUpdateToken");
+    el.tooltipster("content", "更新中...");
+    $.ajax({
+        type: "POST",
+        url: 'api/biu/do/update_token/',
+        data: { pass: "on" },
+        success: rep => {
+            rep = jQuery.parseJSON(JSON.stringify(rep));
+            if (rep.code !== 1)
+                throw Error();
+            el.tooltipster("content", rep.msg ? "更新 Token 状态成功" : "失败了，具体可以查看程序日志");
+        },
+        error: err => {
+            console.log(err);
+            el.tooltipster("content", "不知道为什么失败了");
+        }
+    });
+}
+
 function grpActChon(type, grpIdx = -1, args = null) {
     if (args === null) {
         if (!tmpPageData || !tmpPageData['args']) return;

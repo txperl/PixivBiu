@@ -14,7 +14,7 @@ from altfe.interface.root import interRoot
 @interRoot.bind("biu", "LIB_CORE")
 class CoreBiu(interRoot):
     def __init__(self):
-        self.ver = 206000
+        self.ver = 206001
         self.place = "local"
         self.sysPlc = platform.system()
         self.api_route = "direct"
@@ -236,15 +236,20 @@ class CoreBiu(interRoot):
 
     def __pro_refresh_token(self):
         """
-        子线程，每 60*6 分钟刷新一次 token 以持久化登录状态。
+        子线程，每 30 分钟刷新一次 token 以持久化登录状态。
         :return: none
         """
         while True:
-            time.sleep(3600 * 6)
-            self.STATIC.localMsger.msg(
-                f"{self.lang('others.hint_in_update_token')}: %s"
-                % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
-            self.__login(refresh_token=self.api.refresh_token, silent=True)
+            time.sleep(30 * 60)
+            self.update_token()
+
+    def update_token(self):
+        ori_access_token = self.api.access_token
+        self.STATIC.localMsger.msg(
+            f"{self.lang('others.hint_in_update_token')}: %s"
+            % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time())))
+        self.__login(refresh_token=self.api.refresh_token, silent=True)
+        return self.api.access_token != ori_access_token
 
     def update_status(self, type_, key, c):
         """
