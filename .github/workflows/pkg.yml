@@ -29,23 +29,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # os: [windows-2019, windows-2019, macos-10.15, ubuntu-18.04]
         include:
-        - os: windows-2019
+        - os: windows-2022
           version: win_x64
           pythonArch: 'x64'
-        - os: windows-2019
+        - os: windows-2022
           version: win_x86
           pythonArch: 'x86'
-        - os: macos-10.15
+        - os: macos-11
           version: mac
           pythonArch: 'x64'
-        - os: ubuntu-18.04
+        - os: ubuntu-20.04
           version: ubuntu_x64
           pythonArch: 'x64'
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Classify files, prepare to be packaged
         run: |
@@ -59,10 +58,10 @@ jobs:
           cp ./LICENSE ./.pkg/public/
           cp ./README.md ./.pkg/public/
 
-      - name: Setup Python 3.7
-        uses: actions/setup-python@v2.2.2
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.7
+          python-version: 3.8
           architecture: ${{ matrix.pythonArch }}
       
       - name: Install Requirements
@@ -76,21 +75,21 @@ jobs:
           python ./py-pkger.py auto
         
       - name: Compress to ZIP (win)
-        if: ${{ matrix.os == 'windows-2019' }}
+        if: ${{ matrix.version == 'win_x64' || matrix.version == 'win_x86' }}
         run: |
           cd ./.pkg/dist/
           mv ./main.exe ./PixivBiu.exe
           Compress-Archive * ../../${{ matrix.version }}.zip
       
-      - name: Compress to ZIP (mac)
-        if: ${{ matrix.os == 'macos-10.15' || matrix.os == 'ubuntu-18.04' }}
+      - name: Compress to ZIP (unix-like)
+        if: ${{ matrix.version == 'mac' || matrix.version == 'ubuntu_x64' }}
         run: |
           cd ./.pkg/dist/
           mv ./main ./PixivBiu
           zip -r ../../${{ matrix.version }}.zip *
     
       - name: Upload to Artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: pixivbiuArt
           path: ./${{ matrix.version }}.zip
@@ -99,10 +98,10 @@ jobs:
     needs: [build-on-platform]
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       
       - name: Download from Artifact
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: pixivbiuArt
       

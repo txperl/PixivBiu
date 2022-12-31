@@ -1,3 +1,4 @@
+import atexit
 import os
 import platform
 import sys
@@ -14,7 +15,7 @@ from altfe.interface.root import interRoot
 @interRoot.bind("biu", "LIB_CORE")
 class CoreBiu(interRoot):
     def __init__(self):
-        self.ver = 206001
+        self.ver = 206010
         self.place = "local"
         self.sysPlc = platform.system()
         self.api_route = "direct"
@@ -32,10 +33,8 @@ class CoreBiu(interRoot):
         self.STATUS = {"rate_search": {}, "rate_download": {}}
         self.auto()
 
-    def __del__(self):
-        self.pool_srh.shutdown(False)
-
     def auto(self):
+        atexit.register(self.__before_exit)
         self.__load_config()  # 加载配置项
         self.__pre_check()  # 运行前检测
         self.proxy = self.__get_system_proxy()  # 加载代理地址
@@ -47,6 +46,9 @@ class CoreBiu(interRoot):
         self.__set_image_host()  # 设置图片服务器地址
         self.__show_ready_info()  # 展示初始化完成信息
         return self
+
+    def __before_exit(self):
+        self.pool_srh.shutdown(False)
 
     def __load_config(self):
         """

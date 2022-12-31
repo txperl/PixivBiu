@@ -300,36 +300,28 @@ function getOneWork(id) {
     });
 }
 
-function doBookmark(id, action = 'add') {
-    let des, de, icon, tURL;
-    if (action === 'add') {
-        tURL = "api/biu/do/mark/";
-        icon = '💘';
-        de = 'javascript: doBookmark(' + id + ', \'del\');';
-        des = '取消收藏';
-    } else {
-        tURL = "api/biu/do/unmark/";
-        icon = '💗';
-        de = 'javascript: doBookmark(' + id + ', \'add\');';
-        des = '收藏';
-    }
+function doBookmark(wid) {
+    const RS = {
+        add: { url: "api/biu/do/mark/", icon: "💘", des: "取消收藏" },
+        del: { url: "api/biu/do/unmark/", icon: "💗", des: "收藏" },
+    };
+    const action = $(`#marks_${wid} b hicon`).html() === "💘" ? "del" : "add";
     $.ajax({
         type: "GET",
-        url: tURL,
+        url: RS[action].url,
         data: {
-            'workID': id,
-            'publicity': tmpSearchSettings['pixivbiu_actionType'] === 'private' ? 'private' : 'public'
+            "workID": wid,
+            "publicity": tmpSearchSettings["pixivbiu_actionType"] === "private" ? "private" : "public"
         },
-        success: function (rep) {
+        success: rep => {
             rep = jQuery.parseJSON(JSON.stringify(rep));
             if (rep.code) {
-                $('#marks_' + id + ' b hicon').html(icon);
-                $('#marks_' + id + ' b').tooltipster('content', des);
-                $('#marks_' + id).attr('href', de);
+                $(`#marks_${wid} b hicon`).html(RS[action].icon);
+                $(`#marks_${wid} b`).tooltipster("content", RS[action].des);
             }
         },
-        error: function (e) {
-            console.log(e);
+        error: err => {
+            console.log(err);
         }
     });
 }

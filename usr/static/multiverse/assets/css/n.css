@@ -207,6 +207,7 @@
 .poptrox-popup .caption {
     position: fixed;
     background-image: none;
+    text-shadow: 0 0 15px #000;
 }
 
 .poptrox-popup:before {
@@ -215,7 +216,6 @@
 
 .poptrox-popup .nav-previous,
 .poptrox-popup .nav-next {
-    position: fixed;
     display: block !important;
     filter: drop-shadow(0 0 3px rgb(0, 0, 0));
 }

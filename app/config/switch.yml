@@ -1,32 +1,12 @@
 # 开启或停用模块
 # true 为开启，false 为停用
 OnOff:
-  ins:
-    cache.py: false
   pre:
-    rate_limit.py: false
-      # rate limit 预处理，开启后请修改下方相关配置
     verify_referrer.py: false
       # 简单防盗链预处理，开启后请修改下方相关配置
 
 # 预处理安全相关
 Security:
-  # rate limit 相关设置
-  rateLimit:
-    maxRequests: 30
-      # 一个 timeSecond 内同一 IP 允许的最大请求数
-
-    timeSeconds: 60
-      # 时间周期，单位为秒
-
-    allowOrigin:
-      # 以下 IP 可无视上述规则
-      - 127.0.0.1
-
-    banOrigin:
-      # 以下 IP 会被拒绝请求
-      - null
-
   # 防盗链相关设置
   onlyReferrer:
     type: ban

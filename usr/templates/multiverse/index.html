@@ -576,9 +576,9 @@
 
                     // 收藏按钮
                     if (data[i]['is_bookmarked']) {
-                        extra += '<a id="marks_' + data[i]['id'] + '" href="javascript: doBookmark(' + data[i]['id'] + ', \'del\');"><b class="tooltip" title="取消收藏"><hicon>💘</hicon> ' + bookedNum + '</b></a>';
+                        extra += `<a id="marks_${data[i]["id"]}" href="javascript: doBookmark(${data[i]["id"]});"><b class="tooltip" title="取消收藏"><hicon>💘</hicon> ${bookedNum}</b></a>`;
                     } else {
-                        extra += '<a id="marks_' + data[i]['id'] + '" href="javascript: doBookmark(' + data[i]['id'] + ', \'add\');"><b class="tooltip" title="收藏"><hicon>💗</hicon> ' + bookedNum + '</b></a>';
+                        extra += `<a id="marks_${data[i]["id"]}" href="javascript: doBookmark(${data[i]["id"]});"><b class="tooltip" title="收藏"><hicon>💗</hicon> ${bookedNum}</b></a>`;
                     }
 
                     // 下载归类用的文件夹名称
@@ -601,8 +601,7 @@
                     extra += '<a id="dl_' + data[i]['id'] + '" href="javascript: doDownloadPic(\'' + kt + '\', ' + data[i]['id'] + ', ' + String(i) + ');"><d class="tooltip" title="下载">' + typeName[data[i]['type']] + '</d></a>';
 
                     // 图片预览内容
-                    var extraText = '<a target="_blank" href=".?code=%40u%3D' + data[i]['author']['id'] + '%20-i">🔍 作者插画</a> <a target="_blank" href=".?code=%40u%3D' + data[i]['author']['id'] + '%20-c">🔍 漫画</a> <a href="javascript: doDownloadPic(\'' + kt + '\', ' + data[i]['id'] + ', ' + String(i) + ');">下载</a>';
-
+                    var extraText = '<a target="_blank" href=".?code=%40u%3D' + data[i]['author']['id'] + '%20-i">🔍 作者插画</a> <a target="_blank" href=".?code=%40u%3D' + data[i]['author']['id'] + '%20-c">🔍 漫画</a> <a href="javascript: doDownloadPic(\'' + kt + '\', ' + data[i]['id'] + ', ' + String(i) + ');">⏬ 下载</a>';
                     if (data[i]['all']['meta_pages'].length > 0) {
                         extraText = '<a target="_blank" href=".?code=%40w%3D' + data[i]['id'] + '">👀 查看</a> ' + extraText;
                     }
