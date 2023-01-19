@@ -27,7 +27,7 @@ PixivBiu 是一款不错的 Pixiv **辅助**工具。
 
 此项目基于 `Python@3.7(+)` 编写，使用 `PyInstaller` 构建编译版本。
 
-这里只提供 Windows 和 macOS 的编译版本，如有其他需求请自行编译。
+这里只提供 Windows、macOS 和 Ubuntu 的编译版本，如有其他需求请自行编译。
 
 具体可在 [GitHub Releases](https://github.com/txperl/PixivBiu/releases) 中下载，或者[在这](https://biu.tls.moe/#/lib/dl)下载。
 

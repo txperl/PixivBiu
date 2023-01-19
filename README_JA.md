@@ -27,7 +27,7 @@ PixivBiuはPixivのための**補助的な**ツールです。
 
 このプロジェクトは Python 3.7 以上で開発されており、実行バイナリのビルドには `PyInstaller` を使用しています。
 
-Windows 版と macOS 版が利用可能ですが、もし必要であれば自分でビルドを試してください。
+Windows 版、macOS 版と Ubuntu 版が利用可能ですが、もし必要であれば自分でビルドを試してください。
 
 ビルド済バイナリは [GitHub Releases](https://github.com/txperl/PixivBiu/releases) もしくは[こちら](https://biu.tls.moe/#/lib/dl)からダウンロードできます。
 

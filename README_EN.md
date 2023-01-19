@@ -27,7 +27,7 @@ PixivBiu is a nice Pixiv **assistant** tool.
 
 This project is developed by `Python@3.7(+)` and uses `PyInstaller` to build the executable binary file.
 
-There are only Windows and macOS version available here, so please build yourself if needed.
+There are only Windows, macOS and Ubuntu version available here, so please build yourself if needed.
 
 They can be downloaded in [GitHub Releases](https://github.com/txperl/PixivBiu/releases), or [here](https://biu.tls.moe/#/lib/dl).
 
