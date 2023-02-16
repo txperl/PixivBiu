@@ -17,5 +17,5 @@ requests==2.28.1
 requests-toolbelt==0.10.1
 typing_extensions==4.4.0
 urllib3==1.26.13
-Werkzeug==2.2.2
+Werkzeug==2.2.3
 zipp==3.11.0
