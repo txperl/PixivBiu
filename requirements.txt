@@ -2,7 +2,7 @@ certifi==2022.12.7
 charset-normalizer==2.1.1
 click==8.1.3
 cloudscraper==1.2.66
-Flask==2.2.2
+Flask==2.3.2
 idna==3.4
 importlib-metadata==5.1.0
 itsdangerous==2.1.2
