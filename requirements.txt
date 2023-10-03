@@ -16,6 +16,6 @@ PyYAML==6.0
 requests==2.28.1
 requests-toolbelt==0.10.1
 typing_extensions==4.4.0
-urllib3==1.26.13
+urllib3==1.26.17
 Werkzeug==2.2.2
 zipp==3.11.0
