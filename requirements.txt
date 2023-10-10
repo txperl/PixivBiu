@@ -8,7 +8,7 @@ importlib-metadata==5.1.0
 itsdangerous==2.1.2
 Jinja2==3.1.2
 MarkupSafe==2.1.1
-Pillow==9.3.0
+Pillow==10.0.1
 PixivPy3==3.7.2
 pyparsing==3.0.9
 PySocks==1.7.1
