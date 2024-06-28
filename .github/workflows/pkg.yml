@@ -36,15 +36,18 @@ jobs:
         - os: windows-2022
           version: win_x86
           pythonArch: 'x86'
-        - os: macos-11
-          version: mac
+        - os: macos-14
+          version: mac_apple
           pythonArch: 'x64'
-        - os: ubuntu-20.04
+        - os: macos-12
+          version: mac_intel
+          pythonArch: 'x64'
+        - os: ubuntu-22.04
           version: ubuntu_x64
           pythonArch: 'x64'
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Classify files, prepare to be packaged
         run: |
@@ -59,15 +62,15 @@ jobs:
           cp ./README.md ./.pkg/public/
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.8
+          python-version: 3.10
           architecture: ${{ matrix.pythonArch }}
       
       - name: Install Requirements
         run: |
           pip install -r ./requirements.txt
-          pip install pyinstaller  
+          pip install pyinstaller
       
       - name: Run py-pkger.py
         run: |
@@ -75,14 +78,14 @@ jobs:
           python ./py-pkger.py auto
         
       - name: Compress to ZIP (win)
-        if: ${{ matrix.version == 'win_x64' || matrix.version == 'win_x86' }}
+        if: ${{ contains(matrix.version, 'win') }}
         run: |
           cd ./.pkg/dist/
           mv ./main.exe ./PixivBiu.exe
           Compress-Archive * ../../${{ matrix.version }}.zip
       
       - name: Compress to ZIP (unix-like)
-        if: ${{ matrix.version == 'mac' || matrix.version == 'ubuntu_x64' }}
+        if: ${{ contains(matrix.version, 'mac') || contains(matrix.version, 'ubuntu') }}
         run: |
           cd ./.pkg/dist/
           mv ./main ./PixivBiu
@@ -96,7 +99,7 @@ jobs:
 
   Release:
     needs: [build-on-platform]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       
@@ -109,13 +112,14 @@ jobs:
         run: |
           mv ./win_x64.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_win_x64.zip
           mv ./win_x86.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip
-          mv ./mac.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip
+          mv ./mac_apple.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_mac_apple.zip
+          mv ./mac_intel.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip
           mv ./ubuntu_x64.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_ubuntu_x64.zip
         
       - name: Release and Done
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "PixivBiu_${{ github.event.inputs.releaseTag }}_win_x64.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_ubuntu_x64.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip"
+          artifacts: "PixivBiu_${{ github.event.inputs.releaseTag }}_win_x64.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_mac_apple.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_ubuntu_x64.zip"
           tag: ${{ github.event.inputs.releaseTag }}
           name: ${{ github.event.inputs.releaseName }}
           body: ${{ github.event.inputs.releaseBody }}
