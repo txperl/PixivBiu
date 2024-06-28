@@ -9,7 +9,6 @@ import pixivpy3
 
 with warnings.catch_warnings():
     warnings.simplefilter('ignore', DeprecationWarning)
-    import imp
 from modulefinder import ModuleFinder
 
 ROOT_PATH = os.path.split(os.path.realpath(sys.argv[0]))[0]
@@ -83,11 +82,12 @@ def files(path, frmt="*", OTH=["", "pyc", "DS_Store"]):
 
 
 # 修复 ModuleFinder 可能 BUG
+_PY_SOURCE = 1
 class ModuleFinderR(ModuleFinder):
     def run_script(self, pathname):
         self.msg(2, "run_script", pathname)
         with open(pathname, encoding="utf-8") as fp:
-            stuff = ("", "r", imp.PY_SOURCE)
+            stuff = ("", "rb", _PY_SOURCE)
             self.load_module('__main__', fp, pathname, stuff)
 
 
@@ -126,7 +126,10 @@ if __name__ == "__main__":
         oargs.append(f"--add-data {ori[1:]}{BET}{dest[1:]}")
         # 分析动态加载文件中所使用的包
         if x[2] == "py":
-            finder.run_script(x[0])
+            try:
+                finder.run_script(x[0])
+            except:
+                continue
             for name, mod in finder.modules.items():
                 module = name.split(".")[0] if os.name == "nt" else name
                 if module[0] == "_" and module[1:] in hiddenImport:
