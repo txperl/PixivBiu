@@ -71,6 +71,7 @@ jobs:
         run: |
           pip install -r ./requirements.txt
           pip install pyinstaller
+          pip install --upgrade certifi
       
       - name: Run py-pkger.py
         run: |
