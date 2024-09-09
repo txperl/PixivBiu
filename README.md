@@ -25,7 +25,7 @@ PixivBiu，一款不错的 Pixiv **辅助**工具。
 
 ### 已编译程序
 
-此项目基于 `Python@3.7(+)` 编写，使用 `PyInstaller` 构建编译版本。
+此项目基于 `Python@3.10(+)` 编写，使用 `PyInstaller` 构建编译版本。
 
 这里提供 Windows、macOS 和 Ubuntu 的编译版本，如有其他需求请自行编译。
 

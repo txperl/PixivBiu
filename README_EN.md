@@ -25,7 +25,7 @@ PixivBiu, a nice Pixiv **assistant** tool.
 
 ### Executable Binary File
 
-This project is written in `Python@3.7(+)` and is compiled using `PyInstaller`.
+This project is written in `Python@3.10(+)` and is compiled using `PyInstaller`.
 
 Compiled versions are provided for Windows, macOS, and Ubuntu. If you have other requirements, please compile it yourself.
 

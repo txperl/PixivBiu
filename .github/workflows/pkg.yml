@@ -36,6 +36,9 @@ jobs:
         - os: windows-2022
           version: win_x86
           pythonArch: 'x86'
+        - os: macos-14
+          version: mac_apple
+          pythonArch: 'x64'
         - os: macos-12
           version: mac_intel
           pythonArch: 'x64'
@@ -61,8 +64,8 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
-          architecture: ${{ matrix.pythonArch }}
+          python-version: '3.10'
+          # architecture: ${{ matrix.pythonArch }}
 
       - name: Install Requirements
         run: |
@@ -109,13 +112,14 @@ jobs:
         run: |
           mv ./win_x64.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_win_x64.zip
           mv ./win_x86.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip
+          mv ./mac_apple.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_mac_apple.zip
           mv ./mac_intel.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip
           mv ./ubuntu_x64.zip ./PixivBiu_${{ github.event.inputs.releaseTag }}_ubuntu_x64.zip
         
       - name: Release and Done
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "PixivBiu_${{ github.event.inputs.releaseTag }}_win_x64.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_ubuntu_x64.zip"
+          artifacts: "PixivBiu_${{ github.event.inputs.releaseTag }}_win_x64.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_mac_apple.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_ubuntu_x64.zip"
           tag: ${{ github.event.inputs.releaseTag }}
           name: ${{ github.event.inputs.releaseName }}
           body: ${{ github.event.inputs.releaseBody }}
