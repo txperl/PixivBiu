@@ -169,10 +169,11 @@ class DoDownload(interRoot):
             "folder": folder,
             "name": name + suf,
             "dlArgs": {
-                "_headers": {"referer": "https://app-api.pixiv.net/"},
+                "_headers": {"referer": "https://app-api.pixiv.net/", "user-agent": "PixivBiu Client"},
                 "@requests": {"proxies": {"https": self.CORE.biu.proxy}},
                 "@aria2": {
                     "referer": "https://app-api.pixiv.net/",
+                    "user-agent": "PixivBiu Client",
                     "all-proxy": self.CORE.biu.proxy
                 },
                 "@others": {"groupSign": sign},

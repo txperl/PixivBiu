@@ -9,6 +9,7 @@ import pixivpy3
 
 with warnings.catch_warnings():
     warnings.simplefilter('ignore', DeprecationWarning)
+    import imp
 from modulefinder import ModuleFinder
 
 ROOT_PATH = os.path.split(os.path.realpath(sys.argv[0]))[0]
@@ -82,12 +83,11 @@ def files(path, frmt="*", OTH=["", "pyc", "DS_Store"]):
 
 
 # 修复 ModuleFinder 可能 BUG
-_PY_SOURCE = 1
 class ModuleFinderR(ModuleFinder):
     def run_script(self, pathname):
         self.msg(2, "run_script", pathname)
         with open(pathname, encoding="utf-8") as fp:
-            stuff = ("", "rb", _PY_SOURCE)
+            stuff = ("", "r", imp.PY_SOURCE)
             self.load_module('__main__', fp, pathname, stuff)
 
 
