@@ -13,7 +13,7 @@ pixivpy3==3.7.5
 pyparsing==3.1.4
 PySocks==1.7.1
 PyYAML==6.0.1
-requests==2.31.0
+requests==2.32.2
 requests-toolbelt==1.0.0
 typing_extensions==4.7.1
 urllib3==2.0.7
