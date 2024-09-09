@@ -126,10 +126,7 @@ if __name__ == "__main__":
         oargs.append(f"--add-data {ori[1:]}{BET}{dest[1:]}")
         # 分析动态加载文件中所使用的包
         if x[2] == "py":
-            try:
-                finder.run_script(x[0])
-            except:
-                continue
+            finder.run_script(x[0])
             for name, mod in finder.modules.items():
                 module = name.split(".")[0] if os.name == "nt" else name
                 if module[0] == "_" and module[1:] in hiddenImport:

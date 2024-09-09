@@ -9,6 +9,9 @@ from flask import Flask, jsonify, render_template
 from altfe import bridge, handle
 from altfe.interface.root import classRoot
 
+# To fix pyinstaller package issues
+from PIL import Image
+
 rootPath = os.path.split(os.path.realpath(sys.argv[0]))[0] + "/"
 rootPathFrozen = sys._MEIPASS + "/" if getattr(sys, "frozen", False) else rootPath
 
