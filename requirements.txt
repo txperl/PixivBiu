@@ -1,5 +1,5 @@
 blinker==1.8.2
-certifi==2024.6.2
+certifi==2024.7.4
 charset-normalizer==3.3.2
 click==8.1.7
 cloudscraper==1.2.71
