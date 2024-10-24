@@ -4,7 +4,7 @@ PixivBiu, Una bonita herramienta **asistente** de Pixiv.
 
 - [中文](./README.md)
 - [日本語](./README_JA.md)
-- [Espa;ol](/README_ES.md)
+- [Español](/README_ES.md)
 
 ## Características
 
