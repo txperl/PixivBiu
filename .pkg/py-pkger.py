@@ -9,8 +9,7 @@ import pixivpy3
 
 with warnings.catch_warnings():
     warnings.simplefilter('ignore', DeprecationWarning)
-    import imp
-from modulefinder import ModuleFinder
+
 
 ROOT_PATH = os.path.split(os.path.realpath(sys.argv[0]))[0]
 CODE_PATH = os.path.join(ROOT_PATH, "code")
@@ -82,15 +81,6 @@ def files(path, frmt="*", OTH=["", "pyc", "DS_Store"]):
     return r
 
 
-# 修复 ModuleFinder 可能 BUG
-class ModuleFinderR(ModuleFinder):
-    def run_script(self, pathname):
-        self.msg(2, "run_script", pathname)
-        with open(pathname, encoding="utf-8") as fp:
-            stuff = ("", "r", imp.PY_SOURCE)
-            self.load_module('__main__', fp, pathname, stuff)
-
-
 if __name__ == "__main__":
     silent = False
     if len(sys.argv) == 2:
@@ -103,8 +93,6 @@ if __name__ == "__main__":
         "--specpath": CODE_PATH,
     }
     oargs = []
-    hiddenImport = []
-    finder = ModuleFinderR()
     BET = ";" if os.name == "nt" else ":"
     SPT = "\\" if os.name == "nt" else "/"
 
@@ -119,6 +107,7 @@ if __name__ == "__main__":
         replaceFile(f"{ROOT_PATH}{SPT}r_pixivpy.py", f"{pxpy}{SPT}bapi.py")
 
     # 导入动态加载的文件、模块
+    allImportLines = []
     for x in files(os.path.join(CODE_PATH, "app")):
         print(x)
         ori = x[0].replace(CODE_PATH, "")
@@ -126,15 +115,15 @@ if __name__ == "__main__":
         oargs.append(f"--add-data {ori[1:]}{BET}{dest[1:]}")
         # 分析动态加载文件中所使用的包
         if x[2] == "py":
-            finder.run_script(x[0])
-            for name, mod in finder.modules.items():
-                module = name.split(".")[0] if os.name == "nt" else name
-                if module[0] == "_" and module[1:] in hiddenImport:
-                    continue
-                if module not in hiddenImport:
-                    hiddenImport.append(module)
-    for x in hiddenImport:
-        oargs.append(f"--hidden-import {x}")
+            with open(x[0], "r") as f:
+                lines = f.readlines()
+                for line in lines:
+                    if (line[:4] == "from" or line[:6] == "import") and line not in allImportLines:
+                        allImportLines.append(line)
+    with open(os.path.join(CODE_PATH, "main.py"), "r+") as f:
+        content = f.read()
+        f.seek(0, 0)
+        f.write("\n".join(allImportLines) + content)
 
     # 图标加载
     if os.name == "nt":
