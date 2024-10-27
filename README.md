@@ -21,7 +21,7 @@ PixivBiu，一款不错的 Pixiv **辅助**工具。
 
 * 安装依赖，执行 `pip install -r requirements.txt`
   + [Flask](https://github.com/pallets/flask)、[requests](https://github.com/psf/requests)、[PyYAML](https://github.com/yaml/pyyaml)、[Pillow](https://github.com/python-pillow/Pillow)、[PixivPy](https://github.com/upbit/pixivpy)、[PySocks](https://github.com/Anorov/PySocks)
-* 修改 `./config.yml` 相关配置项，具体可参考[默认配置文件](./app/config/biu_default.yml)
+* 修改 `./config.yml` 相关配置项，具体可参考[默认配置文件](/app/config/biu_default.yml)
 * 执行 `python main.py`
 * 访问运行地址，默认为 `http://127.0.0.1:4001/`
 

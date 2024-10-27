@@ -21,7 +21,7 @@ PixivBiuはPixivのための**補助的な**ツールです。
 
 * 依存ライブラリのインストール: `pip install -r requirements.txt`
   * [Flask](https://github.com/pallets/flask), [requests](https://github.com/psf/requests), [PyYAML](https://github.com/yaml/pyyaml), [Pillow](https://github.com/python-pillow/Pillow), [PixivPy](https://github.com/upbit/pixivpy), [PySocks](https://github.com/Anorov/PySocks)
-* `./config.yml` の設定（例：[デフォルトの設定ファイル](./app/config/biu_ja.yml)）
+* `./config.yml` の設定（例：[デフォルトの設定ファイル](/app/config/biu_ja.yml)）
 * 実行: `python main.py`
 * 実行中のページを開く（デフォルトのURL: `http://127.0.0.1:4001/`）
 

@@ -21,7 +21,7 @@ PixivBiu, Una bonita herramienta **asistente** de Pixiv.
 
 * Instalar dependencias ejecutando `pip install -r requirements.txt`
   + [Flask](https://github.com/pallets/flask), [requests](https://github.com/psf/requests), [PyYAML](https://github.com/yaml/pyyaml), [Pillow](https://github.com/python-pillow/Pillow), [PixivPy](https://github.com/upbit/pixivpy), [PySocks](https://github.com/Anorov/PySocks)
-* Modificar los elementos de configuración relevantes en `./config.yml`, y puedes consultar el [archivo de configuración predeterminado](./app/config/biu_es.yml) para detalles
+* Modificar los elementos de configuración relevantes en `./config.yml`, y puedes consultar el [archivo de configuración predeterminado](/app/config/biu_es.yml) para detalles
 * Ejecuta `python main.py`
 * Acceda a la dirección de ejecución, que es la predeterminada `http://127.0.0.1:4001/`.
 
