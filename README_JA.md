@@ -4,6 +4,7 @@ PixivBiuはPixivのための**補助的な**ツールです。
 
 - [中文](./README.md)
 - [English](./README_EN.md)
+- [Español](./README_ES.md)
 
 ## 機能
 
