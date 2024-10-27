@@ -1,0 +1,127 @@
+# It is the default configuration file for PixivBiu.
+# There is no English version yet... It will be available soon.
+# You can use the translation tool to read it, for now.
+
+## Relacionado con el sistema ##
+sys.host: "127.0.0.1:4001"
+  # La dirección de ejecución del programa; si no entiendes bien, por favor no la modifiques.
+  # No debe llevar el prefijo http://
+
+sys.debug: false
+  # Modo de depuración
+  # true para activar; false para desactivar
+
+sys.apiRoute: "direct"
+  # Línea de API predeterminada
+  # direct: estable, requiere proxy
+  # bypassSNI: estabilidad moderada, no requiere proxy
+
+sys.proxy: ""
+  # Dirección de escucha del servicio de proxy local
+  # Ejemplo: http://127.0.0.1:1080/
+  # Si se deja en blanco, el programa detectará automáticamente la configuración de proxy del sistema (solo en Windows y macOS)
+  # Si se ingresa "no", no se usará ningún proxy
+
+sys.language: ""
+  # Configuración de idioma, dejar en blanco para detección automática
+  # Opciones: zh, en, es
+
+sys.theme: "multiverse"
+  # Tema predeterminado
+  # No hay otros disponibles por ahora, mantener como multiverse
+
+sys.autoOpen: true
+  # ¿Abrir automáticamente la URL de ejecución del programa al iniciar?
+  # true para activar; false para desactivar
+
+sys.ignoreOutdated: false
+  # ¿Deshabilitar las notificaciones de nuevas versiones al iniciar?
+  # true para activar; false para desactivar
+
+## Relacionado con la búsqueda ##
+biu.search.maxThreads: 8
+  # Número máximo de hilos en el grupo de búsqueda
+
+biu.search.loadCacheFirst: true
+  # Priorizar la carga del caché local al buscar
+  # true para activar; false para desactivar
+
+biu.search.maxCacheSizeMiB: 512
+  # Capacidad máxima de la caché de búsqueda (MB); al alcanzarla, el programa se limpiará automáticamente.
+
+## Relacionado con la descarga ##
+biu.download.mode: "dl-single"
+  # Modo de descarga
+  # dl-single: descarga en un solo hilo
+  # aria2: usar aria2 para descargar; si se activa esta opción, también se deben completar aria2Host y aria2Secret a continuación
+
+biu.download.aria2Host: ""
+  # Dirección de escucha de RPC de aria2, como localhost:6800
+  # Durante la descarga, los parámetros dir, out, all-proxy, max-tries y check-certificate serán decididos por el programa
+  # El resto serán contenidos predeterminados o personalizados
+
+biu.download.aria2Secret: ""
+  # Clave RPC de aria2; si no está configurada, déjala en blanco
+
+biu.download.deterPaths: true
+  # El programa decide dinámicamente el nombre del archivo
+  # Al activarse, el programa primero guardará la imagen con un nombre aleatorio y luego lo cambiará al nombre personalizado {saveFileName}
+  #   Durante este proceso, se comprobará automáticamente si las imágenes con el mismo nombre en el directorio de descarga son la misma obra
+  #   Si lo son, solo se conservará una; si no, la nueva imagen se renombrará automáticamente
+  #   El nuevo nombre de archivo tendrá el formato {saveFileName}_{hash} o {saveFileName}_{hash}_{time}
+  # Al desactivarse, el programa guardará la imagen directamente con el nombre de archivo personalizado {saveFileName}
+  #   Si el formato de {saveFileName} es único o deseas usar la estrategia de archivos con nombre duplicado de aria2, puedes desactivar esta función para mejorar el rendimiento
+  #   Si la dirección del servicio de aria2 no es localhost o 127.0.0.1, esta opción se desactivará automáticamente
+  # true para activar; false para desactivar
+
+biu.download.maxDownloading: 8
+  # Número máximo de tareas de descarga simultáneas
+
+biu.download.saveURI: "{ROOTPATH}/downloads/{date_today}/"
+  # Ruta de guardado de descargas, debe terminar con /
+  # No se puede usar el símbolo \; por favor, reemplázalo por / o \\
+  # Variables opcionales
+  # - {ROOTPATH}: directorio raíz del programa
+  # - {HOMEPATH}: directorio principal del usuario, puede ser /Users/user/, C:/Users/user/, /home/user/
+  # - {KT}: palabra clave de búsqueda
+  # - {title}: título de la obra
+  # - {work_id}: ID de la obra
+  # - {user_name}: nombre del autor
+  # - {user_id}: ID del autor
+  # - {type}: tipo de obra
+  # - {date_image}: fecha de la obra
+  # - {date_today}: fecha de hoy
+
+biu.download.saveFileName: "{title}_{work_id}"
+  # Título de la imagen descargada
+  # No se puede usar el símbolo \; por favor, reemplázalo por \\
+  # Variables opcionales
+  # - {title}: título de la obra
+  # - {work_id}: ID de la obra
+  # - {user_name}: nombre del autor
+  # - {user_id}: ID del autor
+  # - {type}: tipo de obra
+  # - {date_image}: fecha de la obra
+  # - {date_today}: fecha de hoy
+
+biu.download.autoArchive: true
+  # Archivar automáticamente obras con múltiples imágenes (colocarlas en una carpeta)
+  # true para activar; false para desactivar
+
+biu.download.whatsUgoira: "webp"
+  # Convertir animaciones a un formato específico
+  # Opciones: webp, gif
+
+biu.download.imageHost: ""
+  # Servidor de imágenes de Pixiv utilizado por el programa backend durante la descarga
+  # Dejar en blanco para que el programa lo determine automáticamente
+  # Direcciones de referencia
+  # - https://i.pximg.net: servidor oficial de imágenes (requiere proxy)
+  # - https://i.pixiv.cat: servidor de imágenes de terceros (requiere proxy)
+  # - https://i.pixiv.re: servidor de imágenes de terceros (no requiere proxy)
+
+# Privado
+secret.key.apiSauceNAO: ""
+  # Clave API del servicio SauceNAO; si se completa, se podrá usar la función de búsqueda de imágenes
+  # https://saucenao.com/user.php?page=search-api
+  # Al ingresar a la URL anterior e iniciar sesión, podrás encontrar el contenido de "api key" en la página
