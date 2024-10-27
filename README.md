@@ -4,7 +4,7 @@ PixivBiu，一款不错的 Pixiv **辅助**工具。
 
 - [English](./README_EN.md)
 - [日本語](./README_JA.md)
-- [Español](/README_ES.md)
+- [Español](./README_ES.md)
 
 ## 基础功能
 
