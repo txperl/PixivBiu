@@ -1,0 +1,139 @@
+# You can find the default config files
+# of multiple languages (中文, English, 日本語, Español)
+# at https://github.com/txperl/PixivBiu/tree/master/app/config
+
+## System ##
+sys.host: "127.0.0.1:4001"
+  # Address that program runs in
+  # No need for "http://" prefix
+
+sys.debug: false
+  # Enable for debug mode
+  # Option: true, false
+
+sys.apiRoute: "direct"
+  # Default API route mode
+  # If you can visit Pixiv directly, just choose "direct"
+  # Option:
+  # - direct: stable
+  # - bypassSNI: low-stable, not recommended
+
+sys.proxy: ""
+  # Local proxy address
+  # E.g. http://127.0.0.1:1080/
+  # Leave it blank, and program will detect automatically（Only for macOS, Windows）
+  # Leave it "no", and no proxy will be used
+
+sys.language: ""
+  # Language of program
+  # Leave it blank, and program will detect automatically
+  # Option: zh, en, es
+
+sys.theme: "multiverse"
+  # Theme of webpage
+  # Just keep it as multiverse
+
+sys.autoOpen: true
+  # Whether to automatically open the program running URL after startup
+  # Option: true, false
+
+sys.ignoreOutdated: false
+  # Whether to disable new version tip at startup
+  # Option: true, false
+
+
+## Search ##
+biu.search.maxThreads: 8
+  # Maximum number of threads in the search pool
+
+biu.search.loadCacheFirst: true
+  # Whether to load the local cache first while searching
+  # Option: true, false
+
+biu.search.maxCacheSizeMiB: 512
+  # Maximum size of the search cache (MB)
+  # Program will automatically clear it when reached
+
+
+## Download ##
+biu.download.mode: "dl-single"
+  # Download mode
+  # Option:
+  # - dl-single: default mode inside program
+  # - aria2: if chosen, you also need to fill in the aria2Host and aria2Secret below
+
+biu.download.aria2Host: ""
+  # Address of aria2 RPC, e.g. localhost:6800
+  # While downloading
+  # Setting items of "dir, out, all-proxy, max-tries, check-certificate" will be taken charge by program
+  # The rest are default or custom ones
+
+biu.download.aria2Secret: ""
+  # Secret of aria2 RPC
+
+biu.download.deterPaths: true
+  # Dynamical Filename
+  # If enabled, program will save images with a random name first, and then change it to {saveFileName} below
+  #   In this progress
+  #   If there're multiple images with the same final name in the download folder
+  #   Program will automatically determine whether they are the same image
+  #   If they are, only one copy will be kept
+  #   If not, the new image will be renamed to ones like {saveFileName}_{hash}, {saveFileName}_{hash}_{time}
+  # If disabled, the image will be saved as {saveFileName} directly
+  #   If the {saveFileName} format is unique, or you want to use aria2's duplicate file name strategy, you can turn it off to improve performance
+  #   If the aria2 address is not "localhost" or "127.0.0.1", this option will be always disabled
+  # Option: true, false
+
+biu.download.maxDownloading: 8
+  # Maximum number of simultaneous download tasks
+
+biu.download.saveURI: "{ROOTPATH}/downloads/{date_today}/"
+  # Download directory, a folder, ending with "/"
+  # Don't use the "\" symbol, replace it with "/" or "\\"
+  # Variables:
+  # - {ROOTPATH}: Program directory
+  # - {HOMEPATH}: User home directory，it might be "/Users/user/", "C:/Users/user/", "/home/user/""
+  # - {KT}: Search keywords
+  # - {title}: Work title
+  # - {work_id}: Work ID
+  # - {user_name}: Author name
+  # - {user_id}: Author ID
+  # - {type}: Work type
+  # - {date_image}: Date of work
+  # - {date_today}: Date of today
+
+biu.download.saveFileName: "{title}_{work_id}"
+  # Download filename
+  # Don't use the "\" symbol, replace it with "/" or "\\"
+  # Variables:
+  # - {title}: Work title
+  # - {work_id}: Work ID
+  # - {user_name}: Author name
+  # - {user_id}: Author ID
+  # - {type}: Work type
+  # - {date_image}: Date of work
+  # - {date_today}: Date of today
+
+biu.download.autoArchive: true
+  # Archive multiple images (into a folder) automatically
+  # Option: true, false
+
+biu.download.whatsUgoira: "webp"
+  # Convert the live image to the specified format
+  # Option: webp, gif
+
+biu.download.imageHost: ""
+  # Pixiv image address used by backend program
+  # Leave it blank, and program will detect automatically
+  # E.g.
+  # - https://i.pximg.net (Official image address)
+  # - https://i.pixiv.cat
+  # - https://i.pixiv.re
+
+
+# Secrets
+secret.key.apiSauceNAO: ""
+  # The API key of SauceNAO
+  # If filled in, image search feature will be available
+  # https://saucenao.com/user.php?page=search-api
+  # After logging in to the URL above, you can find the "api key" directly

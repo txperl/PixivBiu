@@ -1,6 +1,6 @@
-# It is the default configuration file for PixivBiu.
-# There is no English version yet... It will be available soon.
-# You can use the translation tool to read it, for now.
+# You can find the default config files
+# of multiple languages (中文, English, 日本語, Español)
+# at https://github.com/txperl/PixivBiu/tree/master/app/config
 
 ## 系统相关 ##
 sys.host: "127.0.0.1:4001"
@@ -12,9 +12,10 @@ sys.debug: false
   # true 为开启；false 为关闭
 
 sys.apiRoute: "direct"
-  # 默认 api 线路
-  # direct: 稳定，需要代理
-  # bypassSNI: 稳定性一般，无需代理
+  # 默认 API 线路
+  # 如果能直接访问 Pixiv，请选择 "direct"
+  # direct: 稳定
+  # bypassSNI: 稳定性差，不推荐
 
 sys.proxy: ""
   # 本地代理服务监听地址
@@ -24,7 +25,7 @@ sys.proxy: ""
 
 sys.language: ""
   # 语言设置，留空为程序自动判断
-  # 可选：zh、en
+  # 可选：zh、en、es
 
 sys.theme: "multiverse"
   # 默认主题
@@ -67,11 +68,11 @@ biu.download.aria2Secret: ""
 
 biu.download.deterPaths: true
   # 程序动态决定文件名
-  # 启用后，程序会先以随机名称保存图片，后更改为自定义的 {saveFileName} 文件名
-  #   此过程中，会自动判断下载目录中，文件名相同的图片是否为同一作品
-  #   若是，则只保留一份；若不是，则自动将新图片重命名
-  #   新文件名格式为 {saveFileName}_{hash} 或 {saveFileName}_{hash}_{time}
-  # 停用后，程序会直接将图片保存为自定义的 {saveFileName} 文件名
+  # 启用后，程序会先以随机名称保存图片，后更改为下方自定义的 {saveFileName} 文件名
+  #   此过程中，如果存在文件名相同的文件，则程序会自动判断它们是否为同一张图片
+  #   若是，则只保留一份
+  #   若不是，则自动将新图片重命名为 {saveFileName}_{hash} 或 {saveFileName}_{hash}_{time} 格式
+  # 停用后，程序会直接将图片保存为 {saveFileName} 文件名
   #   若 {saveFileName} 格式存在唯一性，或欲使用 aria2 的重名文件策略，可将此功能关闭以提升性能
   #   若 aria2 服务地址并非 localhost 或 127.0.0.1 时，程序会自动禁用此项
   # true 为开启；false 为关闭
@@ -80,7 +81,7 @@ biu.download.maxDownloading: 8
   # 最大同时下载任务数
 
 biu.download.saveURI: "{ROOTPATH}/downloads/{date_today}/"
-  # 下载保存路径，以 / 结尾
+  # 下载文件夹路径，以 / 结尾
   # 不可使用 \ 符号，请将其替换为 / 或 \\
   # 可选变量
   # - {ROOTPATH}: 程序根目录
@@ -125,7 +126,7 @@ biu.download.imageHost: ""
 
 # 私密
 secret.key.apiSauceNAO: ""
-  # SauceNAO 服务的 API key，若填写则可使用图片搜索功能
+  # SauceNAO 服务的 API Key
+  # 若填写则可使用图片搜索功能
   # https://saucenao.com/user.php?page=search-api
   # 进入以上网址登录后，即可在页面上找到「api key」内容
-

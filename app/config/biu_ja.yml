@@ -1,0 +1,141 @@
+# You can find the default config files
+# of multiple languages (中文, English, 日本語, Español)
+# at https://github.com/txperl/PixivBiu/tree/master/app/config
+
+## システム ##
+sys.host: "127.0.0.1:4001"
+  # プログラムが実行されるアドレス
+  # "http://" プレフィックスは不要
+
+sys.debug: false
+  # デバッグモードを有効にする
+  # オプション: true, false
+
+sys.apiRoute: "direct"
+  # デフォルトのAPIルートモード
+  # Pixivに直接アクセスできる場合は "direct" を選択
+  # オプション:
+  # - direct: 安定
+  # - bypassSNI: 低安定性、非推奨
+
+sys.proxy: ""
+  # ローカルプロキシアドレス
+  # 例: http://127.0.0.1:1080/
+  # 空白の場合、自動検出します（macOS、Windowsのみ）
+  # "no" の場合、プロキシを使用しません
+
+sys.language: ""
+  # プログラムの言語
+  # 空白の場合、自動検出します
+  # オプション: zh, en, es
+
+sys.theme: "multiverse"
+  # ウェブページのテーマ
+  # multiverseのままにしてください
+
+sys.autoOpen: true
+  # 起動時にプログラムの実行URLを自動で開くかどうか
+  # オプション: true, false
+
+sys.ignoreOutdated: false
+  # 起動時の新バージョン通知を無効にするかどうか
+  # オプション: true, false
+
+
+## 検索 ##
+biu.search.maxThreads: 8
+  # 検索プールの最大スレッド数
+
+biu.search.loadCacheFirst: true
+  # 検索時にローカルキャッシュを優先的に読み込むかどうか
+  # オプション: true, false
+
+biu.search.maxCacheSizeMiB: 512
+  # 検索キャッシュの最大サイズ（MB）
+  # 到達時に自動的にクリアされます
+
+
+## ダウンロード ##
+biu.download.mode: "dl-single"
+  # ダウンロードモード
+  # オプション:
+  # - dl-single: プログラム内のデフォルトモード
+  # - aria2: 選択時、以下のaria2Hostとaria2Secretの入力が必要
+
+biu.download.aria2Host: ""
+  # aria2 RPCのアドレス、例: localhost:6800
+  # ダウンロード時
+  # "dir, out, all-proxy, max-tries, check-certificate" の設定項目はプログラムが管理
+  # その他はデフォルトまたはカスタム設定
+
+biu.download.aria2Secret: ""
+  # aria2 RPCのシークレット
+
+biu.download.deterPaths: true
+  # 動的ファイル名
+  # 有効時、画像はランダム名で保存後、下記の{saveFileName}に変更
+  # この過程で
+  # ダウンロードフォルダ内に同じ最終名の画像が複数ある場合
+  # プログラムは自動的に同一画像かを判定
+  # 同一の場合、1つのみ保持
+  # 異なる場合、新規画像は{saveFileName}_{hash}、{saveFileName}_{hash}_{time}などに変更
+  # 無効時、画像は直接{saveFileName}として保存
+  # {saveFileName}形式が一意、またはaria2の重複ファイル名戦略を使用したい場合、パフォーマンス向上のため無効化可能
+  # aria2アドレスが"localhost"または"127.0.0.1"以外の場合、常に無効
+  # オプション: true, false
+
+biu.download.maxDownloading: 8
+  # 同時ダウンロードタスクの最大数
+
+biu.download.saveURI: "{ROOTPATH}/downloads/{date_today}/"
+  # ダウンロードディレクトリ、フォルダ、"/"で終わる
+  # "\"記号は使用せず、"/"または"\\"に置き換え
+  # 変数:
+  # - {ROOTPATH}: プログラムディレクトリ
+  # - {HOMEPATH}: ユーザーホームディレクトリ、"/Users/user/"、"C:/Users/user/"、"/home/user/"など
+  # - {KT}: 検索キーワード
+  # - {title}: 作品タイトル
+  # - {work_id}: 作品ID
+  # - {user_name}: 作者名
+  # - {user_id}: 作者ID
+  # - {type}: 作品タイプ
+  # - {date_image}: 作品の日付
+  # - {date_today}: 今日の日付
+
+biu.download.saveFileName: "{title}_{work_id}"
+  # ダウンロードファイル名
+  # "\"記号は使用せず、"/"または"\\"に置き換え
+  # 変数:
+  # - {title}: 作品タイトル
+  # - {work_id}: 作品ID
+  # - {user_name}: 作者名
+  # - {user_id}: 作者ID
+  # - {type}: 作品タイプ
+  # - {date_image}: 作品の日付
+  # - {date_today}: 今日の日付
+
+biu.download.autoArchive: true
+  # 複数画像を自動的にアーカイブ（フォルダに）するかどうか
+  # オプション: true, false
+
+biu.download.whatsUgoira: "webp"
+  # うごイラを指定フォーマットに変換
+  # オプション: webp, gif
+
+biu.download.imageHost: ""
+  # バックエンドプログラムが使用するPixiv画像アドレス
+  # 空白の場合、自動検出します
+  # 例:
+  # - https://i.pximg.net (公式画像アドレス)
+  # - https://i.pixiv.cat
+  # - https://i.pixiv.re
+
+
+# シークレット
+secret.key.apiSauceNAO: ""
+  # SauceNAOのAPIキー
+  # 入力すると画像検索機能が利用可能に
+  # https://saucenao.com/user.php?page=search-api
+  # 上記URLにログイン後、"api key"が直接確認可能
+
+# This file is translated by Claude

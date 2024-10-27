@@ -1,10 +1,10 @@
 # 自定义配置
 # 请参考默认配置文件 (./app/config/biu_default.yml)
-# 将默认配置文件中需要修改的配置项添加到末尾即可
-#
-# Customized Configuration
-# Please refer to the default configuration file (./app/config/biu_default.yml)
-# Add the configuration items that need to be modified in the default configuration file to the end
+# 将需要修改的配置项添加到末尾即可
+# -
+# Custom Config
+# Please refer to the default config file (./app/config/biu_default.yml)
+# Add the config items that need to be modified to the end
 
 sys.host: "127.0.0.1:4001"
 sys.proxy: ""

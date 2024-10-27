@@ -1,6 +1,6 @@
-# It is the default configuration file for PixivBiu.
-# There is no English version yet... It will be available soon.
-# You can use the translation tool to read it, for now.
+# You can find the default config files
+# of multiple languages (中文, English, 日本語, Español)
+# at https://github.com/txperl/PixivBiu/tree/master/app/config
 
 ## Relacionado con el sistema ##
 sys.host: "127.0.0.1:4001"
