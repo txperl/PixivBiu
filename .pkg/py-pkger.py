@@ -115,12 +115,12 @@ if __name__ == "__main__":
         oargs.append(f"--add-data {ori[1:]}{BET}{dest[1:]}")
         # 分析动态加载文件中所使用的包
         if x[2] == "py":
-            with open(x[0], "r") as f:
+            with open(x[0], "r", encoding="UTF-8") as f:
                 lines = f.readlines()
                 for line in lines:
                     if (line[:4] == "from" or line[:6] == "import") and line not in allImportLines:
                         allImportLines.append(line)
-    with open(os.path.join(CODE_PATH, "main.py"), "r+") as f:
+    with open(os.path.join(CODE_PATH, "main.py"), "r+", encoding="UTF-8") as f:
         content = f.read()
         f.seek(0, 0)
         f.write("\n".join(allImportLines) + content)
