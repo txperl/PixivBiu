@@ -131,7 +131,7 @@ class DlDler(Dler):
                 }
                 headers.update(self._dlArgs["_headers"])
 
-                rep = requests.get(self._dlUrl, headers=headers, **self._dlArgs["@requests"], stream=True, verify=False)
+                rep = requests.get(self._dlUrl, headers=headers, **self._dlArgs["@requests"], stream=True)
                 with open(cacheUri, "ab", buffering=1024) as f:
                     for chunk in rep.iter_content(chunk_size=2048):
                         # 若 CODE_BAD，则退出

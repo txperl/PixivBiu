@@ -118,7 +118,7 @@ class CommonLoginHelper(interRoot):
         }
         try:
             response = self.requests.get(
-                url, headers=headers, params=params, timeout=timeout, verify=False
+                url, headers=headers, params=params, timeout=timeout
             )
             r = "https://" + response.json()["Answer"][0]["data"]
         except:
@@ -139,11 +139,10 @@ class CommonLoginHelper(interRoot):
                 requests.get(
                     url,
                     proxies={"http": proxy, "https": proxy},
-                    timeout=3,
-                    verify=False,
+                    timeout=3
                 )
             else:
-                requests.get(url, timeout=3, verify=False)
+                requests.get(url, timeout=3)
         except:
             if silent is False:
                 cls.STATIC.localMsger.red(f"{url} [ops]", header="Network")

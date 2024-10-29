@@ -40,7 +40,7 @@ class DlSingleDler(Dler):
         :return: bool
         """
         try:
-            with requests.get(self._dlUrl, headers=self._dlArgs["_headers"], stream=True, verify=False,
+            with requests.get(self._dlUrl, headers=self._dlArgs["_headers"], stream=True,
                               **self._dlArgs["@requests"]) as rep:
                 self._dlFileSize = int(rep.headers.get("Content-Length", -1))
                 with open(self._dlSaveUri, "wb", buffering=1024) as f:

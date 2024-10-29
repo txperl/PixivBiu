@@ -9,8 +9,19 @@ from flask import Flask, jsonify, render_template
 from altfe import bridge, handle
 from altfe.interface.root import classRoot
 
-# To fix pyinstaller package issues
-from PIL import Image
+# Fix SSL socket connection issues in some systems
+import ssl
+
+create_default_context_orig = ssl.create_default_context
+
+
+def cdc(*args, **kwargs):
+    kwargs["purpose"] = ssl.Purpose.SERVER_AUTH
+    return create_default_context_orig(*args[1:], **kwargs)
+
+
+ssl.create_default_context = cdc
+# Fix End
 
 rootPath = os.path.split(os.path.realpath(sys.argv[0]))[0] + "/"
 rootPathFrozen = sys._MEIPASS + "/" if getattr(sys, "frozen", False) else rootPath
@@ -33,7 +44,7 @@ def api(path):
     return jsonify(handle.handleRoute.do(path))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Altfe 框架初始化
     classRoot.setENV("rootPath", rootPath)
     classRoot.setENV("rootPathFrozen", rootPathFrozen)
@@ -44,7 +55,7 @@ if __name__ == '__main__':
 
     # 调整日志等级
     if not SETS["sys"]["debug"]:
-        cli = sys.modules['flask.cli']
+        cli = sys.modules["flask.cli"]
         cli.show_server_banner = lambda *x: None
         logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
@@ -61,7 +72,9 @@ if __name__ == '__main__':
         )
     except UnicodeDecodeError:
         print("您的计算机名可能存在特殊字符，程序无法正常运行。")
-        print("若是 Windows 系统，可以尝试进入「计算机-属性-高级系统设置-计算机名-更改」，修改计算机名，只可含有 ASCII 码支持的字符。")
+        print(
+            "若是 Windows 系统，可以尝试进入「计算机-属性-高级系统设置-计算机名-更改」，修改计算机名，只可含有 ASCII 码支持的字符。"
+        )
         input("按任意键退出...")
     except Exception:
         print(traceback.format_exc())
