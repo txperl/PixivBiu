@@ -22,10 +22,10 @@ class handleRoute(classRoot):
                 return {"code": 0, "msg": "no method"}
 
         # 执行预处理函数
-        preFuns = cls.osGet("PRE")
-        for name in preFuns:
-            if not preFuns[name].run(rCMD):
-                return {"code": 403, "msg": f"[PRE] Forbidden by {name}"}
+        # preFuns = cls.osGet("PRE")
+        # for name in preFuns:
+        #     if not preFuns[name].run(rCMD):
+        #         return {"code": 403, "msg": f"[PRE] Forbidden by {name}"}
 
         # 执行指令并返回
         try:

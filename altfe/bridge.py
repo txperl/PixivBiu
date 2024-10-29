@@ -18,7 +18,6 @@ class bridgeInit(classRoot):
             "static": self.rootPath + "app/lib/static/",
             "common": self.rootPath + "app/lib/common/",
             "core": self.rootPath + "app/lib/core/",
-            "pre": self.rootPath + "app/pre/",
             "plugin": self.rootPath + "app/plugin/"
         }
 
@@ -34,7 +33,7 @@ class bridgeInit(classRoot):
 
     def read_all_modules(self):
         r = []
-        conf = classRoot.loadConfig(self.rootPath + "app/config/switch.yml")["OnOff"]
+        conf = {}
         for moduleType in self.APP_PATH:
             rootModulePath = self.APP_PATH[moduleType]
             files = os.listdir(rootModulePath)

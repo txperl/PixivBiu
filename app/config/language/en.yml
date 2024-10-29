@@ -24,7 +24,7 @@ app.core.biu:
     fail_by_cloudflare_captcha: "Encountered Cloudflare protection during login, may be due to network environment issues. You can try to get a new token or wait a moment before logging in again"
     is_need_to_get_token: "Continue? (y / n): "
   ready:
-    hint_run: "RunAt"
+    hint_run: "Run At"
     hint_how_to_use: "Open the address in a modern browser"
     hint_version: "Version"
     hint_function_types: "API Type"
