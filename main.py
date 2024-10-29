@@ -9,6 +9,13 @@ from flask import Flask, jsonify, render_template
 from altfe import bridge, handle
 from altfe.interface.root import classRoot
 
+import ssl
+create_default_context_orig = ssl.create_default_context
+def cdc(*args, **kwargs):
+    kwargs["purpose"] = ssl.Purpose.CLIENT_AUTH
+    return create_default_context_orig(*args[1:], **kwargs)
+ssl.create_default_context = cdc
+
 rootPath = os.path.split(os.path.realpath(sys.argv[0]))[0] + "/"
 rootPathFrozen = sys._MEIPASS + "/" if getattr(sys, "frozen", False) else rootPath
 
