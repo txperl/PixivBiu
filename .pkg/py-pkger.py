@@ -8,9 +8,7 @@ import cloudscraper
 import pixivpy3
 
 with warnings.catch_warnings():
-    warnings.simplefilter('ignore', DeprecationWarning)
-    import imp
-from modulefinder import ModuleFinder
+    warnings.simplefilter("ignore", DeprecationWarning)
 
 ROOT_PATH = os.path.split(os.path.realpath(sys.argv[0]))[0]
 CODE_PATH = os.path.join(ROOT_PATH, "code")
@@ -33,7 +31,7 @@ def copyDIR(src, dst, cover=True, ignore=[]):
             copyDIR(s, d, cover, ignore)
         else:
             if cover is True or (
-                    not os.path.exists(d) or os.stat(s).st_mtime - os.stat(d).st_mtime > 1
+                not os.path.exists(d) or os.stat(s).st_mtime - os.stat(d).st_mtime > 1
             ):
                 shutil.copy2(s, d)
                 print("[Copied] %s -> %s" % (s, d))
@@ -82,15 +80,6 @@ def files(path, frmt="*", OTH=["", "pyc", "DS_Store"]):
     return r
 
 
-# 修复 ModuleFinder 可能 BUG
-class ModuleFinderR(ModuleFinder):
-    def run_script(self, pathname):
-        self.msg(2, "run_script", pathname)
-        with open(pathname, encoding="utf-8") as fp:
-            stuff = ("", "r", imp.PY_SOURCE)
-            self.load_module('__main__', fp, pathname, stuff)
-
-
 if __name__ == "__main__":
     silent = False
     if len(sys.argv) == 2:
@@ -103,15 +92,16 @@ if __name__ == "__main__":
         "--specpath": CODE_PATH,
     }
     oargs = []
-    hiddenImport = []
-    finder = ModuleFinderR()
     BET = ";" if os.name == "nt" else ":"
     SPT = "\\" if os.name == "nt" else "/"
 
-    # 支持 CloudScraper
+    # CloudScraper
     if silent or input("是否替换 CloudScraper/user_agent/__init__.py 文件？") == "y":
         cdsr = os.path.dirname(cloudscraper.__file__)
-        replaceFile(f"{ROOT_PATH}{SPT}r_cloudscraper.py", f"{cdsr}{SPT}user_agent{SPT}__init__.py")
+        replaceFile(
+            f"{ROOT_PATH}{SPT}r_cloudscraper.py",
+            f"{cdsr}{SPT}user_agent{SPT}__init__.py",
+        )
 
     # pixivpy
     if silent or input("是否替换 pixivpy3/bapi.py 文件？") == "y":
@@ -119,6 +109,7 @@ if __name__ == "__main__":
         replaceFile(f"{ROOT_PATH}{SPT}r_pixivpy.py", f"{pxpy}{SPT}bapi.py")
 
     # 导入动态加载的文件、模块
+    allImportLines = []
     for x in files(os.path.join(CODE_PATH, "app")):
         print(x)
         ori = x[0].replace(CODE_PATH, "")
@@ -126,15 +117,17 @@ if __name__ == "__main__":
         oargs.append(f"--add-data {ori[1:]}{BET}{dest[1:]}")
         # 分析动态加载文件中所使用的包
         if x[2] == "py":
-            finder.run_script(x[0])
-            for name, mod in finder.modules.items():
-                module = name.split(".")[0] if os.name == "nt" else name
-                if module[0] == "_" and module[1:] in hiddenImport:
-                    continue
-                if module not in hiddenImport:
-                    hiddenImport.append(module)
-    for x in hiddenImport:
-        oargs.append(f"--hidden-import {x}")
+            with open(x[0], "r", encoding="UTF-8") as f:
+                lines = f.readlines()
+                for line in lines:
+                    if (
+                        line[:4] == "from" or line[:6] == "import"
+                    ) and line not in allImportLines:
+                        allImportLines.append(line)
+    with open(os.path.join(CODE_PATH, "main.py"), "r+", encoding="UTF-8") as f:
+        content = f.read()
+        f.seek(0, 0)
+        f.write("\n".join(allImportLines) + content)
 
     # 图标加载
     if os.name == "nt":
@@ -152,7 +145,12 @@ if __name__ == "__main__":
         deleteDIR(DIST_PATH)
 
     # 复制 PUBLIC 文件
-    copyDIR(PUBLIC_PATH, DIST_PATH, True, ["cache", "__pycache__", ".token.json", ".DS_Store"])
+    copyDIR(
+        PUBLIC_PATH,
+        DIST_PATH,
+        True,
+        ["cache", "__pycache__", ".token", ".DS_Store"],
+    )
 
     # PyInstaller 打包
     os.system("pyinstaller%s %s" % (forarg, os.path.join(CODE_PATH, "main.py")))
