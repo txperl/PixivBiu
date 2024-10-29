@@ -8,7 +8,7 @@ import cloudscraper
 import pixivpy3
 
 with warnings.catch_warnings():
-    warnings.simplefilter('ignore', DeprecationWarning)
+    warnings.simplefilter("ignore", DeprecationWarning)
 
 
 ROOT_PATH = os.path.split(os.path.realpath(sys.argv[0]))[0]
@@ -32,7 +32,7 @@ def copyDIR(src, dst, cover=True, ignore=[]):
             copyDIR(s, d, cover, ignore)
         else:
             if cover is True or (
-                    not os.path.exists(d) or os.stat(s).st_mtime - os.stat(d).st_mtime > 1
+                not os.path.exists(d) or os.stat(s).st_mtime - os.stat(d).st_mtime > 1
             ):
                 shutil.copy2(s, d)
                 print("[Copied] %s -> %s" % (s, d))
@@ -99,7 +99,10 @@ if __name__ == "__main__":
     # 支持 CloudScraper
     if silent or input("是否替换 CloudScraper/user_agent/__init__.py 文件？") == "y":
         cdsr = os.path.dirname(cloudscraper.__file__)
-        replaceFile(f"{ROOT_PATH}{SPT}r_cloudscraper.py", f"{cdsr}{SPT}user_agent{SPT}__init__.py")
+        replaceFile(
+            f"{ROOT_PATH}{SPT}r_cloudscraper.py",
+            f"{cdsr}{SPT}user_agent{SPT}__init__.py",
+        )
 
     # pixivpy
     if silent or input("是否替换 pixivpy3/bapi.py 文件？") == "y":
@@ -118,7 +121,9 @@ if __name__ == "__main__":
             with open(x[0], "r", encoding="UTF-8") as f:
                 lines = f.readlines()
                 for line in lines:
-                    if (line[:4] == "from" or line[:6] == "import") and line not in allImportLines:
+                    if (
+                        line[:4] == "from" or line[:6] == "import"
+                    ) and line not in allImportLines:
                         allImportLines.append(line)
     with open(os.path.join(CODE_PATH, "main.py"), "r+", encoding="UTF-8") as f:
         content = f.read()
@@ -141,7 +146,12 @@ if __name__ == "__main__":
         deleteDIR(DIST_PATH)
 
     # 复制 PUBLIC 文件
-    copyDIR(PUBLIC_PATH, DIST_PATH, True, ["cache", "__pycache__", ".token.json", ".DS_Store"])
+    copyDIR(
+        PUBLIC_PATH,
+        DIST_PATH,
+        True,
+        ["cache", "__pycache__", ".token", ".DS_Store"],
+    )
 
     # PyInstaller 打包
     os.system("pyinstaller%s %s" % (forarg, os.path.join(CODE_PATH, "main.py")))

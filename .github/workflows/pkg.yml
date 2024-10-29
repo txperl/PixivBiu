@@ -42,7 +42,7 @@ jobs:
         - os: macos-12
           version: mac_intel
           pythonArch: 'x64'
-        - os: ubuntu-22.04
+        - os: ubuntu-20.04
           version: ubuntu_x64
           pythonArch: 'x64'
 
