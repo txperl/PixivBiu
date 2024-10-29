@@ -35,7 +35,7 @@ class searchImages(interRoot):
         if self.CORE.biu.proxy != "":
             others.update({"proxies": {"https": self.CORE.biu.proxy}})
 
-        rep = requests.post("https://saucenao.com/search.php", timeout=10, verify=False, params=params, **others).json()
+        rep = requests.post("https://saucenao.com/search.php", timeout=10, params=params, **others).json()
 
         if rep["header"].get("status") != 0:
             if "anonymous" in rep["header"].get("message"):

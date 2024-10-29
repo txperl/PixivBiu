@@ -28,16 +28,22 @@ class CommonLoginHelper(interRoot):
         :return: bool
         """
         URLS = (
-            "https://public-api.secure.pixiv.net",
-            "https://1.0.0.1/dns-query",
-            # "https://1.1.1.1/dns-query",
-            # "https://doh.dns.sb/dns-query",
-            # "https://cloudflare-dns.com/dns-query",
-        ) if URLS is None else URLS
+            (
+                "https://public-api.secure.pixiv.net",
+                "https://1.0.0.1/dns-query",
+                # "https://1.1.1.1/dns-query",
+                # "https://doh.dns.sb/dns-query",
+                # "https://cloudflare-dns.com/dns-query",
+            )
+            if URLS is None
+            else URLS
+        )
 
         proxy = self.STATIC.util.get_system_proxy() if proxy_ == "auto" else proxy_
         if silent is False:
-            self.STATIC.localMsger.msg(self.lang("network.hint_in_check"), header="Login Helper")
+            self.STATIC.localMsger.msg(
+                self.lang("network.hint_in_check"), header="Login Helper"
+            )
             if proxy == "":
                 if input(self.lang("network.is_need_to_type_proxy")) == "y":
                     proxy = input(self.lang("network.press_need_to_type_proxy"))
@@ -70,7 +76,9 @@ class CommonLoginHelper(interRoot):
             else {}
         )
         try:
-            return self.token_getter.login(host=self.auth_token_url, newCode=True, kw=kw)
+            return self.token_getter.login(
+                host=self.auth_token_url, newCode=True, kw=kw
+            )
         except Exception as e:
             err = str(e)
             if "'code': 918" in err:
@@ -93,10 +101,14 @@ class CommonLoginHelper(interRoot):
             else {}
         )
         try:
-            return self.token_getter.refresh(refresh_token=refresh_token, host=self.auth_token_url, kw=kw)
+            return self.token_getter.refresh(
+                refresh_token=refresh_token, host=self.auth_token_url, kw=kw
+            )
         except Exception as e:
             if "Invalid refresh token" in str(e):
-                self.STATIC.localMsger.red("Common.LoginHelper.refresh: invalid refresh token")
+                self.STATIC.localMsger.red(
+                    "Common.LoginHelper.refresh: invalid refresh token"
+                )
             else:
                 self.STATIC.localMsger.error(e, header=False)
         return False, False, False
@@ -118,7 +130,7 @@ class CommonLoginHelper(interRoot):
         }
         try:
             response = self.requests.get(
-                url, headers=headers, params=params, timeout=timeout, verify=False
+                url, headers=headers, params=params, timeout=timeout
             )
             r = "https://" + response.json()["Answer"][0]["data"]
         except:
@@ -140,10 +152,9 @@ class CommonLoginHelper(interRoot):
                     url,
                     proxies={"http": proxy, "https": proxy},
                     timeout=3,
-                    verify=False,
                 )
             else:
-                requests.get(url, timeout=3, verify=False)
+                requests.get(url, timeout=3)
         except:
             if silent is False:
                 cls.STATIC.localMsger.red(f"{url} [ops]", header="Network")

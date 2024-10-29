@@ -100,7 +100,7 @@ class CoreBiu(interRoot):
         获取联网 pixivbiu 相关信息。
         """
         try:
-            return requests.get("https://biu.tls.moe/d/biuinfo.json", timeout=6, verify=False).json()
+            return requests.get("https://biu.tls.moe/d/biuinfo.json", timeout=6).json()
         except:
             return {"version": -1, "pApiURL": "public-api.secure.pixiv.net", "pPximgRProxyURL": "https://i.pixiv.re"}
 
@@ -125,9 +125,9 @@ class CoreBiu(interRoot):
         self.STATIC.localMsger.msg(self.lang("network.hint_in_check"))
         try:
             if self.proxy != "":
-                requests.get("https://pixiv.net/", proxies={"https": self.proxy}, timeout=3, verify=False)
+                requests.get("https://pixiv.net/", proxies={"https": self.proxy}, timeout=3)
             else:
-                requests.get("https://pixiv.net/", timeout=3, verify=False)
+                requests.get("https://pixiv.net/", timeout=3)
         except:
             self.STATIC.localMsger.red(self.lang("network.fail_pixiv_and_use_bypass"))
             self.api_route = "bypassSNI"
