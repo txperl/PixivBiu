@@ -95,7 +95,7 @@ biu.download.saveURI: "{ROOTPATH}/downloads/{date_today}/"
   # - {date_image}: 作品日期
   # - {date_today}: 当天日期
 
-biu.download.saveFileName: "{title}_{work_id}"
+biu.download.saveFileName: "{title}"
   # 下载图片的标题
   # 不可使用 \ 符号，请将其替换为 \\
   # 可选变量

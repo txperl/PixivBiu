@@ -102,7 +102,7 @@ biu.download.saveURI: "{ROOTPATH}/downloads/{date_today}/"
   # - {date_image}: Date of work
   # - {date_today}: Date of today
 
-biu.download.saveFileName: "{title}_{work_id}"
+biu.download.saveFileName: "{title}"
   # Download filename
   # Don't use the "\" symbol, replace it with "/" or "\\"
   # Variables:

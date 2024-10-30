@@ -137,19 +137,23 @@
                         <h2>搜索</h2>
                         <div>
                             <input id="settingsPageNum" class="tooltip" placeholder="每组页数" autocomplete="off"
-                                title="单次搜索的页数，建议参数不要过大">
+                                title="单次搜索的页数，建议不要过大">
                             <input id="settingsSearchMode" class="tooltip" placeholder="搜索模式" autocomplete="off"
-                                title="tag: 匹配部分标签（默认），otag: 全标签，des: 标题或描述">
+                                title="tag: 部分标签匹配（默认），otag: 全标签匹配，des: 标题或描述匹配">
                             <input id="settingsSortMode2" class="tooltip" placeholder="排序模式" autocomplete="off"
-                                title="0: 按收藏数降序，1: 按浏览数降序，2: 按日期降序，3: 按日期升序，在其后加 s 可为所有结果排序。如 0 或 0s">
+                                title="0: 按收藏数降序，1: 按浏览数降序，2: 按日期降序，3: 按日期升序，4: 按收藏与浏览数的比值降序。在其后加 s 可为所有结果排序，如 0 或 0s">
                         </div>
                         <p>搜索块以外的筛选项留空时为取消。</p>
                     </section>
                     <section>
                         <button class="primary"
                             onclick="javascript: saveFiltersCookie(); saveSettingsCookie(); grpActChon('now');">保存</button>
-                        <button class="primary"
-                            onclick="javascript: saveFiltersCookie(true); grpActChon('now');">重置</button>
+                        <button class="primary" onclick="javascript: saveFiltersCookie(true, {
+                            ...filtersMods,
+                            '#settingsPageNum': settingsMods['#settingsPageNum'],
+                            '#settingsSearchMode': settingsMods['#settingsSearchMode'],
+                            '#settingsSortMode2': settingsMods['#settingsSortMode2']
+                        }); loadSearchSettings(); grpActChon('now');">重置</button>
                     </section>
                 </div>
             </div>
@@ -184,9 +188,9 @@
                         <h2>其他</h2>
                         <button style="margin: 5px 0;" class="primary"
                             onclick="javascript: saveSettingsCookie();">保存</button>
-                        <button class="primary" onclick="javascript: saveSettingsCookie(true, 
-                            settingsMods, ['#settingsIsOriPic', '#settingsIsR18', '#settingsActionType', 
-                            '#settingsRvrProxyUrl']); loadSearchSettings();">重置</button>
+                        <button class="primary" onclick="javascript: saveSettingsCookie(true, settingsMods,
+                            ['#settingsIsOriPic', '#settingsIsR18', '#settingsActionType', '#settingsRvrProxyUrl']);
+                            loadSearchSettings();">重置</button>
                     </section>
                 </div>
             </div>
@@ -372,18 +376,18 @@
             } else if ((m = regMatch(/@s=(.*?) -(.)/g, c)).length === 3) {
                 code = m[2];
                 if (code === 't') {
-                    $('#srhBox').tooltipster('content', '指令 · 匹配部分标签');
+                    $('#srhBox').tooltipster('content', '指令 · 部分标签匹配');
                 } else if (code === 'o') {
-                    $('#srhBox').tooltipster('content', '指令 · 匹配全标签');
+                    $('#srhBox').tooltipster('content', '指令 · 全标签匹配');
                 } else if (code === 'd') {
-                    $('#srhBox').tooltipster('content', '指令 · 匹配标题或描述');
+                    $('#srhBox').tooltipster('content', '指令 · 标题或描述匹配');
                 } else {
-                    $('#srhBox').tooltipster('content', '指令 · -t 部分标签、-o 全标签、-d 标题或描述');
+                    $('#srhBox').tooltipster('content', '指令 · -t 部分标签匹配、-o 全标签匹配、-d 标题或描述匹配');
                 }
             } else if (regMatch(/@u=(.*?)$/g, c).length === 2) {
                 $('#srhBox').tooltipster('content', '指令 @u={user_id} -[i,c,m,f] · 查看指定用户的 -i 插画、-c 漫画、-m 收藏列表、-f 关注列表');
             } else if (regMatch(/@s=(.*?)$/g, c).length === 2) {
-                $('#srhBox').tooltipster('content', '指令 @s={keyword} -[t,o,d] · 以指定匹配模式搜索 -t 部分标签、-o 全标签、-d 标题或描述');
+                $('#srhBox').tooltipster('content', '指令 @s={keyword} -[t,o,d] · 以指定匹配模式搜索 -t 部分标签匹配、-o 全标签匹配、-d 标题或描述匹配');
             } else if (regMatch(/@w=(.*?)$/g, c).length === 2) {
                 $('#srhBox').tooltipster('content', '指令 @w={work_id} · 查看指定 ID 的作品');
             } else if (regMatch(/@su=(.*?)$/g, c).length === 2) {
@@ -468,6 +472,7 @@
                         if (_type === 1) return b.total_viewed - a.total_viewed;
                         if (_type === 2) return a.created_time < b.created_time;
                         if (_type === 3) return a.created_time > b.created_time;
+                        if (_type === 4) return (b.total_bookmarked / b.total_viewed) - (a.total_bookmarked / a.total_viewed);
                     });
                 }
 
@@ -585,11 +590,11 @@
                     if (c['args']['fun']['kt']) {
                         kt = c['args']['fun']['kt'];
                     } else if (c['args']['ops']['method'] === 'userWorks') {
-                        kt = '画师_' + data[0]['author']['id'];
+                        kt = '画师@' + data[0]['author']['id'];
                     } else if (c['args']['ops']['method'] === 'userMarks') {
-                        kt = '收藏_' + c['args']['fun']['userID'];
+                        kt = '收藏@' + c['args']['fun']['userID'];
                     } else if (c['args']['ops']['method'] === 'rank') {
-                        kt = '排行榜_' + c['args']['fun']['mode'];
+                        kt = '排行榜@' + c['args']['fun']['mode'];
                     } else if (c['args']['ops']['method'] === 'oneWork') {
                         kt = '作品';
                     } else {
