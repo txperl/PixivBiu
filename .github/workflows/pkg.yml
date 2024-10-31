@@ -11,17 +11,13 @@ on:
   workflow_dispatch:
     inputs:
       releaseTag:
-        description: 'Release Tag' 
+        description: "Release Tag"
         required: true
-        default: 'v2.x.x[a-z]'
+        default: "v2.x.x[a-z]"
       releaseName:
-        description: 'Release Name' 
+        description: "Release Name"
         required: true
-        default: '2.x.x'
-      releaseBody:
-        description: 'Release Body' 
-        required: true
-        default: 'Enjoy.'
+        default: "2.x.x"
 
 jobs:
   build-on-platform:
@@ -32,19 +28,19 @@ jobs:
         include:
         - os: windows-2022
           version: win_x64
-          pythonArch: 'x64'
+          pythonArch: x64
         - os: windows-2022
           version: win_x86
-          pythonArch: 'x86'
+          pythonArch: x86
         - os: macos-14
           version: mac_apple
-          pythonArch: 'x64'
+          pythonArch: arm64
         - os: macos-12
           version: mac_intel
-          pythonArch: 'x64'
+          pythonArch: x64
         - os: ubuntu-20.04
           version: ubuntu_x64
-          pythonArch: 'x64'
+          pythonArch: x64
 
     steps:
       - uses: actions/checkout@v4
@@ -64,8 +60,8 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          # architecture: ${{ matrix.pythonArch }}
+          python-version: "3.12"
+          architecture: ${{ matrix.pythonArch }}
 
       - name: Install Requirements
         run: |
@@ -122,5 +118,4 @@ jobs:
           artifacts: "PixivBiu_${{ github.event.inputs.releaseTag }}_win_x64.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_win_x86.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_mac_apple.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_mac_intel.zip, PixivBiu_${{ github.event.inputs.releaseTag }}_ubuntu_x64.zip"
           tag: ${{ github.event.inputs.releaseTag }}
           name: ${{ github.event.inputs.releaseName }}
-          body: ${{ github.event.inputs.releaseBody }}
           token: ${{ secrets.GITHUB_TOKEN }}
