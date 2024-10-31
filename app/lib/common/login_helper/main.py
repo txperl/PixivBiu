@@ -66,9 +66,9 @@ class CommonLoginHelper(interRoot):
         if not is_silent:
             _ln(
                 (
-                    SPrint.green("- Pixiv.net, Yep!")
+                    SPrint.green("- Pixiv.net, yep!")
                     if is_pixiv_accessible
-                    else SPrint.red("- Pixiv.net, Ops...")
+                    else SPrint.red("- Pixiv.net, ops...")
                 ),
                 header=None,
             )
