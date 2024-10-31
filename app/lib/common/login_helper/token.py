@@ -52,8 +52,12 @@ class TokenGetter(object):
         if newCode is False and self.code != "":
             code = self.code
         else:
+            print("---")
             print(self.lang("login.hint_intro_step_head"))
-            print(self.lang("login.hint_intro_step_1") % (LOGIN_URL, urlencode(self.login_params)))
+            print(
+                self.lang("login.hint_intro_step_1")
+                % (LOGIN_URL, urlencode(self.login_params))
+            )
             print(self.lang("login.hint_intro_step_2"))
             print(self.lang("login.hint_intro_step_3"))
             print(self.lang("login.hint_intro_step_4"))
@@ -118,8 +122,8 @@ class TokenGetter(object):
             (local_time + HASH_SECRET).encode("utf-8")
         ).hexdigest()
         if (
-                headers.get("User-Agent", None) is None
-                and headers.get("user-agent", None) is None
+            headers.get("User-Agent", None) is None
+            and headers.get("user-agent", None) is None
         ):
             headers["app-os"] = "ios"
             headers["app-os-version"] = "14.6"

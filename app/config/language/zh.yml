@@ -22,14 +22,14 @@ app.core.biu:
     fail_to_get_token_due_to_network: "您的网络无法正常进行 Pixiv Token 登陆，请调整后重试"
     fail_to_get_token_anyway: "获取 Token 时出错，请重试"
     fail_by_cloudflare_captcha: "登录时遇到 Cloudflare 保护，可能是网络环境问题导致。您可以尝试重新获取 Token，或稍等片刻后再次登录"
-    is_need_to_get_token: "是否继续? (y / n): "
+    is_need_to_get_token: "程序将引导你获取 Token，是否继续? (y / n): "
   ready:
-    hint_run: "运行"
+    hint_run: "运行:"
     hint_how_to_use: "将地址输入现代浏览器即可使用"
-    hint_version: "版本"
-    hint_function_types: "功能类型"
-    hint_image_service: "图片服务"
-    hint_download_path: "下载保存路径"
+    hint_version: "版本:"
+    hint_function_types: "功能类型:"
+    hint_image_service: "图片服务:"
+    hint_download_path: "下载保存路径:"
     hint_program_path: "程序目录"
     done_init: "初始化完成"
   others:
@@ -37,9 +37,9 @@ app.core.biu:
 
 app.common.loginHelper:
   network:
-    press_need_to_type_proxy: "请输入代理监听地址(可留空): "
-    hint_in_check: "开始进行网络检测..."
-    hint_detect_proxy: "检测到为 %s 的代理地址，是否需要更改? (y / n): "
+    hint_in_check: "检测网络状态..."
+    press_need_to_type_proxy: "请输入代理地址（可留空）: "
+    hint_detect_proxy_and_continue: "检测到为 %s 的代理地址，是否继续? (y / n): "
     is_need_to_type_proxy: "未能检测到代理地址，是否需要手动设置? (y / n): "
   login:
     hint_intro_step_head: "[Login] 请按以下步骤进行操作:"

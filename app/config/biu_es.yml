@@ -34,9 +34,6 @@ sys.autoOpen: true
   # ¿Abrir automáticamente la URL de ejecución del programa al iniciar?
   # true para activar; false para desactivar
 
-sys.ignoreOutdated: false
-  # ¿Deshabilitar las notificaciones de nuevas versiones al iniciar?
-  # true para activar; false para desactivar
 
 ## Relacionado con la búsqueda ##
 biu.search.maxThreads: 8
@@ -120,7 +117,7 @@ biu.download.imageHost: ""
   # - https://i.pixiv.cat: servidor de imágenes de terceros (requiere proxy)
   # - https://i.pixiv.re: servidor de imágenes de terceros (no requiere proxy)
 
-# Privado
+## Privado ##
 secret.key.apiSauceNAO: ""
   # Clave API del servicio SauceNAO; si se completa, se podrá usar la función de búsqueda de imágenes
   # https://saucenao.com/user.php?page=search-api

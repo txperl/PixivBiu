@@ -37,10 +37,6 @@ sys.autoOpen: true
   # 起動時にプログラムの実行URLを自動で開くかどうか
   # オプション: true, false
 
-sys.ignoreOutdated: false
-  # 起動時の新バージョン通知を無効にするかどうか
-  # オプション: true, false
-
 
 ## 検索 ##
 biu.search.maxThreads: 8
@@ -131,7 +127,7 @@ biu.download.imageHost: ""
   # - https://i.pixiv.re
 
 
-# シークレット
+## シークレット ##
 secret.key.apiSauceNAO: ""
   # SauceNAOのAPIキー
   # 入力すると画像検索機能が利用可能に

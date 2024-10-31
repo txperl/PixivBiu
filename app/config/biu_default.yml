@@ -35,10 +35,6 @@ sys.autoOpen: true
   # 启动后是否自动打开程序运行网址
   # true 为开启；false 为关闭
 
-sys.ignoreOutdated: false
-  # 启动时是否禁用新版本提示
-  # true 为开启；false 为关闭
-
 
 ## 搜索相关 ##
 biu.search.maxThreads: 8
@@ -124,7 +120,7 @@ biu.download.imageHost: ""
   # - https://i.pixiv.re 第三方反代图片服务器（无需代理）
 
 
-# 私密
+## 私密 ##
 secret.key.apiSauceNAO: ""
   # SauceNAO 服务的 API Key
   # 若填写则可使用图片搜索功能

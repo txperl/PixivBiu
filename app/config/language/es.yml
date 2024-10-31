@@ -2,18 +2,18 @@ app.core.biu:
   common:
     press_to_exit: "Presiona cualquier tecla para salir..."
     success_to_login: "inicio de sesión exitoso
-config:
+  config:
     hint_port_is_in_use: "El puerto esta ocupado, please change the sys-host setting item in config.yml"
     hint_proxy_in_use: "Proxy esta habilitado"
     fail_to_load_config: "Fallo para cargar el archivo de configuracion, PixivBiu no puede correr correctamente"
-outdated:
+  outdated:
     hint_latest: "Reciente"
     hint_exist_new: "Una nueva versón esta disponible"
     fail_to_check: "Fallo al checar nuevas actualizaciones"
     fail_to_check_duo_to_network: "No se pudo comprobar si había actualizaciones, probablemente porque el servidor no respondió durante mucho tiempo"
     tell_to_download: "Ve a https://biu.tls.moe/ y descarga"
     press_to_use_old: "Pulse cualquier tecla para continuar con la versión anterior..."
-network:
+  network:
     hint_in_check: "Comprobando estado de la red..."
     fail_pixiv_and_use_bypass: "No se puede conectar a Pixiv, habilitar la ruta bypassSNI (puede no estar disponible temporalmente)"
   loginHelper:
@@ -22,14 +22,14 @@ network:
     fail_to_get_token_due_to_network: "Su red no está funcionando correctamente para iniciar sesión con el token Pixiv; ajústela y vuelva a intentarlo."
     fail_to_get_token_anyway: "Hubo un error al obtener el token, por favor intente nuevamente."
     fail_by_cloudflare_captcha: "Se encontró con la protección de Cloudflare al iniciar sesión. Es posible que se deba a problemas con el entorno de red. Puede intentar obtener el token nuevamente o esperar un momento e iniciar sesión nuevamente."
-    is_need_to_get_token: "Continuar? (S / n): "
+    is_need_to_get_token: "El programa te guiará para obtener el token. Continuar? (y / n): "
   ready:
-    hint_run: "Compilar"
+    hint_run: "Compilar:"
     hint_how_to_use: "Visita la dirección en un navegador moderno"
-    hint_version: "Versión"
-    hint_function_types: "Tipos de funciones"
-    hint_image_service: "Servicio de imagen"
-    hint_download_path: "Descargar carpeta"
+    hint_version: "Versión:"
+    hint_function_types: "Tipos de funciones:"
+    hint_image_service: "Servicio de imagen:"
+    hint_download_path: "Descargar carpeta:"
     hint_program_path: "Carpeta PixivBiu"
     done_init: "Inicialización realizada"
   others:
@@ -37,10 +37,10 @@ network:
 
 app.common.loginHelper:
   network:
+    hint_in_check: "Comprobando estado de la red..."
     press_need_to_type_proxy: "Por favor, introduzca la dirección del proxy (puede estar en blanco): "
-    hint_in_check: "Realizando detección de red..."
-    hint_detect_proxy: "Dirección de proxy (%s) detectada, ¿desea cambiarla? (s / n): "
-    is_need_to_type_proxy: "No se detectó la dirección proxy del sistema, ¿necesita configurarla manualmente? (s / n): "
+    hint_detect_proxy_and_continue: "Dirección de proxy (%s) detectada, ¿desea cambiarla? (y / n): "
+    is_need_to_type_proxy: "No se detectó la dirección proxy del sistema, ¿necesita configurarla manualmente? (y / n): "
   login:
     hint_intro_step_head: "[Iniciar sesión] Siga los pasos a continuación:"
     hint_intro_step_1: "1. Visita: %s?%s"

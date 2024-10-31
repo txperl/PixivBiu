@@ -19,27 +19,27 @@ app.core.biu:
   loginHelper:
     hint_token_only: "Due to Pixiv blocking username/password login, only token login is available now"
     hint_before_start: "Network detection will begin shortly, this process can reduce the probability of being unable to use PixivBiu normally due to network issues"
-    fail_to_get_token_due_to_network: "Your network cannot properly perform Pixiv token login, please adjust and try again."
-    fail_to_get_token_anyway: "Error occurred while getting token, please try again."
+    fail_to_get_token_due_to_network: "Your network cannot properly perform Pixiv token login, please adjust and try again"
+    fail_to_get_token_anyway: "Error occurred while getting token, please try again"
     fail_by_cloudflare_captcha: "Encountered Cloudflare protection during login, may be due to network environment issues. You can try to get a new token or wait a moment before logging in again"
-    is_need_to_get_token: "Continue? (y / n): "
+    is_need_to_get_token: "Program will guide you to get the token. Continue? (y / n): "
   ready:
-    hint_run: "Run At"
+    hint_run: "Running:"
     hint_how_to_use: "Open the address in a modern browser"
-    hint_version: "Version"
-    hint_function_types: "API Type"
-    hint_image_service: "Image Host"
-    hint_download_path: "Download Path"
-    hint_program_path: "{PixivBiu Directory}"
+    hint_version: "Version:"
+    hint_function_types: "API Types:"
+    hint_image_service: "Image Service:"
+    hint_download_path: "Download Path:"
+    hint_program_path: "{APP_DIRECTORY}"
     done_init: "Started"
   others:
     hint_in_update_token: "Attempting token update"
 
 app.common.loginHelper:
   network:
-    press_need_to_type_proxy: "Please enter proxy listening address (can be empty): "
-    hint_in_check: "Starting network detection..."
-    hint_detect_proxy: "Detected proxy address as %s, need to change? (y / n): "
+    hint_in_check: "Checking network status..."
+    press_need_to_type_proxy: "Please enter proxy address (can be empty): "
+    hint_detect_proxy_and_continue: "Detected proxy address as %s, continue? (y / n): "
     is_need_to_type_proxy: "No proxy address detected, need to set manually? (y / n): "
   login:
     hint_intro_step_head: "[Login] Please follow these steps:"

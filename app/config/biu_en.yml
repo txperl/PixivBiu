@@ -37,10 +37,6 @@ sys.autoOpen: true
   # Whether to automatically open the program running URL after startup
   # Option: true, false
 
-sys.ignoreOutdated: false
-  # Whether to disable new version tip at startup
-  # Option: true, false
-
 
 ## Search ##
 biu.search.maxThreads: 8
@@ -131,7 +127,7 @@ biu.download.imageHost: ""
   # - https://i.pixiv.re
 
 
-# Secrets
+## Secrets ##
 secret.key.apiSauceNAO: ""
   # The API key of SauceNAO
   # If filled in, image search feature will be available
