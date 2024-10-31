@@ -44,7 +44,9 @@ class CoreBiu(interRoot):
         try:
             self.__login()  # 登录
         except Exception as e:
-            _ln(str(e))
+            e_str = str(e)
+            if e_str != "":
+                _ln(e_str)
             input(self.lang("common.press_to_exit"))
             sys.exit(0)
         self.__set_image_host()  # 设置图片服务器地址
@@ -79,7 +81,7 @@ class CoreBiu(interRoot):
             _ln(SPrint.red(self.lang("config.hint_port_is_in_use")))
             input(self.lang("common.press_to_exit"))
             sys.exit(0)
-        # 检测 cache 大小
+        # 检测 Cache 大小
         cache_path = self.getENV("rootPath") + "usr/cache/search/"
         size_cache = self.STATIC.file.get_dir_size_mib(cache_path)
         if size_cache > float(self.sets["biu"]["search"]["maxCacheSizeMiB"]):
@@ -98,72 +100,70 @@ class CoreBiu(interRoot):
                 "pPximgRProxyURL": "https://i.pixiv.re",
             }
 
-    def __login(
-        self, refresh_token: str | None = None, is_manual: bool = True
-    ) -> None | Exception:
+    def __login(self) -> None | Exception:
         """
         初始化登录函数。
         """
         helper = self.COMMON.loginHelper()
-        access, refresh, userid = False, False, False
-        is_no_proxy = self.sets["sys"]["proxy"] == "no"
-        is_guided = False
 
-        # Get refresh token
-        if refresh_token is None:
-            refresh_token = self.STATIC.file.ain(self.getENV("rootPath") + "usr/.token")
+        # Check and set network config
+        _ln(self.lang("network.hint_in_check"))
+        if (
+            helper.check_network(
+                is_no_proxy=self.sets["sys"]["proxy"] == "no", is_silent=False
+            )
+            is False
+        ):
+            raise Exception(self.lang("login.fail_to_get_token_due_to_network"))
 
-        if not refresh_token and is_manual:
-            # Guide user to get the initial refresh token
-            _ln(SPrint.green(self.lang("loginHelper.hint_token_only")))
-            if input(self.lang("loginHelper.is_need_to_get_token")) != "y":
-                raise Exception("Canceled")
-            if helper.check_network(is_no_proxy=is_no_proxy) is False:
-                raise Exception(
-                    self.lang("loginHelper.fail_to_get_token_due_to_network")
-                )
-            time.sleep(3)
-            access, refresh, userid = helper.login()
-            is_guided = True
-
-        # Login with the refresh token
-        if not access and not is_guided:
-            if (
-                helper.check_network(is_no_proxy=is_no_proxy, silent=not is_manual)
-                is False
-            ):
-                raise Exception("Ops, network error")
-            access, refresh, userid = helper.refresh(refresh_token=refresh_token)
-        if not access:
-            raise Exception("Ops, login error")
-
-        # Save the refresh token
-        self.STATIC.file.aout(
-            self.getENV("rootPath") + "usr/.token", refresh, dRename=False
+        # Set proxy
+        self.proxy = helper.get_proxy()
+        _ln(
+            (
+                f"- {self.lang('config.hint_proxy_in_use')}" % self.proxy
+                if self.proxy
+                else "- No Proxy"
+            ),
+            header=None,
         )
 
-        # Set the trusted network config
-        if is_manual:
-            self.proxy = helper.get_proxy()
-            if self.proxy != "":
-                _ln(f"{self.lang('config.hint_proxy_in_use')}: {self.proxy}")
-            if helper.is_bypass():
-                _ln(SPrint.red(self.lang("network.fail_pixiv_and_use_bypass")))
-                self.api_route = "bypassSNI"
-                self.proxy = ""
+        # Set bypass mode
+        if helper.is_bypass():
+            _ln(SPrint.red(self.lang("network.fail_pixiv_and_use_bypass")))
+            self.api_route = "bypassSNI"
+            self.proxy = ""
 
-        # Create PixivPy instance
+        # Determine refresh token
+        access, userid = False, False
+        refresh = self.STATIC.file.ain(self.getENV("rootPath") + "usr/.token")
+        if not refresh:
+            # Guide user to get the initial refresh token manually
+            _ln(SPrint.green(self.lang("login.hint_token_only")))
+            if input(self.lang("login.is_need_to_get_token")) not in ["y", ""]:
+                raise Exception()
+            access, refresh, userid = helper.login()
+
+        if not refresh:
+            raise Exception(self.lang("login.fail_to_get_token_anyway"))
+
+        # Login and save refresh token
         self.__login_app_api(
             refresh_token=refresh,
-            access_token=access,
-            userid=userid if is_manual else None,
+            access_token=access if access else None,
+            userid=userid if userid else None,
         )
+        self.save_token()
 
-    def __login_app_api(self, refresh_token, access_token=None, userid=None):
+    def __login_app_api(
+        self,
+        refresh_token: str,
+        access_token: str | None = None,
+        userid: str | None = None,
+    ):
         """
         app 模式登录。
         """
-        if userid is not None:
+        if self.api is None:
             _REQUESTS_KWARGS = {}
             if self.proxy != "":
                 _REQUESTS_KWARGS = {
@@ -175,8 +175,9 @@ class CoreBiu(interRoot):
                 self.api.set_accept_language("zh-cn")
             else:
                 self.api = AppPixivAPI(**_REQUESTS_KWARGS)
+        if userid:
             self.api.user_id = userid
-        if access_token is not None:
+        if access_token:
             self.api.set_auth(access_token=access_token, refresh_token=refresh_token)
         else:
             self.api.auth(refresh_token=refresh_token)
@@ -268,11 +269,20 @@ class CoreBiu(interRoot):
             header=None,
         )
         try:
-            self.__login(refresh_token=self.api.refresh_token, is_manual=False)
+            self.__login_app_api(refresh_token=self.api.refresh_token)
+            self.save_token()
         except Exception as e:
             _ln(SPrint.red(e))
             return False
         return self.api.access_token != ori_access_token
+
+    def save_token(self, refresh_token: str | None = None) -> bool:
+        token = refresh_token if refresh_token else self.api.refresh_token
+        if token is None:
+            return False
+        return self.STATIC.file.aout(
+            self.getENV("rootPath") + "usr/.token", token, dRename=False
+        )
 
     def update_status(self, type_, key, c):
         """

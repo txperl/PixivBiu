@@ -2,6 +2,7 @@ import requests
 
 from altfe.interface.root import interRoot
 from app.lib.common.login_helper.token import TokenGetter
+from app.v2.utils.sprint import SPrint
 
 _ln = lambda val, header="Login Helper": print(f"[{header}] " + val if header else val)
 
@@ -24,12 +25,12 @@ class CommonLoginHelper(interRoot):
     def __init__(self):
         self.lang = self.INS.i18n.get_bundle("app.common.loginHelper", func=True)
         self.requests = requests.Session()
-        self.requests.mount("https://", CustomAdapter())
+        # self.requests.mount("https://", CustomAdapter())
         self.token_getter = TokenGetter(lang=self.lang, requests=self.requests)
         self.proxy = ""
         self.auth_token_url = ""
 
-    def check_network(self, is_no_proxy: bool, silent=False):
+    def check_network(self, is_no_proxy: bool = False, is_silent: bool = False):
         """
         网络检测。筛选出本机可通的 Pixiv API 服务器。
         :param URLS: 全部 URL
@@ -37,16 +38,13 @@ class CommonLoginHelper(interRoot):
         :param proxy_: 代理设置，auto 为程序自动判断
         :return: bool
         """
-        if not silent:
-            _ln(self.lang("network.hint_in_check"))
-
         # Determine the final proxy address, or empty
-        self.proxy = "" if is_no_proxy else self._determine_proxy(silent=silent)
+        self.proxy = "" if is_no_proxy else self._determine_proxy(is_silent=is_silent)
 
         # Determine the final auth host
         # Check if the hosts are accessible
         is_conn_array = [
-            self._test_access(url=url, proxy=self.proxy, silent=silent)
+            self._test_access(url=url, proxy=self.proxy, is_silent=False)
             for url in self.SOME_URLS
         ]
 
@@ -146,27 +144,24 @@ class CommonLoginHelper(interRoot):
     def is_bypass(self) -> bool:
         return self.auth_token_url != self.SOME_URLS[0]
 
-    def _determine_proxy(self, silent: bool = False) -> str:
+    def _determine_proxy(self, is_silent: bool = False) -> str:
         proxy = self.STATIC.util.get_system_proxy()
         if proxy != "" and self._test_pixiv_connection(proxy=proxy):
             pass
         elif self._test_pixiv_connection(proxy=""):
             proxy = ""
-        elif silent is False:
+        elif is_silent is False:
             # Require to set proxy manually
-            if proxy != "":
-                if (
-                    input(self.lang("network.hint_detect_proxy_and_continue") % proxy)
-                    == "n"
-                ):
-                    proxy = input(self.lang("network.press_need_to_type_proxy"))
-            else:
-                if input(self.lang("network.is_need_to_type_proxy")) == "y":
-                    proxy = input(self.lang("network.press_need_to_type_proxy"))
+            if input(
+                self.lang("network.hint_detect_proxy") % proxy
+                if proxy
+                else self.lang("network.is_need_to_type_proxy")
+            ) in ["y", ""]:
+                proxy = input(self.lang("network.press_need_to_type_proxy"))
         return proxy
 
     @classmethod
-    def _test_access(cls, url: str, proxy: str = "", silent: bool = False):
+    def _test_access(cls, url: str, proxy: str = "", is_silent: bool = False):
         """
         request get 请求。
         :param url: URL
@@ -174,18 +169,21 @@ class CommonLoginHelper(interRoot):
         :param silent: 是否静默运行
         :return: bool
         """
+        is_ok = False
         try:
             if proxy != "":
                 requests.head(url, proxies={"http": proxy, "https": proxy}, timeout=3)
+                is_ok = True
             else:
                 requests.head(url, timeout=3)
         except:
-            if silent is False:
-                cls.STATIC.localMsger.red(f"{url} [ops]", header="Network")
-            return False
-        if silent is False:
-            cls.STATIC.localMsger.green(f"{url} [yep]", header="Network")
-        return True
+            pass
+        if not is_silent:
+            if is_ok:
+                _ln(SPrint.green(f"- {url} [yep]"), header=None)
+            else:
+                _ln(SPrint.red(f"- {url} [ops]"), header=None)
+        return is_ok
 
     @classmethod
     def _test_pixiv_connection(cls, proxy: str = "") -> bool:
@@ -197,19 +195,19 @@ class CommonLoginHelper(interRoot):
         return True
 
 
-class CustomAdapter(requests.adapters.HTTPAdapter):
-    """
-    防止在请求 Cloudflare 时可能的 SSL 相关错误。
-    Thanks to @github/grawity.
-    """
+# class CustomAdapter(requests.adapters.HTTPAdapter):
+#     """
+#     防止在请求 Cloudflare 时可能的 SSL 相关错误。
+#     Thanks to @github/grawity.
+#     """
 
-    def init_poolmanager(self, *args, **kwargs):
-        # When urllib3 hand-rolls a SSLContext, it sets 'options |= OP_NO_TICKET'
-        # and CloudFlare really does not like this. We cannot control this behavior
-        # in urllib3, but we can just pass our own standard context instead.
-        import ssl
+#     def init_poolmanager(self, *args, **kwargs):
+#         # When urllib3 hand-rolls a SSLContext, it sets 'options |= OP_NO_TICKET'
+#         # and CloudFlare really does not like this. We cannot control this behavior
+#         # in urllib3, but we can just pass our own standard context instead.
+#         import ssl
 
-        ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        ctx.load_default_certs()
-        ctx.set_alpn_protocols(["http/1.1"])
-        return super().init_poolmanager(*args, **kwargs, ssl_context=ctx)
+#         ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+#         ctx.load_default_certs()
+#         ctx.set_alpn_protocols(["http/1.1"])
+#         return super().init_poolmanager(*args, **kwargs, ssl_context=ctx)

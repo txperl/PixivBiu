@@ -4,7 +4,7 @@ app.core.biu:
     success_to_login: "Login successful"
   config:
     hint_port_is_in_use: "Current port is in use, please modify the 'sys.host' item in config.yml"
-    hint_proxy_in_use: "Proxy enabled"
+    hint_proxy_in_use: "Proxy %s enabled"
     fail_to_load_config: "Failed to load configuration file, program cannot run normally"
   outdated:
     hint_latest: "Latest"
@@ -16,7 +16,7 @@ app.core.biu:
   network:
     hint_in_check: "Checking network status..."
     fail_pixiv_and_use_bypass: "Cannot access Pixiv, enabling bypassSNI route (may not work properly)"
-  loginHelper:
+  login:
     hint_token_only: "Due to Pixiv blocking username/password login, only token login is available now"
     hint_before_start: "Network detection will begin shortly, this process can reduce the probability of being unable to use PixivBiu normally due to network issues"
     fail_to_get_token_due_to_network: "Your network cannot properly perform Pixiv token login, please adjust and try again"
@@ -37,9 +37,8 @@ app.core.biu:
 
 app.common.loginHelper:
   network:
-    hint_in_check: "Checking network status..."
     press_need_to_type_proxy: "Please enter proxy address (can be empty): "
-    hint_detect_proxy_and_continue: "Detected proxy address as %s, continue? (y / n): "
+    hint_detect_proxy: "Detected proxy address as %s, need to change? (y / n): "
     is_need_to_type_proxy: "No proxy address detected, need to set manually? (y / n): "
   login:
     hint_intro_step_head: "[Login] Please follow these steps:"

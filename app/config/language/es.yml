@@ -4,7 +4,7 @@ app.core.biu:
     success_to_login: "inicio de sesión exitoso
   config:
     hint_port_is_in_use: "El puerto esta ocupado, please change the sys-host setting item in config.yml"
-    hint_proxy_in_use: "Proxy esta habilitado"
+    hint_proxy_in_use: "Proxy %s habilitado"
     fail_to_load_config: "Fallo para cargar el archivo de configuracion, PixivBiu no puede correr correctamente"
   outdated:
     hint_latest: "Reciente"
@@ -16,7 +16,7 @@ app.core.biu:
   network:
     hint_in_check: "Comprobando estado de la red..."
     fail_pixiv_and_use_bypass: "No se puede conectar a Pixiv, habilitar la ruta bypassSNI (puede no estar disponible temporalmente)"
-  loginHelper:
+  login:
     hint_token_only: "Dado que Pixiv deshabilita el inicio de sesión con contraseña, por ahora solo puedes usar token para iniciar sesión"
     hint_before_start: "La detección de red está a punto de comenzar, este proceso puede reducir la probabilidad de no poder usar PixivBiu debido a problemas de red"
     fail_to_get_token_due_to_network: "Su red no está funcionando correctamente para iniciar sesión con el token Pixiv; ajústela y vuelva a intentarlo."
@@ -37,9 +37,8 @@ app.core.biu:
 
 app.common.loginHelper:
   network:
-    hint_in_check: "Comprobando estado de la red..."
     press_need_to_type_proxy: "Por favor, introduzca la dirección del proxy (puede estar en blanco): "
-    hint_detect_proxy_and_continue: "Dirección de proxy (%s) detectada, ¿desea cambiarla? (y / n): "
+    hint_detect_proxy: "Dirección de proxy detectada como %s, ¿es necesario cambiarla? (y / n): "
     is_need_to_type_proxy: "No se detectó la dirección proxy del sistema, ¿necesita configurarla manualmente? (y / n): "
   login:
     hint_intro_step_head: "[Iniciar sesión] Siga los pasos a continuación:"

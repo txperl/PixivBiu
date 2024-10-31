@@ -4,7 +4,7 @@ app.core.biu:
     success_to_login: "登录成功"
   config:
     hint_port_is_in_use: "现端口已被占用，请修改 config.yml 中的 sys.host 配置项"
-    hint_proxy_in_use: "已启用代理"
+    hint_proxy_in_use: "已启用代理 %s"
     fail_to_load_config: "读取配置文件失败，程序无法正常运行"
   outdated:
     hint_latest: "最新"
@@ -16,7 +16,7 @@ app.core.biu:
   network:
     hint_in_check: "检测网络状态..."
     fail_pixiv_and_use_bypass: "无法访问 Pixiv，启用 bypassSNI 线路 (可能无法正常使用)"
-  loginHelper:
+  login:
     hint_token_only: "由于 Pixiv 禁止了账号密码登陆方式，目前只能使用 Token 进行登录"
     hint_before_start: "即将开始进行网络检测，此过程可以减少因网络问题导致的无法正常使用 PixivBiu 的概率"
     fail_to_get_token_due_to_network: "您的网络无法正常进行 Pixiv Token 登陆，请调整后重试"
@@ -37,9 +37,8 @@ app.core.biu:
 
 app.common.loginHelper:
   network:
-    hint_in_check: "检测网络状态..."
     press_need_to_type_proxy: "请输入代理地址（可留空）: "
-    hint_detect_proxy_and_continue: "检测到为 %s 的代理地址，是否继续? (y / n): "
+    hint_detect_proxy: "检测到为 %s 的代理地址，是否需要更改? (y / n): "
     is_need_to_type_proxy: "未能检测到代理地址，是否需要手动设置? (y / n): "
   login:
     hint_intro_step_head: "[Login] 请按以下步骤进行操作:"
