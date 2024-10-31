@@ -163,6 +163,7 @@ class CoreBiu(interRoot):
         """
         app 模式登录。
         """
+        self.api_route = "direct"
         if self.api is None:
             _REQUESTS_KWARGS = {}
             if self.proxy != "":

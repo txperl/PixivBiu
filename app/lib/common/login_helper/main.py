@@ -32,39 +32,73 @@ class CommonLoginHelper(interRoot):
 
     def check_network(self, is_no_proxy: bool = False, is_silent: bool = False):
         """
-        网络检测。筛选出本机可通的 Pixiv API 服务器。
+        网络检测，并筛选出本机可通的 Pixiv API 服务器。
         :param URLS: 全部 URL
         :param silent: 是否静默进行
         :param proxy_: 代理设置，auto 为程序自动判断
         :return: bool
         """
-        # Determine the final proxy address, or empty
-        self.proxy = "" if is_no_proxy else self._determine_proxy(is_silent=is_silent)
+        if is_no_proxy:
+            return self._test_pixiv_connection(proxy="")
+
+        is_pixiv_accessible = True
+
+        # Determine the proxy address, or empty
+        proxy = self.STATIC.util.get_system_proxy()
+        if proxy != "" and self._test_pixiv_connection(proxy=proxy):
+            pass
+        elif self._test_pixiv_connection(proxy=""):
+            proxy = ""
+        elif is_silent is False:
+            # Require to set proxy manually
+            if input(
+                self.lang("network.hint_detect_proxy") % proxy
+                if proxy
+                else self.lang("network.is_need_to_type_proxy")
+            ) in ["y", ""]:
+                proxy = input(self.lang("network.press_need_to_type_proxy"))
+            is_pixiv_accessible = self._test_pixiv_connection(proxy=proxy)
+
+        # For now, the bypass mode is disabled
+        self.proxy = proxy
+        self.auth_token_url = self.SOME_URLS[0]
+
+        if not is_silent:
+            _ln(
+                (
+                    SPrint.green("- Pixiv.net, Yep!")
+                    if is_pixiv_accessible
+                    else SPrint.red("- Pixiv.net, Ops...")
+                ),
+                header=None,
+            )
+
+        return is_pixiv_accessible
 
         # Determine the final auth host
         # Check if the hosts are accessible
-        is_conn_array = [
-            self._test_access(url=url, proxy=self.proxy, is_silent=False)
-            for url in self.SOME_URLS
-        ]
+        # is_conn_array = [
+        #     self._test_access(url=url, proxy=self.proxy, is_silent=False)
+        #     for url in self.SOME_URLS
+        # ]
 
         # If Pixiv is accessible, just use the official
-        if is_conn_array[0]:
-            self.auth_token_url = self.SOME_URLS[0]
-            return True
+        # if is_conn_array[0]:
+        #     self.auth_token_url = self.SOME_URLS[0]
+        #     return True
 
         # Or, get the real ip of auth service from DoH service to bypass SNI
-        for i in range(len(self.SOME_URLS)):
-            if is_conn_array[i] is False:
-                continue
-            final_ip = self._get_host_ip(
-                hostname=self.SOME_URLS[0], url=self.SOME_URLS[i]
-            )
-            if final_ip is not False:
-                self.auth_token_url = final_ip
-                return True
+        # for i in range(len(self.SOME_URLS)):
+        #     if is_conn_array[i] is False:
+        #         continue
+        #     final_ip = self._get_host_ip(
+        #         hostname=self.SOME_URLS[0], url=self.SOME_URLS[i]
+        #     )
+        #     if final_ip is not False:
+        #         self.auth_token_url = final_ip
+        #         return True
 
-        return False
+        # return False
 
     def login(self):
         """
@@ -143,22 +177,6 @@ class CommonLoginHelper(interRoot):
 
     def is_bypass(self) -> bool:
         return self.auth_token_url != self.SOME_URLS[0]
-
-    def _determine_proxy(self, is_silent: bool = False) -> str:
-        proxy = self.STATIC.util.get_system_proxy()
-        if proxy != "" and self._test_pixiv_connection(proxy=proxy):
-            pass
-        elif self._test_pixiv_connection(proxy=""):
-            proxy = ""
-        elif is_silent is False:
-            # Require to set proxy manually
-            if input(
-                self.lang("network.hint_detect_proxy") % proxy
-                if proxy
-                else self.lang("network.is_need_to_type_proxy")
-            ) in ["y", ""]:
-                proxy = input(self.lang("network.press_need_to_type_proxy"))
-        return proxy
 
     @classmethod
     def _test_access(cls, url: str, proxy: str = "", is_silent: bool = False):
