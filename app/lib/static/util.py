@@ -2,7 +2,6 @@ import os
 import platform
 import re
 import socket
-import telnetlib
 import time
 
 from altfe.interface.root import interRoot
@@ -70,18 +69,24 @@ class StaticUtil(object):
     def is_local_connect(add, prt):
         # 检测本地是否可通
         try:
-            telnetlib.Telnet(add, port=prt, timeout=1)
-            return True
+            port = int(port)
+            if port >= 0 and port <= 65535:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(1)
+                    return s.connect_ex((add, port)) == 0
         except:
             return False
 
     @staticmethod
     def is_prot_in_use(port):
-        port = int(port)
-        if port >= 0 and port <= 65535:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                return s.connect_ex(("localhost", port)) == 0
-        return False
+        try:
+            port = int(port)
+            if port >= 0 and port <= 65535:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(1)
+                    return s.connect_ex(("localhost", port)) == 0
+        except:
+            return False
 
     @staticmethod
     def format_time(date_string, style, to="%Y-%m-%d %H:%M:%S"):
