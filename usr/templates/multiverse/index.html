@@ -177,7 +177,7 @@
                             <input id="settingsActionType" class="tooltip" placeholder="操作类型" autocomplete="off"
                                 title="public: 当进行收藏、关注等操作时默认放入公开类别；private: 私人类别">
                             <input id="settingsIsR18" class="tooltip" placeholder="R18 内容" autocomplete="off"
-                                title="是否展示 R18 内容。on: 开启，off: 遮蔽，gone: 不显示">
+                                title="是否展示 R18 内容。on: 开启，off: 遮蔽，gone: 不显示，only: 仅展示">
                         </div>
                         <p>若所有操作都没有结果，可以尝试点击<a id="btnUpdateToken" class="tooltip" title="不要频繁点哦"
                                 href="javascript: doUpdateToken();">这里</a>以手动更新 Token 状态。</p>
@@ -632,6 +632,8 @@
                     if (data[i]['all']['x_restrict'] > 0) {
                         if (tmpSearchSettings['pixivbiu_displayIsR18'] === "gone") continue;
                         if (tmpSearchSettings['pixivbiu_displayIsR18'] === "off") extraClass += ' mask-r18';
+                    } else {
+                        if (tmpSearchSettings['pixivbiu_displayIsR18'] === "only") continue;
                     }
 
                     // 最终结果
