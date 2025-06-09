@@ -195,12 +195,11 @@ class CoreBiu(interRoot):
                 version_extra = self.lang("outdated.hint_latest")
             else:
                 version_extra = SPrint.red(
-                    f"%s@%s"
+                    f"%s: %s"
                     % (
                         self.lang("outdated.hint_exist_new"),
                         self.format_version(self.biuInfo["version"]),
                     ),
-                    header=False,
                 )
         else:
             version_extra = SPrint.red(
