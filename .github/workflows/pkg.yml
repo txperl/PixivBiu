@@ -35,10 +35,10 @@ jobs:
         - os: macos-14
           version: mac_apple
           pythonArch: arm64
-        - os: macos-12
+        - os: macos-13
           version: mac_intel
           pythonArch: x64
-        - os: ubuntu-20.04
+        - os: ubuntu-22.04
           version: ubuntu_x64
           pythonArch: x64
 
@@ -88,9 +88,9 @@ jobs:
           zip -r ../../${{ matrix.version }}.zip *
     
       - name: Upload to Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: pixivbiuArt
+          name: my-artifact-${{ matrix.version }}
           path: ./${{ matrix.version }}.zip
 
   Release:
@@ -100,9 +100,10 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Download from Artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: pixivbiuArt
+          pattern: my-artifact-*
+          merge-multiple: true
       
       - name: Rename
         run: |
