@@ -19,6 +19,7 @@ function searchForWorks(key = null, grpIdx = 0, isCache = 1, mode = tmpSearchSet
             'totalPage': tmpSearchSettings['pixivbiu_searchPageNum'],
             'isCache': Number(isCache),
             'groupIndex': Number(grpIdx),
+            'isAiWork': tmpSearchSettings['pixivbiu_isAiWork'] === 'on' ? 1 : 0,
         },
         success: function (rep) {
             rep = jQuery.parseJSON(JSON.stringify(rep));

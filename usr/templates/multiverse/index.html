@@ -142,6 +142,8 @@
                                 title="tag: 部分标签匹配（默认），otag: 全标签匹配，des: 标题或描述匹配">
                             <input id="settingsSortMode2" class="tooltip" placeholder="排序模式" autocomplete="off"
                                 title="0: 按收藏数降序，1: 按浏览数降序，2: 按日期降序，3: 按日期升序，4: 按收藏与浏览数的比值降序。在其后加 s 可为所有结果排序，如 0 或 0s">
+                            <input id="settingsIsAiWork" class="tooltip" placeholder="AI 作品" autocomplete="off"
+                                title="是否显示 AI 作品。on: 开启，off: 关闭">
                         </div>
                         <p>搜索块以外的筛选项留空时为取消。</p>
                     </section>
@@ -152,7 +154,8 @@
                             ...filtersMods,
                             '#settingsPageNum': settingsMods['#settingsPageNum'],
                             '#settingsSearchMode': settingsMods['#settingsSearchMode'],
-                            '#settingsSortMode2': settingsMods['#settingsSortMode2']
+                            '#settingsSortMode2': settingsMods['#settingsSortMode2'],
+                            '#settingsIsAiWork': settingsMods['#settingsIsAiWork'],
                         }); loadSearchSettings(); grpActChon('now');">重置</button>
                     </section>
                 </div>
@@ -277,6 +280,7 @@
             '#settingsSearchMode': ['pixivbiu_searchMode', 'tag', '搜索模式'],
             '#settingsActionType': ['pixivbiu_actionType', 'public', '操作类型'],
             '#settingsRvrProxyUrl': ['pixivbiu_RvrProxyUrl', biuInfo.pPximgRProxyURL, '图片反代地址'],
+            '#settingsIsAiWork': ['pixivbiu_isAiWork', 'on', 'AI 作品'],
         };
         var filtersMods = {
             '#filtersImageWidth': ['pixivbiu_fitlerImWidth', '宽度'],

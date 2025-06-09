@@ -18,21 +18,26 @@ class searchWorks(interRoot):
                     "&sortMode=0",
                     "&isSort=0",
                     "&isCache=1",
+                    "&isAiWork=1",
                 ],
             )
         except:
             return {"code": 0, "msg": "missing parameters"}
 
         code = 1
-        isCache = int(args["ops"]["isCache"]) and self.CORE.biu.sets["biu"]["search"]["loadCacheFirst"]
+        isCache = (
+            int(args["ops"]["isCache"])
+            and self.CORE.biu.sets["biu"]["search"]["loadCacheFirst"]
+        )
         cachePath = self.getENV("rootPath") + "usr/cache/search/"
-        fileName = "%s@%s_%sx%s_%s%s.json" % (
+        fileName = "%s@%s_%sx%s_%s%s%s.json" % (
             args["fun"]["kt"],
             args["fun"]["mode"],
             args["ops"]["totalPage"],
             args["ops"]["groupIndex"],
             args["ops"]["sortMode"],
             args["ops"]["isSort"],
+            args["ops"]["isAiWork"],
         )
         fileName = re.sub(r'[/\\:*?"<>|]', "_", fileName)
 
@@ -62,6 +67,7 @@ class searchWorks(interRoot):
         # search_target
         self.STATIC.arg.argsPurer(funArg, {"kt": "word", "mode": "search_target"})
         funArg["search_target"] = modes[funArg["search_target"]]
+        funArg["search_ai_type"] = 0 if opsArg["isAiWork"] == "0" else 1
 
         status = []
 
@@ -74,7 +80,9 @@ class searchWorks(interRoot):
             status.append(self.CORE.biu.pool_srh.submit(self.__thread_appWorks, **argg))
 
         self.CORE.biu.update_status(
-            "search", (funArg["word"] + "_" + str(ttlPage) + "+" + str(grpIdx)), status,
+            "search",
+            (funArg["word"] + "_" + str(ttlPage) + "+" + str(grpIdx)),
+            status,
         )
 
         for x in as_completed(status):

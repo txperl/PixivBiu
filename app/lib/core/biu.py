@@ -18,7 +18,7 @@ _ln = lambda val, header="PixivBiu": print(f"[{header}] " + val if header else v
 @interRoot.bind("biu", "LIB_CORE")
 class CoreBiu(interRoot):
     def __init__(self):
-        self.ver = 206030
+        self.ver = 206040
         self.place = "local"
         self.sysPlc = platform.system()
         self.api_route = "direct"
