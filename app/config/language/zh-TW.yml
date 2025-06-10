@@ -1,0 +1,53 @@
+app.core.biu:
+  common:
+    press_to_exit: "按任意鍵退出..."
+    success_to_login: "登入成功"
+  config:
+    hint_port_is_in_use: "當前端口正在使用中，請修改 config.yml 中的 'sys.host' 項"
+    hint_proxy_in_use: "已啟用代理 %s"
+    fail_to_load_config: "讀取配置文件失敗，程式無法正常運行"
+  outdated:
+    hint_latest: "最新"
+    hint_exist_new: "有可用的新版本"
+    fail_to_check: "檢查更新失敗"
+    fail_to_check_duo_to_network: "檢查更新失敗，目標伺服器可能長時間未回應"
+    tell_to_download: "前往 https://github.com/txperl/PixivBiu/releases 下載"
+    press_to_use_old: "按任意鍵繼續使用舊版本..."
+  network:
+    hint_in_check: "正在檢查網路狀態..."
+    fail_pixiv_and_use_bypass: "無法前往 Pixiv，啟用 bypassSNI 線路 (可能無法正常使用)"
+  login:
+    hint_token_only: "由於 Pixiv 封鎖使用者名稱/密碼登入，目前只能使用token登入"
+    hint_before_start: "即將開始進行網路檢測，此過程可以減少因網路問題導致的無法正常使用 PixivBiu 的機率"
+    fail_to_get_token_due_to_network: "您的網路無法正常進行 Pixiv Token 登錄，請調整後重試"
+    fail_to_get_token_anyway: "獲取 Token 時出錯，請重試"
+    fail_by_cloudflare_captcha: "登錄時遇到 Cloudflare 保護，可能是網路環境問題導致。您可以嘗試重新獲取 Token，或稍等片刻後再次登錄"
+    is_need_to_get_token: "程式將引導你獲取 Token，是否繼續? (y / n): "
+  ready:
+    hint_run: "運行："
+    hint_how_to_use: "將地址輸入現代瀏覽器即可使用"
+    hint_version: "版本："
+    hint_function_types: "功能類型："
+    hint_image_service: "圖片服務："
+    hint_download_path: "下載路徑："
+    hint_program_path: "{APP_DIRECTORY}"
+    done_init: "初始化完成"
+  others:
+    hint_in_update_token: "嘗試 token 更新"
+
+app.common.loginHelper:
+  network:
+    press_need_to_type_proxy: "請輸入代理地址 (可留空): "
+    hint_detect_proxy: "檢測到為 %s 的代理地址，是否需要更改? (y / n): "
+    is_need_to_type_proxy: "未檢測到代理地址，是否需要手動設定? (y / n): "
+  login:
+    hint_intro_step_head: "[Login] 請按以下步驟操作："
+    hint_intro_step_1: "1. 前往： %s?%s"
+    hint_intro_step_2: "2. 打開瀏覽器的「Dev Console / 開發者工具」，切換至「Network / 網路」標籤"
+    hint_intro_step_3: "3. 開啟「Preserve log / 持續記錄」"
+    hint_intro_step_4: "4. 在「Filter / 篩選」文字框中輸入「callback?」"
+    hint_intro_step_5: "5. 登入您的 Pixiv 帳號"
+    hint_intro_step_6: "6. 成功登錄後，會出現一個類似「https://app-api.pixiv.net/...&code=...」的字串"
+    hint_intro_step_7: "7. 將「code」後面的參數輸入本程式"
+    fail_code_918: "Code 錯誤。請注意程式每次啟動時要求獲取的 Code 都不同，不可重複使用之前獲取到的，且 Code 不帶有引號。"
+    fail_code_1508: "Code 已過期。請在進行 Code 獲取操作時快一些。"
