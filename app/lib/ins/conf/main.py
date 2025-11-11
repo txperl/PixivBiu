@@ -48,6 +48,8 @@ class InsConf(interRoot):
                 maybe = ConfigWrapper.SIGN_EMPTY
                 # load environment variable config
                 envVar = os.environ.get(key, ConfigWrapper.SIGN_EMPTY)
+                if envVar == ConfigWrapper.SIGN_EMPTY:
+                    envVar = os.environ.get(key.replace(".", "_").upper(), default=ConfigWrapper.SIGN_EMPTY)
                 if envVar != ConfigWrapper.SIGN_EMPTY:
                     maybe = ConfigWrapper.literal_eval(envVar)
                 else:
