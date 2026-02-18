@@ -35,7 +35,7 @@ jobs:
         - os: macos-14
           version: mac_apple
           pythonArch: arm64
-        - os: macos-13
+        - os: macos-15-intel
           version: mac_intel
           pythonArch: x64
         - os: ubuntu-22.04
