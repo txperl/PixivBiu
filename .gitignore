@@ -10,6 +10,9 @@
 /config.yaml
 /config.local.yaml
 
+# User data
+/usr
+
 # Logs
 *.log
 

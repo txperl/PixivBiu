@@ -1,0 +1,85 @@
+illusts:
+  get:
+    operationId: listUserIllusts
+    summary: A user's own illustrations.
+    tags: [users]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
+      - $ref: '../openapi.yaml#/components/parameters/IllustTypeQuery'
+      - $ref: '../openapi.yaml#/components/parameters/OffsetQuery'
+    responses:
+      '200':
+        description: User illusts page.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/UserIllustsPage' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
+bookmarks:
+  get:
+    operationId: listUserBookmarks
+    summary: A user's bookmarked illustrations (cursor paged by `max_bookmark_id`).
+    tags: [users]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
+      - $ref: '../openapi.yaml#/components/parameters/RestrictQuery'
+      - $ref: '../openapi.yaml#/components/parameters/MaxBookmarkIdQuery'
+    responses:
+      '200':
+        description: Bookmarks page. `next_max_bookmark_id` is set when another page exists.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/IllustPage' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
+following:
+  get:
+    operationId: listUserFollowing
+    summary: Users that a user is following.
+    tags: [users]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
+      - $ref: '../openapi.yaml#/components/parameters/RestrictQuery'
+      - $ref: '../openapi.yaml#/components/parameters/OffsetQuery'
+    responses:
+      '200':
+        description: Following page.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/UserPreviewPage' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
+follow:
+  put:
+    operationId: addFollow
+    summary: Follow a user.
+    tags: [users]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/FollowRequest' }
+    responses:
+      '204': { $ref: '../openapi.yaml#/components/responses/NoContent' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+  delete:
+    operationId: deleteFollow
+    summary: Unfollow a user.
+    tags: [users]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
+    responses:
+      '204': { $ref: '../openapi.yaml#/components/responses/NoContent' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }

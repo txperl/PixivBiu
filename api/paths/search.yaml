@@ -1,0 +1,49 @@
+illusts:
+  get:
+    operationId: searchIllusts
+    summary: Search illustrations by keyword / tag.
+    tags: [search]
+    parameters:
+      - name: word
+        in: query
+        required: true
+        schema: { type: string, minLength: 1 }
+      - name: search_target
+        in: query
+        required: false
+        schema: { $ref: '../openapi.yaml#/components/schemas/SearchTarget' }
+      - name: sort
+        in: query
+        required: false
+        schema: { $ref: '../openapi.yaml#/components/schemas/SearchSort' }
+      - $ref: '../openapi.yaml#/components/parameters/OffsetQuery'
+    responses:
+      '200':
+        description: Search results page.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/IllustPage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
+users:
+  get:
+    operationId: searchUsers
+    summary: Search users by display name or account.
+    tags: [search]
+    parameters:
+      - name: word
+        in: query
+        required: true
+        schema: { type: string, minLength: 1 }
+      - $ref: '../openapi.yaml#/components/parameters/OffsetQuery'
+    responses:
+      '200':
+        description: User search results.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/UserPreviewPage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }

@@ -1,0 +1,124 @@
+byId:
+  get:
+    operationId: getIllust
+    summary: Fetch detail for a single illustration.
+    tags: [illusts]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/IllustIdPath'
+    responses:
+      '200':
+        description: Illustration detail.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/IllustDetailResponse' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
+ranking:
+  get:
+    operationId: listRanking
+    summary: Fetch the Pixiv ranking.
+    tags: [illusts]
+    parameters:
+      - name: mode
+        in: query
+        required: false
+        schema:
+          allOf:
+            - $ref: '../openapi.yaml#/components/schemas/RankingMode'
+          default: day
+      - name: date
+        in: query
+        required: false
+        description: Ranking date in `YYYY-MM-DD`. Omit for the latest.
+        schema: { type: string, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }
+      - $ref: '../openapi.yaml#/components/parameters/OffsetQuery'
+    responses:
+      '200':
+        description: Ranking page.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/IllustPage' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
+recommended:
+  get:
+    operationId: listRecommended
+    summary: Recommended illusts for the authenticated user.
+    tags: [illusts]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/IllustTypeQuery'
+      - $ref: '../openapi.yaml#/components/parameters/OffsetQuery'
+    responses:
+      '200':
+        description: Recommendation page.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/IllustPage' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
+following:
+  get:
+    operationId: listFollowingIllusts
+    summary: New illusts from users the authenticated user follows.
+    tags: [illusts]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/RestrictQuery'
+      - $ref: '../openapi.yaml#/components/parameters/OffsetQuery'
+    responses:
+      '200':
+        description: Following feed page.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/IllustPage' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
+ugoira:
+  get:
+    operationId: getUgoiraMetadata
+    summary: Frame timing + zip URL for an animated illustration.
+    tags: [illusts]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/IllustIdPath'
+    responses:
+      '200':
+        description: Ugoira metadata.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/UgoiraMetadataResponse' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
+bookmark:
+  put:
+    operationId: addBookmark
+    summary: Add the illustration to the authenticated user's bookmarks.
+    tags: [illusts]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/IllustIdPath'
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/BookmarkRequest' }
+    responses:
+      '204': { $ref: '../openapi.yaml#/components/responses/NoContent' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+  delete:
+    operationId: deleteBookmark
+    summary: Remove the illustration from bookmarks.
+    tags: [illusts]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/IllustIdPath'
+    responses:
+      '204': { $ref: '../openapi.yaml#/components/responses/NoContent' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }

@@ -19,6 +19,7 @@ const envPrefix = "PIXIVBIU_"
 type Config struct {
 	Server ServerConfig `koanf:"server"`
 	Log    LogConfig    `koanf:"log"`
+	Pixiv  PixivConfig  `koanf:"pixiv"`
 }
 
 type ServerConfig struct {
@@ -38,6 +39,13 @@ type LogConfig struct {
 	Format string `koanf:"format"`
 }
 
+type PixivConfig struct {
+	Proxy     string `koanf:"proxy"`
+	Language  string `koanf:"language"`
+	BypassSNI bool   `koanf:"bypass_sni"`
+	StateFile string `koanf:"state_file"`
+}
+
 func defaults() map[string]any {
 	return map[string]any{
 		"server.host":              "0.0.0.0",
@@ -47,6 +55,10 @@ func defaults() map[string]any {
 		"server.timeouts.shutdown": "10s",
 		"log.level":                "info",
 		"log.format":               "text",
+		"pixiv.proxy":              "",
+		"pixiv.language":           "zh-cn",
+		"pixiv.bypass_sni":         false,
+		"pixiv.state_file":         "./usr/state.json",
 	}
 }
 

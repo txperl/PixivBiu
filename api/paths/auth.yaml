@@ -1,0 +1,39 @@
+login:
+  post:
+    operationId: login
+    summary: Exchange a refresh token for an access token (and persist it).
+    tags: [auth]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/LoginRequest' }
+    responses:
+      '200':
+        description: Authenticated. The access token is stored server-side.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/AuthStatus' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
+logout:
+  post:
+    operationId: logout
+    summary: Forget the current tokens and clear the state file.
+    tags: [auth]
+    responses:
+      '204': { $ref: '../openapi.yaml#/components/responses/NoContent' }
+
+status:
+  get:
+    operationId: getAuthStatus
+    summary: Report whether the server currently holds a valid access token.
+    tags: [auth]
+    responses:
+      '200':
+        description: Current auth status.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/AuthStatus' }

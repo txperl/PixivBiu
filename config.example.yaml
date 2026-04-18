@@ -10,8 +10,16 @@ log:
   level: info   # debug | info | warn | error
   format: text  # text | json
 
+pixiv:
+  proxy: ""                       # HTTP/SOCKS proxy URL; empty = direct
+  language: zh-cn                 # Accept-Language sent to Pixiv (tag translations)
+  bypass_sni: false               # true = use pixivgo/bypass (DoH + alt SNI) for firewalled networks
+  state_file: ./usr/state.json    # token persistence; refresh_token NEVER lives in this config
+
 # Environment overrides use PIXIVBIU_ prefix, underscores map to dots.
 # Examples:
 #   PIXIVBIU_SERVER_PORT=9090
 #   PIXIVBIU_LOG_LEVEL=debug
 #   PIXIVBIU_SERVER_TIMEOUTS_SHUTDOWN=20s
+#   PIXIVBIU_PIXIV_PROXY=http://127.0.0.1:7890
+#   PIXIVBIU_PIXIV_BYPASS_SNI=true

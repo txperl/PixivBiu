@@ -2,9 +2,19 @@ openapi: 3.0.3
 info:
   title: PixivBiu v3 API
   version: 0.1.0
-  description: PixivBiu v3 backend API.
+  description: |
+    PixivBiu v3 backend API. Read-only browsing + auth + bookmark/follow.
+    Path items are split across files under `paths/` by domain;
+    schemas and shared parameters stay centralised here.
 servers:
   - url: /api/v1
+
+tags:
+  - name: system
+  - name: auth
+  - name: illusts
+  - name: users
+  - name: search
 
 paths:
   /health:
@@ -17,15 +27,277 @@ paths:
           description: Service is healthy.
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/HealthStatus'
+              schema: { $ref: '#/components/schemas/HealthStatus' }
+
+  /auth/login:
+    $ref: './paths/auth.yaml#/login'
+  /auth/logout:
+    $ref: './paths/auth.yaml#/logout'
+  /auth/status:
+    $ref: './paths/auth.yaml#/status'
+
+  /illusts/ranking:
+    $ref: './paths/illusts.yaml#/ranking'
+  /illusts/recommended:
+    $ref: './paths/illusts.yaml#/recommended'
+  /illusts/following:
+    $ref: './paths/illusts.yaml#/following'
+  /illusts/{id}:
+    $ref: './paths/illusts.yaml#/byId'
+  /illusts/{id}/ugoira:
+    $ref: './paths/illusts.yaml#/ugoira'
+  /illusts/{id}/bookmark:
+    $ref: './paths/illusts.yaml#/bookmark'
+
+  /users/{id}/illusts:
+    $ref: './paths/users.yaml#/illusts'
+  /users/{id}/bookmarks:
+    $ref: './paths/users.yaml#/bookmarks'
+  /users/{id}/following:
+    $ref: './paths/users.yaml#/following'
+  /users/{id}/follow:
+    $ref: './paths/users.yaml#/follow'
+
+  /search/illusts:
+    $ref: './paths/search.yaml#/illusts'
+  /search/users:
+    $ref: './paths/search.yaml#/users'
 
 components:
+  parameters:
+    IllustIdPath:
+      name: id
+      in: path
+      required: true
+      description: Pixiv illustration ID.
+      schema: { type: integer, format: int64, minimum: 1 }
+    UserIdPath:
+      name: id
+      in: path
+      required: true
+      description: Pixiv user ID.
+      schema: { type: integer, format: int64, minimum: 1 }
+    OffsetQuery:
+      name: offset
+      in: query
+      required: false
+      description: Page offset for list endpoints that use offset-based pagination.
+      schema: { type: integer, format: int64, minimum: 0, default: 0 }
+    MaxBookmarkIdQuery:
+      name: max_bookmark_id
+      in: query
+      required: false
+      description: Cursor for paging through bookmarks (from `next_max_bookmark_id` in the previous response).
+      schema: { type: integer, format: int64, minimum: 1 }
+    RestrictQuery:
+      name: restrict
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/Restrict' }
+    IllustTypeQuery:
+      name: type
+      in: query
+      required: false
+      description: Filter by illustration type. If omitted, both are returned where supported.
+      schema: { $ref: '#/components/schemas/IllustType' }
+
+  responses:
+    NoContent:
+      description: Action succeeded; no body.
+    Unauthenticated:
+      description: No valid Pixiv session. Call `POST /auth/login` first.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Resource not found on Pixiv.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    BadRequest:
+      description: Invalid parameters.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Upstream:
+      description: Pixiv upstream returned an unexpected error.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
   schemas:
     HealthStatus:
       type: object
       required: [status]
       properties:
-        status:
+        status: { type: string, example: ok }
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
           type: string
-          example: ok
+          description: Machine-readable error code.
+          example: unauthenticated
+        message:
+          type: string
+          description: Human-readable error message.
+        detail:
+          type: string
+          description: Optional additional context (e.g., upstream body).
+
+    Restrict:
+      type: string
+      enum: [public, private]
+      default: public
+
+    IllustType:
+      type: string
+      enum: [illust, manga]
+
+    RankingMode:
+      type: string
+      enum:
+        - day
+        - week
+        - month
+        - day_male
+        - day_female
+        - week_original
+        - week_rookie
+        - day_manga
+        - day_r18
+        - day_male_r18
+        - day_female_r18
+        - week_r18
+        - week_r18g
+
+    SearchTarget:
+      type: string
+      enum:
+        - partial_match_for_tags
+        - exact_match_for_tags
+        - title_and_caption
+        - keyword
+      default: partial_match_for_tags
+
+    SearchSort:
+      type: string
+      enum: [date_desc, date_asc, popular_desc]
+      default: date_desc
+
+    LoginRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          description: Long-lived Pixiv OAuth refresh token. See README for how to obtain.
+
+    AuthStatus:
+      type: object
+      required: [authenticated]
+      properties:
+        authenticated: { type: boolean }
+        user_id:       { type: integer, format: int64, nullable: true }
+        user_name:     { type: string, nullable: true }
+        expires_at:    { type: string, format: date-time, nullable: true }
+
+    BookmarkRequest:
+      type: object
+      properties:
+        restrict: { $ref: '#/components/schemas/Restrict' }
+
+    FollowRequest:
+      type: object
+      properties:
+        restrict: { $ref: '#/components/schemas/Restrict' }
+
+    # The next three schemas proxy through to pixivgo's native types so we
+    # don't double-maintain the Illust/User shape. oapi-codegen replaces the
+    # generated Go type with pixivgo's at codegen time; the runtime JSON is
+    # produced by pixivgo's own MarshalJSON (including FlexInt -> number).
+    Illust:
+      x-go-type: pixivgo.IllustrationInfo
+      x-go-type-import:
+        name: pixivgo
+        path: github.com/txperl/pixivgo
+      type: object
+      description: Pixiv illustration metadata. Shape mirrors pixivgo.IllustrationInfo.
+
+    User:
+      x-go-type: pixivgo.UserInfo
+      x-go-type-import:
+        name: pixivgo
+        path: github.com/txperl/pixivgo
+      type: object
+      description: Pixiv user summary. Shape mirrors pixivgo.UserInfo.
+
+    UserPreview:
+      x-go-type: pixivgo.UserPreview
+      x-go-type-import:
+        name: pixivgo
+        path: github.com/txperl/pixivgo
+      type: object
+      description: User + a few sample illusts. Shape mirrors pixivgo.UserPreview.
+
+    IllustPage:
+      type: object
+      required: [illusts]
+      properties:
+        illusts:
+          type: array
+          items: { $ref: '#/components/schemas/Illust' }
+        next_offset:
+          type: integer
+          format: int64
+          nullable: true
+          description: Next offset to pass back, or null if no further page.
+        next_max_bookmark_id:
+          type: integer
+          format: int64
+          nullable: true
+          description: Set only by `/users/{id}/bookmarks`; pass back as `max_bookmark_id`.
+
+    UserIllustsPage:
+      type: object
+      required: [user, illusts]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        illusts:
+          type: array
+          items: { $ref: '#/components/schemas/Illust' }
+        next_offset:
+          type: integer
+          format: int64
+          nullable: true
+
+    UserPreviewPage:
+      type: object
+      required: [user_previews]
+      properties:
+        user_previews:
+          type: array
+          items: { $ref: '#/components/schemas/UserPreview' }
+        next_offset:
+          type: integer
+          format: int64
+          nullable: true
+
+    IllustDetailResponse:
+      x-go-type: pixivgo.IllustDetailResponse
+      x-go-type-import:
+        name: pixivgo
+        path: github.com/txperl/pixivgo
+      type: object
+      description: Wrapper for a single illust detail. Mirrors pixivgo.IllustDetailResponse.
+
+    UgoiraMetadataResponse:
+      x-go-type: pixivgo.UgoiraMetadataResponse
+      x-go-type-import:
+        name: pixivgo
+        path: github.com/txperl/pixivgo
+      type: object
+      description: Ugoira (animated illust) metadata. Mirrors pixivgo.UgoiraMetadataResponse.

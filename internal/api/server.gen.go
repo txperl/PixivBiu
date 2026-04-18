@@ -12,30 +12,520 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/runtime"
+	pixivgo "github.com/txperl/pixivgo"
 )
+
+// Defines values for IllustType.
+const (
+	IllustTypeIllust IllustType = "illust"
+	IllustTypeManga  IllustType = "manga"
+)
+
+// Valid indicates whether the value is a known member of the IllustType enum.
+func (e IllustType) Valid() bool {
+	switch e {
+	case IllustTypeIllust:
+		return true
+	case IllustTypeManga:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RankingMode.
+const (
+	Day          RankingMode = "day"
+	DayFemale    RankingMode = "day_female"
+	DayFemaleR18 RankingMode = "day_female_r18"
+	DayMale      RankingMode = "day_male"
+	DayMaleR18   RankingMode = "day_male_r18"
+	DayManga     RankingMode = "day_manga"
+	DayR18       RankingMode = "day_r18"
+	Month        RankingMode = "month"
+	Week         RankingMode = "week"
+	WeekOriginal RankingMode = "week_original"
+	WeekR18      RankingMode = "week_r18"
+	WeekR18g     RankingMode = "week_r18g"
+	WeekRookie   RankingMode = "week_rookie"
+)
+
+// Valid indicates whether the value is a known member of the RankingMode enum.
+func (e RankingMode) Valid() bool {
+	switch e {
+	case Day:
+		return true
+	case DayFemale:
+		return true
+	case DayFemaleR18:
+		return true
+	case DayMale:
+		return true
+	case DayMaleR18:
+		return true
+	case DayManga:
+		return true
+	case DayR18:
+		return true
+	case Month:
+		return true
+	case Week:
+		return true
+	case WeekOriginal:
+		return true
+	case WeekR18:
+		return true
+	case WeekR18g:
+		return true
+	case WeekRookie:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Restrict.
+const (
+	Private Restrict = "private"
+	Public  Restrict = "public"
+)
+
+// Valid indicates whether the value is a known member of the Restrict enum.
+func (e Restrict) Valid() bool {
+	switch e {
+	case Private:
+		return true
+	case Public:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchSort.
+const (
+	DateAsc     SearchSort = "date_asc"
+	DateDesc    SearchSort = "date_desc"
+	PopularDesc SearchSort = "popular_desc"
+)
+
+// Valid indicates whether the value is a known member of the SearchSort enum.
+func (e SearchSort) Valid() bool {
+	switch e {
+	case DateAsc:
+		return true
+	case DateDesc:
+		return true
+	case PopularDesc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchTarget.
+const (
+	ExactMatchForTags   SearchTarget = "exact_match_for_tags"
+	Keyword             SearchTarget = "keyword"
+	PartialMatchForTags SearchTarget = "partial_match_for_tags"
+	TitleAndCaption     SearchTarget = "title_and_caption"
+)
+
+// Valid indicates whether the value is a known member of the SearchTarget enum.
+func (e SearchTarget) Valid() bool {
+	switch e {
+	case ExactMatchForTags:
+		return true
+	case Keyword:
+		return true
+	case PartialMatchForTags:
+		return true
+	case TitleAndCaption:
+		return true
+	default:
+		return false
+	}
+}
+
+// AuthStatus defines model for AuthStatus.
+type AuthStatus struct {
+	Authenticated bool       `json:"authenticated"`
+	ExpiresAt     *time.Time `json:"expires_at,omitempty"`
+	UserId        *int64     `json:"user_id,omitempty"`
+	UserName      *string    `json:"user_name,omitempty"`
+}
+
+// BookmarkRequest defines model for BookmarkRequest.
+type BookmarkRequest struct {
+	Restrict *Restrict `json:"restrict,omitempty"`
+}
+
+// Error defines model for Error.
+type Error struct {
+	// Code Machine-readable error code.
+	Code string `json:"code"`
+
+	// Detail Optional additional context (e.g., upstream body).
+	Detail *string `json:"detail,omitempty"`
+
+	// Message Human-readable error message.
+	Message string `json:"message"`
+}
+
+// FollowRequest defines model for FollowRequest.
+type FollowRequest struct {
+	Restrict *Restrict `json:"restrict,omitempty"`
+}
 
 // HealthStatus defines model for HealthStatus.
 type HealthStatus struct {
 	Status string `json:"status"`
 }
 
+// Illust Pixiv illustration metadata. Shape mirrors pixivgo.IllustrationInfo.
+type Illust = pixivgo.IllustrationInfo
+
+// IllustDetailResponse Wrapper for a single illust detail. Mirrors pixivgo.IllustDetailResponse.
+type IllustDetailResponse = pixivgo.IllustDetailResponse
+
+// IllustPage defines model for IllustPage.
+type IllustPage struct {
+	Illusts []Illust `json:"illusts"`
+
+	// NextMaxBookmarkId Set only by `/users/{id}/bookmarks`; pass back as `max_bookmark_id`.
+	NextMaxBookmarkId *int64 `json:"next_max_bookmark_id,omitempty"`
+
+	// NextOffset Next offset to pass back, or null if no further page.
+	NextOffset *int64 `json:"next_offset,omitempty"`
+}
+
+// IllustType defines model for IllustType.
+type IllustType string
+
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	// RefreshToken Long-lived Pixiv OAuth refresh token. See README for how to obtain.
+	RefreshToken string `json:"refresh_token"`
+}
+
+// RankingMode defines model for RankingMode.
+type RankingMode string
+
+// Restrict defines model for Restrict.
+type Restrict string
+
+// SearchSort defines model for SearchSort.
+type SearchSort string
+
+// SearchTarget defines model for SearchTarget.
+type SearchTarget string
+
+// UgoiraMetadataResponse Ugoira (animated illust) metadata. Mirrors pixivgo.UgoiraMetadataResponse.
+type UgoiraMetadataResponse = pixivgo.UgoiraMetadataResponse
+
+// User Pixiv user summary. Shape mirrors pixivgo.UserInfo.
+type User = pixivgo.UserInfo
+
+// UserIllustsPage defines model for UserIllustsPage.
+type UserIllustsPage struct {
+	Illusts    []Illust `json:"illusts"`
+	NextOffset *int64   `json:"next_offset,omitempty"`
+
+	// User Pixiv user summary. Shape mirrors pixivgo.UserInfo.
+	User User `json:"user"`
+}
+
+// UserPreview User + a few sample illusts. Shape mirrors pixivgo.UserPreview.
+type UserPreview = pixivgo.UserPreview
+
+// UserPreviewPage defines model for UserPreviewPage.
+type UserPreviewPage struct {
+	NextOffset   *int64        `json:"next_offset,omitempty"`
+	UserPreviews []UserPreview `json:"user_previews"`
+}
+
+// IllustIdPath defines model for IllustIdPath.
+type IllustIdPath = int64
+
+// IllustTypeQuery defines model for IllustTypeQuery.
+type IllustTypeQuery = IllustType
+
+// MaxBookmarkIdQuery defines model for MaxBookmarkIdQuery.
+type MaxBookmarkIdQuery = int64
+
+// OffsetQuery defines model for OffsetQuery.
+type OffsetQuery = int64
+
+// RestrictQuery defines model for RestrictQuery.
+type RestrictQuery = Restrict
+
+// UserIdPath defines model for UserIdPath.
+type UserIdPath = int64
+
+// BadRequest defines model for BadRequest.
+type BadRequest = Error
+
+// NotFound defines model for NotFound.
+type NotFound = Error
+
+// Unauthenticated defines model for Unauthenticated.
+type Unauthenticated = Error
+
+// Upstream defines model for Upstream.
+type Upstream = Error
+
+// ListFollowingIllustsParams defines parameters for ListFollowingIllusts.
+type ListFollowingIllustsParams struct {
+	Restrict *RestrictQuery `form:"restrict,omitempty" json:"restrict,omitempty"`
+
+	// Offset Page offset for list endpoints that use offset-based pagination.
+	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListRankingParams defines parameters for ListRanking.
+type ListRankingParams struct {
+	Mode *RankingMode `form:"mode,omitempty" json:"mode,omitempty"`
+
+	// Date Ranking date in `YYYY-MM-DD`. Omit for the latest.
+	Date *string `form:"date,omitempty" json:"date,omitempty"`
+
+	// Offset Page offset for list endpoints that use offset-based pagination.
+	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListRecommendedParams defines parameters for ListRecommended.
+type ListRecommendedParams struct {
+	// Type Filter by illustration type. If omitted, both are returned where supported.
+	Type *IllustTypeQuery `form:"type,omitempty" json:"type,omitempty"`
+
+	// Offset Page offset for list endpoints that use offset-based pagination.
+	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// SearchIllustsParams defines parameters for SearchIllusts.
+type SearchIllustsParams struct {
+	Word         string        `form:"word" json:"word"`
+	SearchTarget *SearchTarget `form:"search_target,omitempty" json:"search_target,omitempty"`
+	Sort         *SearchSort   `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Offset Page offset for list endpoints that use offset-based pagination.
+	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// SearchUsersParams defines parameters for SearchUsers.
+type SearchUsersParams struct {
+	Word string `form:"word" json:"word"`
+
+	// Offset Page offset for list endpoints that use offset-based pagination.
+	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListUserBookmarksParams defines parameters for ListUserBookmarks.
+type ListUserBookmarksParams struct {
+	Restrict *RestrictQuery `form:"restrict,omitempty" json:"restrict,omitempty"`
+
+	// MaxBookmarkId Cursor for paging through bookmarks (from `next_max_bookmark_id` in the previous response).
+	MaxBookmarkId *MaxBookmarkIdQuery `form:"max_bookmark_id,omitempty" json:"max_bookmark_id,omitempty"`
+}
+
+// ListUserFollowingParams defines parameters for ListUserFollowing.
+type ListUserFollowingParams struct {
+	Restrict *RestrictQuery `form:"restrict,omitempty" json:"restrict,omitempty"`
+
+	// Offset Page offset for list endpoints that use offset-based pagination.
+	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListUserIllustsParams defines parameters for ListUserIllusts.
+type ListUserIllustsParams struct {
+	// Type Filter by illustration type. If omitted, both are returned where supported.
+	Type *IllustTypeQuery `form:"type,omitempty" json:"type,omitempty"`
+
+	// Offset Page offset for list endpoints that use offset-based pagination.
+	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginRequest
+
+// AddBookmarkJSONRequestBody defines body for AddBookmark for application/json ContentType.
+type AddBookmarkJSONRequestBody = BookmarkRequest
+
+// AddFollowJSONRequestBody defines body for AddFollow for application/json ContentType.
+type AddFollowJSONRequestBody = FollowRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Exchange a refresh token for an access token (and persist it).
+	// (POST /auth/login)
+	Login(w http.ResponseWriter, r *http.Request)
+	// Forget the current tokens and clear the state file.
+	// (POST /auth/logout)
+	Logout(w http.ResponseWriter, r *http.Request)
+	// Report whether the server currently holds a valid access token.
+	// (GET /auth/status)
+	GetAuthStatus(w http.ResponseWriter, r *http.Request)
 	// Health check
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// New illusts from users the authenticated user follows.
+	// (GET /illusts/following)
+	ListFollowingIllusts(w http.ResponseWriter, r *http.Request, params ListFollowingIllustsParams)
+	// Fetch the Pixiv ranking.
+	// (GET /illusts/ranking)
+	ListRanking(w http.ResponseWriter, r *http.Request, params ListRankingParams)
+	// Recommended illusts for the authenticated user.
+	// (GET /illusts/recommended)
+	ListRecommended(w http.ResponseWriter, r *http.Request, params ListRecommendedParams)
+	// Fetch detail for a single illustration.
+	// (GET /illusts/{id})
+	GetIllust(w http.ResponseWriter, r *http.Request, id IllustIdPath)
+	// Remove the illustration from bookmarks.
+	// (DELETE /illusts/{id}/bookmark)
+	DeleteBookmark(w http.ResponseWriter, r *http.Request, id IllustIdPath)
+	// Add the illustration to the authenticated user's bookmarks.
+	// (PUT /illusts/{id}/bookmark)
+	AddBookmark(w http.ResponseWriter, r *http.Request, id IllustIdPath)
+	// Frame timing + zip URL for an animated illustration.
+	// (GET /illusts/{id}/ugoira)
+	GetUgoiraMetadata(w http.ResponseWriter, r *http.Request, id IllustIdPath)
+	// Search illustrations by keyword / tag.
+	// (GET /search/illusts)
+	SearchIllusts(w http.ResponseWriter, r *http.Request, params SearchIllustsParams)
+	// Search users by display name or account.
+	// (GET /search/users)
+	SearchUsers(w http.ResponseWriter, r *http.Request, params SearchUsersParams)
+	// A user's bookmarked illustrations (cursor paged by `max_bookmark_id`).
+	// (GET /users/{id}/bookmarks)
+	ListUserBookmarks(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserBookmarksParams)
+	// Unfollow a user.
+	// (DELETE /users/{id}/follow)
+	DeleteFollow(w http.ResponseWriter, r *http.Request, id UserIdPath)
+	// Follow a user.
+	// (PUT /users/{id}/follow)
+	AddFollow(w http.ResponseWriter, r *http.Request, id UserIdPath)
+	// Users that a user is following.
+	// (GET /users/{id}/following)
+	ListUserFollowing(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserFollowingParams)
+	// A user's own illustrations.
+	// (GET /users/{id}/illusts)
+	ListUserIllusts(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserIllustsParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
 
+// Exchange a refresh token for an access token (and persist it).
+// (POST /auth/login)
+func (_ Unimplemented) Login(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Forget the current tokens and clear the state file.
+// (POST /auth/logout)
+func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Report whether the server currently holds a valid access token.
+// (GET /auth/status)
+func (_ Unimplemented) GetAuthStatus(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Health check
 // (GET /health)
 func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// New illusts from users the authenticated user follows.
+// (GET /illusts/following)
+func (_ Unimplemented) ListFollowingIllusts(w http.ResponseWriter, r *http.Request, params ListFollowingIllustsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Fetch the Pixiv ranking.
+// (GET /illusts/ranking)
+func (_ Unimplemented) ListRanking(w http.ResponseWriter, r *http.Request, params ListRankingParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Recommended illusts for the authenticated user.
+// (GET /illusts/recommended)
+func (_ Unimplemented) ListRecommended(w http.ResponseWriter, r *http.Request, params ListRecommendedParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Fetch detail for a single illustration.
+// (GET /illusts/{id})
+func (_ Unimplemented) GetIllust(w http.ResponseWriter, r *http.Request, id IllustIdPath) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove the illustration from bookmarks.
+// (DELETE /illusts/{id}/bookmark)
+func (_ Unimplemented) DeleteBookmark(w http.ResponseWriter, r *http.Request, id IllustIdPath) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Add the illustration to the authenticated user's bookmarks.
+// (PUT /illusts/{id}/bookmark)
+func (_ Unimplemented) AddBookmark(w http.ResponseWriter, r *http.Request, id IllustIdPath) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Frame timing + zip URL for an animated illustration.
+// (GET /illusts/{id}/ugoira)
+func (_ Unimplemented) GetUgoiraMetadata(w http.ResponseWriter, r *http.Request, id IllustIdPath) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Search illustrations by keyword / tag.
+// (GET /search/illusts)
+func (_ Unimplemented) SearchIllusts(w http.ResponseWriter, r *http.Request, params SearchIllustsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Search users by display name or account.
+// (GET /search/users)
+func (_ Unimplemented) SearchUsers(w http.ResponseWriter, r *http.Request, params SearchUsersParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// A user's bookmarked illustrations (cursor paged by `max_bookmark_id`).
+// (GET /users/{id}/bookmarks)
+func (_ Unimplemented) ListUserBookmarks(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserBookmarksParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Unfollow a user.
+// (DELETE /users/{id}/follow)
+func (_ Unimplemented) DeleteFollow(w http.ResponseWriter, r *http.Request, id UserIdPath) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Follow a user.
+// (PUT /users/{id}/follow)
+func (_ Unimplemented) AddFollow(w http.ResponseWriter, r *http.Request, id UserIdPath) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Users that a user is following.
+// (GET /users/{id}/following)
+func (_ Unimplemented) ListUserFollowing(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserFollowingParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// A user's own illustrations.
+// (GET /users/{id}/illusts)
+func (_ Unimplemented) ListUserIllusts(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserIllustsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -48,11 +538,548 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Login(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAuthStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetAuthStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAuthStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListFollowingIllusts operation middleware
+func (siw *ServerInterfaceWrapper) ListFollowingIllusts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListFollowingIllustsParams
+
+	// ------------- Optional query parameter "restrict" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "restrict", r.URL.Query(), &params.Restrict, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "restrict", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListFollowingIllusts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRanking operation middleware
+func (siw *ServerInterfaceWrapper) ListRanking(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRankingParams
+
+	// ------------- Optional query parameter "mode" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "mode", r.URL.Query(), &params.Mode, runtime.BindQueryParameterOptions{Type: "", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mode", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "date" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "date", r.URL.Query(), &params.Date, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "date", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRanking(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRecommended operation middleware
+func (siw *ServerInterfaceWrapper) ListRecommended(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRecommendedParams
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "type", r.URL.Query(), &params.Type, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRecommended(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetIllust operation middleware
+func (siw *ServerInterfaceWrapper) GetIllust(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IllustIdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetIllust(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteBookmark operation middleware
+func (siw *ServerInterfaceWrapper) DeleteBookmark(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IllustIdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteBookmark(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddBookmark operation middleware
+func (siw *ServerInterfaceWrapper) AddBookmark(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IllustIdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddBookmark(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetUgoiraMetadata operation middleware
+func (siw *ServerInterfaceWrapper) GetUgoiraMetadata(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id IllustIdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUgoiraMetadata(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SearchIllusts operation middleware
+func (siw *ServerInterfaceWrapper) SearchIllusts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchIllustsParams
+
+	// ------------- Required query parameter "word" -------------
+
+	if paramValue := r.URL.Query().Get("word"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "word"})
+		return
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "word", r.URL.Query(), &params.Word, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "word", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search_target" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "search_target", r.URL.Query(), &params.SearchTarget, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search_target", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchIllusts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SearchUsers operation middleware
+func (siw *ServerInterfaceWrapper) SearchUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchUsersParams
+
+	// ------------- Required query parameter "word" -------------
+
+	if paramValue := r.URL.Query().Get("word"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "word"})
+		return
+	}
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "word", r.URL.Query(), &params.Word, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "word", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchUsers(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListUserBookmarks operation middleware
+func (siw *ServerInterfaceWrapper) ListUserBookmarks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id UserIdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListUserBookmarksParams
+
+	// ------------- Optional query parameter "restrict" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "restrict", r.URL.Query(), &params.Restrict, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "restrict", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "max_bookmark_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "max_bookmark_id", r.URL.Query(), &params.MaxBookmarkId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "max_bookmark_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUserBookmarks(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteFollow operation middleware
+func (siw *ServerInterfaceWrapper) DeleteFollow(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id UserIdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteFollow(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddFollow operation middleware
+func (siw *ServerInterfaceWrapper) AddFollow(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id UserIdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddFollow(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListUserFollowing operation middleware
+func (siw *ServerInterfaceWrapper) ListUserFollowing(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id UserIdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListUserFollowingParams
+
+	// ------------- Optional query parameter "restrict" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "restrict", r.URL.Query(), &params.Restrict, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "restrict", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUserFollowing(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListUserIllusts operation middleware
+func (siw *ServerInterfaceWrapper) ListUserIllusts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id UserIdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListUserIllustsParams
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "type", r.URL.Query(), &params.Type, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUserIllusts(w, r, id, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -176,7 +1203,58 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/login", wrapper.Login)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/logout", wrapper.Logout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/status", wrapper.GetAuthStatus)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/health", wrapper.GetHealth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/illusts/following", wrapper.ListFollowingIllusts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/illusts/ranking", wrapper.ListRanking)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/illusts/recommended", wrapper.ListRecommended)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/illusts/{id}", wrapper.GetIllust)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/illusts/{id}/bookmark", wrapper.DeleteBookmark)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/illusts/{id}/bookmark", wrapper.AddBookmark)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/illusts/{id}/ugoira", wrapper.GetUgoiraMetadata)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/search/illusts", wrapper.SearchIllusts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/search/users", wrapper.SearchUsers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/users/{id}/bookmarks", wrapper.ListUserBookmarks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/users/{id}/follow", wrapper.DeleteFollow)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/users/{id}/follow", wrapper.AddFollow)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/users/{id}/following", wrapper.ListUserFollowing)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/users/{id}/illusts", wrapper.ListUserIllusts)
 	})
 
 	return r
@@ -185,12 +1263,52 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/1SRMY/iMBCF/0r07sooyd527vaaOzokSkRhnIEMJLbPnkREKP/9ZAdYUfklnueZ980d",
-	"xg3eWbISoe6IpqNBZ/mXdC/dTrSM+dsH5ykI01r4+k83PfieoOCuKCGzTzpKYHvGspQI9G/kQC3U/mk7",
-	"vOrc8UJGsKRCtieXXmwpmsBe2FkobPnG028ei6M2V7Jt8bXdVKkRS+76uv/ablBiohBXY1N9VA2WEs6T",
-	"1Z6h8Fk11SdKeC1dHr7ucsokzyTpSCF1ar1pofCHZOWAlCN6Z+Oa/1fTpMM4K2SzUXvfs8nW+hLTBE+c",
-	"Sf0MdILCj/qbd/2AXb+RziTeCewoTGyo4Fis485VBhvHYdBhhnrsqjAdmbwDfY6Z9hyFBhzym5FCYgO1",
-	"v2MMPRRq7bmePrAclv8BAAD//8WucD8IAgAA",
+	"H4sIAAAAAAAC/+Rb+3PbNvL/V3b47cw3nerhtLmbO/cn5+GrZ+LEZydzk2lzMkSsRNQkwAKgLZ1H//vN",
+	"AiBFUqRkJ4oTX3+jSDz28dnFPqDbKFZZriRKa6LD2yhnmmVoUbtfJ2laGHvCz5hN6DdHE2uRW6FkdBid",
+	"iYW4BuHGaEYv4eTlKBpEgr7mNGcQSZZhdBgJHg0ijX8UQiOPDq0ucBCZOMGM0cIzpTNmaZy0f30WDaJM",
+	"SJEVWXT4dBDZZY7+E85RR6vVIBD2bpnjPwvUy03ajkVqUcN02aSPlhrByQxUJqxFPoCpsgkwjaDRFloi",
+	"h5sENYIp8lxpi7xi6A+3U8WRo6rOw3caZ9Fh9H/jtUTH/qsZr+l15J+yxXOlrjKmr054DwcvCm2UhpnS",
+	"kLO5kHOwiVbFPIFpmGrgyUyrDC4lLuwkY4tJ+WUi+CUICTZByDVeC1UY0GhyJQ1+38dRa4XocxT0djYz",
+	"aHtYO2NzBOVGOP5SYSyg5LkS0hqwCbNQmHLIcMoMci8Ep8U++v3wBtkcZ6xIbXR4MNjCwkEnC+dorBbx",
+	"momuPXUYdGcklKu6Ld4b1NutqzCoH8iqVrSUh4gz/ueMn+MfBRpLv2IlLUr3yPI8FbFTxfh3Q8Te3pH5",
+	"V1qrsFWT2RN5zVJBSi7dzyhaDaI36sV62+aMo9gZtCniGJEj/xmkgqniyzDRHqtC8i9P+TkaVegYQSoC",
+	"cyE5KAlOeY6S95IVNkFpaV98AILeKPCy9AAyaAzZDLxgaQqXZ28v3sGYSBqnai7kJcyENtaTmhurkWVf",
+	"nsaA7bDf2vUyCYXERY6xRQ5I00fOUMKKtOFRYZMLy2zhzyutctRWeMhuiDqAfKpUikwSk7jIhUYzYbZh",
+	"IZxZHFqRkUuXRZqyaYqlQYVFyG7lnNYgoyQH2WViPZMrMwuzvQHf7tprVTfvX1v8fayGq+nvSC5lEJXH",
+	"Ss1ymyKqHNZ9/NTGNl6zG4vHiuOmqZ6yOBEShxoZJ169YoEGk1/DBctykkBUtGylQ/QcLRPp5h5v3QNL",
+	"gXEuwqPD8MLCExzNR4M13MhLuENwY/UMjWHzDhZ+KTIm2wyE0R0rtdTmxLJevUtvxypN1c0X1tovyNJ+",
+	"4zHV+7VG1NVO5sK0LqZ81HOnwDFDyzizbAQXCcsRMkEiNpDT0LkandQGn8iZqgk97DeIFsO5GoaXffPq",
+	"w4YioxDPmaE/T8OsaODP2cNoLmxSTEexysZ2kaNOx+WQdRT60kHyPBydm9z+S7M8Rx/JMTBCzlMMzIOH",
+	"8whOO9ltrnw/lltU7Z/ts2AoTRB5vvyjxczcLTCO1mhlWrMl/e4KajeFe4EWlEyXFOlfjsm1mvGt4Ktx",
+	"FSRf/gw5MwamLL4CZuCyHSiTXD/BjTv6Qsi5QdYb8jshwrVqTcAAlAZaG8SMApZZoW2CLsLHT6KjZYyl",
+	"+Put0eUgZOOS4sByBnknJuesNnHtFV9ToLDFNc00mmRi1RXKTUm8VnI+TMU1lgHJWzrAIcwCN2sEF4hw",
+	"/uro5ekrZyaJuiGxqallQu72r00Sung/Z/JKyPlpOJ9K5jmjUP4GkdxcpqSLrTlbTjKWYnicYfhBwyZK",
+	"C0pD0vK3VupKYDWLROif9dO/1daq/fTrhRd+jcbjvFMH57UDoEpqoryYpiKmMzQwVL3ItbhmFjvXukCm",
+	"4+Qi+ID1ahQDTUh7tQXr79wzc4+5youUaf+lf493TM+xTTPTVrB0kjEbJ5OZ0hPL5qbOQ++ABYvt5msr",
+	"bIoTJvkkZh51g+gKlzdK807S3s+V0Ow0HDj9ftuPgydMiozCkeCzv6+dVW233b30XR13D2H7dN2UcG5N",
+	"NU2RZUwv+45hl7De4/gtx++dCe/MzIMcQmsn/4nR/q79nVbaTs1NHGz16DTvTOO1wJsO+JI6fwAGM7wB",
+	"4wK6gGCzTbthvfsouCRh3zoO63breD+ameR+j7tjpc7wBmA6VLjeYVODNF6QdXRb5HNRwPVPLm5AyeHo",
+	"7GQE58j40Ac8Wt1QMEk6phP1h6ouOJ65ZGL0mzxjNgHHlitxmjwVFlislTEwEykaKCRHDZekEzO+pCiK",
+	"q4wJ+fNvMnAMTHIwCdNYL8+AsWwJMUqrWSoMckhQ4+g3WTrkFhNHZyfRILpGbTyDB6OnowMSoMpRslxE",
+	"h9FPo4PRTwEfTg21MoXTv/LhB6HAx/PcxRf02csdjX2u+HJv9YtG4LNqapdQ1a6Y/XhwsLe9a2WOjgLK",
+	"UT1PHsG7BIHFMRrjAyoQpCBFKjOor1EPjaBkezWInnkau7aueBnXSn9uytPdU9p1rtUg+svBj3eYVxad",
+	"XJnHnz7RYfRqESdMzhFYM1T0WZRscvuEIJoTtowFYX1uT8FBKJlEH2nxCk6qsFvxRN83NPtsNyvramWT",
+	"l2NFUZArxseF1iitp9ubVpwi0+4jZdLo7HIbA+s0PYRWTfr/gbYGna8G0BeBUeeaPMmjlljOkY4IuEnQ",
+	"pUBOAg6spZTSJSQq5QZYqGjWld4josSVOLZJxxdBvqRkGmWWDtlcoL4WMZKRenKXbdH4FSBOML6q8WmW",
+	"xmIWOA1neXD2FNv2Mf1aGHtcjgqBk/Oz61bfr90crYeMm92Q1WDnhHoHaPXxC4q7Vo7oEHbFOMzQd5FK",
+	"P/jwTu0N3pQhGLjOnatXOOQ39vGhuFesqQO9CgYbCNA+ud2q/5AAb6q9sxHo65Vr8bM0fTvrRUlVfKwl",
+	"2aTxembpgqN2lBMmACWWICRcfvjw4cPw9HT48uXlCN5mwrcHST4ps2hsX+ePFmgQnDNrUdPIf/96MPz7",
+	"x9tnq6F/+HH98F1XYeGx4LqU3VcF9DHaOHH68SlkQOIdIIuxyjKU3Ldp+mFbG3dfj9W+I/CIdFty7Wvj",
+	"X1XFNQ2sfVcwyk2ntVvzt4Kvth3PJ2U98lOUHXrpD6C6Vnm9q6Vdb2+EOv/nKPHZ3ULQ0Pfei2F7qrsa",
+	"F7q6iLFb21Up3qe5KVrc1PxL977sXu5d/feL3h+Jks4xU9foLLHRS3OhRdX/6FbSIMqLDgM84nyfOth/",
+	"St7ub6827638j2r7iPNNVVvV44j/3+xCwIaZFq78vM03NwvU37CP7qmkd3jpUOSvSvqPx0OTWMGKzJcA",
+	"/yNyeH/+uiqPNHsWu9y1cd2aca1u3gkB39TpzSC7InPXhdl2Ry0T8jXKOeXsTzvD8a5VPb0T69tLd716",
+	"1+hJ9a+t9H2XdK20R5Q7eKpBoylSa+rx5aOoDQby69A2MF1CaPrBGCxr5CAeLk2su9R7B9LfuzEPhPNv",
+	"BTrtzkuX03SdwgaIHiF+fPFlugQuTJ6yJZAqgfxnHKtC2l4Edd0y2ZrFkryeVyPve2zWLgnfASf3rtN1",
+	"3EX/iq6pEpP3Sr132w0YdLVjOutUdYcGcCFMhcbHENW1o7XWmW3gSez/CEDscXfNqS2NRr/D+7UNoPpi",
+	"4u4MzJdLPwujf5Ls6730MgW2UfkoddCfZO1LzPtPsJoXUf886dXxLmV2GtSusjsprOpAfGue/1sKKdZt",
+	"ms+udj6sFwgdHGYDdOhoqrBxBxztyrlKFH1q3+5+GPqWa+bta199gWlZpX5cQKoCAXUjmxFAJ4hormuW",
+	"exAUOo0OozHLxfj6qVNDmFHdvwq9Y1JoeOO65rXfJRJrr/x2tRchDl59XP03AAD//1m+4qI5OgAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
