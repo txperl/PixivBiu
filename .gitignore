@@ -1,0 +1,19 @@
+# Build artifacts
+/bin/
+/dist/
+*.exe
+*.out
+*.test
+*.prof
+
+# Local config (keep config.example.yaml)
+/config.yaml
+/config.local.yaml
+
+# Logs
+*.log
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store

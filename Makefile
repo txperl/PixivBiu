@@ -1,0 +1,33 @@
+.PHONY: help gen run build test tidy fmt vet clean
+
+BIN      := bin/pixivbiu
+PKG      := ./cmd/server
+OAPI_CFG := api/cfg.yaml
+OAPI_SPEC:= api/openapi.yaml
+
+help:  ## Show this help
+	@awk 'BEGIN{FS=":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+gen:  ## Generate server code from OpenAPI spec
+	go tool oapi-codegen -config $(OAPI_CFG) $(OAPI_SPEC)
+
+run:  ## Run the server
+	go run $(PKG) -config ./config.yaml
+
+build:  ## Build server binary
+	CGO_ENABLED=0 go build -o $(BIN) $(PKG)
+
+test:  ## Run tests
+	go test ./...
+
+tidy:  ## Tidy go.mod
+	go mod tidy
+
+fmt:  ## Format code
+	go fmt ./...
+
+vet:  ## Run go vet
+	go vet ./...
+
+clean:  ## Remove build artifacts
+	rm -rf bin

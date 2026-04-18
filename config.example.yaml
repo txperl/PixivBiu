@@ -1,0 +1,17 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  timeouts:
+    read: 15s
+    write: 15s
+    shutdown: 10s
+
+log:
+  level: info   # debug | info | warn | error
+  format: text  # text | json
+
+# Environment overrides use PIXIVBIU_ prefix, underscores map to dots.
+# Examples:
+#   PIXIVBIU_SERVER_PORT=9090
+#   PIXIVBIU_LOG_LEVEL=debug
+#   PIXIVBIU_SERVER_TIMEOUTS_SHUTDOWN=20s
