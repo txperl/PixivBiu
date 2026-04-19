@@ -11,8 +11,8 @@ help:  ## Show this help
 gen:  ## Generate server code from the OpenAPI spec
 	go tool oapi-codegen -config $(OAPI_CFG) $(OAPI_SPEC)
 
-run:  ## Run the server
-	go run $(PKG) -config ./config.yaml
+dev:  ## Run the server
+	go run $(PKG) -config ./config.local.yaml
 
 build:  ## Build server binary
 	CGO_ENABLED=0 go build -o $(BIN) $(PKG)
