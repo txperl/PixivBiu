@@ -4,3 +4,15 @@ generate:
   chi-server: true
   models: true
   embedded-spec: true
+
+import-mapping:
+  # openapi.yaml 按 path 拆到了 paths/*.yaml，paths/*.yaml 又 $ref 回 ../openapi.yaml
+  # 的共享 schema。对 oapi-codegen 来说 ../openapi.yaml 算"外部文件"，需要显式声明；
+  # 值为 "-" 是 v2.4.0 起的 self-mapping，告诉生成器这些类型归属同一个 Go 包。
+  ../openapi.yaml: "-"
+
+output-options:
+  # 关闭"未引用 schema 剪枝"。self-mapping 下 paths/*.yaml 回跳的 $ref 被剪枝器
+  # 当成外部引用，会误删 IllustType/RankingMode/LoginRequest 等实际在用的类型，
+  # 生成文件会少 ~260 行并编译失败。代价仅是未来真正未引用的 schema 也会生成。
+  skip-prune: true
