@@ -21,7 +21,7 @@ The current state has a **framework skeleton plus a read-only + auth + bookmark/
 - **Router**: [chi v5](https://github.com/go-chi/chi) — lightweight, idiomatic HTTP router
 - **API codegen**: [oapi-codegen v2](https://github.com/oapi-codegen/oapi-codegen) — generates types + chi server interface from OpenAPI 3 spec. Installed as a `go tool` (Go 1.24+ tool directive).
 - **Config**: [koanf v2](https://github.com/knadh/koanf) — providers for confmap (defaults), file+yaml, env
-- **Logging**: standard library `log/slog` — structured, text/JSON output
+- **Logging**: `log/slog` (stdlib) + [go-chi/httplog v3](https://github.com/go-chi/httplog) — HTTP access logs go through httplog middleware; all events aligned to ECS schema (`SchemaECS` + `ReplaceAttr` on the slog handler)
 - **Decode hooks**: `github.com/go-viper/mapstructure/v2` (for `time.Duration` parsing)
 
 ### Frontend
@@ -145,8 +145,8 @@ The development loop:
 The generated `internal/api/server.gen.go` exports a function named `Handler(si ServerInterface) http.Handler`. To avoid a name collision, our handler struct is named **`APIHandler`**, not `Handler`:
 
 ```go
-type APIHandler struct { logger *slog.Logger }
-func NewHandler(logger *slog.Logger) *APIHandler { ... }
+type APIHandler struct { svc *pixiv.Service }
+func NewHandler(svc *pixiv.Service) *APIHandler { ... }
 ```
 
 When adding new handler files inside `internal/api/`, attach methods to `APIHandler`. Do not introduce another type named `Handler` in this package.
@@ -155,8 +155,8 @@ When adding new handler files inside `internal/api/`, attach methods to `APIHand
 
 - All handler methods live in `internal/api/handler.go` (or sibling files in the same package, grouped by domain once the surface grows).
 - Use the `writeJSON(w, status, v)` helper already defined in `handler.go` for JSON responses.
-- Access the logger via `h.logger`. Do not use `slog.Default()` inside handlers — the injected logger may carry request-scoped attributes in the future.
-- Return errors through proper HTTP status codes and JSON error bodies; do not `panic` (the `Recoverer` middleware will catch panics but that should be a safety net, not a flow-control tool).
+- To attach fields to the current request's log line, use `httplog.SetAttrs(r.Context(), ...)` (or `httplog.SetError(r.Context(), err)`). Handlers should **not** emit separate log events for per-request errors — let them roll into the single `http.request` entry. Use `slog.Default()` only outside HTTP request scope (startup/shutdown, background workers).
+- Return errors through proper HTTP status codes and JSON error bodies; do not `panic`. Panics are caught by `httplog.Options.RecoverPanics=true` and logged as structured Error events with `error.message` + `error.stack_trace`, but that's a safety net, not a flow-control tool.
 
 ### Configuration
 
@@ -173,22 +173,25 @@ Precedence (low → high): **defaults → `config.yaml` → environment variable
 
 ### Logging
 
-- Use `log/slog` — no third-party logger.
-- Level values (case-insensitive): `debug`, `info`, `warn`, `error`.
-- Format values: `text` (default), `json`.
-- Inside handlers, use the `h.logger` injected at construction. Outside of request paths, use `slog.Default()` — it's set globally in `main.run()` after config load.
-- Request-level attributes (method, path, status, duration, request_id, remote) are emitted by the `requestLogger` middleware in `internal/server/server.go`. Do not duplicate those fields in handler logs.
+- **Underlying library**: standard library `log/slog`. HTTP request logs go through [go-chi/httplog v3](https://github.com/go-chi/httplog) middleware, which emits via the same `*slog.Logger`.
+- **Schema**: All events (HTTP + non-HTTP) align to ECS (Elastic Common Schema). `httplog.SchemaECS.ReplaceAttr` is wired into the `slog.HandlerOptions` in `cmd/server/main.go::newLogger`, so `time→@timestamp`, `level→log.level`, `msg→message`, `error→error.message` across all events.
+- **Level**: case-insensitive `debug` / `info` / `warn` / `error` (configured via `log.level`). httplog additionally **auto-levels** requests by response status: 5xx→Error, 4xx→Warn (except 429→Info), OPTIONS→Debug, otherwise Info.
+- **Format**: `text` (default) or `json` (`log.format`).
+- **Inside HTTP handlers**: add fields to the current request's log line via `httplog.SetAttrs(r.Context(), slog.String(...))` or `httplog.SetError(r.Context(), err)`. Do not emit standalone `h.logger.Warn("api error", ...)` events — `writeError` already attaches `error.message` and `error.type` to the request entry.
+- **Outside HTTP scope** (`cmd/server/main.go`, `internal/pixiv/service.go` background loop): use `slog.Default()` or the injected `*slog.Logger`. Use `slog.Any("error", err)` instead of `slog.String("err", err.Error())` so `ReplaceAttr` can normalize the key to `error.message`.
+- **Request-level fields** (`http.request.method`, `url.path`, `http.response.status_code`, `event.duration`, `client.ip`, `request_id`, …) are emitted by `httplog.RequestLogger` in `internal/server/server.go`. Do not duplicate these in handler logs.
 
 ### Middleware
 
 Middleware order in `internal/server/server.go` is significant:
 
 ```
-RequestID → RealIP → Recoverer → requestLogger → (generated routes)
+RequestID → RealIP → httplog.RequestLogger → (generated routes)
 ```
 
-- Add new middleware **after** `Recoverer` so panics in new middleware are caught.
-- Add new middleware **before** `requestLogger` only if you need the log line to reflect its effect.
+- `httplog.RequestLogger` is configured with `RecoverPanics: true` and replaces the previous `middleware.Recoverer`. Do **not** add `middleware.Recoverer` back — you'd double-recover and lose httplog's structured panic log.
+- Add new middleware **after** `httplog.RequestLogger` so any panic it causes is still caught and logged.
+- Add new middleware **before** `httplog.RequestLogger` only if you need the effect to be visible in the request log line (e.g. a middleware that rewrites `r.URL.Path` or attaches a user id via `httplog.SetAttrs`).
 - Do not reorder existing middleware without understanding the impact on request IDs and panic recovery.
 
 ### Graceful Shutdown

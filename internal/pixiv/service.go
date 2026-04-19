@@ -72,7 +72,7 @@ func (s *Service) Start(ctx context.Context) {
 	if rt := s.refreshToken(); rt != "" {
 		if _, err := s.refresh(ctx, rt); err != nil {
 			s.logger.Warn("initial pixiv auth failed; continuing unauthenticated",
-				slog.String("err", err.Error()))
+				slog.Any("error", err))
 		}
 	}
 
@@ -146,7 +146,7 @@ func (s *Service) refresh(ctx context.Context, refreshToken string) (state.Token
 	s.mu.Unlock()
 
 	if err := s.store.Save(tok); err != nil {
-		s.logger.Error("persist token failed", slog.String("err", err.Error()))
+		s.logger.Error("persist token failed", slog.Any("error", err))
 		return tok, fmt.Errorf("persist token: %w", err)
 	}
 	s.logger.Info("pixiv token refreshed",
@@ -187,7 +187,7 @@ func (s *Service) loop(ctx context.Context) {
 		}
 		if _, err := s.refresh(ctx, tok.RefreshToken); err != nil {
 			s.logger.Warn("pixiv token refresh failed; will retry",
-				slog.String("err", err.Error()))
+				slog.Any("error", err))
 		}
 	}
 }

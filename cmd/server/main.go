@@ -15,6 +15,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/go-chi/httplog/v3"
+
 	"github.com/txperl/PixivBiu/internal/api"
 	"github.com/txperl/PixivBiu/internal/config"
 	"github.com/txperl/PixivBiu/internal/pixiv"
@@ -61,7 +63,7 @@ func run() error {
 	svc.Start(ctx)
 	defer svc.Shutdown()
 
-	handler := api.NewHandler(logger, svc)
+	handler := api.NewHandler(svc)
 	httpHandler := server.New(cfg, logger, handler)
 
 	addr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
@@ -76,7 +78,7 @@ func run() error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		logger.Info("server starting", slog.String("addr", addr))
+		logger.Info("server starting", slog.String("server.address", addr))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -134,7 +136,7 @@ func printBanner(cfg *config.Config, svc *pixiv.Service, addr string) {
 
 	const banner = `
 ───────────────────────────────────────────────────────────────
- PixivBiu-go  %s   (%s %s/%s)
+ PixivBiu     %s (%s %s/%s)
  Listening    %s
 
    API      %s/api/v1
@@ -145,10 +147,13 @@ func printBanner(cfg *config.Config, svc *pixiv.Service, addr string) {
    Auth     %s
    State    %s
    Proxy    %s
-   Lang     %s    SNI-bypass  %s
+
+   @Lang:%s @SNI-bypass:%s
+
+ Go!
 ───────────────────────────────────────────────────────────────
 `
-	fmt.Fprintf(os.Stderr, banner,
+	fmt.Fprintf(os.Stderr, strings.TrimSpace(banner)+"\n",
 		version, runtime.Version(), runtime.GOOS, runtime.GOARCH,
 		addr,
 		base, base, base, base,
@@ -162,7 +167,10 @@ func newLogger(cfg config.LogConfig) (*slog.Logger, error) {
 		return nil, fmt.Errorf("invalid log level %q: %w", cfg.Level, err)
 	}
 
-	opts := &slog.HandlerOptions{Level: level}
+	opts := &slog.HandlerOptions{
+		Level:       level,
+		ReplaceAttr: httplog.SchemaECS.ReplaceAttr,
+	}
 	var handler slog.Handler
 	switch strings.ToLower(cfg.Format) {
 	case "json":

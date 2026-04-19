@@ -6,18 +6,18 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/go-chi/httplog/v3"
 	"github.com/txperl/pixivgo"
 
 	"github.com/txperl/PixivBiu/internal/pixiv"
 )
 
 type APIHandler struct {
-	logger *slog.Logger
-	svc    *pixiv.Service
+	svc *pixiv.Service
 }
 
-func NewHandler(logger *slog.Logger, svc *pixiv.Service) *APIHandler {
-	return &APIHandler{logger: logger, svc: svc}
+func NewHandler(svc *pixiv.Service) *APIHandler {
+	return &APIHandler{svc: svc}
 }
 
 var _ ServerInterface = (*APIHandler)(nil)
@@ -32,14 +32,15 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// writeError classifies err, logs, and writes a JSON error body with the
-// appropriate HTTP status.
-func (h *APIHandler) writeError(w http.ResponseWriter, err error) {
+// writeError classifies err, attaches error.message + error.type to the
+// current request's httplog entry (via context), and writes a JSON error
+// body with the appropriate HTTP status. No separate log event is emitted —
+// httplog rolls the error into the single http.request log line and
+// auto-levels it (4xx→Warn, 5xx→Error).
+func (h *APIHandler) writeError(w http.ResponseWriter, r *http.Request, err error) {
 	code, status, detail := classify(err)
-	h.logger.Warn("api error",
-		slog.String("code", code),
-		slog.Int("status", status),
-		slog.String("err", err.Error()))
+	httplog.SetError(r.Context(), err)
+	httplog.SetAttrs(r.Context(), slog.String("error.type", code))
 	body := Error{Code: code, Message: err.Error()}
 	if detail != "" {
 		body.Detail = &detail

@@ -13,16 +13,16 @@ import (
 func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
-		h.writeError(w, err)
+		h.writeError(w, r, err)
 		return
 	}
 	if req.RefreshToken == "" {
-		h.writeError(w, pixiv.ErrNoRefreshToken)
+		h.writeError(w, r, pixiv.ErrNoRefreshToken)
 		return
 	}
 	tok, err := h.svc.Login(r.Context(), req.RefreshToken)
 	if err != nil {
-		h.writeError(w, err)
+		h.writeError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, makeAuthStatus(tok))
@@ -30,7 +30,7 @@ func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *APIHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Logout(); err != nil {
-		h.writeError(w, err)
+		h.writeError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
