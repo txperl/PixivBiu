@@ -1,0 +1,67 @@
+root:
+  post:
+    operationId: submitDownload
+    summary: Create a download job for a Pixiv illustration.
+    description: |
+      Resolves the illust on Pixiv, builds one task per page (or one
+      per ugoira zip), enqueues the work, and returns the Job. The
+      response is `202 Accepted`; the client follows progress via
+      the `download` topic on `GET /events`.
+    tags: [downloads]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/SubmitDownloadRequest' }
+    responses:
+      '202':
+        description: Job accepted.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/DownloadJob' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+  get:
+    operationId: listDownloads
+    summary: List download jobs, newest first.
+    tags: [downloads]
+    responses:
+      '200':
+        description: Jobs list.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/DownloadJobList' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+
+byId:
+  get:
+    operationId: getDownload
+    summary: Fetch one download job by ID.
+    tags: [downloads]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/DownloadIdPath'
+    responses:
+      '200':
+        description: The job.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/DownloadJob' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+  delete:
+    operationId: cancelDownload
+    summary: Cancel all non-terminal tasks in a job.
+    tags: [downloads]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/DownloadIdPath'
+    responses:
+      '204': { $ref: '../openapi.yaml#/components/responses/NoContent' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409':
+        description: Job is already in a terminal state.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/Error' }

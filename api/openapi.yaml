@@ -15,6 +15,8 @@ tags:
   - name: illusts
   - name: users
   - name: search
+  - name: downloads
+  - name: events
 
 paths:
   /health:
@@ -63,6 +65,14 @@ paths:
   /search/users:
     $ref: './paths/search.yaml#/users'
 
+  /downloads:
+    $ref: './paths/downloads.yaml#/root'
+  /downloads/{id}:
+    $ref: './paths/downloads.yaml#/byId'
+
+  /events:
+    $ref: './paths/events.yaml#/stream'
+
 components:
   parameters:
     IllustIdPath:
@@ -100,6 +110,12 @@ components:
       required: false
       description: Filter by illustration type. If omitted, both are returned where supported.
       schema: { $ref: '#/components/schemas/IllustType' }
+    DownloadIdPath:
+      name: id
+      in: path
+      required: true
+      description: Download job identifier returned by `POST /downloads`.
+      schema: { type: string, minLength: 1 }
 
   responses:
     NoContent:
@@ -301,3 +317,61 @@ components:
         path: github.com/txperl/pixivgo
       type: object
       description: Ugoira (animated illust) metadata. Mirrors pixivgo.UgoiraMetadataResponse.
+
+    DownloadStatus:
+      type: string
+      description: Lifecycle state of a download job or task.
+      enum: [queued, running, completed, failed, cancelled]
+
+    DownloadIllustType:
+      type: string
+      description: Pixiv artwork type the job was created for.
+      enum: [illust, manga, ugoira]
+
+    DownloadTask:
+      type: object
+      required: [id, job_id, url, file_path, status, size_bytes, downloaded_bytes]
+      properties:
+        id:               { type: string }
+        job_id:           { type: string }
+        url:              { type: string, description: "Final request URL (after pximg mirror rewrite)." }
+        file_path:        { type: string, description: "Target path on disk." }
+        status:           { $ref: '#/components/schemas/DownloadStatus' }
+        size_bytes:       { type: integer, format: int64, description: "Content-Length, or -1 if unknown." }
+        downloaded_bytes: { type: integer, format: int64 }
+        error:            { type: string, nullable: true }
+        started_at:       { type: string, format: date-time, nullable: true }
+        finished_at:      { type: string, format: date-time, nullable: true }
+
+    DownloadJob:
+      type: object
+      required: [id, illust_id, illust_type, status, created_at, updated_at, tasks]
+      properties:
+        id:          { type: string }
+        illust_id:   { type: integer, format: int64 }
+        illust_type: { $ref: '#/components/schemas/DownloadIllustType' }
+        title:       { type: string }
+        status:      { $ref: '#/components/schemas/DownloadStatus' }
+        created_at:  { type: string, format: date-time }
+        updated_at:  { type: string, format: date-time }
+        tasks:
+          type: array
+          items: { $ref: '#/components/schemas/DownloadTask' }
+
+    DownloadJobList:
+      type: object
+      required: [jobs]
+      properties:
+        jobs:
+          type: array
+          items: { $ref: '#/components/schemas/DownloadJob' }
+
+    SubmitDownloadRequest:
+      type: object
+      required: [illust_id]
+      properties:
+        illust_id:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Pixiv illustration ID.

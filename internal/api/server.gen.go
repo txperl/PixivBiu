@@ -20,6 +20,54 @@ import (
 	pixivgo "github.com/txperl/pixivgo"
 )
 
+// Defines values for DownloadIllustType.
+const (
+	DownloadIllustTypeIllust DownloadIllustType = "illust"
+	DownloadIllustTypeManga  DownloadIllustType = "manga"
+	DownloadIllustTypeUgoira DownloadIllustType = "ugoira"
+)
+
+// Valid indicates whether the value is a known member of the DownloadIllustType enum.
+func (e DownloadIllustType) Valid() bool {
+	switch e {
+	case DownloadIllustTypeIllust:
+		return true
+	case DownloadIllustTypeManga:
+		return true
+	case DownloadIllustTypeUgoira:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DownloadStatus.
+const (
+	Cancelled DownloadStatus = "cancelled"
+	Completed DownloadStatus = "completed"
+	Failed    DownloadStatus = "failed"
+	Queued    DownloadStatus = "queued"
+	Running   DownloadStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the DownloadStatus enum.
+func (e DownloadStatus) Valid() bool {
+	switch e {
+	case Cancelled:
+		return true
+	case Completed:
+		return true
+	case Failed:
+		return true
+	case Queued:
+		return true
+	case Running:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IllustType.
 const (
 	IllustTypeIllust IllustType = "illust"
@@ -165,6 +213,55 @@ type BookmarkRequest struct {
 	Restrict *Restrict `json:"restrict,omitempty"`
 }
 
+// DownloadIllustType Pixiv artwork type the job was created for.
+type DownloadIllustType string
+
+// DownloadJob defines model for DownloadJob.
+type DownloadJob struct {
+	CreatedAt time.Time `json:"created_at"`
+	Id        string    `json:"id"`
+	IllustId  int64     `json:"illust_id"`
+
+	// IllustType Pixiv artwork type the job was created for.
+	IllustType DownloadIllustType `json:"illust_type"`
+
+	// Status Lifecycle state of a download job or task.
+	Status    DownloadStatus `json:"status"`
+	Tasks     []DownloadTask `json:"tasks"`
+	Title     *string        `json:"title,omitempty"`
+	UpdatedAt time.Time      `json:"updated_at"`
+}
+
+// DownloadJobList defines model for DownloadJobList.
+type DownloadJobList struct {
+	Jobs []DownloadJob `json:"jobs"`
+}
+
+// DownloadStatus Lifecycle state of a download job or task.
+type DownloadStatus string
+
+// DownloadTask defines model for DownloadTask.
+type DownloadTask struct {
+	DownloadedBytes int64   `json:"downloaded_bytes"`
+	Error           *string `json:"error,omitempty"`
+
+	// FilePath Target path on disk.
+	FilePath   string     `json:"file_path"`
+	FinishedAt *time.Time `json:"finished_at,omitempty"`
+	Id         string     `json:"id"`
+	JobId      string     `json:"job_id"`
+
+	// SizeBytes Content-Length, or -1 if unknown.
+	SizeBytes int64      `json:"size_bytes"`
+	StartedAt *time.Time `json:"started_at,omitempty"`
+
+	// Status Lifecycle state of a download job or task.
+	Status DownloadStatus `json:"status"`
+
+	// Url Final request URL (after pximg mirror rewrite).
+	Url string `json:"url"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	// Code Machine-readable error code.
@@ -225,6 +322,12 @@ type SearchSort string
 // SearchTarget defines model for SearchTarget.
 type SearchTarget string
 
+// SubmitDownloadRequest defines model for SubmitDownloadRequest.
+type SubmitDownloadRequest struct {
+	// IllustId Pixiv illustration ID.
+	IllustId int64 `json:"illust_id"`
+}
+
 // UgoiraMetadataResponse Ugoira (animated illust) metadata. Mirrors pixivgo.UgoiraMetadataResponse.
 type UgoiraMetadataResponse = pixivgo.UgoiraMetadataResponse
 
@@ -248,6 +351,9 @@ type UserPreviewPage struct {
 	NextOffset   *int64        `json:"next_offset,omitempty"`
 	UserPreviews []UserPreview `json:"user_previews"`
 }
+
+// DownloadIdPath defines model for DownloadIdPath.
+type DownloadIdPath = string
 
 // IllustIdPath defines model for IllustIdPath.
 type IllustIdPath = int64
@@ -278,6 +384,13 @@ type Unauthenticated = Error
 
 // Upstream defines model for Upstream.
 type Upstream = Error
+
+// GetEventsParams defines parameters for GetEvents.
+type GetEventsParams struct {
+	// Topics Comma-separated topic filter (e.g. `download,system`).
+	// Omit for all topics.
+	Topics *string `form:"topics,omitempty" json:"topics,omitempty"`
+}
 
 // ListFollowingIllustsParams defines parameters for ListFollowingIllusts.
 type ListFollowingIllustsParams struct {
@@ -353,6 +466,9 @@ type ListUserIllustsParams struct {
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
+// SubmitDownloadJSONRequestBody defines body for SubmitDownload for application/json ContentType.
+type SubmitDownloadJSONRequestBody = SubmitDownloadRequest
+
 // AddBookmarkJSONRequestBody defines body for AddBookmark for application/json ContentType.
 type AddBookmarkJSONRequestBody = BookmarkRequest
 
@@ -370,6 +486,21 @@ type ServerInterface interface {
 	// Report whether the server currently holds a valid access token.
 	// (GET /auth/status)
 	GetAuthStatus(w http.ResponseWriter, r *http.Request)
+	// List download jobs, newest first.
+	// (GET /downloads)
+	ListDownloads(w http.ResponseWriter, r *http.Request)
+	// Create a download job for a Pixiv illustration.
+	// (POST /downloads)
+	SubmitDownload(w http.ResponseWriter, r *http.Request)
+	// Cancel all non-terminal tasks in a job.
+	// (DELETE /downloads/{id})
+	CancelDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath)
+	// Fetch one download job by ID.
+	// (GET /downloads/{id})
+	GetDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath)
+	// Subscribe to the server event stream (Server-Sent Events).
+	// (GET /events)
+	GetEvents(w http.ResponseWriter, r *http.Request, params GetEventsParams)
 	// Health check
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -436,6 +567,36 @@ func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
 // Report whether the server currently holds a valid access token.
 // (GET /auth/status)
 func (_ Unimplemented) GetAuthStatus(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List download jobs, newest first.
+// (GET /downloads)
+func (_ Unimplemented) ListDownloads(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a download job for a Pixiv illustration.
+// (POST /downloads)
+func (_ Unimplemented) SubmitDownload(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Cancel all non-terminal tasks in a job.
+// (DELETE /downloads/{id})
+func (_ Unimplemented) CancelDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Fetch one download job by ID.
+// (GET /downloads/{id})
+func (_ Unimplemented) GetDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Subscribe to the server event stream (Server-Sent Events).
+// (GET /events)
+func (_ Unimplemented) GetEvents(w http.ResponseWriter, r *http.Request, params GetEventsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -571,6 +732,111 @@ func (siw *ServerInterfaceWrapper) GetAuthStatus(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAuthStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListDownloads operation middleware
+func (siw *ServerInterfaceWrapper) ListDownloads(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDownloads(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SubmitDownload operation middleware
+func (siw *ServerInterfaceWrapper) SubmitDownload(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SubmitDownload(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelDownload operation middleware
+func (siw *ServerInterfaceWrapper) CancelDownload(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id DownloadIdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelDownload(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDownload operation middleware
+func (siw *ServerInterfaceWrapper) GetDownload(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "id" -------------
+	var id DownloadIdPath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", chi.URLParam(r, "id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDownload(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEvents operation middleware
+func (siw *ServerInterfaceWrapper) GetEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetEventsParams
+
+	// ------------- Optional query parameter "topics" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "topics", r.URL.Query(), &params.Topics, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "topics", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEvents(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1212,6 +1478,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/auth/status", wrapper.GetAuthStatus)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/downloads", wrapper.ListDownloads)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/downloads", wrapper.SubmitDownload)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/downloads/{id}", wrapper.CancelDownload)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/downloads/{id}", wrapper.GetDownload)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/events", wrapper.GetEvents)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/health", wrapper.GetHealth)
 	})
 	r.Group(func(r chi.Router) {
@@ -1263,52 +1544,72 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

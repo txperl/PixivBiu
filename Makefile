@@ -12,7 +12,7 @@ gen:  ## Generate server code from the OpenAPI spec
 	go tool oapi-codegen -config $(OAPI_CFG) $(OAPI_SPEC)
 
 dev:  ## Run the server
-	go run $(PKG) -config ./config.local.yaml
+	go run $(PKG) -config ./config.yaml
 
 build:  ## Build server binary
 	CGO_ENABLED=0 go build -o $(BIN) $(PKG)

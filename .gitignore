@@ -1,12 +1,14 @@
 # Created by https://www.toptal.com/developers/gitignore/api/windows,macos,linux,go
 # Edit at https://www.toptal.com/developers/gitignore?templates=windows,macos,linux,go
 
-# Local config (keep config.example.yaml)
+/bin
+
+# Local config
 /config.yaml
-/config.local.yaml
 
 # User data
 /usr
+/downloads
 
 ### Go ###
 # If you prefer the allow list template instead of the deny list, see community template:

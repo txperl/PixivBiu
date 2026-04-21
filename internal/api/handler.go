@@ -3,21 +3,28 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/httplog/v3"
 	"github.com/txperl/pixivgo"
 
+	"github.com/txperl/PixivBiu/internal/download"
+	"github.com/txperl/PixivBiu/internal/inbox"
 	"github.com/txperl/PixivBiu/internal/pixiv"
 )
 
 type APIHandler struct {
-	svc *pixiv.Service
+	svc       *pixiv.Service
+	hub       *inbox.Hub
+	dl        *download.Manager
+	heartbeat time.Duration
 }
 
-func NewHandler(svc *pixiv.Service) *APIHandler {
-	return &APIHandler{svc: svc}
+func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, heartbeat time.Duration) *APIHandler {
+	return &APIHandler{svc: svc, hub: hub, dl: dl, heartbeat: heartbeat}
 }
 
 var _ ServerInterface = (*APIHandler)(nil)
@@ -53,7 +60,23 @@ func classify(err error) (code string, status int, detail string) {
 	case errors.Is(err, pixiv.ErrNotAuthenticated),
 		errors.Is(err, pixivgo.ErrAuthRequired):
 		return "unauthenticated", http.StatusUnauthorized, ""
-	case errors.Is(err, pixiv.ErrNoRefreshToken):
+	case errors.Is(err, pixiv.ErrNoRefreshToken),
+		errors.Is(err, download.ErrInvalidIllust):
+		return "bad_request", http.StatusBadRequest, ""
+	case errors.Is(err, download.ErrNotFound):
+		return "not_found", http.StatusNotFound, ""
+	case errors.Is(err, download.ErrAlreadyTerminal):
+		return "conflict", http.StatusConflict, ""
+	}
+	// Malformed JSON request bodies surface as these typed errors from
+	// encoding/json; classify them as client errors instead of 500.
+	var (
+		jsonSyntax    *json.SyntaxError
+		jsonUnmarshal *json.UnmarshalTypeError
+	)
+	if errors.As(err, &jsonSyntax) ||
+		errors.As(err, &jsonUnmarshal) ||
+		errors.Is(err, io.ErrUnexpectedEOF) {
 		return "bad_request", http.StatusBadRequest, ""
 	}
 	var pe *pixivgo.PixivError

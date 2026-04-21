@@ -19,6 +19,8 @@ import (
 
 	"github.com/txperl/PixivBiu/internal/api"
 	"github.com/txperl/PixivBiu/internal/config"
+	"github.com/txperl/PixivBiu/internal/download"
+	"github.com/txperl/PixivBiu/internal/inbox"
 	"github.com/txperl/PixivBiu/internal/pixiv"
 	"github.com/txperl/PixivBiu/internal/server"
 	"github.com/txperl/PixivBiu/internal/state"
@@ -63,7 +65,18 @@ func run() error {
 	svc.Start(ctx)
 	defer svc.Shutdown()
 
-	handler := api.NewHandler(svc)
+	hub := inbox.NewHub(cfg.Inbox.BufferSize)
+
+	dlStore := download.NewStore(cfg.Download.StoreFile)
+	dlPub := download.NewPublisher(hub, cfg.Inbox.ProgressThrottle)
+	dlMgr, err := download.NewManager(cfg.Download, cfg.Pixiv.Proxy, logger, svc, dlStore, dlPub)
+	if err != nil {
+		return fmt.Errorf("init download manager: %w", err)
+	}
+	dlMgr.Start(ctx)
+	defer dlMgr.Shutdown()
+
+	handler := api.NewHandler(svc, hub, dlMgr, cfg.Inbox.Heartbeat)
 	httpHandler := server.New(cfg, logger, handler)
 
 	addr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))

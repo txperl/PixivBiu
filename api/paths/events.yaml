@@ -1,0 +1,37 @@
+stream:
+  get:
+    operationId: getEvents
+    summary: Subscribe to the server event stream (Server-Sent Events).
+    description: |
+      Long-lived `text/event-stream` connection. Events are typed
+      envelopes `{id, ts, topic, type, data}` emitted by internal
+      subsystems (downloads, auth, system). The client may filter
+      topics via the `topics` query parameter; if omitted, every
+      topic is delivered.
+
+      Reconnect behaviour follows the standard SSE semantics. If the
+      client sends a `Last-Event-ID` header and the ring buffer
+      still holds newer events, the server replays them before
+      resuming live delivery. If the ID has been evicted, the server
+      first sends a single `system.resync` event so the client
+      knows to re-fetch authoritative state via the REST endpoints.
+    tags: [events]
+    parameters:
+      - name: topics
+        in: query
+        required: false
+        description: |
+          Comma-separated topic filter (e.g. `download,system`).
+          Omit for all topics.
+        schema:
+          type: string
+          example: download,system
+    responses:
+      '200':
+        description: Open event stream.
+        content:
+          text/event-stream:
+            schema:
+              type: string
+              description: Server-Sent Events frames.
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
