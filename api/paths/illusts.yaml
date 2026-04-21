@@ -1,7 +1,7 @@
 byId:
   get:
     operationId: getIllust
-    summary: Fetch detail for a single illustration.
+    summary: Get illust detail
     tags: [illusts]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/IllustIdPath'
@@ -18,7 +18,7 @@ byId:
 ranking:
   get:
     operationId: listRanking
-    summary: Fetch the Pixiv ranking.
+    summary: List ranked illusts
     tags: [illusts]
     parameters:
       - name: mode
@@ -46,7 +46,7 @@ ranking:
 recommended:
   get:
     operationId: listRecommended
-    summary: Recommended illusts for the authenticated user.
+    summary: List recommended illusts
     tags: [illusts]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/IllustTypeQuery'
@@ -63,7 +63,7 @@ recommended:
 following:
   get:
     operationId: listFollowingIllusts
-    summary: New illusts from users the authenticated user follows.
+    summary: List illusts from followed users
     tags: [illusts]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/RestrictQuery'
@@ -80,7 +80,11 @@ following:
 ugoira:
   get:
     operationId: getUgoiraMetadata
-    summary: Frame timing + zip URL for an animated illustration.
+    summary: Get ugoira metadata
+    description: |
+      Returns the frame-timing manifest and the zip URL packaging
+      each frame. Used by clients to render Pixiv's animated
+      illustrations.
     tags: [illusts]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/IllustIdPath'
@@ -97,7 +101,7 @@ ugoira:
 bookmark:
   put:
     operationId: addBookmark
-    summary: Add the illustration to the authenticated user's bookmarks.
+    summary: Bookmark an illust
     tags: [illusts]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/IllustIdPath'
@@ -113,7 +117,7 @@ bookmark:
       '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
   delete:
     operationId: deleteBookmark
-    summary: Remove the illustration from bookmarks.
+    summary: Remove an illust bookmark
     tags: [illusts]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/IllustIdPath'

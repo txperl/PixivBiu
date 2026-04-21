@@ -1,7 +1,11 @@
 login:
   post:
     operationId: login
-    summary: Exchange a refresh token for an access token (and persist it).
+    summary: Log in with a refresh token
+    description: |
+      Exchanges the Pixiv OAuth refresh token for a short-lived access
+      token and persists it server-side; subsequent authenticated
+      endpoints reuse that stored session.
     tags: [auth]
     requestBody:
       required: true
@@ -21,7 +25,8 @@ login:
 logout:
   post:
     operationId: logout
-    summary: Forget the current tokens and clear the state file.
+    summary: Log out the current session
+    description: Clears the persisted tokens and removes the on-disk state file. Idempotent.
     tags: [auth]
     responses:
       '204': { $ref: '../openapi.yaml#/components/responses/NoContent' }
@@ -29,7 +34,7 @@ logout:
 status:
   get:
     operationId: getAuthStatus
-    summary: Report whether the server currently holds a valid access token.
+    summary: Get current auth status
     tags: [auth]
     responses:
       '200':

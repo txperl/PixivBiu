@@ -394,9 +394,10 @@ type GetEventsParams struct {
 
 // ListFollowingIllustsParams defines parameters for ListFollowingIllusts.
 type ListFollowingIllustsParams struct {
+	// Restrict Visibility scope (public or private).
 	Restrict *RestrictQuery `form:"restrict,omitempty" json:"restrict,omitempty"`
 
-	// Offset Page offset for list endpoints that use offset-based pagination.
+	// Offset Offset for offset-paginated list endpoints.
 	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
@@ -407,16 +408,16 @@ type ListRankingParams struct {
 	// Date Ranking date in `YYYY-MM-DD`. Omit for the latest.
 	Date *string `form:"date,omitempty" json:"date,omitempty"`
 
-	// Offset Page offset for list endpoints that use offset-based pagination.
+	// Offset Offset for offset-paginated list endpoints.
 	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // ListRecommendedParams defines parameters for ListRecommended.
 type ListRecommendedParams struct {
-	// Type Filter by illustration type. If omitted, both are returned where supported.
+	// Type Illust type filter; both are returned when omitted (where supported).
 	Type *IllustTypeQuery `form:"type,omitempty" json:"type,omitempty"`
 
-	// Offset Page offset for list endpoints that use offset-based pagination.
+	// Offset Offset for offset-paginated list endpoints.
 	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
@@ -426,7 +427,7 @@ type SearchIllustsParams struct {
 	SearchTarget *SearchTarget `form:"search_target,omitempty" json:"search_target,omitempty"`
 	Sort         *SearchSort   `form:"sort,omitempty" json:"sort,omitempty"`
 
-	// Offset Page offset for list endpoints that use offset-based pagination.
+	// Offset Offset for offset-paginated list endpoints.
 	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
@@ -434,32 +435,34 @@ type SearchIllustsParams struct {
 type SearchUsersParams struct {
 	Word string `form:"word" json:"word"`
 
-	// Offset Page offset for list endpoints that use offset-based pagination.
+	// Offset Offset for offset-paginated list endpoints.
 	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // ListUserBookmarksParams defines parameters for ListUserBookmarks.
 type ListUserBookmarksParams struct {
+	// Restrict Visibility scope (public or private).
 	Restrict *RestrictQuery `form:"restrict,omitempty" json:"restrict,omitempty"`
 
-	// MaxBookmarkId Cursor for paging through bookmarks (from `next_max_bookmark_id` in the previous response).
+	// MaxBookmarkId Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response.
 	MaxBookmarkId *MaxBookmarkIdQuery `form:"max_bookmark_id,omitempty" json:"max_bookmark_id,omitempty"`
 }
 
 // ListUserFollowingParams defines parameters for ListUserFollowing.
 type ListUserFollowingParams struct {
+	// Restrict Visibility scope (public or private).
 	Restrict *RestrictQuery `form:"restrict,omitempty" json:"restrict,omitempty"`
 
-	// Offset Page offset for list endpoints that use offset-based pagination.
+	// Offset Offset for offset-paginated list endpoints.
 	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // ListUserIllustsParams defines parameters for ListUserIllusts.
 type ListUserIllustsParams struct {
-	// Type Filter by illustration type. If omitted, both are returned where supported.
+	// Type Illust type filter; both are returned when omitted (where supported).
 	Type *IllustTypeQuery `form:"type,omitempty" json:"type,omitempty"`
 
-	// Offset Page offset for list endpoints that use offset-based pagination.
+	// Offset Offset for offset-paginated list endpoints.
 	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
@@ -477,73 +480,73 @@ type AddFollowJSONRequestBody = FollowRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Exchange a refresh token for an access token (and persist it).
+	// Log in with a refresh token
 	// (POST /auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
-	// Forget the current tokens and clear the state file.
+	// Log out the current session
 	// (POST /auth/logout)
 	Logout(w http.ResponseWriter, r *http.Request)
-	// Report whether the server currently holds a valid access token.
+	// Get current auth status
 	// (GET /auth/status)
 	GetAuthStatus(w http.ResponseWriter, r *http.Request)
-	// List download jobs, newest first.
+	// List download jobs
 	// (GET /downloads)
 	ListDownloads(w http.ResponseWriter, r *http.Request)
-	// Create a download job for a Pixiv illustration.
+	// Submit a download job
 	// (POST /downloads)
 	SubmitDownload(w http.ResponseWriter, r *http.Request)
-	// Cancel all non-terminal tasks in a job.
+	// Cancel a download job
 	// (DELETE /downloads/{id})
 	CancelDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath)
-	// Fetch one download job by ID.
+	// Get a download job
 	// (GET /downloads/{id})
 	GetDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath)
-	// Subscribe to the server event stream (Server-Sent Events).
+	// Subscribe to the event stream
 	// (GET /events)
 	GetEvents(w http.ResponseWriter, r *http.Request, params GetEventsParams)
-	// Health check
+	// Check service health
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
-	// New illusts from users the authenticated user follows.
+	// List illusts from followed users
 	// (GET /illusts/following)
 	ListFollowingIllusts(w http.ResponseWriter, r *http.Request, params ListFollowingIllustsParams)
-	// Fetch the Pixiv ranking.
+	// List ranked illusts
 	// (GET /illusts/ranking)
 	ListRanking(w http.ResponseWriter, r *http.Request, params ListRankingParams)
-	// Recommended illusts for the authenticated user.
+	// List recommended illusts
 	// (GET /illusts/recommended)
 	ListRecommended(w http.ResponseWriter, r *http.Request, params ListRecommendedParams)
-	// Fetch detail for a single illustration.
+	// Get illust detail
 	// (GET /illusts/{id})
 	GetIllust(w http.ResponseWriter, r *http.Request, id IllustIdPath)
-	// Remove the illustration from bookmarks.
+	// Remove an illust bookmark
 	// (DELETE /illusts/{id}/bookmark)
 	DeleteBookmark(w http.ResponseWriter, r *http.Request, id IllustIdPath)
-	// Add the illustration to the authenticated user's bookmarks.
+	// Bookmark an illust
 	// (PUT /illusts/{id}/bookmark)
 	AddBookmark(w http.ResponseWriter, r *http.Request, id IllustIdPath)
-	// Frame timing + zip URL for an animated illustration.
+	// Get ugoira metadata
 	// (GET /illusts/{id}/ugoira)
 	GetUgoiraMetadata(w http.ResponseWriter, r *http.Request, id IllustIdPath)
-	// Search illustrations by keyword / tag.
+	// Search illusts
 	// (GET /search/illusts)
 	SearchIllusts(w http.ResponseWriter, r *http.Request, params SearchIllustsParams)
-	// Search users by display name or account.
+	// Search users
 	// (GET /search/users)
 	SearchUsers(w http.ResponseWriter, r *http.Request, params SearchUsersParams)
-	// A user's bookmarked illustrations (cursor paged by `max_bookmark_id`).
+	// List a user's bookmarks
 	// (GET /users/{id}/bookmarks)
 	ListUserBookmarks(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserBookmarksParams)
-	// Unfollow a user.
+	// Unfollow a user
 	// (DELETE /users/{id}/follow)
 	DeleteFollow(w http.ResponseWriter, r *http.Request, id UserIdPath)
-	// Follow a user.
+	// Follow a user
 	// (PUT /users/{id}/follow)
 	AddFollow(w http.ResponseWriter, r *http.Request, id UserIdPath)
-	// Users that a user is following.
+	// List users followed by a user
 	// (GET /users/{id}/following)
 	ListUserFollowing(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserFollowingParams)
-	// A user's own illustrations.
+	// List illusts by a user
 	// (GET /users/{id}/illusts)
 	ListUserIllusts(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserIllustsParams)
 }
@@ -552,139 +555,139 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
-// Exchange a refresh token for an access token (and persist it).
+// Log in with a refresh token
 // (POST /auth/login)
 func (_ Unimplemented) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Forget the current tokens and clear the state file.
+// Log out the current session
 // (POST /auth/logout)
 func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Report whether the server currently holds a valid access token.
+// Get current auth status
 // (GET /auth/status)
 func (_ Unimplemented) GetAuthStatus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// List download jobs, newest first.
+// List download jobs
 // (GET /downloads)
 func (_ Unimplemented) ListDownloads(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Create a download job for a Pixiv illustration.
+// Submit a download job
 // (POST /downloads)
 func (_ Unimplemented) SubmitDownload(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Cancel all non-terminal tasks in a job.
+// Cancel a download job
 // (DELETE /downloads/{id})
 func (_ Unimplemented) CancelDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Fetch one download job by ID.
+// Get a download job
 // (GET /downloads/{id})
 func (_ Unimplemented) GetDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Subscribe to the server event stream (Server-Sent Events).
+// Subscribe to the event stream
 // (GET /events)
 func (_ Unimplemented) GetEvents(w http.ResponseWriter, r *http.Request, params GetEventsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Health check
+// Check service health
 // (GET /health)
 func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// New illusts from users the authenticated user follows.
+// List illusts from followed users
 // (GET /illusts/following)
 func (_ Unimplemented) ListFollowingIllusts(w http.ResponseWriter, r *http.Request, params ListFollowingIllustsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Fetch the Pixiv ranking.
+// List ranked illusts
 // (GET /illusts/ranking)
 func (_ Unimplemented) ListRanking(w http.ResponseWriter, r *http.Request, params ListRankingParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Recommended illusts for the authenticated user.
+// List recommended illusts
 // (GET /illusts/recommended)
 func (_ Unimplemented) ListRecommended(w http.ResponseWriter, r *http.Request, params ListRecommendedParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Fetch detail for a single illustration.
+// Get illust detail
 // (GET /illusts/{id})
 func (_ Unimplemented) GetIllust(w http.ResponseWriter, r *http.Request, id IllustIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Remove the illustration from bookmarks.
+// Remove an illust bookmark
 // (DELETE /illusts/{id}/bookmark)
 func (_ Unimplemented) DeleteBookmark(w http.ResponseWriter, r *http.Request, id IllustIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Add the illustration to the authenticated user's bookmarks.
+// Bookmark an illust
 // (PUT /illusts/{id}/bookmark)
 func (_ Unimplemented) AddBookmark(w http.ResponseWriter, r *http.Request, id IllustIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Frame timing + zip URL for an animated illustration.
+// Get ugoira metadata
 // (GET /illusts/{id}/ugoira)
 func (_ Unimplemented) GetUgoiraMetadata(w http.ResponseWriter, r *http.Request, id IllustIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Search illustrations by keyword / tag.
+// Search illusts
 // (GET /search/illusts)
 func (_ Unimplemented) SearchIllusts(w http.ResponseWriter, r *http.Request, params SearchIllustsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Search users by display name or account.
+// Search users
 // (GET /search/users)
 func (_ Unimplemented) SearchUsers(w http.ResponseWriter, r *http.Request, params SearchUsersParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// A user's bookmarked illustrations (cursor paged by `max_bookmark_id`).
+// List a user's bookmarks
 // (GET /users/{id}/bookmarks)
 func (_ Unimplemented) ListUserBookmarks(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserBookmarksParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Unfollow a user.
+// Unfollow a user
 // (DELETE /users/{id}/follow)
 func (_ Unimplemented) DeleteFollow(w http.ResponseWriter, r *http.Request, id UserIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Follow a user.
+// Follow a user
 // (PUT /users/{id}/follow)
 func (_ Unimplemented) AddFollow(w http.ResponseWriter, r *http.Request, id UserIdPath) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// Users that a user is following.
+// List users followed by a user
 // (GET /users/{id}/following)
 func (_ Unimplemented) ListUserFollowing(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserFollowingParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// A user's own illustrations.
+// List illusts by a user
 // (GET /users/{id}/illusts)
 func (_ Unimplemented) ListUserIllusts(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserIllustsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -1544,72 +1547,75 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"AA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

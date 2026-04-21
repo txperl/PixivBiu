@@ -1,7 +1,7 @@
 illusts:
   get:
     operationId: listUserIllusts
-    summary: A user's own illustrations.
+    summary: List illusts by a user
     tags: [users]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
@@ -20,7 +20,11 @@ illusts:
 bookmarks:
   get:
     operationId: listUserBookmarks
-    summary: A user's bookmarked illustrations (cursor paged by `max_bookmark_id`).
+    summary: List a user's bookmarks
+    description: |
+      Cursor-paginated by `max_bookmark_id`. Pass
+      `next_max_bookmark_id` from the previous response as the next
+      cursor.
     tags: [users]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
@@ -39,7 +43,7 @@ bookmarks:
 following:
   get:
     operationId: listUserFollowing
-    summary: Users that a user is following.
+    summary: List users followed by a user
     tags: [users]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
@@ -58,7 +62,7 @@ following:
 follow:
   put:
     operationId: addFollow
-    summary: Follow a user.
+    summary: Follow a user
     tags: [users]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
@@ -74,7 +78,7 @@ follow:
       '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
   delete:
     operationId: deleteFollow
-    summary: Unfollow a user.
+    summary: Unfollow a user
     tags: [users]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/UserIdPath'

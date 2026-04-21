@@ -22,7 +22,7 @@ paths:
   /health:
     get:
       operationId: getHealth
-      summary: Health check
+      summary: Check service health
       tags: [system]
       responses:
         '200':
@@ -91,24 +91,25 @@ components:
       name: offset
       in: query
       required: false
-      description: Page offset for list endpoints that use offset-based pagination.
+      description: Offset for offset-paginated list endpoints.
       schema: { type: integer, format: int64, minimum: 0, default: 0 }
     MaxBookmarkIdQuery:
       name: max_bookmark_id
       in: query
       required: false
-      description: Cursor for paging through bookmarks (from `next_max_bookmark_id` in the previous response).
+      description: Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response.
       schema: { type: integer, format: int64, minimum: 1 }
     RestrictQuery:
       name: restrict
       in: query
       required: false
+      description: Visibility scope (public or private).
       schema: { $ref: '#/components/schemas/Restrict' }
     IllustTypeQuery:
       name: type
       in: query
       required: false
-      description: Filter by illustration type. If omitted, both are returned where supported.
+      description: Illust type filter; both are returned when omitted (where supported).
       schema: { $ref: '#/components/schemas/IllustType' }
     DownloadIdPath:
       name: id

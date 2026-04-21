@@ -1,7 +1,8 @@
 illusts:
   get:
     operationId: searchIllusts
-    summary: Search illustrations by keyword / tag.
+    summary: Search illusts
+    description: Matches by keyword or tag; see `search_target` for matching mode and `sort` for ordering.
     tags: [search]
     parameters:
       - name: word
@@ -30,7 +31,8 @@ illusts:
 users:
   get:
     operationId: searchUsers
-    summary: Search users by display name or account.
+    summary: Search users
+    description: Matches Pixiv display name or account.
     tags: [search]
     parameters:
       - name: word

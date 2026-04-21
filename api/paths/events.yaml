@@ -1,7 +1,7 @@
 stream:
   get:
     operationId: getEvents
-    summary: Subscribe to the server event stream (Server-Sent Events).
+    summary: Subscribe to the event stream
     description: |
       Long-lived `text/event-stream` connection. Events are typed
       envelopes `{id, ts, topic, type, data}` emitted by internal

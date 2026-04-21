@@ -1,7 +1,7 @@
 root:
   post:
     operationId: submitDownload
-    summary: Create a download job for a Pixiv illustration.
+    summary: Submit a download job
     description: |
       Resolves the illust on Pixiv, builds one task per page (or one
       per ugoira zip), enqueues the work, and returns the Job. The
@@ -25,7 +25,8 @@ root:
       '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
   get:
     operationId: listDownloads
-    summary: List download jobs, newest first.
+    summary: List download jobs
+    description: Newest first.
     tags: [downloads]
     responses:
       '200':
@@ -38,7 +39,7 @@ root:
 byId:
   get:
     operationId: getDownload
-    summary: Fetch one download job by ID.
+    summary: Get a download job
     tags: [downloads]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/DownloadIdPath'
@@ -52,7 +53,8 @@ byId:
       '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
   delete:
     operationId: cancelDownload
-    summary: Cancel all non-terminal tasks in a job.
+    summary: Cancel a download job
+    description: Cancels every non-terminal task in the job. Returns `409` if the job is already in a terminal state.
     tags: [downloads]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/DownloadIdPath'
