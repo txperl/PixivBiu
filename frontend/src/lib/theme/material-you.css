@@ -1,0 +1,73 @@
+@import "@fontsource-variable/google-sans";
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: "Google Sans Variable", sans-serif;
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Colors are driven by Material You (M3). At runtime,
+ * setColorScheme(hex) in src/lib/theme/dynamic-color.ts injects a
+ * <style id="dynamic-color-scheme"> that fully populates every
+ * --md-sys-color-* variable for both light and dark schemes.
+ *
+ * Only `surface` and `on-surface` are hardcoded here as a minimal
+ * pre-JS fallback, so the body doesn't flash to the browser default
+ * white before React mounts. All other M3 tokens resolve to `unset`
+ * during that split-second window, which is invisible because the
+ * root <div> is still empty at that point.
+ */
+:root {
+    --md-sys-color-surface: #fdf7ff;
+    --md-sys-color-on-surface: #1c1b20;
+
+    --background: var(--md-sys-color-surface);
+    --foreground: var(--md-sys-color-on-surface);
+    --card: var(--md-sys-color-surface-container-low);
+    --card-foreground: var(--md-sys-color-on-surface);
+    --popover: var(--md-sys-color-surface-container);
+    --popover-foreground: var(--md-sys-color-on-surface);
+    --primary: var(--md-sys-color-primary);
+    --primary-foreground: var(--md-sys-color-on-primary);
+    --secondary: var(--md-sys-color-secondary-container);
+    --secondary-foreground: var(--md-sys-color-on-secondary-container);
+    --muted: var(--md-sys-color-surface-variant);
+    --muted-foreground: var(--md-sys-color-on-surface-variant);
+    --accent: var(--md-sys-color-tertiary-container);
+    --accent-foreground: var(--md-sys-color-on-tertiary-container);
+    --destructive: var(--md-sys-color-error);
+    --border: var(--md-sys-color-outline-variant);
+    --input: var(--md-sys-color-outline-variant);
+    --ring: var(--md-sys-color-primary);
+    --chart-1: var(--md-sys-color-primary);
+    --chart-2: var(--md-sys-color-secondary);
+    --chart-3: var(--md-sys-color-tertiary);
+    --chart-4: var(--md-sys-color-error);
+    --chart-5: var(--md-sys-color-outline);
+    --sidebar: var(--md-sys-color-surface-container);
+    --sidebar-foreground: var(--md-sys-color-on-surface);
+    --sidebar-primary: var(--md-sys-color-primary);
+    --sidebar-primary-foreground: var(--md-sys-color-on-primary);
+    --sidebar-accent: var(--md-sys-color-secondary-container);
+    --sidebar-accent-foreground: var(--md-sys-color-on-secondary-container);
+    --sidebar-border: var(--md-sys-color-outline-variant);
+    --sidebar-ring: var(--md-sys-color-primary);
+}
+
+.dark {
+    --md-sys-color-surface: #141318;
+    --md-sys-color-on-surface: #e6e1e9;
+}
+
+@layer base {
+    html {
+        @apply font-sans;
+    }
+}
