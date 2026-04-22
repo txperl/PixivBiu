@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -221,6 +222,107 @@ func TestBackoff_Exponential(t *testing.T) {
 	big := backoff(20, time.Second)
 	if big != 30*time.Second {
 		t.Errorf("cap: want 30s, got %v", big)
+	}
+}
+
+// Locks in the last-writer-wins contract at worker.go:L95-98:
+// os.Rename replaces an existing destPath atomically on both POSIX
+// and Windows. A future change that adds "skip if exists" or
+// "rename with suffix" must update this test explicitly.
+func TestHttpDownload_OverwritesExistingDestination(t *testing.T) {
+	dest := filepath.Join(t.TempDir(), "file.bin")
+	oldContent := []byte("OLD CONTENT - must be replaced")
+	if err := os.WriteFile(dest, oldContent, 0o644); err != nil {
+		t.Fatalf("seed dest: %v", err)
+	}
+
+	newBody := []byte("NEW CONTENT - from server")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", itoa(len(newBody)))
+		_, _ = w.Write(newBody)
+	}))
+	t.Cleanup(srv.Close)
+
+	_, written, err := httpDownload(
+		context.Background(), http.DefaultClient, srv.URL, "", dest, "tsk_over", nil, nil,
+	)
+	if err != nil {
+		t.Fatalf("download: %v", err)
+	}
+	if written != int64(len(newBody)) {
+		t.Errorf("written: want %d, got %d", len(newBody), written)
+	}
+
+	got, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read dest: %v", err)
+	}
+	if string(got) != string(newBody) {
+		t.Errorf("dest content: want %q, got %q", newBody, got)
+	}
+	if _, err := os.Stat(dest + ".tsk_over.part"); !os.IsNotExist(err) {
+		t.Errorf(".part file should not remain after successful rename: %v", err)
+	}
+}
+
+// Locks in the taskID isolation contract at worker.go:L32-34: two
+// concurrent downloads targeting the same destPath write to distinct
+// .part files keyed by taskID, so neither fails with a "file busy"
+// or produces interleaved bytes. Which body wins is scheduler-
+// dependent (last-writer-wins) — the test only asserts (a) both
+// calls return nil, (b) final content equals exactly one of the two
+// bodies, (c) no .part residue.
+func TestHttpDownload_ConcurrentTasksSameDestIsolatePartFiles(t *testing.T) {
+	bodyA := []byte("AAAAAAAAAA")                 // 10 bytes
+	bodyB := []byte("BBBBBBBBBBBBBBBBBBBBBBBBBB") // 26 bytes
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := bodyA
+		if r.URL.Query().Get("who") == "b" {
+			body = bodyB
+		}
+		w.Header().Set("Content-Length", itoa(len(body)))
+		_, _ = w.Write(body)
+	}))
+	t.Cleanup(srv.Close)
+
+	dest := filepath.Join(t.TempDir(), "file.bin")
+
+	var wg sync.WaitGroup
+	var errA, errB error
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_, _, errA = httpDownload(
+			context.Background(), http.DefaultClient, srv.URL+"?who=a", "", dest, "tsk_a", nil, nil,
+		)
+	}()
+	go func() {
+		defer wg.Done()
+		_, _, errB = httpDownload(
+			context.Background(), http.DefaultClient, srv.URL+"?who=b", "", dest, "tsk_b", nil, nil,
+		)
+	}()
+	wg.Wait()
+
+	if errA != nil {
+		t.Errorf("task A: %v", errA)
+	}
+	if errB != nil {
+		t.Errorf("task B: %v", errB)
+	}
+
+	got, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read dest: %v", err)
+	}
+	if string(got) != string(bodyA) && string(got) != string(bodyB) {
+		t.Errorf("dest content mismatch: got %q (len=%d), want exactly bodyA or bodyB", got, len(got))
+	}
+
+	for _, tid := range []string{"tsk_a", "tsk_b"} {
+		if _, err := os.Stat(dest + "." + tid + ".part"); !os.IsNotExist(err) {
+			t.Errorf(".part file for %s should not remain: %v", tid, err)
+		}
 	}
 }
 
