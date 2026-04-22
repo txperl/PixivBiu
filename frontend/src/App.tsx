@@ -1,14 +1,19 @@
-import { Button } from "@/components/ui/button";
+import { createBrowserRouter } from "react-router";
+import { RouterProvider } from "react-router/dom";
+import Home from "@/pages/Home";
 import { useDynamicTheme } from "./lib/theme/use-dynamic-theme";
+
+const router = createBrowserRouter([
+    {
+        path: "/",
+        element: <Home />,
+    },
+]);
 
 function App() {
     useDynamicTheme();
 
-    return (
-        <div className="flex min-h-svh flex-col items-center justify-center">
-            <Button>Click me</Button>
-        </div>
-    );
+    return <RouterProvider router={router} />;
 }
 
 export default App;
