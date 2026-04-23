@@ -1,19 +1,27 @@
+import { useLayoutEffect, useState } from "react";
 import { createBrowserRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
+import RootLayout from "@/components/layout/RootLayout";
+import { DEFAULT_SEED_COLOR, setColorScheme } from "@/lib/theme/dynamic-color";
 import Home from "@/pages/Home";
-import { useDynamicTheme } from "./lib/theme/use-dynamic-theme";
 
 const router = createBrowserRouter([
     {
         path: "/",
-        element: <Home />,
+        element: <RootLayout />,
+        children: [{ index: true, element: <Home /> }],
     },
 ]);
 
 function App() {
-    useDynamicTheme();
+    const [isInitialized, setIsInitialized] = useState(false);
 
-    return <RouterProvider router={router} />;
+    useLayoutEffect(() => {
+        setColorScheme(DEFAULT_SEED_COLOR);
+        setIsInitialized(true);
+    }, []);
+
+    return isInitialized ? <RouterProvider router={router} /> : null;
 }
 
 export default App;

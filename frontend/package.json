@@ -24,6 +24,7 @@
         "clsx": "^2.1.1",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
+        "react-resizable-panels": "^4.10.0",
         "react-router": "^7.14.2",
         "shadcn": "^4.4.0",
         "tailwind-merge": "^3.5.0",
