@@ -5,7 +5,9 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "tsc -b && vite build",
+        "paraglide:compile": "paraglide-js compile --project ./src/i18n/project.inlang --outdir ./src/i18n/generated --emit-ts-declarations",
+        "postinstall": "bun run paraglide:compile",
+        "build": "bun run paraglide:compile && tsc -b && vite build",
         "lint": "biome lint .",
         "format": "biome format --write .",
         "check": "biome check --write .",
@@ -18,6 +20,7 @@
         "@fontsource-variable/google-sans": "^5.2.1",
         "@hugeicons/core-free-icons": "^4.1.1",
         "@hugeicons/react": "^1.1.6",
+        "@inlang/paraglide-js": "^2.16.0",
         "@material/material-color-utilities": "^0.4.0",
         "@tailwindcss/vite": "^4.2.4",
         "class-variance-authority": "^0.7.1",
@@ -33,6 +36,7 @@
     },
     "devDependencies": {
         "@biomejs/biome": "^2.4.12",
+        "@inlang/plugin-message-format": "^4.4.0",
         "@types/node": "^25.6.0",
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",

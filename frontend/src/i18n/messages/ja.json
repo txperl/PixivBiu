@@ -1,0 +1,12 @@
+{
+    "$schema": "https://inlang.com/schema/inlang-message-format",
+    "home_cta": "クリック",
+    "error_unauthenticated": "Pixiv アカウントにログインしてください",
+    "error_not_found": "リソースが見つかりません",
+    "error_rate_limited": "リクエストが多すぎます。しばらくしてから再試行してください",
+    "status_queued": "待機中",
+    "status_running": "ダウンロード中",
+    "status_completed": "完了",
+    "status_failed": "失敗",
+    "status_cancelled": "キャンセル済み"
+}

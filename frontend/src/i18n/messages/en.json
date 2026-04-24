@@ -1,0 +1,12 @@
+{
+    "$schema": "https://inlang.com/schema/inlang-message-format",
+    "home_cta": "Click me",
+    "error_unauthenticated": "Please sign in with your Pixiv account",
+    "error_not_found": "Resource not found",
+    "error_rate_limited": "Too many requests, please try again later",
+    "status_queued": "Queued",
+    "status_running": "Downloading",
+    "status_completed": "Completed",
+    "status_failed": "Failed",
+    "status_cancelled": "Cancelled"
+}

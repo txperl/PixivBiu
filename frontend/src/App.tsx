@@ -2,6 +2,7 @@ import { useLayoutEffect, useState } from "react";
 import { createBrowserRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import RootLayout from "@/components/layout/RootLayout";
+import { LocaleProvider } from "@/i18n";
 import { DEFAULT_SEED_COLOR, setColorScheme } from "@/lib/theme/dynamic-color";
 import Home from "@/pages/Home";
 
@@ -21,7 +22,11 @@ function App() {
         setIsInitialized(true);
     }, []);
 
-    return isInitialized ? <RouterProvider router={router} /> : null;
+    return isInitialized ? (
+        <LocaleProvider>
+            <RouterProvider router={router} />
+        </LocaleProvider>
+    ) : null;
 }
 
 export default App;

@@ -1,0 +1,12 @@
+{
+    "$schema": "https://inlang.com/schema/inlang-message-format",
+    "home_cta": "点我",
+    "error_unauthenticated": "请先登录 Pixiv 账号",
+    "error_not_found": "未找到对应资源",
+    "error_rate_limited": "请求过于频繁，请稍后再试",
+    "status_queued": "排队中",
+    "status_running": "下载中",
+    "status_completed": "已完成",
+    "status_failed": "失败",
+    "status_cancelled": "已取消"
+}

@@ -11,7 +11,7 @@ The current backend covers **auth + read-only browsing + bookmark/follow + downl
 | Component | Tech Stack | Default Port | Description |
 |-----------|-----------|--------------|-------------|
 | **Backend** | Go + chi + oapi-codegen | 8080 | REST API server. OpenAPI-first: routes and types generated from `api/openapi.yaml`. |
-| **Frontend** | TBD | TBD | Placeholder directory. Tech stack undecided. Talks to backend via `/api/v1/*`. |
+| **Frontend** | React 19 + Vite + TypeScript | 5173 (dev) | SPA. Talks to backend via `/api/v1/*`. |
 
 ## Tech Stack
 
@@ -27,7 +27,12 @@ The current backend covers **auth + read-only browsing + bookmark/follow + downl
 
 ### Frontend
 
-Undecided. See `frontend/README.md`.
+- **Framework**: React 19 + react-router 7 (SPA, no SSR)
+- **Build**: Vite 8 + TypeScript (strict, bundler resolution)
+- **UI**: shadcn/ui (base-nova) on `@base-ui/react` primitives + Tailwind 4; Material You dynamic color via `@material/material-color-utilities`
+- **i18n**: [Paraglide JS](https://inlang.com/m/gerre34r/library-inlang-paraglideJs) — compile-time, tree-shakeable message functions. Source/config/generated all consolidated under `src/i18n/`. Locales: `en` (baseLocale + fallback), `zh-CN`, `ja`. Detection order: `localStorage` → `preferredLanguage` → `baseLocale`. React 组件渲染路径里读文案走 `const m = useMessages()`（订阅 LocaleContext，切语言触发 rerender，不 remount 子树）；不要从 `@/i18n/generated/messages` 直接 `import { m }` 进组件——那样不订阅，切语言不会刷新。
+- **Lint/Format**: Biome (replaces ESLint + Prettier)
+- **Package manager**: bun
 
 ## Project Structure
 
@@ -61,7 +66,15 @@ PixivBiu-go/
 │   └── server/server.go          # chi router assembly, middleware wiring
 ├── usr/                          # Gitignored; holds state.json + downloads.json
 ├── downloads/                    # Gitignored; default download.output_dir
-├── frontend/                     # Frontend placeholder (TBD)
+├── frontend/                     # React + Vite SPA
+│   ├── src/
+│   │   ├── App.tsx               #   Router + theme init + LocaleProvider wrap
+│   │   ├── components/{layout,ui}/
+│   │   ├── pages/Home/           #   Page-level components (folder-per-page)
+│   │   ├── i18n/                 #   Paraglide i18n — barrel index.ts; messages/ + project.inlang/ + generated/ (gitignored) + react/{LocaleProvider,LanguageSwitcher} + react/error-code (backend code → localized text)
+│   │   └── lib/{theme,utils.ts}/
+│   ├── package.json              #   `bun run dev | build | check`. `build` runs `paraglide-js compile` before tsc.
+│   └── vite.config.ts            #   `paraglideVitePlugin` + Tailwind + React
 ├── config.example.yaml           # Configuration template (source of truth for keys + defaults)
 ├── config.yaml                   # Local config (gitignored)
 ├── Makefile                      # gen / dev / build / test / tidy / fmt / vet / clean
@@ -333,6 +346,5 @@ The following are intentionally **not** implemented yet — do not add them with
 - Metrics, tracing, health probes beyond `/health`
 - Database, ORM, migrations
 - Docker / CI pipelines
-- Frontend implementation
 
 When adding features, prefer **extending the OpenAPI spec first**, then generating and implementing — not inventing ad-hoc routes or helper packages.
