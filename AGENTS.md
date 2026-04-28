@@ -99,7 +99,8 @@ PixivBiu-go/
 | Command | Description |
 |---------|-------------|
 | `make help`   | Show all available targets |
-| `make gen`    | Regenerate `internal/api/server.gen.go` from `api/openapi.yaml` |
+| `make gen-backend`  | Regenerate `internal/api/server.gen.go` from `api/openapi.yaml` |
+| `make gen-frontend` | Regenerate `frontend/src/lib/api/schema.gen.ts` from running backend's `/openapi.json` |
 | `make dev`    | Run the server (`go run ./cmd/server -config ./config.yaml`) |
 | `make build`  | Build binary to `bin/pixivbiu` |
 | `make test`   | Run tests |
@@ -131,7 +132,7 @@ oapi-codegen resolves the cross-file `$ref`s directly — no bundling step. The 
 The development loop:
 
 1. **Edit `api/openapi.yaml`** (schemas/parameters/responses + top-level path refs) and/or **`api/paths/<domain>.yaml`** (operation detail).
-2. **Run `make gen`** — regenerates `internal/api/server.gen.go` in one pass. The generated file contains:
+2. **Run `make gen-backend`** — regenerates `internal/api/server.gen.go` in one pass. The generated file contains:
    - Go types for all schemas (including `Illust = pixivgo.IllustrationInfo` type aliases, via `x-go-type`).
    - The `ServerInterface` Go interface that the handler must implement.
    - Chi routing glue (`HandlerFromMux`, `HandlerFromMuxWithBaseURL`, etc.).
@@ -140,7 +141,7 @@ The development loop:
 
 #### Rules
 
-- ⚠️ **DO NOT modify `*.gen.go` files manually.** They are regenerated on every `make gen` and your edits will be lost. If the output is wrong, fix the spec or `api/cfg.yaml` instead.
+- ⚠️ **DO NOT modify `*.gen.go` files manually.** They are regenerated on every `make gen-backend` and your edits will be lost. If the output is wrong, fix the spec or `api/cfg.yaml` instead.
 - **DO NOT hand-write route registrations** in `internal/server/server.go`. Routes come from `api.HandlerFromMuxWithBaseURL(handler, router, "/api/v1")`. Adding new endpoints means editing the spec, not the router.
 - **DO NOT bypass the `ServerInterface`.** Every endpoint must go through the generated interface so spec and implementation stay coupled.
 - **Keep `operationId` unique and camelCase** in the spec — it becomes the Go method name on `ServerInterface` (e.g., `getHealth` → `GetHealth`).
@@ -149,6 +150,16 @@ The development loop:
 - **Reuse the `*pixivgoImport` YAML anchor.** The first pixivgo-mirrored schema in `api/openapi.yaml` declares `x-go-type-import: &pixivgoImport`. Every subsequent one writes `x-go-type-import: *pixivgoImport` instead of repeating the 3-line `name` / `path` block. YAML loaders expand the alias at parse time, so generated Go and `/openapi.json` are byte-identical to the inlined form.
 - **OpenAPI 3.0 nullable-on-`$ref` quirk.** A bare `nullable: true` on a `$ref` is silently ignored. To mark a `$ref` field nullable (e.g. pixivgo's `*Series` without `omitempty`), wrap it: `allOf: [{ $ref: ... }]` next to `nullable: true`. See `Illust.series` for the canonical example.
 - **The `servers:` block uses `/api/v1` as base URL.** Paths in the spec are written without the `/api/v1` prefix. The prefix is applied at mount time via `HandlerFromMuxWithBaseURL`.
+
+#### Frontend Types
+
+The SPA consumes the same spec via [`openapi-typescript`](https://openapi-ts.dev/) + [`openapi-fetch`](https://openapi-ts.dev/openapi-fetch/) — symmetric to the backend's oapi-codegen flow.
+
+- **Generation source** is the running backend's `/openapi.json` (not the on-disk yaml), so the types reflect what the server actually serves. `make gen-frontend` requires `make dev` to be up.
+- **`frontend/src/lib/api/schema.gen.ts`** is the auto-generated artefact. Like `internal/api/server.gen.go`, it is **committed** so PRs diff API changes and CI doesn't depend on the backend running. **Don't edit it by hand.**
+- **`frontend/src/lib/api/{client,index}.ts`** wrap the generated `paths` into a singleton `api` client with `baseUrl: "/api/v1"`. Consumers `import { api } from "@/lib/api"` and call `api.GET("/illusts/{id}", { params: { path: { id } } })`; the response is `{ data, error }` with both branches fully typed.
+- **Dev proxy.** `vite.config.ts::server.proxy` forwards `/api/*` from `:5173` to `:8080`, so the same `baseUrl: "/api/v1"` works in dev (proxied) and prod (same-origin).
+- **Refresh loop:** edit spec → `make gen-backend` (backend types + routes) → `make gen-frontend` (frontend types; needs the backend up). The pixivgo schema sync rule above also applies to the frontend — `properties` drift in the yaml mistypes `schema.gen.ts`.
 
 ### Naming Convention: `APIHandler` vs `Handler`
 

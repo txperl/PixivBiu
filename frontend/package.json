@@ -6,6 +6,7 @@
     "scripts": {
         "dev": "vite",
         "paraglide:compile": "paraglide-js compile --project ./src/i18n/project.inlang --outdir ./src/i18n/generated --emit-ts-declarations",
+        "gen:api": "openapi-typescript http://localhost:8080/openapi.json -o ./src/lib/api/schema.gen.ts",
         "postinstall": "bun run paraglide:compile",
         "build": "bun run paraglide:compile && tsc -b && vite build",
         "lint": "biome lint .",
@@ -25,6 +26,7 @@
         "@tailwindcss/vite": "^4.2.4",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
+        "openapi-fetch": "^0.17.0",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
         "react-resizable-panels": "^4.10.0",
@@ -41,6 +43,7 @@
         "@types/react": "^19.2.14",
         "@types/react-dom": "^19.2.3",
         "@vitejs/plugin-react": "^6.0.1",
+        "openapi-typescript": "^7.13.0",
         "typescript": "~6.0.2",
         "vite": "^8.0.9"
     }

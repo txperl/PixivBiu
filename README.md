@@ -39,7 +39,7 @@ go mod tidy
 go get -tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
 
 # 2. 生成 API 代码
-make gen
+make gen-backend
 
 # 3. 复制配置并启动
 cp config.example.yaml config.yaml
@@ -77,19 +77,20 @@ PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT=gif make dev
 ## 开发流程
 
 - 改 `api/openapi.yaml` 或 `api/paths/*.yaml` 定义接口
-- `make gen` 重新生成 `internal/api/server.gen.go`
+- `make gen-backend` 重新生成 `internal/api/server.gen.go`
 - 在 `internal/api/handler_*.go` 实现对应接口
-- `make dev` 联调
+- `make dev` 联调；前端类型 `make gen-frontend`（需要后端在跑）
 
 ## 可用命令
 
 ```
-make help   # 查看全部
-make gen    # 生成 API 代码
-make dev    # 运行服务
-make build  # 构建二进制
-make test   # 运行测试
-make tidy   # 整理 go.mod
-make fmt    # 格式化
-make vet    # go vet
+make help          # 查看全部
+make gen-backend   # 生成后端 API 代码
+make gen-frontend  # 生成前端 API 类型（需后端在跑）
+make dev           # 运行服务
+make build         # 构建二进制
+make test          # 运行测试
+make tidy          # 整理 go.mod
+make fmt           # 格式化
+make vet           # go vet
 ```
