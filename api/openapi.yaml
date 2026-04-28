@@ -231,33 +231,118 @@ components:
       properties:
         restrict: { $ref: '#/components/schemas/Restrict' }
 
-    # The next three schemas proxy through to pixivgo's native types so we
-    # don't double-maintain the Illust/User shape. oapi-codegen replaces the
-    # generated Go type with pixivgo's at codegen time; the runtime JSON is
-    # produced by pixivgo's own MarshalJSON (including FlexInt -> number).
+    # The schemas below (plus the pixivgo sub-schemas defined further down,
+    # after UgoiraMetadataResponse) carry `x-go-type` so oapi-codegen aliases
+    # them to `pixivgo.*` (zero handler conversion, FlexInt and nullable
+    # semantics preserved). `properties` sit alongside `x-go-type` so non-Go
+    # consumers (openapi-typescript, Swagger UI, /openapi.json) see the wire
+    # format. Keep `properties` in sync with pixivgo's models.go on upgrades.
     Illust:
       x-go-type: pixivgo.IllustrationInfo
-      x-go-type-import:
+      x-go-type-import: &pixivgoImport
         name: pixivgo
         path: github.com/txperl/pixivgo
       type: object
       description: Pixiv illustration metadata. Shape mirrors pixivgo.IllustrationInfo.
+      required:
+        - id
+        - title
+        - type
+        - image_urls
+        - caption
+        - restrict
+        - user
+        - tags
+        - tools
+        - create_date
+        - page_count
+        - width
+        - height
+        - sanity_level
+        - x_restrict
+        - series
+        - meta_single_page
+        - meta_pages
+        - total_view
+        - total_bookmarks
+        - is_bookmarked
+        - visible
+        - is_muted
+        - illust_ai_type
+        - illust_book_style
+        - restriction_attributes
+      properties:
+        id:                { type: integer, format: int64 }
+        title:             { type: string }
+        type:              { type: string }
+        image_urls:        { $ref: '#/components/schemas/ImageUrls' }
+        caption:           { type: string }
+        restrict:          { type: integer, format: int64 }
+        user:              { $ref: '#/components/schemas/User' }
+        tags:
+          type: array
+          items: { $ref: '#/components/schemas/IllustrationTag' }
+        tools:
+          type: array
+          items: { type: string }
+        create_date:       { type: string }
+        page_count:        { type: integer, format: int64 }
+        width:             { type: integer, format: int64 }
+        height:            { type: integer, format: int64 }
+        sanity_level:      { type: integer, format: int64 }
+        x_restrict:        { type: integer, format: int64 }
+        # OpenAPI 3.0: `nullable` on a bare $ref is ignored, so wrap in allOf.
+        series:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Series'
+        meta_single_page:  { $ref: '#/components/schemas/MetaSinglePage' }
+        meta_pages:
+          type: array
+          items: { $ref: '#/components/schemas/MetaPage' }
+        total_view:        { type: integer, format: int64 }
+        total_bookmarks:   { type: integer, format: int64 }
+        is_bookmarked:     { type: boolean }
+        visible:           { type: boolean }
+        is_muted:          { type: boolean }
+        illust_ai_type:    { type: integer, format: int64 }
+        illust_book_style: { type: integer, format: int64 }
+        total_comments:    { type: integer, format: int64 }
+        restriction_attributes:
+          type: array
+          items: { type: string }
 
     User:
       x-go-type: pixivgo.UserInfo
-      x-go-type-import:
-        name: pixivgo
-        path: github.com/txperl/pixivgo
+      x-go-type-import: *pixivgoImport
       type: object
       description: Pixiv user summary. Shape mirrors pixivgo.UserInfo.
+      required: [id, name, account, profile_image_urls, is_followed]
+      properties:
+        id:                      { type: integer, format: int64 }
+        name:                    { type: string }
+        account:                 { type: string }
+        profile_image_urls:      { $ref: '#/components/schemas/ProfileImageUrls' }
+        comment:                 { type: string }
+        is_followed:             { type: boolean, nullable: true }
+        is_access_blocking_user: { type: boolean }
+        is_accept_request:       { type: boolean }
 
     UserPreview:
       x-go-type: pixivgo.UserPreview
-      x-go-type-import:
-        name: pixivgo
-        path: github.com/txperl/pixivgo
+      x-go-type-import: *pixivgoImport
       type: object
       description: User + a few sample illusts. Shape mirrors pixivgo.UserPreview.
+      required: [user, illusts, novels, is_muted]
+      properties:
+        user: { $ref: '#/components/schemas/User' }
+        illusts:
+          type: array
+          items: { $ref: '#/components/schemas/Illust' }
+        novels:
+          type: array
+          items: { $ref: '#/components/schemas/Novel' }
+        is_muted: { type: boolean }
 
     IllustPage:
       type: object
@@ -305,19 +390,173 @@ components:
 
     IllustDetailResponse:
       x-go-type: pixivgo.IllustDetailResponse
-      x-go-type-import:
-        name: pixivgo
-        path: github.com/txperl/pixivgo
+      x-go-type-import: *pixivgoImport
       type: object
       description: Wrapper for a single illust detail. Mirrors pixivgo.IllustDetailResponse.
+      required: [illust]
+      properties:
+        illust: { $ref: '#/components/schemas/Illust' }
 
     UgoiraMetadataResponse:
       x-go-type: pixivgo.UgoiraMetadataResponse
-      x-go-type-import:
-        name: pixivgo
-        path: github.com/txperl/pixivgo
+      x-go-type-import: *pixivgoImport
       type: object
       description: Ugoira (animated illust) metadata. Mirrors pixivgo.UgoiraMetadataResponse.
+      required: [ugoira_metadata]
+      properties:
+        ugoira_metadata: { $ref: '#/components/schemas/UgoiraMetadata' }
+
+    # --- pixivgo sub-schemas ----------------------------------------------
+    # Same `x-go-type` pattern as the schemas above: oapi-codegen emits these
+    # as type aliases to pixivgo.*; the explicit properties exist only for
+    # non-Go consumers of the spec.
+    ProfileImageUrls:
+      x-go-type: pixivgo.ProfileImageUrls
+      x-go-type-import: *pixivgoImport
+      type: object
+      required: [medium]
+      properties:
+        medium: { type: string }
+
+    ImageUrls:
+      x-go-type: pixivgo.ImageUrls
+      x-go-type-import: *pixivgoImport
+      type: object
+      required: [square_medium, medium, large]
+      properties:
+        square_medium: { type: string }
+        medium:        { type: string }
+        large:         { type: string }
+
+    IllustrationTag:
+      x-go-type: pixivgo.IllustrationTag
+      x-go-type-import: *pixivgoImport
+      type: object
+      required: [name, translated_name]
+      properties:
+        name:            { type: string }
+        translated_name: { type: string, nullable: true }
+
+    Series:
+      x-go-type: pixivgo.Series
+      x-go-type-import: *pixivgoImport
+      type: object
+      description: Pixiv returns `{}` instead of `null` for empty series; in that case `id` is 0.
+      required: [id, title]
+      properties:
+        id:    { type: integer, format: int64 }
+        title: { type: string }
+
+    MetaSinglePage:
+      x-go-type: pixivgo.MetaSinglePage
+      x-go-type-import: *pixivgoImport
+      type: object
+      properties:
+        original_image_url: { type: string }
+
+    MetaPage:
+      x-go-type: pixivgo.MetaPage
+      x-go-type-import: *pixivgoImport
+      type: object
+      required: [image_urls]
+      properties:
+        image_urls: { $ref: '#/components/schemas/ImageUrls' }
+
+    Novel:
+      x-go-type: pixivgo.NovelInfo
+      x-go-type-import: *pixivgoImport
+      type: object
+      description: Pixiv novel metadata. Shape mirrors pixivgo.NovelInfo.
+      required:
+        - id
+        - title
+        - caption
+        - restrict
+        - x_restrict
+        - is_original
+        - image_urls
+        - create_date
+        - tags
+        - page_count
+        - text_length
+        - user
+        - series
+        - is_bookmarked
+        - total_bookmarks
+        - total_view
+        - visible
+        - total_comments
+        - is_muted
+        - is_mypixiv_only
+        - is_x_restricted
+        - novel_ai_type
+      properties:
+        id:              { type: integer, format: int64 }
+        title:           { type: string }
+        caption:         { type: string }
+        restrict:        { type: integer, format: int64 }
+        x_restrict:      { type: integer, format: int64 }
+        is_original:     { type: boolean }
+        image_urls:      { $ref: '#/components/schemas/ImageUrls' }
+        create_date:     { type: string }
+        tags:
+          type: array
+          items: { $ref: '#/components/schemas/NovelTag' }
+        page_count:      { type: integer, format: int64 }
+        text_length:     { type: integer, format: int64 }
+        user:            { $ref: '#/components/schemas/User' }
+        series:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Series'
+        is_bookmarked:   { type: boolean }
+        total_bookmarks: { type: integer, format: int64 }
+        total_view:      { type: integer, format: int64 }
+        visible:         { type: boolean }
+        total_comments:  { type: integer, format: int64 }
+        is_muted:        { type: boolean }
+        is_mypixiv_only: { type: boolean }
+        is_x_restricted: { type: boolean }
+        novel_ai_type:   { type: integer, format: int64 }
+        comment_access_control: { type: integer, format: int64 }
+
+    NovelTag:
+      x-go-type: pixivgo.NovelTag
+      x-go-type-import: *pixivgoImport
+      type: object
+      required: [name, translated_name, added_by_uploaded_user]
+      properties:
+        name:                   { type: string }
+        translated_name:        { type: string, nullable: true }
+        added_by_uploaded_user: { type: boolean }
+
+    UgoiraMetadata:
+      x-go-type: pixivgo.UgoiraMetadata
+      x-go-type-import: *pixivgoImport
+      type: object
+      required: [zip_urls, frames]
+      properties:
+        zip_urls: { $ref: '#/components/schemas/UgoiraZipUrls' }
+        frames:
+          type: array
+          items: { $ref: '#/components/schemas/UgoiraFrame' }
+
+    UgoiraZipUrls:
+      x-go-type: pixivgo.UgoiraZipUrls
+      x-go-type-import: *pixivgoImport
+      type: object
+      required: [medium]
+      properties:
+        medium: { type: string }
+
+    UgoiraFrame:
+      x-go-type: pixivgo.UgoiraFrame
+      x-go-type-import: *pixivgoImport
+      type: object
+      required: [file, delay]
+      properties:
+        file:  { type: string }
+        delay: { type: integer, format: int64 }
 
     DownloadStatus:
       type: string
