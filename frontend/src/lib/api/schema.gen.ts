@@ -586,7 +586,20 @@ export interface components {
             medium: string;
         };
         /** @enum {string} */
-        RankingMode: "day" | "week" | "month" | "day_male" | "day_female" | "week_original" | "week_rookie" | "day_manga" | "day_r18" | "day_male_r18" | "day_female_r18" | "week_r18" | "week_r18g";
+        RankingMode:
+            | "day"
+            | "week"
+            | "month"
+            | "day_male"
+            | "day_female"
+            | "week_original"
+            | "week_rookie"
+            | "day_manga"
+            | "day_r18"
+            | "day_male_r18"
+            | "day_female_r18"
+            | "week_r18"
+            | "week_r18g";
         /**
          * @default public
          * @enum {string}

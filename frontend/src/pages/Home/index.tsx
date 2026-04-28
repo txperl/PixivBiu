@@ -1,11 +1,13 @@
+import AuthPanel from "@/components/auth/AuthPanel";
 import { Button } from "@/components/ui/button";
-import { useMessages } from "@/i18n";
+import { useMessages } from "@/i18n/react/useMessages";
 
 function Home() {
     const m = useMessages();
     return (
-        <div className="flex min-h-svh w-full items-center justify-center">
+        <div className="flex min-h-svh w-full flex-col items-center justify-center gap-3 p-6">
             <Button>{m.home_cta()}</Button>
+            <AuthPanel />
         </div>
     );
 }
