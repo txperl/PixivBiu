@@ -1,4 +1,4 @@
-import { LanguageSwitcher } from "@/i18n";
+import { LanguageSwitcher } from "@/lib/i18n";
 
 function RootSidebar() {
     return (

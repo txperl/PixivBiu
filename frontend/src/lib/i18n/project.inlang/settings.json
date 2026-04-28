@@ -3,7 +3,7 @@
   "baseLocale": "en",
   "locales": ["en", "zh-CN", "ja"],
   "modules": [
-    "../../node_modules/@inlang/plugin-message-format/dist/index.js"
+    "../../../node_modules/@inlang/plugin-message-format/dist/index.js"
   ],
   "plugin.inlang.messageFormat": {
     "pathPattern": "./messages/{locale}.json"

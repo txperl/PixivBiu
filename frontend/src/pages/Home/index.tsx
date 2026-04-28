@@ -1,6 +1,6 @@
 import AuthPanel from "@/components/auth/AuthPanel";
 import { Button } from "@/components/ui/button";
-import { useMessages } from "@/i18n/react/useMessages";
+import { useMessages } from "@/lib/i18n";
 
 function Home() {
     const m = useMessages();

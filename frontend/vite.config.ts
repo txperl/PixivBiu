@@ -10,8 +10,8 @@ export default defineConfig({
         react(),
         tailwindcss(),
         paraglideVitePlugin({
-            project: "./src/i18n/project.inlang",
-            outdir: "./src/i18n/generated",
+            project: "./src/lib/i18n/project.inlang",
+            outdir: "./src/lib/i18n/generated",
             strategy: ["localStorage", "preferredLanguage", "baseLocale"],
             emitTsDeclarations: true,
         }),
