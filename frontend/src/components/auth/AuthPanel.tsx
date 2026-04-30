@@ -1,7 +1,7 @@
 import { type SyntheticEvent, useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { api, type components } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 type AuthStatus = components["schemas"]["AuthStatus"];
 type ApiError = components["schemas"]["Error"];
@@ -68,8 +68,8 @@ function AuthPanel() {
                         status === null
                             ? "bg-muted text-muted-foreground"
                             : authed
-                                ? "bg-primary/10 text-primary"
-                                : "bg-muted text-muted-foreground",
+                              ? "bg-primary/10 text-primary"
+                              : "bg-muted text-muted-foreground",
                     )}
                 >
                     {status === null ? "Loading…" : authed ? "Authenticated" : "Unauthenticated"}

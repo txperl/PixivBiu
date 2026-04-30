@@ -4,17 +4,19 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 
 function RootLayout() {
     return (
-        <ResizablePanelGroup orientation="horizontal" className="min-h-svh">
-            <ResizablePanel defaultSize="18%" minSize="12%" maxSize="25%">
-                <RootSidebar />
-            </ResizablePanel>
-            <ResizableHandle />
-            <ResizablePanel>
-                <main className="h-full">
-                    <Outlet />
-                </main>
-            </ResizablePanel>
-        </ResizablePanelGroup>
+        <div className="h-svh overflow-hidden">
+            <ResizablePanelGroup orientation="horizontal">
+                <ResizablePanel defaultSize="14%" minSize="10%" maxSize="22%">
+                    <RootSidebar />
+                </ResizablePanel>
+                <ResizableHandle />
+                <ResizablePanel>
+                    <main className="h-full overflow-y-auto">
+                        <Outlet />
+                    </main>
+                </ResizablePanel>
+            </ResizablePanelGroup>
+        </div>
     );
 }
 
