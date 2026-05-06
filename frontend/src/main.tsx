@@ -1,9 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import "./index.css";
-// Must come after index.css so M3 → shadcn mappings override shadcn defaults.
-import "./lib/theme/material-you.css";
-import App from "./App.tsx";
+import "./styles/globals.css";
+// Must come after globals.css so M3 → shadcn mappings override shadcn defaults.
+import "./styles/material-you.css";
+import App from "@/app/App";
 
 createRoot(document.getElementById("root") as HTMLElement).render(
     <StrictMode>

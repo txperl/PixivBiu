@@ -11,7 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
-src/lib/i18n/generated
+src/i18n/generated
 
 # Editor directories and files
 .vscode/*

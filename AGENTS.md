@@ -30,7 +30,7 @@ The current backend covers **auth + read-only browsing + bookmark/follow + downl
 - **Framework**: React 19 + react-router 7 (SPA, no SSR)
 - **Build**: Vite 8 + TypeScript (strict, bundler resolution)
 - **UI**: shadcn/ui (base-nova) on `@base-ui/react` primitives + Tailwind 4; Material You dynamic color via `@material/material-color-utilities`
-- **i18n**: [Paraglide JS](https://inlang.com/m/gerre34r/library-inlang-paraglideJs) — compile-time, tree-shakeable message functions. Source/config/generated all consolidated under `src/i18n/`. Locales: `en` (baseLocale + fallback), `zh-CN`, `ja`. Detection order: `localStorage` → `preferredLanguage` → `baseLocale`. React 组件渲染路径里读文案走 `const m = useMessages()`（订阅 LocaleContext，切语言触发 rerender，不 remount 子树）；不要从 `@/i18n/generated/messages` 直接 `import { m }` 进组件——那样不订阅，切语言不会刷新。
+- **i18n**: [Paraglide JS](https://inlang.com/m/gerre34r/library-inlang-paraglideJs) — compile-time, tree-shakeable message functions. Source/config/generated all consolidated under `src/i18n/` (barrel `index.ts`; `messages/` + `project.inlang/` + `generated/` (gitignored) + `react/{locale-provider,use-messages,language-switcher}`). Locales: `en` (baseLocale + fallback), `zh-CN`, `ja`. Detection order: `localStorage` → `preferredLanguage` → `baseLocale`. Inside React render paths, read messages via `const m = useMessages()` — it subscribes to `LocaleContext`, so switching language triggers a rerender without remounting the subtree. **Do not** `import { m }` from `@/i18n/generated/messages` directly inside components: those importers don't subscribe, so language switches won't refresh them.
 - **Lint/Format**: Biome (replaces ESLint + Prettier)
 - **Package manager**: bun
 
@@ -66,13 +66,17 @@ PixivBiu-go/
 │   └── server/server.go          # chi router assembly, middleware wiring
 ├── usr/                          # Gitignored; holds state.json + downloads.json
 ├── downloads/                    # Gitignored; default download.output_dir
-├── frontend/                     # React + Vite SPA
+├── frontend/                     # React + Vite SPA (feature-based; kebab-case file names)
 │   ├── src/
-│   │   ├── App.tsx               #   Router + theme init + LocaleProvider wrap
-│   │   ├── components/{layout,ui}/
-│   │   ├── pages/Home/           #   Page-level components (folder-per-page)
-│   │   ├── i18n/                 #   Paraglide i18n — barrel index.ts; messages/ + project.inlang/ + generated/ (gitignored) + react/{LocaleProvider,LanguageSwitcher} + react/error-code (backend code → localized text)
-│   │   └── lib/{theme,utils.ts}/
+│   │   ├── main.tsx              #   Entry — mounts <App />, imports global CSS
+│   │   ├── app/                  #   App shell: App.tsx + providers.tsx + router.tsx + layouts/{root-layout,root-sidebar}
+│   │   ├── pages/                #   Route-level shells (thin); folder-per-route — only compose features
+│   │   ├── features/             #   Domain modules: auth · illusts · users · search · downloads · events
+│   │   │                         #     each owns api.ts (calls openapi-fetch) + components/ + (optional) hooks/store/types
+│   │   ├── components/           #   Cross-feature shared UI; ui/ for shadcn primitives (don't put business UI here)
+│   │   ├── i18n/                 #   See i18n bullet above
+│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, api/ (openapi-fetch client), theme/
+│   │   └── styles/               #   globals.css + material-you.css
 │   ├── package.json              #   `bun run dev | build | check`. `build` runs `paraglide-js compile` before tsc.
 │   └── vite.config.ts            #   `paraglideVitePlugin` + Tailwind + React
 ├── config.example.yaml           # Configuration template (source of truth for keys + defaults)
@@ -158,6 +162,7 @@ The SPA consumes the same spec via [`openapi-typescript`](https://openapi-ts.dev
 - **Generation source** is the running backend's `/openapi.json` (not the on-disk yaml), so the types reflect what the server actually serves. `make gen-frontend` requires `make dev` to be up.
 - **`frontend/src/lib/api/schema.gen.ts`** is the auto-generated artefact. Like `internal/api/server.gen.go`, it is **committed** so PRs diff API changes and CI doesn't depend on the backend running. **Don't edit it by hand.**
 - **`frontend/src/lib/api/{client,index}.ts`** wrap the generated `paths` into a singleton `api` client with `baseUrl: "/api/v1"`. Consumers `import { api } from "@/lib/api"` and call `api.GET("/illusts/{id}", { params: { path: { id } } })`; the response is `{ data, error }` with both branches fully typed.
+- **Domain wrappers.** Features that hit the API typically expose a thin wrapper at `frontend/src/features/<domain>/api.ts` (e.g. `features/auth/api.ts` exports `getAuthStatus` / `login` / `logout`). Components/hooks call those wrappers, not `api.GET` directly — keeps UI code free of OpenAPI plumbing and gives one place per domain to massage shapes if needed.
 - **Dev proxy.** `vite.config.ts::server.proxy` forwards `/api/*` from `:5173` to `:8080`, so the same `baseUrl: "/api/v1"` works in dev (proxied) and prod (same-origin).
 - **Refresh loop:** edit spec → `make gen-backend` (backend types + routes) → `make gen-frontend` (frontend types; needs the backend up). The pixivgo schema sync rule above also applies to the frontend — `properties` drift in the yaml mistypes `schema.gen.ts`.
 
