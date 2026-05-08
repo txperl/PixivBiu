@@ -1,6 +1,6 @@
 import type { IconSvgElement } from "@hugeicons/react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useState } from "react";
+import { NavLink } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import {
     BookmarkIcon,
@@ -18,6 +18,7 @@ type NavItemDef = {
     id: string;
     label: string;
     icon: IconSvgElement;
+    to?: string;
     count?: number;
     badge?: number;
 };
@@ -31,8 +32,8 @@ const NAV_GROUPS: NavGroupDef[] = [
     {
         label: "浏览",
         items: [
-            { id: "home", label: "首页", icon: HomeIcon },
-            { id: "search", label: "搜索", icon: SearchIcon },
+            { id: "home", label: "首页", icon: HomeIcon, to: "/" },
+            { id: "search", label: "搜索", icon: SearchIcon, to: "/search" },
             { id: "rank", label: "排行榜", icon: RankIcon },
         ],
     },
@@ -53,37 +54,45 @@ const NAV_GROUPS: NavGroupDef[] = [
     },
 ];
 
-type NavItemProps = {
-    item: NavItemDef;
-    active: boolean;
-    onClick: () => void;
-};
-
-function NavItem({ item, active, onClick }: NavItemProps) {
+function ItemBody({ item, active }: { item: NavItemDef; active: boolean }) {
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={cn(
-                "flex h-10 w-full cursor-pointer items-center gap-3 rounded-full px-4 text-left text-sm transition-colors",
-                active
-                    ? "bg-secondary font-semibold text-secondary-foreground"
-                    : "font-medium text-muted-foreground hover:bg-sidebar-accent",
-            )}
-        >
+        <>
             <HugeiconsIcon icon={item.icon} size={18} strokeWidth={active ? 2 : 1.5} />
             <span className="flex-1">{item.label}</span>
             {item.badge !== undefined && <Badge variant="destructive">{item.badge}</Badge>}
             {item.count !== undefined && (
                 <span className="font-mono text-[11px] text-muted-foreground">{item.count}</span>
             )}
-        </button>
+        </>
+    );
+}
+
+const baseClass =
+    "flex h-10 w-full cursor-pointer items-center gap-3 rounded-full px-4 text-left text-sm transition-colors";
+const activeClass = "bg-secondary font-semibold text-secondary-foreground";
+const inactiveClass = "font-medium text-muted-foreground hover:bg-sidebar-accent";
+const disabledClass = "font-medium text-muted-foreground/60 cursor-not-allowed";
+
+function NavItem({ item }: { item: NavItemDef }) {
+    if (!item.to) {
+        return (
+            <button type="button" disabled className={cn(baseClass, disabledClass)} aria-disabled="true">
+                <ItemBody item={item} active={false} />
+            </button>
+        );
+    }
+    return (
+        <NavLink
+            to={item.to}
+            end={item.to === "/"}
+            className={({ isActive }) => cn(baseClass, isActive ? activeClass : inactiveClass)}
+        >
+            {({ isActive }) => <ItemBody item={item} active={isActive} />}
+        </NavLink>
     );
 }
 
 function Nav() {
-    const [activeId, setActiveId] = useState("home");
-
     return (
         <nav className="flex flex-col gap-4">
             {NAV_GROUPS.map((g) => (
@@ -93,12 +102,7 @@ function Nav() {
                     </div>
                     <div className="flex flex-col gap-1">
                         {g.items.map((item) => (
-                            <NavItem
-                                key={item.id}
-                                item={item}
-                                active={activeId === item.id}
-                                onClick={() => setActiveId(item.id)}
-                            />
+                            <NavItem key={item.id} item={item} />
                         ))}
                     </div>
                 </div>

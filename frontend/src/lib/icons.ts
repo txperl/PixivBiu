@@ -5,6 +5,7 @@
 export {
     Add01Icon as PlusIcon,
     ArrowDown01Icon as ChevronDownIcon,
+    ArrowLeft01Icon as ChevronLeftIcon,
     ArrowRight01Icon as ChevronRightIcon,
     Bookmark02Icon as BookmarkIcon,
     Cancel01Icon as CloseIcon,

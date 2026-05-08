@@ -1,0 +1,27 @@
+import { type ReactNode, useState } from "react";
+import { rewritePximgUrl } from "@/lib/pixiv-image";
+
+type PximgImageProps = {
+    src: string | null | undefined;
+    alt: string;
+    fallback: ReactNode;
+    className?: string;
+};
+
+function PximgImage({ src, alt, fallback, className }: PximgImageProps) {
+    const [ok, setOk] = useState(true);
+    const url = rewritePximgUrl(src);
+    if (!ok || !url) return <>{fallback}</>;
+    return (
+        <img
+            src={url}
+            alt={alt}
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={() => setOk(false)}
+            className={className}
+        />
+    );
+}
+
+export default PximgImage;

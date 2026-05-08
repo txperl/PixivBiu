@@ -2,6 +2,8 @@
 // Author / Work shapes are mock-only — replace with components["schemas"]["Illust"] etc.
 // once data flows from the backend.
 
+export { formatCount } from "@/lib/format";
+
 export type Author = {
     id: number;
     name: string;
@@ -138,9 +140,3 @@ export const PB_TAGS_POPULAR: PopularTag[] = [
     { name: "水彩", count: 3_960 },
     { name: "夜", count: 3_410 },
 ];
-
-export function formatCount(n: number): string {
-    if (n >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, "")}w`;
-    if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
-    return String(n);
-}

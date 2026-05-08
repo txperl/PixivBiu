@@ -75,7 +75,7 @@ PixivBiu-go/
 │   │   │                         #     each owns api.ts (calls openapi-fetch) + components/ + (optional) hooks/store/types
 │   │   ├── components/           #   Cross-feature shared UI; ui/ for shadcn primitives (don't put business UI here)
 │   │   ├── i18n/                 #   See i18n bullet above
-│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, api/ (openapi-fetch client), theme/
+│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, format.ts (formatCount/hueFromId), pixiv-image.ts (TEMP pximg→pixiv.cat rewrite), api/ (openapi-fetch client), theme/
 │   │   └── styles/               #   globals.css + material-you.css
 │   ├── package.json              #   `bun run dev | build | check`. `build` runs `paraglide-js compile` before tsc.
 │   └── vite.config.ts            #   `paraglideVitePlugin` + Tailwind + React
@@ -354,7 +354,7 @@ A comment line `:keepalive` is sent every `inbox.heartbeat` (default 15s) to kee
 
 The following are intentionally **not** implemented yet — do not add them without explicit instruction:
 
-- `i.pximg.net` reverse-proxy endpoint
+- `i.pximg.net` reverse-proxy endpoint — frontend currently bridges image URLs to `i.pixiv.cat` client-side via `frontend/src/lib/pixiv-image.ts::rewritePximgUrl` (used by `components/pximg-image.tsx`). Drop that helper once a server-side proxy lands.
 - aria2 backend
 - Resume-in-place (partial chunks) for downloads
 - Persistent unread-notification inbox (events are ephemeral by design)
