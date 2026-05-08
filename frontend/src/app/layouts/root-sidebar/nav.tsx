@@ -34,7 +34,7 @@ const NAV_GROUPS: NavGroupDef[] = [
         items: [
             { id: "home", label: "首页", icon: HomeIcon, to: "/" },
             { id: "search", label: "搜索", icon: SearchIcon, to: "/search" },
-            { id: "rank", label: "排行榜", icon: RankIcon },
+            { id: "rank", label: "排行榜", icon: RankIcon, to: "/ranking" },
         ],
     },
     {

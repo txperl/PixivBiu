@@ -71,7 +71,7 @@ PixivBiu-go/
 │   │   ├── main.tsx              #   Entry — mounts <App />, imports global CSS
 │   │   ├── app/                  #   App shell: App.tsx + providers.tsx + router.tsx + layouts/{root-layout,root-sidebar}
 │   │   ├── pages/                #   Route-level shells (thin); folder-per-route — only compose features
-│   │   ├── features/             #   Domain modules: auth · illusts · users · search · downloads · events
+│   │   ├── features/             #   Domain modules: auth · illusts · users · search · ranking · downloads · events
 │   │   │                         #     each owns api.ts (calls openapi-fetch) + components/ + (optional) hooks/store/types
 │   │   ├── components/           #   Cross-feature shared UI; ui/ for shadcn primitives (don't put business UI here)
 │   │   ├── i18n/                 #   See i18n bullet above

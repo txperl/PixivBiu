@@ -8,6 +8,7 @@ export {
     ArrowLeft01Icon as ChevronLeftIcon,
     ArrowRight01Icon as ChevronRightIcon,
     Bookmark02Icon as BookmarkIcon,
+    Calendar03Icon as CalendarIcon,
     Cancel01Icon as CloseIcon,
     Download04Icon as DownloadIcon,
     FavouriteIcon as HeartIcon,
