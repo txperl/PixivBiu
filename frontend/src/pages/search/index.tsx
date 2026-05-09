@@ -8,7 +8,6 @@ import {
     SEARCH_PAGE_SIZE,
     SEARCH_SORTS,
     SEARCH_TARGETS,
-    type SearchApiError,
     type SearchSort,
     type SearchTarget,
     searchIllusts,
@@ -21,14 +20,10 @@ import SearchFilters from "@/features/search/components/search-filters";
 import SearchPager from "@/features/search/components/search-pager";
 import { SearchEmptyState, SearchError, SearchNoResults } from "@/features/search/components/search-states";
 import UserList, { UserListSkeleton } from "@/features/search/components/user-list";
+import type { FetchState } from "@/lib/fetch-state";
+import { patchParams, readPage } from "@/lib/url-params";
 
 type SearchType = "illust" | "user";
-
-type FetchState<T> =
-    | { status: "idle" }
-    | { status: "loading" }
-    | { status: "success"; data: T }
-    | { status: "error"; error: SearchApiError };
 
 function readType(sp: URLSearchParams): SearchType {
     return sp.get("type") === "user" ? "user" : "illust";
@@ -42,11 +37,6 @@ function readTarget(sp: URLSearchParams): SearchTarget {
 function readSort(sp: URLSearchParams): SearchSort {
     const v = sp.get("sort");
     return (SEARCH_SORTS as readonly string[]).includes(v ?? "") ? (v as SearchSort) : DEFAULT_SEARCH_SORT;
-}
-
-function readPage(sp: URLSearchParams): number {
-    const n = Number(sp.get("page"));
-    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
 }
 
 function SearchPage() {
@@ -91,13 +81,7 @@ function SearchPage() {
     }, [keyword, type, target, sort, page]);
 
     const updateParams = (patch: Record<string, string | undefined>, resetPage = false) => {
-        const next = new URLSearchParams(searchParams);
-        for (const [k, v] of Object.entries(patch)) {
-            if (v === undefined) next.delete(k);
-            else next.set(k, v);
-        }
-        if (resetPage) next.delete("page");
-        setSearchParams(next);
+        setSearchParams(patchParams(searchParams, patch, resetPage));
     };
 
     const onTabChange = (v: string) => {

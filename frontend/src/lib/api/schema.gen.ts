@@ -307,6 +307,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a user's profile detail */
+        get: operations["GetUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{id}/bookmarks": {
         parameters: {
             query?: never;
@@ -582,8 +599,55 @@ export interface components {
             name: string;
             translated_name: string | null;
         };
+        /** @description Pixiv user profile. Shape mirrors pixivgo.Profile. */
+        Profile: {
+            /** Format: int64 */
+            address_id: number;
+            background_image_url: string;
+            birth: string;
+            birth_day: string;
+            /** Format: int64 */
+            birth_year: number;
+            country_code: string;
+            gender: string;
+            is_premium: boolean;
+            is_using_custom_profile_image: boolean;
+            job: string;
+            /** Format: int64 */
+            job_id: number;
+            pawoo_url: string | null;
+            region: string;
+            /** Format: int64 */
+            total_follow_users: number;
+            /** Format: int64 */
+            total_illust_bookmarks_public: number;
+            /** Format: int64 */
+            total_illust_series: number;
+            /** Format: int64 */
+            total_illusts: number;
+            /** Format: int64 */
+            total_manga: number;
+            /** Format: int64 */
+            total_mypixiv_users: number;
+            /** Format: int64 */
+            total_novel_series: number;
+            /** Format: int64 */
+            total_novels: number;
+            twitter_account: string;
+            twitter_url: string | null;
+            webpage: string | null;
+        };
         ProfileImageUrls: {
             medium: string;
+        };
+        /** @description Pixiv profile publicity flags. Shape mirrors pixivgo.ProfilePublicity. */
+        ProfilePublicity: {
+            birth_day: string;
+            birth_year: string;
+            gender: string;
+            job: string;
+            pawoo: boolean;
+            region: string;
         };
         /** @enum {string} */
         RankingMode:
@@ -656,6 +720,12 @@ export interface components {
             name: string;
             profile_image_urls: components["schemas"]["ProfileImageUrls"];
         };
+        UserDetailPage: {
+            profile: components["schemas"]["Profile"];
+            profile_publicity: components["schemas"]["ProfilePublicity"];
+            user: components["schemas"]["User"];
+            workspace: components["schemas"]["Workspace"];
+        };
         UserIllustsPage: {
             illusts: components["schemas"]["Illust"][];
             /** Format: int64 */
@@ -673,6 +743,22 @@ export interface components {
             /** Format: int64 */
             next_offset?: number | null;
             user_previews: components["schemas"]["UserPreview"][];
+        };
+        /** @description Pixiv workspace info. Shape mirrors pixivgo.Workspace. */
+        Workspace: {
+            chair: string;
+            comment: string;
+            desk: string;
+            desktop: string;
+            monitor: string;
+            mouse: string;
+            music: string;
+            pc: string;
+            printer: string;
+            scanner: string;
+            tablet: string;
+            tool: string;
+            workspace_image_url: string | null;
         };
     };
     responses: {
@@ -1175,6 +1261,32 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    GetUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User detail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetailPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
             502: components["responses"]["Upstream"];
         };
     };

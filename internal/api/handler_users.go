@@ -11,6 +11,26 @@ import (
 	"github.com/txperl/PixivBiu/internal/pixiv"
 )
 
+func (h *APIHandler) GetUser(w http.ResponseWriter, r *http.Request, id UserIdPath) {
+	if err := h.requireAuth(); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	resp, err := h.svc.Client().UserDetail(r.Context(), pixivgo.UserDetailParams{
+		UserID: int(id),
+	})
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, UserDetailPage{
+		User:             resp.User,
+		Profile:          resp.Profile,
+		ProfilePublicity: resp.ProfilePublicity,
+		Workspace:        resp.Workspace,
+	})
+}
+
 func (h *APIHandler) ListUserIllusts(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserIllustsParams) {
 	if err := h.requireAuth(); err != nil {
 		h.writeError(w, r, err)

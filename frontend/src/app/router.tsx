@@ -3,6 +3,7 @@ import RootLayout from "@/app/layouts/root-layout";
 import Home from "@/pages/home";
 import RankingPage from "@/pages/ranking";
 import SearchPage from "@/pages/search";
+import UserPage from "@/pages/user";
 
 export const router = createBrowserRouter([
     {
@@ -13,6 +14,7 @@ export const router = createBrowserRouter([
             { path: "search", element: <SearchPage /> },
             { path: "search/:keyword", element: <SearchPage /> },
             { path: "ranking", element: <RankingPage /> },
+            { path: "user/:id", element: <UserPage /> },
         ],
     },
 ]);

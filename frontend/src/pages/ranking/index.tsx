@@ -8,7 +8,6 @@ import {
     modeFor,
     periodOf,
     RANKING_PAGE_SIZE,
-    type RankingApiError,
     type RankingMode,
     type RankingPeriod,
     type RankingVariantKey,
@@ -19,12 +18,8 @@ import RankingFilters from "@/features/ranking/components/ranking-filters";
 import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/illust-grid";
 import SearchPager from "@/features/search/components/search-pager";
 import { SearchError } from "@/features/search/components/search-states";
-
-type FetchState<T> =
-    | { status: "idle" }
-    | { status: "loading" }
-    | { status: "success"; data: T }
-    | { status: "error"; error: RankingApiError };
+import type { FetchState } from "@/lib/fetch-state";
+import { patchParams, readPage } from "@/lib/url-params";
 
 function readMode(sp: URLSearchParams): RankingMode {
     const v = sp.get("mode");
@@ -34,11 +29,6 @@ function readMode(sp: URLSearchParams): RankingMode {
 function readDate(sp: URLSearchParams): string | undefined {
     const v = sp.get("date");
     return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined;
-}
-
-function readPage(sp: URLSearchParams): number {
-    const n = Number(sp.get("page"));
-    return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
 }
 
 function RankingEmpty({ date }: { date?: string }) {
@@ -78,13 +68,7 @@ function RankingPage() {
     }, [mode, date, page]);
 
     const updateParams = (patch: Record<string, string | undefined>, resetPage = false) => {
-        const next = new URLSearchParams(searchParams);
-        for (const [k, v] of Object.entries(patch)) {
-            if (v === undefined) next.delete(k);
-            else next.set(k, v);
-        }
-        if (resetPage) next.delete("page");
-        setSearchParams(next);
+        setSearchParams(patchParams(searchParams, patch, resetPage));
     };
 
     const onPeriodChange = (nextPeriod: RankingPeriod) => {

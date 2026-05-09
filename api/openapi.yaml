@@ -51,6 +51,8 @@ paths:
   /illusts/{id}/bookmark:
     $ref: './paths/illusts.yaml#/bookmark'
 
+  /users/{id}:
+    $ref: './paths/users.yaml#/byId'
   /users/{id}/illusts:
     $ref: './paths/users.yaml#/illusts'
   /users/{id}/bookmarks:
@@ -375,6 +377,119 @@ components:
           type: integer
           format: int64
           nullable: true
+
+    UserDetailPage:
+      type: object
+      required: [user, profile, profile_publicity, workspace]
+      properties:
+        user:              { $ref: '#/components/schemas/User' }
+        profile:           { $ref: '#/components/schemas/Profile' }
+        profile_publicity: { $ref: '#/components/schemas/ProfilePublicity' }
+        workspace:         { $ref: '#/components/schemas/Workspace' }
+
+    Profile:
+      x-go-type: pixivgo.Profile
+      x-go-type-import: *pixivgoImport
+      type: object
+      description: Pixiv user profile. Shape mirrors pixivgo.Profile.
+      required:
+        - webpage
+        - gender
+        - birth
+        - birth_day
+        - birth_year
+        - region
+        - address_id
+        - country_code
+        - job
+        - job_id
+        - total_follow_users
+        - total_mypixiv_users
+        - total_illusts
+        - total_manga
+        - total_novels
+        - total_illust_bookmarks_public
+        - total_illust_series
+        - total_novel_series
+        - background_image_url
+        - twitter_account
+        - twitter_url
+        - pawoo_url
+        - is_premium
+        - is_using_custom_profile_image
+      properties:
+        webpage:                        { type: string, nullable: true }
+        gender:                         { type: string }
+        birth:                          { type: string }
+        birth_day:                      { type: string }
+        birth_year:                     { type: integer, format: int64 }
+        region:                         { type: string }
+        address_id:                     { type: integer, format: int64 }
+        country_code:                   { type: string }
+        job:                            { type: string }
+        job_id:                         { type: integer, format: int64 }
+        total_follow_users:             { type: integer, format: int64 }
+        total_mypixiv_users:            { type: integer, format: int64 }
+        total_illusts:                  { type: integer, format: int64 }
+        total_manga:                    { type: integer, format: int64 }
+        total_novels:                   { type: integer, format: int64 }
+        total_illust_bookmarks_public:  { type: integer, format: int64 }
+        total_illust_series:            { type: integer, format: int64 }
+        total_novel_series:             { type: integer, format: int64 }
+        background_image_url:           { type: string }
+        twitter_account:                { type: string }
+        twitter_url:                    { type: string, nullable: true }
+        pawoo_url:                      { type: string, nullable: true }
+        is_premium:                     { type: boolean }
+        is_using_custom_profile_image:  { type: boolean }
+
+    ProfilePublicity:
+      x-go-type: pixivgo.ProfilePublicity
+      x-go-type-import: *pixivgoImport
+      type: object
+      description: Pixiv profile publicity flags. Shape mirrors pixivgo.ProfilePublicity.
+      required: [gender, region, birth_day, birth_year, job, pawoo]
+      properties:
+        gender:     { type: string }
+        region:     { type: string }
+        birth_day:  { type: string }
+        birth_year: { type: string }
+        job:        { type: string }
+        pawoo:      { type: boolean }
+
+    Workspace:
+      x-go-type: pixivgo.Workspace
+      x-go-type-import: *pixivgoImport
+      type: object
+      description: Pixiv workspace info. Shape mirrors pixivgo.Workspace.
+      required:
+        - pc
+        - monitor
+        - tool
+        - scanner
+        - tablet
+        - mouse
+        - printer
+        - desktop
+        - music
+        - desk
+        - chair
+        - comment
+        - workspace_image_url
+      properties:
+        pc:                  { type: string }
+        monitor:             { type: string }
+        tool:                { type: string }
+        scanner:             { type: string }
+        tablet:              { type: string }
+        mouse:               { type: string }
+        printer:             { type: string }
+        desktop:             { type: string }
+        music:               { type: string }
+        desk:                { type: string }
+        chair:               { type: string }
+        comment:             { type: string }
+        workspace_image_url: { type: string, nullable: true }
 
     UserPreviewPage:
       type: object

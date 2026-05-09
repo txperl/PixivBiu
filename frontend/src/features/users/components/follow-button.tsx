@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 type FollowButtonProps = {
     userId: number;
-    isFollowed: boolean | null;
+    initialIsFollowed: boolean | null;
     className?: string;
 };
 
@@ -13,8 +13,8 @@ const ERROR_MESSAGES: Record<string, string> = {
     rate_limited: "请求过于频繁，请稍后再试",
 };
 
-function FollowButton({ userId, isFollowed, className }: FollowButtonProps) {
-    const [followed, setFollowed] = useState(isFollowed);
+function FollowButton({ userId, initialIsFollowed, className }: FollowButtonProps) {
+    const [followed, setFollowed] = useState(initialIsFollowed);
     const [pending, setPending] = useState(false);
     const [errorTitle, setErrorTitle] = useState<string | null>(null);
 

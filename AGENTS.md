@@ -75,7 +75,7 @@ PixivBiu-go/
 │   │   │                         #     each owns api.ts (calls openapi-fetch) + components/ + (optional) hooks/store/types
 │   │   ├── components/           #   Cross-feature shared UI; ui/ for shadcn primitives (don't put business UI here)
 │   │   ├── i18n/                 #   See i18n bullet above
-│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, format.ts (formatCount/hueFromId), pixiv-image.ts (TEMP pximg→pixiv.cat rewrite), api/ (openapi-fetch client), theme/
+│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, format.ts (formatCount/hueFromId), pixiv-image.ts (TEMP pximg→pixiv.cat rewrite), fetch-state.ts (FetchState<T>), url-params.ts (readPage/patchParams), api/ (openapi-fetch client), theme/
 │   │   └── styles/               #   globals.css + material-you.css
 │   ├── package.json              #   `bun run dev | build | check`. `build` runs `paraglide-js compile` before tsc.
 │   └── vite.config.ts            #   `paraglideVitePlugin` + Tailwind + React
@@ -150,7 +150,8 @@ The development loop:
 - **DO NOT bypass the `ServerInterface`.** Every endpoint must go through the generated interface so spec and implementation stay coupled.
 - **Keep `operationId` unique and camelCase** in the spec — it becomes the Go method name on `ServerInterface` (e.g., `getHealth` → `GetHealth`).
 - **Shared schemas live only in `api/openapi.yaml#/components`**. Path files reference them via `$ref: '../openapi.yaml#/components/...'`. Don't duplicate schemas across path files.
-- **Pixiv types are mirrored, not remodeled.** Schemas backed by pixivgo (the wrappers `Illust` / `User` / `UserPreview` / `Novel` / `IllustDetailResponse` / `UgoiraMetadataResponse`, plus their sub-schemas `ImageUrls` / `ProfileImageUrls` / `IllustrationTag` / `Series` / `MetaSinglePage` / `MetaPage` / `NovelTag` / `UgoiraMetadata` / `UgoiraZipUrls` / `UgoiraFrame`) carry `x-go-type: pixivgo.<Type>` so oapi-codegen emits a Go alias (`type Illust = pixivgo.IllustrationInfo`) — handlers pass pixivgo values through untouched, FlexInt and `*T`-nullable semantics survive. The `properties` / `required` block sitting alongside `x-go-type` is for **non-Go consumers** (openapi-typescript, Swagger UI, `/openapi.json`) and is **ignored by oapi-codegen**. Keep both representations in sync with pixivgo's `models.go` on upgrades — drift between them silently mistypes the frontend.
+- **Pixiv types are mirrored, not remodeled.** Schemas backed by pixivgo (the wrappers `Illust` / `User` / `UserPreview` / `Novel` / `IllustDetailResponse` / `UgoiraMetadataResponse`, plus their sub-schemas `ImageUrls` / `ProfileImageUrls` / `IllustrationTag` / `Series` / `MetaSinglePage` / `MetaPage` / `NovelTag` / `UgoiraMetadata` / `UgoiraZipUrls` / `UgoiraFrame` / `Profile` / `ProfilePublicity` / `Workspace`) carry `x-go-type: pixivgo.<Type>` so oapi-codegen emits a Go alias (`type Illust = pixivgo.IllustrationInfo`) — handlers pass pixivgo values through untouched, FlexInt and `*T`-nullable semantics survive. The `properties` / `required` block sitting alongside `x-go-type` is for **non-Go consumers** (openapi-typescript, Swagger UI, `/openapi.json`) and is **ignored by oapi-codegen**. Keep both representations in sync with pixivgo's `models.go` on upgrades — drift between them silently mistypes the frontend.
+- **When adding a new `x-go-type` schema, declare every JSON field from the upstream struct under `properties:` and list every always-present field (non-pointer / non-`omitempty`) in `required:`.**
 - **Reuse the `*pixivgoImport` YAML anchor.** The first pixivgo-mirrored schema in `api/openapi.yaml` declares `x-go-type-import: &pixivgoImport`. Every subsequent one writes `x-go-type-import: *pixivgoImport` instead of repeating the 3-line `name` / `path` block. YAML loaders expand the alias at parse time, so generated Go and `/openapi.json` are byte-identical to the inlined form.
 - **OpenAPI 3.0 nullable-on-`$ref` quirk.** A bare `nullable: true` on a `$ref` is silently ignored. To mark a `$ref` field nullable (e.g. pixivgo's `*Series` without `omitempty`), wrap it: `allOf: [{ $ref: ... }]` next to `nullable: true`. See `Illust.series` for the canonical example.
 - **The `servers:` block uses `/api/v1` as base URL.** Paths in the spec are written without the `/api/v1` prefix. The prefix is applied at mount time via `HandlerFromMuxWithBaseURL`.
@@ -263,6 +264,7 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 | GET | `/illusts/{id}/ugoira` | `getUgoiraMetadata` | Frame timing + zip URL |
 | PUT | `/illusts/{id}/bookmark` | `addBookmark` | Body: `{restrict?}`, 204 on success |
 | DELETE | `/illusts/{id}/bookmark` | `deleteBookmark` | 204 on success |
+| GET | `/users/{id}` | `getUser` | User profile detail (user + profile + publicity + workspace) |
 | GET | `/users/{id}/illusts` | `listUserIllusts` | Query: `type`, `offset` |
 | GET | `/users/{id}/bookmarks` | `listUserBookmarks` | Query: `restrict`, `max_bookmark_id` (cursor) |
 | GET | `/users/{id}/following` | `listUserFollowing` | Query: `restrict`, `offset` |

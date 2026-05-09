@@ -30,7 +30,10 @@ function FollowedAuthors() {
                     return (
                         <div
                             key={a.id}
-                            className={cn("flex items-center gap-3 px-[18px] py-2.5", i !== 0 && "border-muted/40 border-t")}
+                            className={cn(
+                                "flex items-center gap-3 px-[18px] py-2.5",
+                                i !== 0 && "border-muted/40 border-t",
+                            )}
                         >
                             <Avatar hue={a.hue} initial={a.name[0]} size={32} />
                             <div className="min-w-0 flex-1">

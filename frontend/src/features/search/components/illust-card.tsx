@@ -5,6 +5,7 @@ import PximgImage from "@/components/pximg-image";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Illust } from "@/features/search/api";
 import IllustPlaceholderArt from "@/features/search/components/illust-placeholder-art";
+import UserLink from "@/features/users/components/user-link";
 import { formatCount, hueFromId } from "@/lib/format";
 import { HeartIcon, PagesIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -141,10 +142,12 @@ function IllustCard({ illust }: IllustCardProps) {
                     {illust.title}
                 </div>
                 <div className="mt-1.5 flex items-center gap-1.5 text-muted-foreground text-xs">
-                    <Avatar hue={hueFromId(illust.user.id)} initial={illust.user.name[0] ?? "?"} size={18} />
-                    <span className="flex-1 truncate" title={illust.user.name}>
-                        {illust.user.name}
-                    </span>
+                    <UserLink userId={illust.user.id} className="flex min-w-0 flex-1 items-center gap-1.5">
+                        <Avatar hue={hueFromId(illust.user.id)} initial={illust.user.name[0] ?? "?"} size={18} />
+                        <span className="truncate hover:underline" title={illust.user.name}>
+                            {illust.user.name}
+                        </span>
+                    </UserLink>
                     <span className="inline-flex items-center gap-1 font-mono">
                         <HugeiconsIcon icon={HeartIcon} size={11} strokeWidth={1.5} />
                         {formatCount(illust.total_bookmarks)}

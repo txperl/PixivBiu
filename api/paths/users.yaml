@@ -1,3 +1,20 @@
+byId:
+  get:
+    operationId: getUser
+    summary: Get a user's profile detail
+    tags: [users]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
+    responses:
+      '200':
+        description: User detail.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/UserDetailPage' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
 illusts:
   get:
     operationId: listUserIllusts

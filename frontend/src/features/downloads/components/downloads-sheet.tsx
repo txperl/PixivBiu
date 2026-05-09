@@ -55,7 +55,10 @@ function DownloadsSheet() {
                                 <div className="flex items-center gap-2.5">
                                     <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
                                         <div
-                                            className={cn("h-full rounded-full", d.state === "done" ? "bg-chart-3" : "bg-primary")}
+                                            className={cn(
+                                                "h-full rounded-full",
+                                                d.state === "done" ? "bg-chart-3" : "bg-primary",
+                                            )}
                                             style={{ width: `${d.progress * 100}%` }}
                                         />
                                     </div>
