@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+
 type AvatarProps = {
     hue: number;
     initial: string;
@@ -8,7 +10,7 @@ type AvatarProps = {
 function Avatar({ hue, initial, size = 32, className }: AvatarProps) {
     return (
         <div
-            className={`flex shrink-0 items-center justify-center rounded-full font-medium text-white ${className ?? ""}`}
+            className={cn("flex shrink-0 items-center justify-center rounded-full font-medium text-white", className)}
             style={{
                 width: size,
                 height: size,

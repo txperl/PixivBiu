@@ -2,6 +2,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Sheet, SheetHead } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
 import { CloseIcon, DownloadIcon, FolderIcon, PauseIcon } from "@/lib/icons";
+import { cn } from "@/lib/utils";
 import { PB_DOWNLOADS } from "../mock";
 
 function DownloadsSheet() {
@@ -54,7 +55,7 @@ function DownloadsSheet() {
                                 <div className="flex items-center gap-2.5">
                                     <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
                                         <div
-                                            className={`h-full rounded-full ${d.state === "done" ? "bg-chart-3" : "bg-primary"}`}
+                                            className={cn("h-full rounded-full", d.state === "done" ? "bg-chart-3" : "bg-primary")}
                                             style={{ width: `${d.progress * 100}%` }}
                                         />
                                     </div>

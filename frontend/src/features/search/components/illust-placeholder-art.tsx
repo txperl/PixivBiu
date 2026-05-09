@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+
 type IllustPlaceholderArtProps = {
     hue: number;
     ratio?: "4/5" | "1/1" | "3/4";
@@ -13,7 +15,7 @@ function IllustPlaceholderArt({ hue, ratio = "1/1", rounded = 12, className, chi
     const b = `oklch(0.93 0.035 ${hue})`;
     return (
         <div
-            className={`relative w-full overflow-hidden ${className ?? ""}`}
+            className={cn("relative w-full overflow-hidden", className)}
             style={{
                 aspectRatio: ratio,
                 borderRadius: rounded,

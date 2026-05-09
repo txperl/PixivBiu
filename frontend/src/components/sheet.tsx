@@ -1,5 +1,6 @@
 import type { IconSvgElement } from "@hugeicons/react";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { cn } from "@/lib/utils";
 
 type SheetProps = {
     children: React.ReactNode;
@@ -7,7 +8,7 @@ type SheetProps = {
 };
 
 function Sheet({ children, className }: SheetProps) {
-    return <div className={`overflow-hidden rounded-2xl bg-card ${className ?? ""}`}>{children}</div>;
+    return <div className={cn("overflow-hidden rounded-2xl bg-card", className)}>{children}</div>;
 }
 
 type SheetHeadProps = {

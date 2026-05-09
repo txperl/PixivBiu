@@ -7,6 +7,7 @@ import type { Illust } from "@/features/search/api";
 import IllustPlaceholderArt from "@/features/search/components/illust-placeholder-art";
 import { formatCount, hueFromId } from "@/lib/format";
 import { HeartIcon, PagesIcon } from "@/lib/icons";
+import { cn } from "@/lib/utils";
 
 type IllustCardProps = {
     illust: Illust;
@@ -81,9 +82,10 @@ function IllustCard({ illust }: IllustCardProps) {
                                 {allPages.slice(0, displayedDots).map((page, i) => (
                                     <span
                                         key={page.key}
-                                        className={`block h-1.5 w-1.5 rounded-full transition-colors ${
-                                            open && i === activeDot ? "bg-white" : "bg-white/55"
-                                        }`}
+                                        className={cn(
+                                            "block h-1.5 w-1.5 rounded-full transition-colors",
+                                            open && i === activeDot ? "bg-white" : "bg-white/55",
+                                        )}
                                     />
                                 ))}
                             </PopoverTrigger>
