@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { rewritePximgUrl } from "@/lib/pixiv-image";
 
 type PximgImageProps = {
@@ -11,7 +11,13 @@ type PximgImageProps = {
 function PximgImage({ src, alt, fallback, className }: PximgImageProps) {
     const [ok, setOk] = useState(true);
     const url = rewritePximgUrl(src);
+
+    useEffect(() => {
+        if (url) setOk(true);
+    }, [url]);
+
     if (!ok || !url) return <>{fallback}</>;
+
     return (
         <img
             src={url}

@@ -1,4 +1,4 @@
-type PlaceholderArtProps = {
+type IllustPlaceholderArtProps = {
     hue: number;
     ratio?: "4/5" | "1/1" | "3/4";
     rounded?: number;
@@ -8,7 +8,7 @@ type PlaceholderArtProps = {
 
 // Stripe-and-blur tile that stands in for real artwork. Hue is data-driven, so
 // inline style is unavoidable here.
-function PlaceholderArt({ hue, ratio = "1/1", rounded = 12, className, children }: PlaceholderArtProps) {
+function IllustPlaceholderArt({ hue, ratio = "1/1", rounded = 12, className, children }: IllustPlaceholderArtProps) {
     const a = `oklch(0.88 0.05 ${hue})`;
     const b = `oklch(0.93 0.035 ${hue})`;
     return (
@@ -48,4 +48,4 @@ function PlaceholderArt({ hue, ratio = "1/1", rounded = 12, className, children 
     );
 }
 
-export default PlaceholderArt;
+export default IllustPlaceholderArt;

@@ -2,8 +2,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import Avatar from "@/components/avatar";
 import { CheckIcon, DownloadIcon, HeartIcon, PagesIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+import IllustPlaceholderArt from "../../search/components/illust-placeholder-art";
 import { formatCount, type Work } from "../mock";
-import PlaceholderArt from "./placeholder-art";
 
 type WorkCardProps = {
     work: Work;
@@ -20,7 +20,7 @@ function WorkCard({ work, selected, onSelect }: WorkCardProps) {
             )}
         >
             <div className="relative p-2">
-                <PlaceholderArt hue={work.hue} ratio="1/1" rounded={12} />
+                <IllustPlaceholderArt hue={work.hue} ratio="1/1" rounded={12} />
 
                 <div className="pointer-events-none absolute inset-2 rounded-xl bg-black/[0.04] opacity-0 transition-opacity group-hover:opacity-100" />
 

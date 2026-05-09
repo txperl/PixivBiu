@@ -1,7 +1,7 @@
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
-import PlaceholderArt from "@/features/illusts/components/placeholder-art";
 import type { UserPreview } from "@/features/search/api";
+import IllustPlaceholderArt from "@/features/search/components/illust-placeholder-art";
 import FollowButton from "@/features/users/components/follow-button";
 import { hueFromId } from "@/lib/format";
 
@@ -40,7 +40,7 @@ function UserCard({ preview }: UserCardProps) {
                             key={il.id}
                             src={il.image_urls.square_medium}
                             alt={il.title}
-                            fallback={<PlaceholderArt hue={hueFromId(il.id)} ratio="1/1" rounded={8} />}
+                            fallback={<IllustPlaceholderArt hue={hueFromId(il.id)} ratio="1/1" rounded={8} />}
                             className="aspect-square w-full rounded-lg object-cover"
                         />
                     ))}
