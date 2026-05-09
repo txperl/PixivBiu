@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, type SyntheticEvent, useEffect, useState } from "react";
 import { rewritePximgUrl } from "@/lib/pixiv-image";
 
 type PximgImageProps = {
@@ -6,9 +6,10 @@ type PximgImageProps = {
     alt: string;
     fallback: ReactNode;
     className?: string;
+    onLoad?: (e: SyntheticEvent<HTMLImageElement>) => void;
 };
 
-function PximgImage({ src, alt, fallback, className }: PximgImageProps) {
+function PximgImage({ src, alt, fallback, className, onLoad }: PximgImageProps) {
     const [ok, setOk] = useState(true);
     const url = rewritePximgUrl(src);
 
@@ -25,6 +26,7 @@ function PximgImage({ src, alt, fallback, className }: PximgImageProps) {
             loading="lazy"
             referrerPolicy="no-referrer"
             onError={() => setOk(false)}
+            onLoad={onLoad}
             className={className}
         />
     );

@@ -19,8 +19,7 @@ const PREVIEW_SIDE = "min(75vw, 75vh)";
 function IllustCard({ illust }: IllustCardProps) {
     const hue = hueFromId(illust.id);
 
-    const isWide = illust.width >= illust.height;
-    const aspect = illust.width > 0 && illust.height > 0 ? illust.width / illust.height : 1;
+    const fallbackAspect = illust.width > 0 && illust.height > 0 ? illust.width / illust.height : 1;
 
     const allPages =
         illust.page_count > 1 && illust.meta_pages.length > 0
@@ -32,10 +31,17 @@ function IllustCard({ illust }: IllustCardProps) {
     const [open, setOpen] = useState(false);
     const [activePage, setActivePage] = useState(0);
     const activePageRef = useRef(0);
+    const dotsRef = useRef<HTMLDivElement>(null);
+    const [pageAspects, setPageAspects] = useState<Record<number, number>>({});
+
+    const currentAspect = pageAspects[activePage] ?? fallbackAspect;
+    const currentIsWide = currentAspect >= 1;
 
     const updateActivePage = (e: MouseEvent<HTMLElement>) => {
         if (totalPages <= 1) return;
-        const rect = e.currentTarget.getBoundingClientRect();
+        const el = dotsRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
         const pos = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
         const idx = Math.min(totalPages - 1, Math.floor(pos * totalPages));
         if (idx === activePageRef.current) return;
@@ -55,7 +61,7 @@ function IllustCard({ illust }: IllustCardProps) {
                     className="aspect-square w-full rounded-xl object-cover"
                 />
 
-                <div className="pointer-events-none absolute inset-2 rounded-xl bg-black/[0.04] opacity-0 transition-opacity group-hover:opacity-100" />
+                <div className="pointer-events-none absolute inset-2 rounded-xl bg-black/4 opacity-0 transition-opacity group-hover:opacity-100" />
 
                 <div className="pointer-events-none absolute top-3.5 right-3.5">
                     {illust.page_count > 1 && (
@@ -71,7 +77,10 @@ function IllustCard({ illust }: IllustCardProps) {
                                 render={<div />}
                                 nativeButton={false}
                                 aria-label={totalPages > 1 ? `Preview (${totalPages} pages)` : "Preview"}
-                                className="flex cursor-default items-center gap-1 rounded-full bg-[rgba(30,20,15,0.7)] px-2 py-1.5 outline-none backdrop-blur-sm"
+                                className={cn(
+                                    "flex cursor-default items-center rounded-full bg-[rgba(30,20,15,0.7)] px-2.5 py-2 outline-none backdrop-blur-sm",
+                                    illust.page_count <= 1 && "px-2",
+                                )}
                                 onMouseEnter={(e) => {
                                     updateActivePage(e);
                                     setOpen(true);
@@ -79,23 +88,25 @@ function IllustCard({ illust }: IllustCardProps) {
                                 onMouseLeave={() => setOpen(false)}
                                 onMouseMove={updateActivePage}
                             >
-                                {allPages.slice(0, displayedDots).map((page, i) => (
-                                    <span
-                                        key={page.key}
-                                        className={cn(
-                                            "block h-1.5 w-1.5 rounded-full transition-colors",
-                                            open && i === activeDot ? "bg-white" : "bg-white/55",
-                                        )}
-                                    />
-                                ))}
+                                <div ref={dotsRef} className="flex items-center gap-1">
+                                    {allPages.slice(0, displayedDots).map((page, i) => (
+                                        <span
+                                            key={page.key}
+                                            className={cn(
+                                                "block h-1.5 w-1.5 rounded-full transition-colors",
+                                                open && i === activeDot ? "bg-white" : "bg-white/55",
+                                            )}
+                                        />
+                                    ))}
+                                </div>
                             </PopoverTrigger>
                             <PopoverContent side="right" sideOffset={8} className="w-auto p-1.5">
                                 <div
                                     className="relative overflow-hidden rounded-md bg-muted"
                                     style={{
-                                        aspectRatio: aspect,
-                                        width: isWide ? PREVIEW_SIDE : undefined,
-                                        height: isWide ? undefined : PREVIEW_SIDE,
+                                        aspectRatio: currentAspect,
+                                        width: currentIsWide ? PREVIEW_SIDE : undefined,
+                                        height: currentIsWide ? undefined : PREVIEW_SIDE,
                                     }}
                                 >
                                     <PximgImage
@@ -104,6 +115,14 @@ function IllustCard({ illust }: IllustCardProps) {
                                         alt={illust.title}
                                         fallback={<IllustPlaceholderArt hue={hue} ratio="1/1" rounded={6} />}
                                         className="block h-full w-full object-cover"
+                                        onLoad={(e) => {
+                                            const img = e.currentTarget;
+                                            if (!img.naturalWidth || !img.naturalHeight) return;
+                                            const ratio = img.naturalWidth / img.naturalHeight;
+                                            setPageAspects((prev) =>
+                                                prev[activePage] === ratio ? prev : { ...prev, [activePage]: ratio },
+                                            );
+                                        }}
                                     />
                                     {totalPages > 1 && (
                                         <div className="absolute top-2 right-2 rounded-full bg-[rgba(30,20,15,0.7)] px-2 py-[3px] font-mono text-[10.5px] text-white backdrop-blur-sm">
