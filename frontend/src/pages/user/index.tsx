@@ -24,22 +24,9 @@ import FollowButton from "@/features/users/components/follow-button";
 import type { FetchState } from "@/lib/fetch-state";
 import { formatCount, hueFromId } from "@/lib/format";
 import { patchParams, readPage } from "@/lib/url-params";
-
-type Tab = "illust" | "manga" | "bookmarks" | "following";
-const TABS = ["illust", "manga", "bookmarks", "following"] as const satisfies readonly Tab[];
-const TAB_LABELS: Record<Tab, string> = {
-    illust: "插画",
-    manga: "漫画",
-    bookmarks: "收藏",
-    following: "关注",
-};
+import { isTab, readTab, TAB_LABELS, TABS, type Tab } from "./tabs";
 
 type TabData = UserIllustsPage | IllustPage | UserPreviewPage;
-
-function readTab(sp: URLSearchParams): Tab {
-    const v = sp.get("tab");
-    return (TABS as readonly string[]).includes(v ?? "") ? (v as Tab) : "illust";
-}
 
 function ProfileHeader({ data }: { data: UserDetailPage }) {
     const { user, profile } = data;
@@ -220,7 +207,7 @@ function UserPage() {
     };
 
     const onTabChange = (v: string) => {
-        if (!(TABS as readonly string[]).includes(v)) return;
+        if (!isTab(v)) return;
         updateParams({ tab: v === "illust" ? undefined : v }, true);
     };
 

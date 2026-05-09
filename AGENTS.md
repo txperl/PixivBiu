@@ -33,6 +33,7 @@ The current backend covers **auth + read-only browsing + bookmark/follow + downl
 - **i18n**: [Paraglide JS](https://inlang.com/m/gerre34r/library-inlang-paraglideJs) — compile-time, tree-shakeable message functions. Source/config/generated all consolidated under `src/i18n/` (barrel `index.ts`; `messages/` + `project.inlang/` + `generated/` (gitignored) + `react/{locale-provider,use-messages,language-switcher}`). Locales: `en` (baseLocale + fallback), `zh-CN`, `ja`. Detection order: `localStorage` → `preferredLanguage` → `baseLocale`. Inside React render paths, read messages via `const m = useMessages()` — it subscribes to `LocaleContext`, so switching language triggers a rerender without remounting the subtree. **Do not** `import { m }` from `@/i18n/generated/messages` directly inside components: those importers don't subscribe, so language switches won't refresh them.
 - **Lint/Format**: Biome (replaces ESLint + Prettier)
 - **Package manager**: bun
+- **Page modules**: `pages/<route>/index.tsx` only default-exports the route component; shared types/constants/helpers go in sibling files (e.g., `pages/user/tabs.ts`).
 
 ## Project Structure
 
