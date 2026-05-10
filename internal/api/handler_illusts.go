@@ -90,6 +90,24 @@ func (h *APIHandler) ListFollowingIllusts(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, illustListPage(resp))
 }
 
+func (h *APIHandler) GetBookmarkDetail(w http.ResponseWriter, r *http.Request, id IllustIdPath) {
+	if err := h.requireAuth(); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	resp, err := h.svc.Client().IllustBookmarkDetail(r.Context(), pixivgo.IllustBookmarkDetailParams{
+		IllustID: int(id),
+	})
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, BookmarkDetail{
+		IsBookmarked: resp.BookmarkDetail.IsBookmarked,
+		Restrict:     Restrict(resp.BookmarkDetail.Restrict),
+	})
+}
+
 func (h *APIHandler) AddBookmark(w http.ResponseWriter, r *http.Request, id IllustIdPath) {
 	if err := h.requireAuth(); err != nil {
 		h.writeError(w, r, err)

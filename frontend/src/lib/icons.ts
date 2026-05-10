@@ -18,6 +18,7 @@ export {
     Home09Icon as HomeIcon,
     Image01Icon as ImageIcon,
     Layers01Icon as PagesIcon,
+    MagnetIcon,
     Medal01Icon as RankIcon,
     MoreVerticalIcon as MoreIcon,
     PauseIcon,

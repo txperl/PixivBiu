@@ -234,7 +234,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get current user's bookmark detail for an illust */
+        get: operations["GetBookmarkDetail"];
         /** Bookmark an illust */
         put: operations["AddBookmark"];
         post?: never;
@@ -409,6 +410,10 @@ export interface components {
             /** Format: int64 */
             user_id?: number | null;
             user_name?: string | null;
+        };
+        BookmarkDetail: {
+            is_bookmarked: boolean;
+            restrict: components["schemas"]["Restrict"];
         };
         BookmarkRequest: {
             restrict?: components["schemas"]["Restrict"];
@@ -1135,6 +1140,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IllustDetailResponse"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    GetBookmarkDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv illustration ID. */
+                id: components["parameters"]["IllustIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bookmark detail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookmarkDetail"];
                 };
             };
             401: components["responses"]["Unauthenticated"];

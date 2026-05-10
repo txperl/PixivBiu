@@ -228,6 +228,13 @@ components:
       properties:
         restrict: { $ref: '#/components/schemas/Restrict' }
 
+    BookmarkDetail:
+      type: object
+      required: [is_bookmarked, restrict]
+      properties:
+        is_bookmarked: { type: boolean }
+        restrict:      { $ref: '#/components/schemas/Restrict' }
+
     FollowRequest:
       type: object
       properties:

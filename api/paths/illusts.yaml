@@ -99,6 +99,21 @@ ugoira:
       '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
 
 bookmark:
+  get:
+    operationId: getBookmarkDetail
+    summary: Get current user's bookmark detail for an illust
+    tags: [illusts]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/IllustIdPath'
+    responses:
+      '200':
+        description: Bookmark detail.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/BookmarkDetail' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
   put:
     operationId: addBookmark
     summary: Bookmark an illust
