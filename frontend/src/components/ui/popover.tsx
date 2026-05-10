@@ -11,15 +11,19 @@ function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {
     return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />;
 }
 
+// `anchor` is for the case where you skip <PopoverTrigger> entirely (e.g. a
+// button needs its own click semantics) and pin the popover to an element ref
+// yourself. With <PopoverTrigger>, leave it undefined.
 function PopoverContent({
     className,
     align = "center",
     alignOffset = 0,
     side = "bottom",
     sideOffset = 4,
+    anchor,
     ...props
 }: PopoverPrimitive.Popup.Props &
-    Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
+    Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset" | "anchor">) {
     return (
         <PopoverPrimitive.Portal>
             <PopoverPrimitive.Positioner
@@ -27,6 +31,7 @@ function PopoverContent({
                 alignOffset={alignOffset}
                 side={side}
                 sideOffset={sideOffset}
+                anchor={anchor}
                 className="isolate z-50"
             >
                 <PopoverPrimitive.Popup

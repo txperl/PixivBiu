@@ -3,11 +3,12 @@ import { type MouseEvent, useRef, useState } from "react";
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import IllustBookmarkButton from "@/features/illusts/components/illust-bookmark-button";
 import type { Illust } from "@/features/search/api";
 import IllustPlaceholderArt from "@/features/search/components/illust-placeholder-art";
 import UserLink from "@/features/users/components/user-link";
-import { formatCount, hueFromId } from "@/lib/format";
-import { HeartIcon, PagesIcon } from "@/lib/icons";
+import { hueFromId } from "@/lib/format";
+import { PagesIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 type IllustCardProps = {
@@ -148,10 +149,12 @@ function IllustCard({ illust }: IllustCardProps) {
                             {illust.user.name}
                         </span>
                     </UserLink>
-                    <span className="inline-flex items-center gap-1 font-mono">
-                        <HugeiconsIcon icon={HeartIcon} size={11} strokeWidth={1.5} />
-                        {formatCount(illust.total_bookmarks)}
-                    </span>
+                    <IllustBookmarkButton
+                        key={illust.id}
+                        illustId={illust.id}
+                        initialIsBookmarked={illust.is_bookmarked}
+                        initialBookmarkCount={illust.total_bookmarks}
+                    />
                 </div>
             </div>
         </div>

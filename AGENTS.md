@@ -76,7 +76,7 @@ PixivBiu-go/
 │   │   │                         #     each owns api.ts (calls openapi-fetch) + components/ + (optional) hooks/store/types
 │   │   ├── components/           #   Cross-feature shared UI; ui/ for shadcn primitives (don't put business UI here)
 │   │   ├── i18n/                 #   See i18n bullet above
-│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, format.ts (formatCount/hueFromId), pixiv-image.ts (TEMP pximg→pixiv.cat rewrite), fetch-state.ts (FetchState<T>), url-params.ts (readPage/patchParams), api/ (openapi-fetch client), theme/
+│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, format.ts (formatCount/hueFromId), pixiv-image.ts (TEMP pximg→pixiv.cat rewrite), fetch-state.ts (FetchState<T>), url-params.ts (readPage/patchParams), api/ (openapi-fetch client + apiErrorMessage), theme/
 │   │   └── styles/               #   globals.css + material-you.css
 │   ├── package.json              #   `bun run dev | build | check`. `build` runs `paraglide-js compile` before tsc.
 │   └── vite.config.ts            #   `paraglideVitePlugin` + Tailwind + React

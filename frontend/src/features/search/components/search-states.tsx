@@ -1,13 +1,8 @@
 import type { SearchApiError } from "@/features/search/api";
-
-const ERROR_MESSAGES: Record<string, string> = {
-    unauthenticated: "请先登录 Pixiv 账号",
-    not_found: "未找到对应资源",
-    rate_limited: "请求过于频繁，请稍后再试",
-};
+import { apiErrorMessage } from "@/lib/api";
 
 export function SearchError({ error }: { error: SearchApiError }) {
-    const msg = ERROR_MESSAGES[error.code] ?? error.message;
+    const msg = apiErrorMessage(error);
     return (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive text-sm">
             <div className="font-medium">{error.code}</div>

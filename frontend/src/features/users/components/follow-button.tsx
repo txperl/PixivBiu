@@ -1,16 +1,12 @@
 import { useState } from "react";
 import { addFollow, deleteFollow } from "@/features/users/api";
+import { apiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type FollowButtonProps = {
     userId: number;
     initialIsFollowed: boolean | null;
     className?: string;
-};
-
-const ERROR_MESSAGES: Record<string, string> = {
-    unauthenticated: "请先登录 Pixiv 账号",
-    rate_limited: "请求过于频繁，请稍后再试",
 };
 
 function FollowButton({ userId, initialIsFollowed, className }: FollowButtonProps) {
@@ -42,7 +38,7 @@ function FollowButton({ userId, initialIsFollowed, className }: FollowButtonProp
         const { error } = next ? await addFollow(userId) : await deleteFollow(userId);
         if (error) {
             setFollowed(!next);
-            setErrorTitle(ERROR_MESSAGES[error.code] ?? error.message);
+            setErrorTitle(apiErrorMessage(error));
         }
         setPending(false);
     };
