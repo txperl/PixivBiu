@@ -4,9 +4,9 @@ import { NavLink, useLocation, useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/features/auth";
 import {
-    BookmarkIcon,
     DownloadIcon,
     FollowIcon,
+    HeartIcon,
     HomeIcon,
     ImageIcon,
     RankIcon,
@@ -110,7 +110,7 @@ function Nav() {
         {
             id: "bookmark",
             label: "收藏",
-            icon: BookmarkIcon,
+            icon: HeartIcon,
             to: isLoggedIn ? "/me/bookmarks" : undefined,
             activeMatch: matchMyUserTab(["bookmarks"]),
         },

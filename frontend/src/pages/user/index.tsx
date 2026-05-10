@@ -1,9 +1,11 @@
+import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/features/auth";
 import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/illust-grid";
 import SearchPager from "@/features/search/components/search-pager";
 import { SearchError } from "@/features/search/components/search-states";
@@ -24,60 +26,101 @@ import FollowButton from "@/features/users/components/follow-button";
 import type { FetchState } from "@/lib/fetch-state";
 import { formatCount, hueFromId } from "@/lib/format";
 import { patchParams, readPage } from "@/lib/url-params";
-import { isTab, readTab, TAB_LABELS, TABS, type Tab } from "./tabs";
+import { cn } from "@/lib/utils";
+import {
+    isBookmarkTab,
+    isOwnerOnlyTab,
+    isTab,
+    readTab,
+    TAB_ICONS,
+    TAB_LABELS,
+    TABS,
+    type Tab,
+    tabToParam,
+} from "./tabs";
 
 type TabData = UserIllustsPage | IllustPage | UserPreviewPage;
 
-function ProfileHeader({ data }: { data: UserDetailPage }) {
+function ProfileHeader({
+    data,
+    isMe,
+    onSelectTab,
+}: {
+    data: UserDetailPage;
+    isMe: boolean;
+    onSelectTab: (tab: Tab) => void;
+}) {
     const { user, profile } = data;
     return (
-        <header className="flex flex-col gap-4 rounded-2xl bg-card p-6">
-            <div className="flex items-start gap-5">
-                <PximgImage
-                    src={user.profile_image_urls.medium}
-                    alt={user.name}
-                    fallback={<Avatar hue={hueFromId(user.id)} initial={user.name[0] ?? "?"} size={84} />}
-                    className="size-20 shrink-0 rounded-full object-cover ring-2 ring-white/80"
-                />
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                        <h1 className="truncate font-semibold text-2xl text-foreground" title={user.name}>
-                            {user.name}
-                        </h1>
-                        {profile.is_premium && (
-                            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-[10px] text-amber-600">
-                                Premium
-                            </span>
-                        )}
-                    </div>
-                    <div className="font-mono text-muted-foreground text-xs" title={user.account}>
-                        @{user.account}
-                    </div>
-                    {user.comment && (
-                        <p className="mt-2 whitespace-pre-line text-foreground/85 text-sm leading-relaxed">
-                            {user.comment}
+        <header className="relative overflow-hidden rounded-2xl bg-card p-5 px-6">
+            {isMe && <PersonalSeal />}
+            <div className="relative flex flex-col gap-4">
+                <div className="flex items-start gap-5">
+                    <PximgImage
+                        src={user.profile_image_urls.medium}
+                        alt={user.name}
+                        fallback={<Avatar hue={hueFromId(user.id)} initial={user.name[0] ?? "?"} size={84} />}
+                        className="size-20 shrink-0 rounded-full object-cover ring-2 ring-white/80"
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                            <h1 className="truncate font-semibold text-2xl text-foreground" title={user.name}>
+                                {user.name}
+                            </h1>
+                            {profile.is_premium && (
+                                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-[10px] text-amber-600">
+                                    Premium
+                                </span>
+                            )}
+                        </div>
+                        <div className="font-mono text-muted-foreground text-xs" title={user.account}>
+                            @{user.account}
+                        </div>
+                        <p
+                            className={cn(
+                                "mt-1 whitespace-pre-line text-foreground/85 text-xs leading-relaxed",
+                                !user.comment && "text-muted-foreground/30",
+                            )}
+                        >
+                            {user.comment || "介绍里没有什么哦"}
                         </p>
-                    )}
+                    </div>
+                    {!isMe && <FollowButton key={user.id} userId={user.id} initialIsFollowed={user.is_followed} />}
                 </div>
-                <FollowButton key={user.id} userId={user.id} initialIsFollowed={user.is_followed} />
-            </div>
 
-            <div className="flex flex-wrap gap-x-6 gap-y-1.5 border-muted/50 border-t pt-3 text-xs">
-                <Stat label="插画" value={profile.total_illusts} />
-                <Stat label="漫画" value={profile.total_manga} />
-                <Stat label="收藏" value={profile.total_illust_bookmarks_public} />
-                <Stat label="关注" value={profile.total_follow_users} />
+                <div className="flex flex-wrap gap-x-2 gap-y-1.5 border-muted/50 border-t pt-3 text-xs">
+                    <Stat label="插画" value={profile.total_illusts} onClick={() => onSelectTab("illust")} />
+                    <Stat label="漫画" value={profile.total_manga} onClick={() => onSelectTab("manga")} />
+                    <Stat label="关注" value={profile.total_follow_users} onClick={() => onSelectTab("following")} />
+                    <Stat
+                        label="收藏"
+                        value={profile.total_illust_bookmarks_public}
+                        onClick={() => onSelectTab("bookmarks")}
+                    />
+                </div>
             </div>
         </header>
     );
 }
 
-function Stat({ label, value }: { label: string; value?: number }) {
+function PersonalSeal() {
     return (
-        <div className="flex items-baseline gap-1.5">
+        <div aria-hidden className="pointer-events-none absolute top-8 right-4 z-0 rotate-12 select-none">
+            <div className="font-semibold text-6xl text-primary/15 tracking-wider">个人</div>
+        </div>
+    );
+}
+
+function Stat({ label, value, onClick }: { label: string; value?: number; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="flex cursor-pointer items-baseline gap-1.5 rounded-lg px-2 py-1 transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+        >
             <span className="font-mono font-semibold text-foreground text-sm">{formatCount(value ?? 0)}</span>
             <span className="text-muted-foreground">{label}</span>
-        </div>
+        </button>
     );
 }
 
@@ -89,14 +132,14 @@ function ProfileHeaderSkeleton() {
                 <div className="flex min-w-0 flex-1 flex-col gap-2">
                     <Skeleton className="h-7 w-40" />
                     <Skeleton className="h-3 w-24" />
-                    <Skeleton className="mt-2 h-4 w-3/4" />
+                    <Skeleton className="mt-1 h-3 w-3/4" />
                 </div>
             </div>
             <div className="flex gap-6 border-muted/50 border-t pt-3">
-                <Skeleton className="h-4 w-12" />
-                <Skeleton className="h-4 w-12" />
-                <Skeleton className="h-4 w-12" />
-                <Skeleton className="h-4 w-12" />
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-5 w-12" />
             </div>
         </header>
     );
@@ -113,6 +156,9 @@ function NoResults({ tab }: { tab: Tab }) {
 function fetchTabData(tab: Tab, userId: number, page: number, cursor: number | undefined) {
     const offset = (page - 1) * USER_PAGE_SIZE;
     if (tab === "bookmarks") return listUserBookmarks({ userId, maxBookmarkId: cursor });
+    if (tab === "bookmarks_private") {
+        return listUserBookmarks({ userId, restrict: "private", maxBookmarkId: cursor });
+    }
     if (tab === "following") return listUserFollowing({ userId, offset });
     return listUserIllusts({ userId, type: tab as UserIllustsType, offset });
 }
@@ -141,23 +187,37 @@ function UserPage() {
     const userId = Number(rawId);
     const validId = Number.isFinite(userId) && userId > 0;
 
+    const { status: authStatus } = useAuth();
+    const authResolved = authStatus !== null;
+    const isMe = !!authStatus?.authenticated && authStatus.user_id === userId;
+
     const [searchParams, setSearchParams] = useSearchParams();
-    const tab = readTab(searchParams);
+    const rawTab = readTab(searchParams);
+    const tab: Tab = isOwnerOnlyTab(rawTab) && !isMe ? "bookmarks" : rawTab;
     const page = readPage(searchParams);
+
+    const visibleTabs = TABS.filter((t) => !isOwnerOnlyTab(t) || isMe);
 
     const [profileState, setProfileState] = useState<FetchState<UserDetailPage>>({ status: "idle" });
     const [tabState, setTabState] = useState<FetchState<TabData>>({ status: "idle" });
 
-    // Bookmarks paginate by cursor (max_bookmark_id), not offset. cursors maps
-    // page → max_bookmark_id; jumping to an unseen forward page is gated in onJumpPage.
-    // Tagged with userId so it resets on user change. We use a ref (not useMemo) because
-    // React reserves the right to discard memoized values, which would silently lose the
-    // cursor chain mid-pagination.
-    const cursorsRef = useRef<{ userId: number; map: Map<number, number | undefined> } | null>(null);
+    // Pixiv paginates bookmarks by cursor (max_bookmark_id), built up by paging forward
+    // from page 1. Public/private bookmark chains are independent — keep one map per
+    // restrict so leaving and returning to a bookmark tab preserves the chain.
+    // useRef, not useMemo: React may discard memoized values, silently losing the chain.
+    const cursorsRef = useRef<{
+        userId: number;
+        bookmarks: Map<number, number | undefined>;
+        bookmarksPrivate: Map<number, number | undefined>;
+    } | null>(null);
     if (!cursorsRef.current || cursorsRef.current.userId !== userId) {
-        cursorsRef.current = { userId, map: new Map([[1, undefined]]) };
+        cursorsRef.current = {
+            userId,
+            bookmarks: new Map([[1, undefined]]),
+            bookmarksPrivate: new Map([[1, undefined]]),
+        };
     }
-    const cursors = cursorsRef.current.map;
+    const cursors = tab === "bookmarks_private" ? cursorsRef.current.bookmarksPrivate : cursorsRef.current.bookmarks;
 
     useEffect(() => {
         if (!validId) return;
@@ -175,18 +235,19 @@ function UserPage() {
 
     useEffect(() => {
         if (!validId) return;
-        // Bookmark cursor for this page must already be cached (built up by paging
-        // forward from page 1). On direct navigation to a deep page (refresh, shared
-        // link), the cursor is unknown — fall back to page 1 instead of fetching with
-        // an undefined cursor, which Pixiv would silently treat as page 1 and corrupt
-        // the page→cursor cache for the rest of the session.
-        if (tab === "bookmarks" && !cursors.has(page)) {
+        // Wait for auth before falling back from bookmarks_private → bookmarks; otherwise
+        // an owner refreshing on ?tab=bookmarks_private fetches public first, then private.
+        if (rawTab === "bookmarks_private" && !authResolved) return;
+        // Direct navigation to a deep bookmark page has no cached cursor; fall back to
+        // page 1. Fetching with undefined cursor is treated as page 1 by Pixiv and would
+        // poison the page→cursor cache.
+        if (isBookmarkTab(tab) && !cursors.has(page)) {
             setSearchParams((sp) => patchParams(sp, { page: undefined }));
             return;
         }
         let cancelled = false;
         setTabState({ status: "loading" });
-        const cursor = tab === "bookmarks" ? cursors.get(page) : undefined;
+        const cursor = isBookmarkTab(tab) ? cursors.get(page) : undefined;
         fetchTabData(tab, userId, page, cursor).then(({ data, error }) => {
             if (cancelled) return;
             if (error) setTabState({ status: "error", error });
@@ -200,19 +261,20 @@ function UserPage() {
         return () => {
             cancelled = true;
         };
-    }, [userId, validId, tab, page, cursors, setSearchParams]);
+    }, [userId, validId, tab, rawTab, authResolved, page, cursors, setSearchParams]);
 
     const updateParams = (patch: Record<string, string | undefined>, resetPage = false) => {
         setSearchParams(patchParams(searchParams, patch, resetPage));
     };
 
+    const selectTab = (t: Tab) => updateParams({ tab: tabToParam(t) }, true);
+
     const onTabChange = (v: string) => {
-        if (!isTab(v)) return;
-        updateParams({ tab: v === "illust" ? undefined : v }, true);
+        if (isTab(v)) selectTab(v);
     };
 
     const onJumpPage = (p: number) => {
-        if (tab === "bookmarks" && !cursors.has(p)) return;
+        if (isBookmarkTab(tab) && !cursors.has(p)) return;
         updateParams({ page: p === 1 ? undefined : String(p) });
         document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -231,17 +293,20 @@ function UserPage() {
         <div className="relative flex flex-col gap-4 px-7 pt-7 pb-7">
             {profileState.status === "loading" && <ProfileHeaderSkeleton />}
             {profileState.status === "error" && <SearchError error={profileState.error} />}
-            {profileState.status === "success" && <ProfileHeader data={profileState.data} />}
+            {profileState.status === "success" && (
+                <ProfileHeader data={profileState.data} isMe={isMe} onSelectTab={selectTab} />
+            )}
 
             <Tabs value={tab} onValueChange={onTabChange}>
                 <div className="border-muted/60 border-b">
-                    <TabsList variant="line" className="h-12 gap-0">
-                        {TABS.map((t) => (
+                    <TabsList variant="line" className="h-12 gap-1">
+                        {visibleTabs.map((t) => (
                             <TabsTrigger
                                 key={t}
                                 value={t}
-                                className="h-full px-4 text-sm data-active:text-primary data-active:after:h-[3px] data-active:after:bg-primary"
+                                className="flex h-full items-center gap-1.5 px-2.5 text-sm data-active:text-primary data-active:after:h-[3px] data-active:after:bg-primary"
                             >
+                                <HugeiconsIcon icon={TAB_ICONS[t]} size={16} strokeWidth={2} />
                                 {TAB_LABELS[t]}
                             </TabsTrigger>
                         ))}

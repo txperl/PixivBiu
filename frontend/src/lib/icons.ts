@@ -8,6 +8,7 @@ export {
     ArrowLeft01Icon as ChevronLeftIcon,
     ArrowRight01Icon as ChevronRightIcon,
     Bookmark02Icon as BookmarkIcon,
+    BookOpen01Icon as MangaIcon,
     Calendar03Icon as CalendarIcon,
     Cancel01Icon as CloseIcon,
     Download04Icon as DownloadIcon,
@@ -26,5 +27,5 @@ export {
     Settings03Icon as SettingsIcon,
     Tag01Icon as TagIcon,
     Tick02Icon as CheckIcon,
-    UserGroup02Icon as FollowIcon,
+    UserMultiple03Icon as FollowIcon,
 } from "@hugeicons/core-free-icons";
