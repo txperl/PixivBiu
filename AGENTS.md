@@ -276,7 +276,8 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 | POST | `/downloads` | `submitDownload` | Body: `{illust_id}`. 202 + `DownloadJob`. Routes by illust type. |
 | GET | `/downloads` | `listDownloads` | Jobs newest-first |
 | GET | `/downloads/{id}` | `getDownload` | Single job |
-| DELETE | `/downloads/{id}` | `cancelDownload` | 204 / 404 / 409 (terminal) |
+| POST | `/downloads/{id}/cancel` | `cancelDownload` | 204 / 404 / 409 (already terminal) |
+| DELETE | `/downloads/{id}` | `removeDownload` | Query: `purgeFiles`. 204 / 404 / 409 (still running) |
 | GET | `/events` | `getEvents` | SSE (`text/event-stream`). Query: `topics` (CSV). Honours `Last-Event-ID`. |
 
 **Dev-only endpoints** (outside `/api/v1`):
@@ -293,7 +294,7 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 - `bad_request` / 400 — malformed input / invalid illust.
 - `forbidden` / 403 — upstream 403 (e.g., restricted / deleted illust).
 - `not_found` / 404 — upstream 404 / unknown download job.
-- `conflict` / 409 — cancelling an already-terminal download job.
+- `conflict` / 409 — cancelling a terminal job, or removing a non-terminal one.
 - `rate_limited` / 429 — upstream 429.
 - `upstream_error` / 502 — any other upstream failure.
 - `internal_error` / 500 — unclassified.
@@ -319,7 +320,7 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 
 ## Download Module
 
-**Architecture.** `internal/download` is self-contained: the HTTP layer only uses `Manager.{Submit,List,Get,Cancel}` and a generic `inbox.Publisher` interface — it does not know about SSE. `internal/inbox` owns the transport.
+**Architecture.** `internal/download` is self-contained: the HTTP layer only uses `Manager.{Submit,List,Get,Cancel,Remove}` and a generic `inbox.Publisher` interface — it does not know about SSE. `internal/inbox` owns the transport.
 
 **Persistence.** `usr/downloads.json` is written atomically (temp file + rename, 0600) on every state transition (queued → running → terminal). Progress ticks are NOT persisted — they flow through the inbox only. On restart the manager reloads the file and re-queues any `queued`/`running` tasks (no resume-in-place; files are overwritten on replay).
 

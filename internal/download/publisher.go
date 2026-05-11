@@ -18,6 +18,7 @@ const (
 	TypeJobCompleted  = "job.completed"
 	TypeJobFailed     = "job.failed"
 	TypeJobCancelled  = "job.cancelled"
+	TypeJobDeleted    = "job.deleted"
 	TypeTaskStarted   = "task.started"
 	TypeTaskProgress  = "task.progress"
 	TypeTaskCompleted = "task.completed"
@@ -168,4 +169,12 @@ func (p *Publisher) JobStateChange(job *Job) {
 	case StatusCancelled:
 		p.hub.Publish(TopicDownload, TypeJobCancelled, payload)
 	}
+}
+
+func (p *Publisher) JobDeleted(jobID string, illustID int64, taskCount int) {
+	p.hub.Publish(TopicDownload, TypeJobDeleted, jobEventPayload{
+		JobID:     jobID,
+		IllustID:  illustID,
+		TaskCount: taskCount,
+	})
 }

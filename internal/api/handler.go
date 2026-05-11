@@ -65,7 +65,8 @@ func classify(err error) (code string, status int, detail string) {
 		return "bad_request", http.StatusBadRequest, ""
 	case errors.Is(err, download.ErrNotFound):
 		return "not_found", http.StatusNotFound, ""
-	case errors.Is(err, download.ErrAlreadyTerminal):
+	case errors.Is(err, download.ErrAlreadyTerminal),
+		errors.Is(err, download.ErrStillRunning):
 		return "conflict", http.StatusConflict, ""
 	}
 	// Malformed JSON request bodies surface as these typed errors from

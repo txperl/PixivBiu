@@ -52,8 +52,36 @@ byId:
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
       '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
   delete:
+    operationId: removeDownload
+    summary: Remove a download job from history
+    description: |
+      Deletes a terminal job (completed / failed / cancelled) from the
+      store. Returns `409` if the job is still running — the client
+      must `POST /downloads/{id}/cancel` first. When `purgeFiles=true`,
+      already-downloaded files belonging to completed tasks are also
+      removed from disk.
+    tags: [downloads]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/DownloadIdPath'
+      - name: purgeFiles
+        in: query
+        required: false
+        description: When `true`, also delete the downloaded files from disk.
+        schema: { type: boolean, default: false }
+    responses:
+      '204': { $ref: '../openapi.yaml#/components/responses/NoContent' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409':
+        description: Job is still running — cancel it before removing.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/Error' }
+
+byIdCancel:
+  post:
     operationId: cancelDownload
-    summary: Cancel a download job
+    summary: Cancel a running download job
     description: Cancels every non-terminal task in the job. Returns `409` if the job is already in a terminal state.
     tags: [downloads]
     parameters:

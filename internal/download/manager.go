@@ -206,6 +206,46 @@ func (m *Manager) Cancel(id string) error {
 	return nil
 }
 
+// Remove deletes a terminal job from the store, optionally purging
+// task files from disk. Non-terminal jobs must be Cancel'd first.
+func (m *Manager) Remove(id string, purgeFiles bool) error {
+	m.mu.Lock()
+	job, ok := m.jobs[id]
+	if !ok {
+		m.mu.Unlock()
+		return ErrNotFound
+	}
+	if !job.Status.IsTerminal() {
+		m.mu.Unlock()
+		return ErrStillRunning
+	}
+	var paths []string
+	if purgeFiles {
+		// Non-completed tasks' FilePath may belong to an earlier job
+		// for the same illust (target path is deterministic per illust).
+		for _, t := range job.Tasks {
+			if t.FilePath != "" && t.Status == StatusCompleted {
+				paths = append(paths, t.FilePath)
+			}
+			paths = append(paths, t.ExtraFiles...)
+		}
+	}
+	jobID := job.ID
+	illustID := job.IllustID
+	taskCount := len(job.Tasks)
+	delete(m.jobs, id)
+	m.mu.Unlock()
+
+	_ = m.persist()
+	for _, p := range paths {
+		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
+			m.logger.Warn("download purge file failed", slog.String("path", p), slog.Any("error", err))
+		}
+	}
+	m.pub.JobDeleted(jobID, illustID, taskCount)
+	return nil
+}
+
 // Submit creates a Job for the given illust ID. It fetches the
 // illust detail, builds tasks per page (single / multi / ugoira),
 // enqueues them, and returns the Job. The returned Job is the live
@@ -695,12 +735,16 @@ func (m *Manager) convertUgoira(ctx context.Context, job *Job, task *Task) error
 	if format == "" || format == UgoiraFormatNone {
 		return nil
 	}
-	finalPath, err := ConvertUgoira(ctx, task.FilePath, job.UgoiraFrames, format, m.cfg.Ugoira.KeepZip)
+	zipPath := task.FilePath
+	finalPath, err := ConvertUgoira(ctx, zipPath, job.UgoiraFrames, format, m.cfg.Ugoira.KeepZip)
 	if err != nil {
 		return err
 	}
 	m.mu.Lock()
 	task.FilePath = finalPath
+	if m.cfg.Ugoira.KeepZip && finalPath != zipPath {
+		task.ExtraFiles = append(task.ExtraFiles, zipPath)
+	}
 	m.mu.Unlock()
 	return nil
 }
@@ -728,7 +772,7 @@ func (m *Manager) persist() error {
 // non-atomically read SizeBytes / DownloadedBytes — the hot path
 // writes those via atomic.* without m.mu.
 func snapshotTaskLocked(t *Task) *Task {
-	return &Task{
+	cp := &Task{
 		ID:              t.ID,
 		JobID:           t.JobID,
 		URL:             t.URL,
@@ -740,6 +784,10 @@ func snapshotTaskLocked(t *Task) *Task {
 		StartedAt:       t.StartedAt,
 		FinishedAt:      t.FinishedAt,
 	}
+	if len(t.ExtraFiles) > 0 {
+		cp.ExtraFiles = append([]string(nil), t.ExtraFiles...)
+	}
+	return cp
 }
 
 // snapshotJobLocked deep-copies j and its Tasks. Caller must hold m.mu.

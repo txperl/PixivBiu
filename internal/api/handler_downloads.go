@@ -70,6 +70,19 @@ func (h *APIHandler) CancelDownload(w http.ResponseWriter, r *http.Request, id D
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *APIHandler) RemoveDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath, params RemoveDownloadParams) {
+	if err := h.requireAuth(); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	purge := params.PurgeFiles != nil && *params.PurgeFiles
+	if err := h.dl.Remove(id, purge); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // projectJob adapts an internal *download.Job to the generated
 // DownloadJob wire type. The mapping copies per-request so workers
 // that keep mutating the underlying job don't race with marshalling.

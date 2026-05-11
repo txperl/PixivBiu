@@ -102,10 +102,34 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Cancel a download job
+         * Remove a download job from history
+         * @description Deletes a terminal job (completed / failed / cancelled) from the
+         *     store. Returns `409` if the job is still running — the client
+         *     must `POST /downloads/{id}/cancel` first. When `purgeFiles=true`,
+         *     already-downloaded files belonging to completed tasks are also
+         *     removed from disk.
+         */
+        delete: operations["RemoveDownload"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/downloads/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a running download job
          * @description Cancels every non-terminal task in the job. Returns `409` if the job is already in a terminal state.
          */
-        delete: operations["CancelDownload"];
+        post: operations["CancelDownload"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -655,20 +679,7 @@ export interface components {
             region: string;
         };
         /** @enum {string} */
-        RankingMode:
-            | "day"
-            | "week"
-            | "month"
-            | "day_male"
-            | "day_female"
-            | "week_original"
-            | "week_rookie"
-            | "day_manga"
-            | "day_r18"
-            | "day_male_r18"
-            | "day_female_r18"
-            | "week_r18"
-            | "week_r18g";
+        RankingMode: "day" | "week" | "month" | "day_male" | "day_female" | "week_original" | "week_rookie" | "day_manga" | "day_r18" | "day_male_r18" | "day_female_r18" | "week_r18" | "week_r18g";
         /**
          * @default public
          * @enum {string}
@@ -964,6 +975,35 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    RemoveDownload: {
+        parameters: {
+            query?: {
+                /** @description When `true`, also delete the downloaded files from disk. */
+                purgeFiles?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Download job identifier returned by `POST /downloads`. */
+                id: components["parameters"]["DownloadIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            /** @description Job is still running — cancel it before removing. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     CancelDownload: {

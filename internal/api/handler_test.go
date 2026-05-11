@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/txperl/PixivBiu/internal/download"
 )
 
 func TestClassify_JSONDecodeErrorsMapTo400(t *testing.T) {
@@ -60,6 +62,28 @@ func TestClassify_UnknownErrorFallsBackTo500(t *testing.T) {
 	}
 	if code != "internal_error" {
 		t.Errorf("code: want internal_error, got %q", code)
+	}
+}
+
+func TestClassify_DownloadConflictErrorsMapTo409(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+	}{
+		{"already terminal", download.ErrAlreadyTerminal},
+		{"still running", download.ErrStillRunning},
+		{"wrapped still running", fmt.Errorf("delete job: %w", download.ErrStillRunning)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			code, status, _ := classify(c.err)
+			if status != http.StatusConflict {
+				t.Errorf("status: want 409, got %d", status)
+			}
+			if code != "conflict" {
+				t.Errorf("code: want conflict, got %q", code)
+			}
+		})
 	}
 }
 

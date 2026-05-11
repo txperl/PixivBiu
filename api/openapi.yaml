@@ -71,6 +71,8 @@ paths:
     $ref: './paths/downloads.yaml#/root'
   /downloads/{id}:
     $ref: './paths/downloads.yaml#/byId'
+  /downloads/{id}/cancel:
+    $ref: './paths/downloads.yaml#/byIdCancel'
 
   /events:
     $ref: './paths/events.yaml#/stream'
