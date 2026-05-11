@@ -3,6 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { NavLink, useLocation, useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/features/auth";
+import { useDownloads } from "@/features/downloads";
 import {
     DownloadIcon,
     FollowIcon,
@@ -42,13 +43,7 @@ const BROWSE_GROUP: NavGroupDef = {
     ],
 };
 
-const TOOLS_GROUP: NavGroupDef = {
-    label: "工具",
-    items: [
-        { id: "dl", label: "下载管理", icon: DownloadIcon, badge: 2 },
-        { id: "settings", label: "设置", icon: SettingsIcon },
-    ],
-};
+const SETTINGS_ITEM: NavItemDef = { id: "settings", label: "设置", icon: SettingsIcon };
 
 function ItemBody({ item, active }: { item: NavItemDef; active: boolean }) {
     return (
@@ -93,6 +88,7 @@ function NavItem({ item, pathname, search }: { item: NavItemDef; pathname: strin
 
 function Nav() {
     const { status } = useAuth();
+    const { activeCount } = useDownloads();
     const { pathname } = useLocation();
     const [search] = useSearchParams();
 
@@ -130,7 +126,19 @@ function Nav() {
         },
     ];
 
-    const groups: NavGroupDef[] = [BROWSE_GROUP, { label: "个人", items: personalItems }, TOOLS_GROUP];
+    const downloadsItem: NavItemDef = {
+        id: "dl",
+        label: "下载管理",
+        icon: DownloadIcon,
+        to: "/downloads",
+        badge: activeCount > 0 ? activeCount : undefined,
+    };
+
+    const groups: NavGroupDef[] = [
+        BROWSE_GROUP,
+        { label: "个人", items: personalItems },
+        { label: "工具", items: [downloadsItem, SETTINGS_ITEM] },
+    ];
 
     return (
         <nav className="flex flex-col gap-4">

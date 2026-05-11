@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
+import { useIllustSelection } from "@/features/downloads";
+import DownloadFAB from "@/features/downloads/components/download-fab";
 import {
     DEFAULT_RANKING_MODE,
     type IllustPage,
@@ -52,10 +54,12 @@ function RankingPage() {
     const variantKey = variantKeyOf(mode);
 
     const [state, setState] = useState<FetchState<IllustPage>>({ status: "idle" });
+    const { selected, selectedIllustIds, toggle, clearSelection } = useIllustSelection();
 
     useEffect(() => {
         let cancelled = false;
         setState({ status: "loading" });
+        clearSelection();
         const offset = (page - 1) * RANKING_PAGE_SIZE;
         listRanking({ mode, date, offset }).then(({ data, error }) => {
             if (cancelled) return;
@@ -65,7 +69,7 @@ function RankingPage() {
         return () => {
             cancelled = true;
         };
-    }, [mode, date, page]);
+    }, [mode, date, page, clearSelection]);
 
     const updateParams = (patch: Record<string, string | undefined>, resetPage = false) => {
         setSearchParams(patchParams(searchParams, patch, resetPage));
@@ -110,12 +114,14 @@ function RankingPage() {
                 (state.data.illusts.length === 0 ? (
                     <RankingEmpty date={date} />
                 ) : (
-                    <IllustGrid illusts={state.data.illusts} />
+                    <IllustGrid illusts={state.data.illusts} selected={selected} onToggle={toggle} />
                 ))}
 
             {state.status === "success" && state.data.illusts.length > 0 && (
                 <SearchPager currentPage={page} hasNext={state.data.next_offset != null} onJump={onJumpPage} />
             )}
+
+            <DownloadFAB selectedIllustIds={selectedIllustIds} onClearSelection={clearSelection} />
         </div>
     );
 }

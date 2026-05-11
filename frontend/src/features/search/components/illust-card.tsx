@@ -3,12 +3,13 @@ import { type MouseEvent, useRef, useState } from "react";
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import IllustDownloadButton from "@/features/downloads/components/illust-download-button";
 import type { Illust } from "@/features/search/api";
 import IllustBookmarkButton from "@/features/search/components/illust-bookmark-button";
 import IllustPlaceholderArt from "@/features/search/components/illust-placeholder-art";
 import UserLink from "@/features/users/components/user-link";
 import { hueFromId } from "@/lib/format";
-import { CheckIcon, DownloadIcon, PagesIcon } from "@/lib/icons";
+import { CheckIcon, PagesIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 type IllustCardProps = {
@@ -163,15 +164,7 @@ function IllustCard({ illust, selected = false, onSelect }: IllustCardProps) {
                     </div>
                 </div>
 
-                {selectable && (
-                    <button
-                        type="button"
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute right-3.5 bottom-3.5 flex size-10 scale-90 items-center justify-center rounded-xl bg-primary text-primary-foreground opacity-0 shadow-md transition-all group-hover:scale-100 group-hover:opacity-100"
-                    >
-                        <HugeiconsIcon icon={DownloadIcon} size={16} strokeWidth={1.5} />
-                    </button>
-                )}
+                {selectable && <IllustDownloadButton illustId={illust.id} />}
             </div>
 
             <div className="px-3.5 pt-1 pb-3.5">

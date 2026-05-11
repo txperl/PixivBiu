@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useIllustSelection } from "@/features/downloads";
+import DownloadFAB from "@/features/downloads/components/download-fab";
 import {
     DEFAULT_SEARCH_SORT,
     DEFAULT_SEARCH_TARGET,
@@ -51,8 +53,10 @@ function SearchPage() {
 
     const [illustState, setIllustState] = useState<FetchState<IllustPage>>({ status: "idle" });
     const [userState, setUserState] = useState<FetchState<UserPreviewPage>>({ status: "idle" });
+    const { selected, selectedIllustIds, toggle, clearSelection } = useIllustSelection();
 
     useEffect(() => {
+        clearSelection();
         if (!keyword) {
             setIllustState({ status: "idle" });
             setUserState({ status: "idle" });
@@ -78,7 +82,7 @@ function SearchPage() {
         return () => {
             cancelled = true;
         };
-    }, [keyword, type, target, sort, page]);
+    }, [keyword, type, target, sort, page, clearSelection]);
 
     const updateParams = (patch: Record<string, string | undefined>, resetPage = false) => {
         setSearchParams(patchParams(searchParams, patch, resetPage));
@@ -150,7 +154,11 @@ function SearchPage() {
                                 (illustState.data.illusts.length === 0 ? (
                                     <SearchNoResults word={keyword} />
                                 ) : (
-                                    <IllustGrid illusts={illustState.data.illusts} />
+                                    <IllustGrid
+                                        illusts={illustState.data.illusts}
+                                        selected={selected}
+                                        onToggle={toggle}
+                                    />
                                 ))}
                         </>
                     ) : (
@@ -170,6 +178,10 @@ function SearchPage() {
                         <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />
                     )}
                 </>
+            )}
+
+            {type === "illust" && (
+                <DownloadFAB selectedIllustIds={selectedIllustIds} onClearSelection={clearSelection} />
             )}
         </div>
     );

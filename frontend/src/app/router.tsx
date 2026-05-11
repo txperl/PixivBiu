@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router";
 import RootLayout from "@/app/layouts/root-layout";
+import DownloadsPage from "@/pages/downloads";
 import Home from "@/pages/home";
 import MeRedirect from "@/pages/me/me-redirect";
 import RankingPage from "@/pages/ranking";
@@ -17,6 +18,7 @@ export const router = createBrowserRouter([
             { path: "ranking", element: <RankingPage /> },
             { path: "user/:id", element: <UserPage /> },
             { path: "me/:tab?", element: <MeRedirect /> },
+            { path: "downloads", element: <DownloadsPage /> },
         ],
     },
 ]);

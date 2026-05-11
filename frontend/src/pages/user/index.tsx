@@ -6,6 +6,8 @@ import PximgImage from "@/components/pximg-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/features/auth";
+import { useIllustSelection } from "@/features/downloads";
+import DownloadFAB from "@/features/downloads/components/download-fab";
 import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/illust-grid";
 import SearchPager from "@/features/search/components/search-pager";
 import { SearchError } from "@/features/search/components/search-states";
@@ -168,7 +170,17 @@ function tabHasNext(data: TabData): boolean {
     return "next_offset" in data && data.next_offset != null;
 }
 
-function TabBody({ tab, state }: { tab: Tab; state: FetchState<TabData> }) {
+function TabBody({
+    tab,
+    state,
+    selected,
+    onToggle,
+}: {
+    tab: Tab;
+    state: FetchState<TabData>;
+    selected: Set<number>;
+    onToggle: (id: number) => void;
+}) {
     if (state.status === "loading") {
         return tab === "following" ? <UserListSkeleton /> : <IllustGridSkeleton />;
     }
@@ -179,7 +191,11 @@ function TabBody({ tab, state }: { tab: Tab; state: FetchState<TabData> }) {
     if ("user_previews" in data) {
         return data.user_previews.length === 0 ? <NoResults tab={tab} /> : <UserList previews={data.user_previews} />;
     }
-    return data.illusts.length === 0 ? <NoResults tab={tab} /> : <IllustGrid illusts={data.illusts} />;
+    return data.illusts.length === 0 ? (
+        <NoResults tab={tab} />
+    ) : (
+        <IllustGrid illusts={data.illusts} selected={selected} onToggle={onToggle} />
+    );
 }
 
 function UserPage() {
@@ -200,6 +216,7 @@ function UserPage() {
 
     const [profileState, setProfileState] = useState<FetchState<UserDetailPage>>({ status: "idle" });
     const [tabState, setTabState] = useState<FetchState<TabData>>({ status: "idle" });
+    const { selected, selectedIllustIds, toggle, clearSelection } = useIllustSelection();
 
     // Pixiv paginates bookmarks by cursor (max_bookmark_id), built up by paging forward
     // from page 1. Public/private bookmark chains are independent — keep one map per
@@ -247,6 +264,7 @@ function UserPage() {
         }
         let cancelled = false;
         setTabState({ status: "loading" });
+        clearSelection();
         const cursor = isBookmarkTab(tab) ? cursors.get(page) : undefined;
         fetchTabData(tab, userId, page, cursor).then(({ data, error }) => {
             if (cancelled) return;
@@ -261,7 +279,7 @@ function UserPage() {
         return () => {
             cancelled = true;
         };
-    }, [userId, validId, tab, rawTab, authResolved, page, cursors, setSearchParams]);
+    }, [userId, validId, tab, rawTab, authResolved, page, cursors, setSearchParams, clearSelection]);
 
     const updateParams = (patch: Record<string, string | undefined>, resetPage = false) => {
         setSearchParams(patchParams(searchParams, patch, resetPage));
@@ -314,9 +332,13 @@ function UserPage() {
                 </div>
             </Tabs>
 
-            <TabBody tab={tab} state={tabState} />
+            <TabBody tab={tab} state={tabState} selected={selected} onToggle={toggle} />
 
             {tabState.status === "success" && <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />}
+
+            {tab !== "following" && (
+                <DownloadFAB selectedIllustIds={selectedIllustIds} onClearSelection={clearSelection} />
+            )}
         </div>
     );
 }

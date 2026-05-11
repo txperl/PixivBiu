@@ -76,7 +76,7 @@ PixivBiu-go/
 │   │   │                         #     each owns api.ts (calls openapi-fetch) + components/ + (optional) hooks/store/types
 │   │   ├── components/           #   Cross-feature shared UI; ui/ for shadcn primitives (don't put business UI here)
 │   │   ├── i18n/                 #   See i18n bullet above
-│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, format.ts (formatCount/hueFromId), pixiv-image.ts (TEMP pximg→pixiv.cat rewrite), fetch-state.ts (FetchState<T>), url-params.ts (readPage/patchParams), api/ (openapi-fetch client + apiErrorMessage), theme/
+│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, format.ts (formatCount/hueFromId/formatBytes), pixiv-image.ts (TEMP pximg→pixiv.cat rewrite), fetch-state.ts (FetchState<T>), url-params.ts (readPage/patchParams), api/ (openapi-fetch client + apiErrorMessage), theme/
 │   │   └── styles/               #   globals.css + material-you.css
 │   ├── package.json              #   `bun run dev | build | check`. `build` runs `paraglide-js compile` before tsc.
 │   └── vite.config.ts            #   `paraglideVitePlugin` + Tailwind + React
@@ -130,7 +130,7 @@ curl -s http://localhost:8080/openapi.json    # Raw OpenAPI spec served from the
 This is an **OpenAPI-first** project. The spec under `api/` is the **single source of truth** for all HTTP routes, request/response schemas, and model types. The spec is **split across files**:
 
 - `api/openapi.yaml` — root: `info`, `servers`, `tags`, `components` (all schemas, parameters, shared responses), and `paths:` entries that `$ref` into sub-files.
-- `api/paths/{auth,illusts,users,search}.yaml` — each file holds the PathItems for one domain, keyed by a short identifier (e.g. `login:`, `byId:`).
+- `api/paths/{auth,illusts,users,search,downloads,events}.yaml` — each file holds the PathItems for one domain, keyed by a short identifier (e.g. `login:`, `byId:`).
 
 oapi-codegen resolves the cross-file `$ref`s directly — no bundling step. The trick is in `api/cfg.yaml`: `import-mapping: { ../openapi.yaml: "-" }` declares that the parent file (which `paths/*.yaml` refers back into for shared schemas) belongs to the same Go package, and `output-options.skip-prune: true` stops the pruner from dropping schemas that are only reachable through those cross-file refs.
 
@@ -167,6 +167,14 @@ The SPA consumes the same spec via [`openapi-typescript`](https://openapi-ts.dev
 - **Domain wrappers.** Features that hit the API typically expose a thin wrapper at `frontend/src/features/<domain>/api.ts` (e.g. `features/auth/api.ts` exports `getAuthStatus` / `login` / `logout`). Components/hooks call those wrappers, not `api.GET` directly — keeps UI code free of OpenAPI plumbing and gives one place per domain to massage shapes if needed.
 - **Dev proxy.** `vite.config.ts::server.proxy` forwards `/api/*` from `:5173` to `:8080`, so the same `baseUrl: "/api/v1"` works in dev (proxied) and prod (same-origin).
 - **Refresh loop:** edit spec → `make gen-backend` (backend types + routes) → `make gen-frontend` (frontend types; needs the backend up). The pixivgo schema sync rule above also applies to the frontend — `properties` drift in the yaml mistypes `schema.gen.ts`.
+
+#### Frontend SSE + Downloads
+
+- Provider order is fixed: `LocaleProvider → AuthProvider → EventStreamProvider → DownloadsProvider`. `<EventStreamProvider>` opens the `EventSource` only while authenticated and tears it down on logout; subscribers register via `useEventStream().subscribe(topic, listener)` and survive open/close cycles.
+- `<DownloadsProvider>` is the state-authoritative consumer: seeds from `GET /downloads`, mutates on `download.*` events, refreshes on every SSE `connected` transition and on `system.resync`. Consume via `useDownloads()` for `{ jobs, activeCount, doneCount, lastError, submit, cancel, remove, refresh }`.
+- Only `download.job.*` events write `job.status` on the client; `download.task.*` events update task state only. Don't recompute `job.status` client-side — the backend re-publishes `job.*` whenever its aggregation rule says it should change.
+- For pages that show `IllustCard`s with batch-download support: pair `useIllustSelection()` (returns `{ selected, selectedIllustIds, toggle, clearSelection }`) with `<DownloadFAB selectedIllustIds={...} onClearSelection={...}>`, and call `clearSelection()` inside the fetch effect so the selection resets when the underlying list changes.
+- Reuse `<DownloadsTable jobs={...} compact?>` for any list rendering — `compact` hides the size + actions columns for tight layouts (the home-page sheet).
 
 ### Naming Convention: `APIHandler` vs `Handler`
 
