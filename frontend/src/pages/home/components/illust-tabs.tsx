@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import LeapyLoading from "@/components/series-leapy/leapy-loading";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useIllustSelection } from "@/features/downloads";
+import DownloadFAB from "@/features/downloads/components/download-fab";
 import {
     type Illust,
     type IllustApiError,
@@ -58,17 +60,13 @@ function toFreshSuccess(data: IllustPage): TabState {
     };
 }
 
-type HomeIllustTabsProps = {
-    selected: Set<number>;
-    onToggle: (id: number) => void;
-    onClearSelection: () => void;
-};
-
-function HomeIllustTabs({ selected, onToggle, onClearSelection }: HomeIllustTabsProps) {
+function HomeIllustTabs() {
+    const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
     const [activeTab, setActiveTab] = useState<TabId>("for-you");
     const [states, setStates] = useState<Record<TabId, TabState>>(INITIAL);
     const versionRef = useRef<Record<TabId, number>>({ "for-you": 0, week: 0, follow: 0 });
     const state = states[activeTab];
+    const currentIllustIds = state.status === "success" ? state.illusts.map((il) => il.id) : [];
 
     const replaceAll = useCallback((id: TabId) => {
         const version = ++versionRef.current[id];
@@ -92,7 +90,7 @@ function HomeIllustTabs({ selected, onToggle, onClearSelection }: HomeIllustTabs
 
     const handleTabChange = (v: string) => {
         if (v === activeTab) return;
-        onClearSelection();
+        clearSelection();
         setActiveTab(v as TabId);
     };
 
@@ -180,7 +178,7 @@ function HomeIllustTabs({ selected, onToggle, onClearSelection }: HomeIllustTabs
                     </div>
                 ) : (
                     <>
-                        <IllustGrid illusts={state.illusts} selected={selected} onToggle={onToggle} />
+                        <IllustGrid illusts={state.illusts} selected={selected} onToggle={toggle} />
                         {state.nextOffset != null && (
                             <div className="flex justify-end pt-6 pb-2">
                                 <button
@@ -195,6 +193,12 @@ function HomeIllustTabs({ selected, onToggle, onClearSelection }: HomeIllustTabs
                         )}
                     </>
                 ))}
+            <DownloadFAB
+                selected={selected}
+                allIllustIds={currentIllustIds}
+                onReplaceSelection={replaceSelection}
+                onClearSelection={clearSelection}
+            />
         </section>
     );
 }

@@ -54,7 +54,8 @@ function RankingPage() {
     const variantKey = variantKeyOf(mode);
 
     const [state, setState] = useState<FetchState<IllustPage>>({ status: "idle" });
-    const { selected, selectedIllustIds, toggle, clearSelection } = useIllustSelection();
+    const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
+    const currentIllustIds = state.status === "success" ? state.data.illusts.map((il) => il.id) : [];
 
     useEffect(() => {
         let cancelled = false;
@@ -121,7 +122,12 @@ function RankingPage() {
                 <SearchPager currentPage={page} hasNext={state.data.next_offset != null} onJump={onJumpPage} />
             )}
 
-            <DownloadFAB selectedIllustIds={selectedIllustIds} onClearSelection={clearSelection} />
+            <DownloadFAB
+                selected={selected}
+                allIllustIds={currentIllustIds}
+                onReplaceSelection={replaceSelection}
+                onClearSelection={clearSelection}
+            />
         </div>
     );
 }

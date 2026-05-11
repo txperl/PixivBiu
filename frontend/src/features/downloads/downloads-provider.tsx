@@ -3,6 +3,7 @@ import { useAuth } from "@/features/auth";
 import type { InboxEvent } from "@/features/events";
 import { useEventStream } from "@/features/events";
 import {
+    ACTIVE_STATUSES,
     cancelDownload,
     type DownloadApiError,
     type DownloadJob,
@@ -260,7 +261,7 @@ export function DownloadsProvider({ children }: { children: ReactNode }) {
         let active = 0;
         let done = 0;
         for (const j of list) {
-            if (j.status === "queued" || j.status === "running") active++;
+            if (ACTIVE_STATUSES.includes(j.status)) active++;
             else if (j.status === "completed") done++;
         }
         return { jobs: list, activeCount: active, doneCount: done };

@@ -15,14 +15,16 @@ import { cn } from "@/lib/utils";
 type IllustCardProps = {
     illust: Illust;
     selected?: boolean;
+    selectMode?: boolean;
     onSelect?: (id: number) => void;
 };
 
 const MAX_DOTS = 10;
 const PREVIEW_SIDE = "min(75vw, 75vh)";
 
-function IllustCard({ illust, selected = false, onSelect }: IllustCardProps) {
+function IllustCard({ illust, selected = false, selectMode = false, onSelect }: IllustCardProps) {
     const selectable = onSelect != null;
+    const selectActive = selectable && selectMode;
     const hue = hueFromId(illust.id);
 
     const fallbackAspect = illust.width > 0 && illust.height > 0 ? illust.width / illust.height : 1;
@@ -64,7 +66,23 @@ function IllustCard({ illust, selected = false, onSelect }: IllustCardProps) {
                 selectable && selected && "outline outline-2 outline-primary -outline-offset-2",
             )}
         >
-            <div className="relative p-2">
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: role/tabIndex are paired with onClick via selectActive */}
+            <div
+                className="relative p-2"
+                onClick={selectActive ? () => onSelect?.(illust.id) : undefined}
+                onKeyDown={
+                    selectActive
+                        ? (e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  onSelect?.(illust.id);
+                              }
+                          }
+                        : undefined
+                }
+                role={selectActive ? "button" : undefined}
+                tabIndex={selectActive ? 0 : undefined}
+            >
                 <PximgImage
                     src={illust.image_urls.square_medium}
                     alt={illust.title}
@@ -85,7 +103,10 @@ function IllustCard({ illust, selected = false, onSelect }: IllustCardProps) {
                             "absolute top-3.5 left-3.5 flex size-6 items-center justify-center rounded-md backdrop-blur-sm transition-opacity",
                             selected
                                 ? "bg-primary text-primary-foreground opacity-100"
-                                : "border-2 border-white/95 bg-black/30 text-white opacity-0 group-hover:opacity-100",
+                                : cn(
+                                      "border-2 border-white/95 bg-black/30 text-white",
+                                      selectActive ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                                  ),
                         )}
                     >
                         {selected && <HugeiconsIcon icon={CheckIcon} size={14} strokeWidth={2.5} />}

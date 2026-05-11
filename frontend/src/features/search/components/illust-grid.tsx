@@ -9,10 +9,17 @@ type IllustGridProps = {
 };
 
 function IllustGrid({ illusts, selected, onToggle }: IllustGridProps) {
+    const selectMode = (selected?.size ?? 0) > 0;
     return (
         <div className="grid grid-cols-5 gap-3">
             {illusts.map((il) => (
-                <IllustCard key={il.id} illust={il} selected={selected?.has(il.id)} onSelect={onToggle} />
+                <IllustCard
+                    key={il.id}
+                    illust={il}
+                    selected={selected?.has(il.id)}
+                    selectMode={selectMode}
+                    onSelect={onToggle}
+                />
             ))}
         </div>
     );

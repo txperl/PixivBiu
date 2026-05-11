@@ -53,7 +53,8 @@ function SearchPage() {
 
     const [illustState, setIllustState] = useState<FetchState<IllustPage>>({ status: "idle" });
     const [userState, setUserState] = useState<FetchState<UserPreviewPage>>({ status: "idle" });
-    const { selected, selectedIllustIds, toggle, clearSelection } = useIllustSelection();
+    const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
+    const currentIllustIds = illustState.status === "success" ? illustState.data.illusts.map((il) => il.id) : [];
 
     useEffect(() => {
         clearSelection();
@@ -181,7 +182,12 @@ function SearchPage() {
             )}
 
             {type === "illust" && (
-                <DownloadFAB selectedIllustIds={selectedIllustIds} onClearSelection={clearSelection} />
+                <DownloadFAB
+                    selected={selected}
+                    allIllustIds={currentIllustIds}
+                    onReplaceSelection={replaceSelection}
+                    onClearSelection={clearSelection}
+                />
             )}
         </div>
     );

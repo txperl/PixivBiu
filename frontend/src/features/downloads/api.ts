@@ -7,6 +7,8 @@ export type DownloadIllustType = components["schemas"]["DownloadIllustType"];
 export type DownloadJobList = components["schemas"]["DownloadJobList"];
 export type DownloadApiError = components["schemas"]["Error"];
 
+export const ACTIVE_STATUSES: ReadonlyArray<DownloadStatus> = ["queued", "running"];
+
 export async function listDownloads(): Promise<{ data: DownloadJobList | null; error: DownloadApiError | null }> {
     const { data, error } = await api.GET("/downloads");
     return { data: data ?? null, error: error ?? null };

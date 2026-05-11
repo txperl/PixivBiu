@@ -216,7 +216,9 @@ function UserPage() {
 
     const [profileState, setProfileState] = useState<FetchState<UserDetailPage>>({ status: "idle" });
     const [tabState, setTabState] = useState<FetchState<TabData>>({ status: "idle" });
-    const { selected, selectedIllustIds, toggle, clearSelection } = useIllustSelection();
+    const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
+    const currentIllustIds =
+        tabState.status === "success" && "illusts" in tabState.data ? tabState.data.illusts.map((il) => il.id) : [];
 
     // Pixiv paginates bookmarks by cursor (max_bookmark_id), built up by paging forward
     // from page 1. Public/private bookmark chains are independent — keep one map per
@@ -337,7 +339,12 @@ function UserPage() {
             {tabState.status === "success" && <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />}
 
             {tab !== "following" && (
-                <DownloadFAB selectedIllustIds={selectedIllustIds} onClearSelection={clearSelection} />
+                <DownloadFAB
+                    selected={selected}
+                    allIllustIds={currentIllustIds}
+                    onReplaceSelection={replaceSelection}
+                    onClearSelection={clearSelection}
+                />
             )}
         </div>
     );

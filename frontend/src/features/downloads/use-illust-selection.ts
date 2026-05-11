@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 
 export function useIllustSelection() {
     const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -12,9 +12,11 @@ export function useIllustSelection() {
         });
     }, []);
 
+    const replaceSelection = useCallback((ids: number[]) => {
+        setSelected(new Set(ids));
+    }, []);
+
     const clearSelection = useCallback(() => setSelected(new Set()), []);
 
-    const selectedIllustIds = useMemo(() => [...selected], [selected]);
-
-    return { selected, selectedIllustIds, toggle, clearSelection };
+    return { selected, toggle, replaceSelection, clearSelection };
 }
