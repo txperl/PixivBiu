@@ -242,7 +242,7 @@ The canonical template is `config.example.yaml`. Current sections:
 - `download.retry.{max,initial_backoff}` — exponential backoff (cap 30s)
 - `download.referer` — sent with every image request (default `https://app-api.pixiv.net/`)
 - `download.pximg_base` — rewrite `i.pximg.net` to a reverse-proxy mirror
-- `download.ugoira.{format,keep_zip}` — `webp` | `gif` | `none`; whether to keep source zip
+- `download.ugoira.format` — `webp` | `gif` | `none`
 - `download.store_file` — `usr/downloads.json`
 - `inbox.{buffer_size,progress_throttle,heartbeat}` — event ring buffer cap / progress throttle / SSE keep-alive
 

@@ -50,7 +50,6 @@ download:
 
   ugoira:
     format: webp      # webp | gif | none   (none = keep original zip, no conversion)
-    keep_zip: false   # retain the .zip alongside the converted file
 
   store_file: ./usr/downloads.json    # download index persistence
 

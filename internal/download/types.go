@@ -60,9 +60,6 @@ type Task struct {
 	Error           string    `json:"error,omitempty"`
 	StartedAt       time.Time `json:"started_at,omitzero"`
 	FinishedAt      time.Time `json:"finished_at,omitzero"`
-	// ExtraFiles holds artefacts kept beside FilePath — currently the
-	// source ugoira zip when keep_zip=true.
-	ExtraFiles []string `json:"extra_files,omitempty"`
 
 	// Runtime-only (not serialised).
 	cancel context.CancelFunc `json:"-"`

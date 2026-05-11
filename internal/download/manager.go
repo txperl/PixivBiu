@@ -227,7 +227,6 @@ func (m *Manager) Remove(id string, purgeFiles bool) error {
 			if t.FilePath != "" && t.Status == StatusCompleted {
 				paths = append(paths, t.FilePath)
 			}
-			paths = append(paths, t.ExtraFiles...)
 		}
 	}
 	jobID := job.ID
@@ -652,8 +651,8 @@ func (m *Manager) runUgoiraPostProcessing(taskCtx, parent context.Context, job *
 	m.mu.Unlock()
 
 	if convErr == nil && !acceptedSuccess {
-		// Cancel won; drop the converted artefact. Source zip is
-		// already gone when keep_zip=false — unavoidable.
+		// Cancel won; drop the converted artefact. The source zip
+		// is already gone — unavoidable.
 		_ = os.Remove(orphanPath)
 	}
 	if convErr != nil && !cancelled {
@@ -735,16 +734,12 @@ func (m *Manager) convertUgoira(ctx context.Context, job *Job, task *Task) error
 	if format == "" || format == UgoiraFormatNone {
 		return nil
 	}
-	zipPath := task.FilePath
-	finalPath, err := ConvertUgoira(ctx, zipPath, job.UgoiraFrames, format, m.cfg.Ugoira.KeepZip)
+	finalPath, err := ConvertUgoira(ctx, task.FilePath, job.UgoiraFrames, format)
 	if err != nil {
 		return err
 	}
 	m.mu.Lock()
 	task.FilePath = finalPath
-	if m.cfg.Ugoira.KeepZip && finalPath != zipPath {
-		task.ExtraFiles = append(task.ExtraFiles, zipPath)
-	}
 	m.mu.Unlock()
 	return nil
 }
@@ -783,9 +778,6 @@ func snapshotTaskLocked(t *Task) *Task {
 		Error:           t.Error,
 		StartedAt:       t.StartedAt,
 		FinishedAt:      t.FinishedAt,
-	}
-	if len(t.ExtraFiles) > 0 {
-		cp.ExtraFiles = append([]string(nil), t.ExtraFiles...)
 	}
 	return cp
 }

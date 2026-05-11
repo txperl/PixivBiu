@@ -30,8 +30,8 @@ const (
 // ConvertUgoira decodes each frame from the ugoira zip at zipPath and
 // encodes it as an animated image in `format`. The resulting file is
 // written next to the zip with the matching extension, and the
-// returned path points at it. If keepZip is false, the original zip
-// is removed after a successful conversion.
+// returned path points at it. The original zip is removed after a
+// successful conversion.
 //
 // For format=="none" / "" the function is a no-op and returns
 // (zipPath, nil) — the zip is the final artefact.
@@ -40,7 +40,7 @@ const (
 // Write into the output file. The CPU-bound segments inside the
 // third-party encoders themselves are not interruptible, so worst-case
 // latency to honour cancel is bounded by encoding one frame.
-func ConvertUgoira(ctx context.Context, zipPath string, frames []UgoiraFrame, format UgoiraFormat, keepZip bool) (string, error) {
+func ConvertUgoira(ctx context.Context, zipPath string, frames []UgoiraFrame, format UgoiraFormat) (string, error) {
 	if format == "" || format == UgoiraFormatNone {
 		return zipPath, nil
 	}
@@ -96,9 +96,7 @@ func ConvertUgoira(ctx context.Context, zipPath string, frames []UgoiraFrame, fo
 		_ = os.Remove(outPath)
 		return "", fmt.Errorf("ugoira: close output: %w", closeErr)
 	}
-	if !keepZip {
-		_ = os.Remove(zipPath)
-	}
+	_ = os.Remove(zipPath)
 	return outPath, nil
 }
 

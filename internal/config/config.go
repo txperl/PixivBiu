@@ -67,8 +67,7 @@ type RetryConfig struct {
 }
 
 type UgoiraConfig struct {
-	Format  string `koanf:"format"` // webp | gif | none
-	KeepZip bool   `koanf:"keep_zip"`
+	Format string `koanf:"format"` // webp | gif | none
 }
 
 type InboxConfig struct {
@@ -101,7 +100,6 @@ func defaults() map[string]any {
 		"download.referer":               "https://app-api.pixiv.net/",
 		"download.pximg_base":            "https://i.pximg.net",
 		"download.ugoira.format":         "webp",
-		"download.ugoira.keep_zip":       false,
 		"download.store_file":            "./usr/downloads.json",
 
 		"inbox.buffer_size":       200,

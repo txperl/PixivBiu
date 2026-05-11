@@ -76,7 +76,7 @@ func TestConvertUgoira_WebP(t *testing.T) {
 	zipPath := buildTestZip(t, 4)
 	frames := frameMeta(4)
 
-	out, err := ConvertUgoira(context.Background(), zipPath, frames, UgoiraFormatWebP, true)
+	out, err := ConvertUgoira(context.Background(), zipPath, frames, UgoiraFormatWebP)
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestConvertUgoira_GIF(t *testing.T) {
 	zipPath := buildTestZip(t, 3)
 	frames := frameMeta(3)
 
-	out, err := ConvertUgoira(context.Background(), zipPath, frames, UgoiraFormatGIF, true)
+	out, err := ConvertUgoira(context.Background(), zipPath, frames, UgoiraFormatGIF)
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestConvertUgoira_GIF(t *testing.T) {
 
 func TestConvertUgoira_None(t *testing.T) {
 	zipPath := buildTestZip(t, 2)
-	out, err := ConvertUgoira(context.Background(), zipPath, frameMeta(2), UgoiraFormatNone, true)
+	out, err := ConvertUgoira(context.Background(), zipPath, frameMeta(2), UgoiraFormatNone)
 	if err != nil {
 		t.Fatalf("convert: %v", err)
 	}
@@ -131,9 +131,9 @@ func TestConvertUgoira_None(t *testing.T) {
 	}
 }
 
-func TestConvertUgoira_KeepZipFalse(t *testing.T) {
+func TestConvertUgoira_RemovesZipAfterConvert(t *testing.T) {
 	zipPath := buildTestZip(t, 2)
-	if _, err := ConvertUgoira(context.Background(), zipPath, frameMeta(2), UgoiraFormatWebP, false); err != nil {
+	if _, err := ConvertUgoira(context.Background(), zipPath, frameMeta(2), UgoiraFormatWebP); err != nil {
 		t.Fatalf("convert: %v", err)
 	}
 	if _, err := os.Stat(zipPath); !os.IsNotExist(err) {
@@ -147,7 +147,7 @@ func TestConvertUgoira_MissingFrame(t *testing.T) {
 	frames := []UgoiraFrame{
 		{File: "does-not-exist.png", Delay: 40 * time.Millisecond},
 	}
-	if _, err := ConvertUgoira(context.Background(), zipPath, frames, UgoiraFormatWebP, true); err == nil {
+	if _, err := ConvertUgoira(context.Background(), zipPath, frames, UgoiraFormatWebP); err == nil {
 		t.Fatal("expected error for missing frame, got nil")
 	}
 }
@@ -184,7 +184,7 @@ func TestConvertUgoira_UnsupportedFormatPreservesZip(t *testing.T) {
 		t.Fatalf("read zip before: %v", err)
 	}
 
-	out, err := ConvertUgoira(context.Background(), zipPath, frameMeta(3), UgoiraFormat("lol"), false)
+	out, err := ConvertUgoira(context.Background(), zipPath, frameMeta(3), UgoiraFormat("lol"))
 	if err == nil {
 		t.Fatalf("expected error for unsupported format, got out=%q", out)
 	}
@@ -211,12 +211,12 @@ func TestConvertUgoira_CancelBeforeStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	out, err := ConvertUgoira(ctx, zipPath, frames, UgoiraFormatWebP, false)
+	out, err := ConvertUgoira(ctx, zipPath, frames, UgoiraFormatWebP)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("want context.Canceled, got out=%q err=%v", out, err)
 	}
 	if _, statErr := os.Stat(zipPath); statErr != nil {
-		t.Errorf("zip should be preserved on cancel even with keepZip=false, stat: %v", statErr)
+		t.Errorf("zip should be preserved on cancel, stat: %v", statErr)
 	}
 	outPath := replaceExt(zipPath, ".webp")
 	if _, statErr := os.Stat(outPath); !os.IsNotExist(statErr) {
