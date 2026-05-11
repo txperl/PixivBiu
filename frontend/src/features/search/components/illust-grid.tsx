@@ -4,13 +4,15 @@ import IllustCard from "./illust-card";
 
 type IllustGridProps = {
     illusts: Illust[];
+    selected?: Set<number>;
+    onToggle?: (id: number) => void;
 };
 
-function IllustGrid({ illusts }: IllustGridProps) {
+function IllustGrid({ illusts, selected, onToggle }: IllustGridProps) {
     return (
         <div className="grid grid-cols-5 gap-3">
             {illusts.map((il) => (
-                <IllustCard key={il.id} illust={il} />
+                <IllustCard key={il.id} illust={il} selected={selected?.has(il.id)} onSelect={onToggle} />
             ))}
         </div>
     );

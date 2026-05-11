@@ -8,17 +8,20 @@ import IllustBookmarkButton from "@/features/search/components/illust-bookmark-b
 import IllustPlaceholderArt from "@/features/search/components/illust-placeholder-art";
 import UserLink from "@/features/users/components/user-link";
 import { hueFromId } from "@/lib/format";
-import { PagesIcon } from "@/lib/icons";
+import { CheckIcon, DownloadIcon, PagesIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 type IllustCardProps = {
     illust: Illust;
+    selected?: boolean;
+    onSelect?: (id: number) => void;
 };
 
 const MAX_DOTS = 10;
 const PREVIEW_SIDE = "min(75vw, 75vh)";
 
-function IllustCard({ illust }: IllustCardProps) {
+function IllustCard({ illust, selected = false, onSelect }: IllustCardProps) {
+    const selectable = onSelect != null;
     const hue = hueFromId(illust.id);
 
     const fallbackAspect = illust.width > 0 && illust.height > 0 ? illust.width / illust.height : 1;
@@ -54,7 +57,12 @@ function IllustCard({ illust }: IllustCardProps) {
     const activeDot = Math.min(displayedDots - 1, Math.floor((activePage / totalPages) * displayedDots));
 
     return (
-        <div className="group relative cursor-pointer overflow-hidden rounded-2xl bg-card transition-colors">
+        <div
+            className={cn(
+                "group relative cursor-pointer overflow-hidden rounded-2xl bg-card transition-colors",
+                selectable && selected && "outline outline-2 outline-primary -outline-offset-2",
+            )}
+        >
             <div className="relative p-2">
                 <PximgImage
                     src={illust.image_urls.square_medium}
@@ -64,6 +72,24 @@ function IllustCard({ illust }: IllustCardProps) {
                 />
 
                 <div className="pointer-events-none absolute inset-2 rounded-xl bg-black/4 opacity-0 transition-opacity group-hover:opacity-100" />
+
+                {selectable && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onSelect?.(illust.id);
+                        }}
+                        className={cn(
+                            "absolute top-3.5 left-3.5 flex size-6 items-center justify-center rounded-md backdrop-blur-sm transition-opacity",
+                            selected
+                                ? "bg-primary text-primary-foreground opacity-100"
+                                : "border-2 border-white/95 bg-black/30 text-white opacity-0 group-hover:opacity-100",
+                        )}
+                    >
+                        {selected && <HugeiconsIcon icon={CheckIcon} size={14} strokeWidth={2.5} />}
+                    </button>
+                )}
 
                 <div className="pointer-events-none absolute top-3.5 right-3.5">
                     {illust.page_count > 1 && (
@@ -136,6 +162,16 @@ function IllustCard({ illust }: IllustCardProps) {
                         </Popover>
                     </div>
                 </div>
+
+                {selectable && (
+                    <button
+                        type="button"
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-3.5 bottom-3.5 flex size-10 scale-90 items-center justify-center rounded-xl bg-primary text-primary-foreground opacity-0 shadow-md transition-all group-hover:scale-100 group-hover:opacity-100"
+                    >
+                        <HugeiconsIcon icon={DownloadIcon} size={16} strokeWidth={1.5} />
+                    </button>
+                )}
             </div>
 
             <div className="px-3.5 pt-1 pb-3.5">

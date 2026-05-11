@@ -1,10 +1,9 @@
 import { useState } from "react";
 import DownloadFAB from "@/features/downloads/components/download-fab";
 import DownloadsSheet from "@/features/downloads/components/downloads-sheet";
-import WorkGrid from "@/features/illusts/components/work-grid";
-import { PB_WORKS } from "@/features/illusts/mock";
 import SearchBar from "@/features/search/components/search-bar";
 import FollowedAuthors from "@/features/users/components/followed-authors";
+import HomeIllustTabs from "./components/illust-tabs";
 
 function Home() {
     const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -18,7 +17,7 @@ function Home() {
         });
     };
 
-    const works = PB_WORKS.slice(0, 15);
+    const clearSelection = () => setSelected(new Set());
 
     return (
         <div className="relative flex flex-col gap-6 px-7 pt-4 pb-7">
@@ -28,12 +27,8 @@ function Home() {
                 <DownloadsSheet />
                 <FollowedAuthors />
             </section>
-            <WorkGrid works={works} selected={selected} onToggle={toggle} />
-            <DownloadFAB
-                selectedCount={selected.size}
-                onDownload={() => {}}
-                onClearSelection={() => setSelected(new Set())}
-            />
+            <HomeIllustTabs selected={selected} onToggle={toggle} onClearSelection={clearSelection} />
+            <DownloadFAB selectedCount={selected.size} onDownload={() => {}} onClearSelection={clearSelection} />
         </div>
     );
 }

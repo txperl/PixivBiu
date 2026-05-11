@@ -1,8 +1,49 @@
 import { api, type components } from "@/lib/api";
 
 export type Restrict = components["schemas"]["Restrict"];
+export type IllustType = components["schemas"]["IllustType"];
 export type BookmarkDetail = components["schemas"]["BookmarkDetail"];
+export type Illust = components["schemas"]["Illust"];
+export type IllustPage = components["schemas"]["IllustPage"];
 export type IllustApiError = components["schemas"]["Error"];
+
+export type ListRecommendedParams = {
+    type?: IllustType;
+    offset?: number;
+};
+
+export async function listRecommended(
+    params: ListRecommendedParams = {},
+): Promise<{ data: IllustPage | null; error: IllustApiError | null }> {
+    const { data, error } = await api.GET("/illusts/recommended", {
+        params: {
+            query: {
+                type: params.type,
+                offset: params.offset,
+            },
+        },
+    });
+    return { data: data ?? null, error: error ?? null };
+}
+
+export type ListFollowingIllustsParams = {
+    restrict?: Restrict;
+    offset?: number;
+};
+
+export async function listFollowingIllusts(
+    params: ListFollowingIllustsParams = {},
+): Promise<{ data: IllustPage | null; error: IllustApiError | null }> {
+    const { data, error } = await api.GET("/illusts/following", {
+        params: {
+            query: {
+                restrict: params.restrict,
+                offset: params.offset,
+            },
+        },
+    });
+    return { data: data ?? null, error: error ?? null };
+}
 
 export async function getBookmarkDetail(
     illustId: number,

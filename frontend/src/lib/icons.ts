@@ -23,6 +23,7 @@ export {
     Medal01Icon as RankIcon,
     MoreVerticalIcon as MoreIcon,
     PauseIcon,
+    RefreshIcon,
     Search01Icon as SearchIcon,
     Settings03Icon as SettingsIcon,
     Tag01Icon as TagIcon,
