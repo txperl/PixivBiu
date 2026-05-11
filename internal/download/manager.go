@@ -576,6 +576,12 @@ func (m *Manager) runDownloadWithRetries(taskCtx, parent context.Context, task *
 			},
 		)
 		if err == nil {
+			// Backfill SizeBytes when upstream omitted Content-Length, so the
+			// terminal task.progress event (and any persisted snapshot) carry
+			// a real total instead of -1.
+			if atomic.LoadInt64(&task.SizeBytes) <= 0 && written > 0 {
+				atomic.StoreInt64(&task.SizeBytes, written)
+			}
 			m.mu.Lock()
 			var accepted bool
 			if isUgoira {
