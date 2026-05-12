@@ -1,14 +1,19 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { Sheet } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
 import type { DownloadJob } from "@/features/downloads";
 import { useDownloads } from "@/features/downloads";
+import DownloadsPager from "@/features/downloads/components/downloads-pager";
 import DownloadsTable from "@/features/downloads/components/downloads-table";
 import { RefreshIcon } from "@/lib/icons";
+import { patchParams, readPage } from "@/lib/url-params";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "active" | "done" | "failed";
+
+const PAGE_SIZE = 20;
 
 const FILTERS: { key: Filter; label: string }[] = [
     { key: "all", label: "全部" },
@@ -16,6 +21,8 @@ const FILTERS: { key: Filter; label: string }[] = [
     { key: "done", label: "已完成" },
     { key: "failed", label: "失败/取消" },
 ];
+
+const VALID_FILTERS = new Set<Filter>(FILTERS.map((f) => f.key));
 
 const FILTER_PREDICATES: Record<Filter, (job: DownloadJob) => boolean> = {
     all: () => true,
@@ -42,10 +49,44 @@ function DownloadsEmpty({ filter }: { filter: Filter }) {
 
 function DownloadsPage() {
     const { jobs, activeCount, doneCount, refresh, initialLoaded } = useDownloads();
-    const [filter, setFilter] = useState<Filter>("all");
+    const [searchParams, setSearchParams] = useSearchParams();
     const [refreshing, setRefreshing] = useState(false);
 
+    const filterParam = searchParams.get("filter") as Filter | null;
+    const filter: Filter = filterParam && VALID_FILTERS.has(filterParam) ? filterParam : "all";
+    const requestedPage = readPage(searchParams);
+
     const filtered = useMemo(() => jobs.filter(FILTER_PREDICATES[filter]), [jobs, filter]);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const currentPage = Math.min(Math.max(1, requestedPage), totalPages);
+    const pageJobs = useMemo(
+        () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+        [filtered, currentPage],
+    );
+
+    useEffect(() => {
+        if (!initialLoaded) return;
+        if (requestedPage === currentPage) return;
+        setSearchParams(
+            (sp) =>
+                patchParams(sp, {
+                    page: currentPage === 1 ? undefined : String(currentPage),
+                }),
+            { replace: true },
+        );
+    }, [initialLoaded, requestedPage, currentPage, setSearchParams]);
+
+    const handleFilterChange = (next: Filter) => {
+        setSearchParams(patchParams(searchParams, { filter: next === "all" ? undefined : next }, true));
+    };
+
+    const handleJump = (page: number) => {
+        setSearchParams(
+            patchParams(searchParams, {
+                page: page === 1 ? undefined : String(page),
+            }),
+        );
+    };
 
     const onRefresh = async () => {
         if (refreshing) return;
@@ -68,7 +109,7 @@ function DownloadsPage() {
                     <button
                         key={f.key}
                         type="button"
-                        onClick={() => setFilter(f.key)}
+                        onClick={() => handleFilterChange(f.key)}
                         className={cn(
                             "inline-flex h-8 cursor-pointer items-center rounded-full px-3 text-xs transition-colors",
                             filter === f.key
@@ -90,9 +131,13 @@ function DownloadsPage() {
                 {!initialLoaded ? (
                     <div className="px-[18px] py-16 text-center text-muted-foreground text-sm">加载中…</div>
                 ) : (
-                    <DownloadsTable jobs={filtered} empty={<DownloadsEmpty filter={filter} />} />
+                    <DownloadsTable jobs={pageJobs} empty={<DownloadsEmpty filter={filter} />} />
                 )}
             </Sheet>
+
+            {initialLoaded && totalPages > 1 && (
+                <DownloadsPager currentPage={currentPage} totalPages={totalPages} onJump={handleJump} />
+            )}
         </div>
     );
 }
