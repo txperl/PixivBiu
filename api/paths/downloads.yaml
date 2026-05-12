@@ -56,18 +56,14 @@ byId:
     summary: Remove a download job from history
     description: |
       Deletes a terminal job (completed / failed / cancelled) from the
-      store. Returns `409` if the job is still running — the client
-      must `POST /downloads/{id}/cancel` first. When `purgeFiles=true`,
-      already-downloaded files belonging to completed tasks are also
-      removed from disk.
+      store. The Download List is a history log: this removes the
+      record only — already-downloaded files on disk are not touched.
+      Returns `409` if the job is still running — the client must
+      `POST /downloads/{id}/cancel` first. To delete files, use a file
+      manager.
     tags: [downloads]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/DownloadIdPath'
-      - name: purgeFiles
-        in: query
-        required: false
-        description: When `true`, also delete the downloaded files from disk.
-        schema: { type: boolean, default: false }
     responses:
       '204': { $ref: '../openapi.yaml#/components/responses/NoContent' }
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }

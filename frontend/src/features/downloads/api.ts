@@ -9,6 +9,10 @@ export type DownloadApiError = components["schemas"]["Error"];
 
 export const ACTIVE_STATUSES: ReadonlyArray<DownloadStatus> = ["queued", "running"];
 
+export function isTerminalStatus(s: DownloadStatus): boolean {
+    return s === "completed" || s === "failed" || s === "cancelled";
+}
+
 export async function listDownloads(): Promise<{ data: DownloadJobList | null; error: DownloadApiError | null }> {
     const { data, error } = await api.GET("/downloads");
     return { data: data ?? null, error: error ?? null };
@@ -30,12 +34,9 @@ export async function cancelDownload(jobId: string): Promise<{ error: DownloadAp
     return { error: error ?? null };
 }
 
-export async function removeDownload(jobId: string, purgeFiles: boolean): Promise<{ error: DownloadApiError | null }> {
+export async function removeDownload(jobId: string): Promise<{ error: DownloadApiError | null }> {
     const { error } = await api.DELETE("/downloads/{id}", {
-        params: {
-            path: { id: jobId },
-            query: { purgeFiles },
-        },
+        params: { path: { id: jobId } },
     });
     return { error: error ?? null };
 }

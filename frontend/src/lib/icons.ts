@@ -11,6 +11,7 @@ export {
     BookOpen01Icon as MangaIcon,
     Calendar03Icon as CalendarIcon,
     Cancel01Icon as CloseIcon,
+    Delete02Icon as DeleteIcon,
     Download04Icon as DownloadIcon,
     FavouriteIcon as HeartIcon,
     FilterIcon,

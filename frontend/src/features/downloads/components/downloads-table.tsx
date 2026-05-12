@@ -1,11 +1,11 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { memo, type ReactNode, useState } from "react";
 import type { DownloadApiError, DownloadJob, DownloadStatus, DownloadTask } from "@/features/downloads";
-import { useDownloads } from "@/features/downloads";
-import RemovePopover from "@/features/downloads/components/remove-popover";
+import { isTerminalStatus, useDownloads } from "@/features/downloads";
+import ActionIconButton from "@/features/downloads/components/action-icon-button";
 import { apiErrorMessage } from "@/lib/api";
 import { formatBytes, hueFromId } from "@/lib/format";
-import { ChevronDownIcon, ChevronRightIcon, CloseIcon } from "@/lib/icons";
+import { ChevronDownIcon, ChevronRightIcon, CloseIcon, DeleteIcon, RefreshIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABEL: Record<DownloadStatus, string> = {
@@ -30,10 +30,6 @@ const TYPE_LABEL: Record<DownloadJob["illust_type"], string> = {
     ugoira: "动图",
 };
 
-function isTerminal(s: DownloadStatus) {
-    return s === "completed" || s === "failed" || s === "cancelled";
-}
-
 function aggregateBytes(tasks: DownloadTask[]) {
     let downloaded = 0;
     let total = 0;
@@ -48,37 +44,6 @@ function progressBarTone(status: DownloadStatus): string {
     if (status === "completed") return "bg-chart-3";
     if (status === "failed" || status === "cancelled") return "bg-muted-foreground/40";
     return "bg-primary";
-}
-
-type CancelButtonProps = {
-    jobId: string;
-    cancel: (jobId: string) => Promise<void>;
-    error?: DownloadApiError;
-};
-
-function CancelButton({ jobId, cancel, error }: CancelButtonProps) {
-    const [pending, setPending] = useState(false);
-    const onClick = async () => {
-        if (pending) return;
-        setPending(true);
-        await cancel(jobId);
-        setPending(false);
-    };
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={pending}
-            title={error ? apiErrorMessage(error) : "取消"}
-            aria-label="取消"
-            className={cn(
-                "flex size-8 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-muted/60 disabled:cursor-wait disabled:opacity-60",
-                error && "ring-1 ring-destructive/40",
-            )}
-        >
-            <HugeiconsIcon icon={CloseIcon} size={14} strokeWidth={1.5} />
-        </button>
-    );
 }
 
 function TaskRow({ task, compact }: { task: DownloadTask; compact: boolean }) {
@@ -136,16 +101,18 @@ type JobRowProps = {
     job: DownloadJob;
     compact: boolean;
     error?: DownloadApiError;
+    submitError?: DownloadApiError;
     cancel: (jobId: string) => Promise<void>;
-    remove: (jobId: string, purgeFiles: boolean) => Promise<void>;
+    submit: (illustId: number) => Promise<DownloadJob | null>;
+    remove: (jobId: string) => Promise<void>;
 };
 
-function JobRowInner({ job, compact, error, cancel, remove }: JobRowProps) {
+function JobRowInner({ job, compact, error, submitError, cancel, submit, remove }: JobRowProps) {
     const [expanded, setExpanded] = useState(false);
     const { downloaded, total } = aggregateBytes(job.tasks);
     const pct = total > 0 ? Math.min(100, (downloaded / total) * 100) : job.status === "completed" ? 100 : 0;
-    const terminal = isTerminal(job.status);
     const hue = hueFromId(job.illust_id);
+    const terminal = isTerminalStatus(job.status);
 
     return (
         <>
@@ -215,10 +182,54 @@ function JobRowInner({ job, compact, error, cancel, remove }: JobRowProps) {
                         </td>
                         <td className="px-[18px] py-3 text-right">
                             <div className="inline-flex gap-1">
-                                {terminal ? (
-                                    <RemovePopover jobId={job.id} remove={remove} error={error} />
-                                ) : (
-                                    <CancelButton jobId={job.id} cancel={cancel} error={error} />
+                                {!terminal && (
+                                    <ActionIconButton
+                                        icon={CloseIcon}
+                                        title="取消下载"
+                                        onAction={() => cancel(job.id)}
+                                        confirm={{
+                                            body: "取消将清除已下载的部分文件，确定吗？",
+                                            confirmLabel: "确定取消",
+                                            danger: true,
+                                        }}
+                                        error={error}
+                                    />
+                                )}
+                                {job.status === "completed" && (
+                                    <ActionIconButton
+                                        icon={RefreshIcon}
+                                        title="重新下载"
+                                        onAction={async () => {
+                                            await submit(job.illust_id);
+                                        }}
+                                        confirm={{
+                                            body: "已下载文件将被新下载覆盖，确定重新下载？",
+                                            confirmLabel: "重新下载",
+                                        }}
+                                        error={submitError}
+                                    />
+                                )}
+                                {(job.status === "failed" || job.status === "cancelled") && (
+                                    <ActionIconButton
+                                        icon={RefreshIcon}
+                                        title="重试"
+                                        onAction={async () => {
+                                            await submit(job.illust_id);
+                                        }}
+                                        error={submitError}
+                                    />
+                                )}
+                                {terminal && (
+                                    <ActionIconButton
+                                        icon={DeleteIcon}
+                                        title="移除"
+                                        onAction={() => remove(job.id)}
+                                        confirm={{
+                                            body: "将从下载历史中移除此记录（已下载文件保留在磁盘）。",
+                                            confirmLabel: "移除",
+                                        }}
+                                        error={error}
+                                    />
                                 )}
                             </div>
                         </td>
@@ -240,7 +251,7 @@ type DownloadsTableProps = {
 };
 
 function DownloadsTable({ jobs, empty, compact = false }: DownloadsTableProps) {
-    const { cancel, remove, lastError } = useDownloads();
+    const { cancel, remove, submit, lastError } = useDownloads();
 
     if (jobs.length === 0) {
         return empty ?? <div className="px-[18px] py-8 text-center text-muted-foreground text-sm">暂无下载</div>;
@@ -266,7 +277,9 @@ function DownloadsTable({ jobs, empty, compact = false }: DownloadsTableProps) {
                         job={job}
                         compact={compact}
                         error={lastError[job.id]}
+                        submitError={lastError[`submit:${job.illust_id}`]}
                         cancel={cancel}
+                        submit={submit}
                         remove={remove}
                     />
                 ))}

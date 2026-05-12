@@ -248,9 +248,9 @@ export function DownloadsProvider({ children }: { children: ReactNode }) {
     );
 
     const remove = useCallback(
-        async (jobId: string, purgeFiles: boolean) => {
+        async (jobId: string) => {
             clearError(jobId);
-            const { error } = await removeDownload(jobId, purgeFiles);
+            const { error } = await removeDownload(jobId);
             if (error) setError(jobId, error);
         },
         [clearError, setError],

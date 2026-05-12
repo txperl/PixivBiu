@@ -286,7 +286,7 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 | GET | `/downloads` | `listDownloads` | Jobs newest-first |
 | GET | `/downloads/{id}` | `getDownload` | Single job |
 | POST | `/downloads/{id}/cancel` | `cancelDownload` | 204 / 404 / 409 (already terminal) |
-| DELETE | `/downloads/{id}` | `removeDownload` | Query: `purgeFiles`. 204 / 404 / 409 (still running) |
+| DELETE | `/downloads/{id}` | `removeDownload` | History-log delete; never touches disk. 204 / 404 / 409 (still running) |
 | GET | `/events` | `getEvents` | SSE (`text/event-stream`). Query: `topics` (CSV). Honours `Last-Event-ID`. |
 
 **Dev-only endpoints** (outside `/api/v1`):
@@ -334,6 +334,8 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 **Persistence.** `usr/downloads.json` is written atomically (temp file + rename, 0600) on every state transition (queued → running → terminal). Progress ticks are NOT persisted — they flow through the inbox only. On restart the manager reloads the file and re-queues any `queued`/`running` tasks (no resume-in-place; files are overwritten on replay).
 
 **Concurrency.** A worker pool of `download.max_concurrent` goroutines drains a buffered `chan *Task`. Per-task retry uses exponential backoff (capped at 30s); non-retryable classes are `ctx.Canceled`, local FS errors, and explicit 4xx (except 408/429). Each HTTP GET writes to `<target>.<taskID>.part` first (per-task tmp name so two tasks targeting the same final path don't truncate each other); cancel or error always removes the partial file.
+
+**Transactional cleanup.** Job is the transaction boundary: when it aggregates to `failed` or is moved to `cancelled`, every task file the job actually renamed onto `FilePath` is deleted. Ownership is recorded in `Task.WroteFile`, set in `runDownloadWithRetries` right after the success rename. Both the worker end-of-task path and `Manager.Cancel` funnel through `transitionJobLocked`; the helper collects cleanup paths, the caller does the IO outside `m.mu`. `Manager.Remove` is a history-log delete only and never touches disk — physical file removal is out of the app's surface.
 
 **Path templates (text/template).** Parsed once at boot — a bad template fails `NewManager` and boots abort. Variables: `.IllustID .Title .Type .UserID .UserName .CreatedAt .Now .Index .Ext .Home .Root`. Funcs: `sanitize pad date lower upper trunc default`. **`trunc` counts runes, not bytes** (so `trunc 2` on "曲奇" keeps both chars). The renderer applies a final byte-level clamp (≤240 bytes per filename, extension preserved) and sanitises every path segment even when the template omits `| sanitize` — user-supplied `.Title` / `.UserName` are also pre-sanitised in the manager so pixiv titles with `/` cannot sneak in subdirectories. Literal `/` in the template IS an explicit author choice for subdirectories. **`output_dir` may be absolute** (`/mnt/pixiv`, `{{.Home}}/Downloads`, `C:\pixiv`) — the leading anchor is preserved. `file_template` / `file_group_template` are **always treated as relative to `output_dir`** — a leading `/` in those is normalised away.
 

@@ -333,7 +333,7 @@ func TestRemove_Terminal(t *testing.T) {
 	m := newTestManager(t)
 	job := newTerminalJob(t, m, StatusCancelled)
 
-	if err := m.Remove(job.ID, false); err != nil {
+	if err := m.Remove(job.ID); err != nil {
 		t.Fatalf("Remove: %v", err)
 	}
 
@@ -355,7 +355,7 @@ func TestRemove_StillRunning(t *testing.T) {
 	job := &Job{ID: "job_run", Status: StatusRunning, Tasks: []*Task{{Status: StatusRunning}}}
 	m.jobs[job.ID] = job
 
-	err := m.Remove(job.ID, false)
+	err := m.Remove(job.ID)
 	if err != ErrStillRunning {
 		t.Fatalf("Remove on running: want ErrStillRunning, got %v", err)
 	}
@@ -366,28 +366,14 @@ func TestRemove_StillRunning(t *testing.T) {
 
 func TestRemove_NotFound(t *testing.T) {
 	m := newTestManager(t)
-	if err := m.Remove("missing", false); err != ErrNotFound {
+	if err := m.Remove("missing"); err != ErrNotFound {
 		t.Fatalf("Remove missing: want ErrNotFound, got %v", err)
 	}
 }
 
-func TestRemove_PurgeFilesDeletesCompletedFiles(t *testing.T) {
-	m := newTestManager(t)
-	path := filepath.Join(m.cfg.OutputDir, "out.bin")
-	if err := os.WriteFile(path, []byte("payload"), 0o644); err != nil {
-		t.Fatalf("seed file: %v", err)
-	}
-	job := newTerminalJob(t, m, StatusCompleted, path)
-
-	if err := m.Remove(job.ID, true); err != nil {
-		t.Fatalf("Remove: %v", err)
-	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Errorf("file should be gone, stat err=%v", err)
-	}
-}
-
-func TestRemove_KeepsFilesByDefault(t *testing.T) {
+// Download List is a history log: Remove drops the record and never
+// touches disk, regardless of the job's terminal status.
+func TestRemove_KeepsFilesOnDisk(t *testing.T) {
 	m := newTestManager(t)
 	path := filepath.Join(m.cfg.OutputDir, "keep.bin")
 	if err := os.WriteFile(path, []byte("payload"), 0o644); err != nil {
@@ -395,57 +381,59 @@ func TestRemove_KeepsFilesByDefault(t *testing.T) {
 	}
 	job := newTerminalJob(t, m, StatusCompleted, path)
 
-	if err := m.Remove(job.ID, false); err != nil {
+	if err := m.Remove(job.ID); err != nil {
 		t.Fatalf("Remove: %v", err)
 	}
 	if _, err := os.Stat(path); err != nil {
-		t.Errorf("file should remain when purgeFiles=false, got %v", err)
+		t.Errorf("file should remain after Remove, got %v", err)
 	}
 }
 
-// Regression: non-completed task's FilePath may belong to an earlier
-// job for the same illust — purge must skip it regardless of IllustType.
-func TestRemove_PurgeKeepsFilePathForNonCompletedTask(t *testing.T) {
-	for _, illustType := range []IllustType{IllustTypeIllust, IllustTypeUgoira} {
-		for _, status := range []Status{StatusFailed, StatusCancelled} {
-			t.Run(string(illustType)+"/"+string(status), func(t *testing.T) {
-				m := newTestManager(t)
-				path := filepath.Join(m.cfg.OutputDir, "12345.bin")
-				if err := os.WriteFile(path, []byte("from an earlier job"), 0o644); err != nil {
-					t.Fatalf("seed: %v", err)
-				}
-				job := &Job{
-					ID:         "job_term",
-					IllustType: illustType,
-					Status:     status,
-					Tasks: []*Task{{
-						ID:       "tsk_term",
-						JobID:    "job_term",
-						FilePath: path,
-						Status:   status,
-					}},
-				}
-				m.jobs[job.ID] = job
+// Transactional-job cleanup must only touch files this job actually
+// wrote. Tasks that were queued-but-never-run (WroteFile=false) share
+// a deterministic FilePath with earlier jobs for the same illust;
+// those files are not ours to delete.
+func TestCancel_CleansUpOnlyWrittenFiles(t *testing.T) {
+	m := newTestManager(t)
 
-				if err := m.Remove(job.ID, true); err != nil {
-					t.Fatalf("Remove: %v", err)
-				}
-				if _, err := os.Stat(path); err != nil {
-					t.Errorf("pre-existing file must not be purged: %v", err)
-				}
-			})
+	owned := filepath.Join(m.cfg.OutputDir, "owned.bin")
+	foreign := filepath.Join(m.cfg.OutputDir, "foreign.bin")
+	for _, p := range []string{owned, foreign} {
+		if err := os.WriteFile(p, []byte("seed"), 0o644); err != nil {
+			t.Fatalf("seed %s: %v", p, err)
 		}
 	}
-}
 
-func TestRemove_PurgeSkipsMissingFile(t *testing.T) {
-	m := newTestManager(t)
-	job := newTerminalJob(t, m, StatusCompleted, filepath.Join(m.cfg.OutputDir, "never-existed.bin"))
-
-	if err := m.Remove(job.ID, true); err != nil {
-		t.Errorf("Remove should not fail when file is already gone: %v", err)
+	job := &Job{
+		ID:     "job_mixed",
+		Status: StatusRunning,
+		Tasks: []*Task{
+			{
+				ID:        "tsk_owned",
+				JobID:     "job_mixed",
+				FilePath:  owned,
+				Status:    StatusRunning,
+				WroteFile: true,
+			},
+			{
+				ID:        "tsk_foreign",
+				JobID:     "job_mixed",
+				FilePath:  foreign,
+				Status:    StatusQueued,
+				WroteFile: false,
+			},
+		},
 	}
-	if _, err := m.Get(job.ID); err == nil {
-		t.Errorf("job should be gone after Remove")
+	m.jobs[job.ID] = job
+
+	if err := m.Cancel(job.ID); err != nil {
+		t.Fatalf("Cancel: %v", err)
+	}
+
+	if _, err := os.Stat(owned); !os.IsNotExist(err) {
+		t.Errorf("owned file should be cleaned up, stat err=%v", err)
+	}
+	if _, err := os.Stat(foreign); err != nil {
+		t.Errorf("never-written file must not be deleted, got %v", err)
 	}
 }

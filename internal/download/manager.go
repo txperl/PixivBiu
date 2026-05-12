@@ -180,35 +180,45 @@ func (m *Manager) Cancel(id string) error {
 		m.mu.Unlock()
 		return ErrAlreadyTerminal
 	}
-	now := time.Now().UTC()
 	changedSnaps := make([]*Task, 0, len(job.Tasks))
 	for _, t := range job.Tasks {
-		if t.Status.IsTerminal() {
+		if !transitionTaskTerminalLocked(t, StatusCancelled, "") {
 			continue
 		}
-		t.Status = StatusCancelled
-		t.FinishedAt = now
+		// t.cancel is set at lease time; only running tasks have a
+		// non-nil handle. Queued tasks are cancelled by the status
+		// flip alone (the worker's pre-execute IsTerminal check
+		// drops them).
 		if t.cancel != nil {
 			t.cancel()
 		}
 		changedSnaps = append(changedSnaps, snapshotTaskLocked(t))
 	}
-	job.Status = StatusCancelled
-	job.UpdatedAt = now
-	jobSnap := m.snapshotJobLocked(job)
+	cleanupPaths, jobSnap, changed := m.transitionJobLocked(job)
 	m.mu.Unlock()
 
+	// Persist before deleting files: if we crash between the two, an
+	// orphan file is benign; the inverse (files gone + stored status
+	// still running) would re-enqueue on restart and silently re-download
+	// what the user just cancelled.
 	_ = m.persist()
+	m.removeCleanupPaths(cleanupPaths)
 	for _, s := range changedSnaps {
 		m.pub.TaskStateChange(s)
 	}
-	m.pub.JobStateChange(jobSnap)
+	if changed {
+		m.pub.JobStateChange(jobSnap)
+	}
 	return nil
 }
 
-// Remove deletes a terminal job from the store, optionally purging
-// task files from disk. Non-terminal jobs must be Cancel'd first.
-func (m *Manager) Remove(id string, purgeFiles bool) error {
+// Remove deletes a terminal job from the store. Non-terminal jobs
+// must be Cancel'd first. Download List is a history log — Remove
+// touches the record only and never the filesystem. Files belonging
+// to a failed/cancelled job are already gone via transactional
+// cleanup; files of a completed job stay on disk and must be removed
+// by the user in a file manager.
+func (m *Manager) Remove(id string) error {
 	m.mu.Lock()
 	job, ok := m.jobs[id]
 	if !ok {
@@ -219,16 +229,6 @@ func (m *Manager) Remove(id string, purgeFiles bool) error {
 		m.mu.Unlock()
 		return ErrStillRunning
 	}
-	var paths []string
-	if purgeFiles {
-		// Non-completed tasks' FilePath may belong to an earlier job
-		// for the same illust (target path is deterministic per illust).
-		for _, t := range job.Tasks {
-			if t.FilePath != "" && t.Status == StatusCompleted {
-				paths = append(paths, t.FilePath)
-			}
-		}
-	}
 	jobID := job.ID
 	illustID := job.IllustID
 	taskCount := len(job.Tasks)
@@ -236,11 +236,6 @@ func (m *Manager) Remove(id string, purgeFiles bool) error {
 	m.mu.Unlock()
 
 	_ = m.persist()
-	for _, p := range paths {
-		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
-			m.logger.Warn("download purge file failed", slog.String("path", p), slog.Any("error", err))
-		}
-	}
 	m.pub.JobDeleted(jobID, illustID, taskCount)
 	return nil
 }
@@ -583,6 +578,9 @@ func (m *Manager) runDownloadWithRetries(taskCtx, parent context.Context, task *
 				atomic.StoreInt64(&task.SizeBytes, written)
 			}
 			m.mu.Lock()
+			// Mark before the status transition so a racing Cancel sees
+			// our ownership and cleans up correctly.
+			task.WroteFile = true
 			var accepted bool
 			if isUgoira {
 				// Ugoira stays running through conversion; terminal
@@ -669,7 +667,9 @@ func (m *Manager) runUgoiraPostProcessing(taskCtx, parent context.Context, job *
 }
 
 // finalizeTask persists the terminal task, publishes the task event,
-// then re-aggregates the parent job and publishes on transition.
+// then re-aggregates the parent job via transitionJobLocked. Any
+// cleanup paths returned by the aggregate transition are removed
+// outside the lock per the transactional-job contract.
 func (m *Manager) finalizeTask(task *Task, job *Job, lastErr error) {
 	m.mu.Lock()
 	task.cancel = nil
@@ -689,16 +689,16 @@ func (m *Manager) finalizeTask(task *Task, job *Job, lastErr error) {
 		return
 	}
 	m.mu.Lock()
-	oldStatus := job.Status
-	job.Status = aggregateStatus(job.Tasks)
-	job.UpdatedAt = time.Now().UTC()
-	var jobSnap *Job
-	if oldStatus != job.Status {
-		jobSnap = m.snapshotJobLocked(job)
-	}
+	cleanupPaths, jobSnap, changed := m.transitionJobLocked(job)
 	m.mu.Unlock()
-	if jobSnap != nil {
+
+	// Persist the terminal aggregate before deleting files. See
+	// Manager.Cancel for the crash-window rationale.
+	if changed {
 		_ = m.persist()
+	}
+	m.removeCleanupPaths(cleanupPaths)
+	if changed {
 		m.pub.JobStateChange(jobSnap)
 	}
 }
@@ -730,6 +730,55 @@ func transitionTaskTerminalLocked(t *Task, to Status, errMsg string) bool {
 	t.FinishedAt = time.Now().UTC()
 	t.Error = errMsg
 	return true
+}
+
+// transitionJobLocked recomputes job.Status. Single entry point for
+// Job-level transitions; caller does the IO outside m.mu.
+// Returns:
+//   - cleanupPaths: non-nil when aggregate transitioned to failed/cancelled
+//   - snap: non-nil iff status changed
+//   - changed: gates persistence and event publication
+//
+// Caller must hold m.mu (write).
+func (m *Manager) transitionJobLocked(job *Job) (cleanupPaths []string, snap *Job, changed bool) {
+	old := job.Status
+	job.Status = aggregateStatus(job.Tasks)
+	job.UpdatedAt = time.Now().UTC()
+	if old == job.Status {
+		return nil, nil, false
+	}
+	snap = m.snapshotJobLocked(job)
+	if job.Status == StatusFailed || job.Status == StatusCancelled {
+		cleanupPaths = writtenPaths(job.Tasks)
+	}
+	return cleanupPaths, snap, true
+}
+
+// writtenPaths returns FilePaths of tasks whose worker has renamed a
+// payload onto FilePath. Tasks that were queued-but-never-run share a
+// deterministic FilePath with earlier jobs for the same illust; their
+// files on disk are not ours and must not be deleted. Caller must hold
+// m.mu.
+func writtenPaths(tasks []*Task) []string {
+	out := make([]string, 0, len(tasks))
+	for _, t := range tasks {
+		if t.WroteFile && t.FilePath != "" {
+			out = append(out, t.FilePath)
+		}
+	}
+	return out
+}
+
+// removeCleanupPaths os.Removes each path, logging non-ENOENT errors
+// without aborting the loop. Caller must release m.mu first.
+func (m *Manager) removeCleanupPaths(paths []string) {
+	for _, p := range paths {
+		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
+			m.logger.Warn("download cleanup failed",
+				slog.String("path", p),
+				slog.Any("error", err))
+		}
+	}
 }
 
 // convertUgoira dispatches to the encoder in ugoira.go. `none` /
@@ -784,6 +833,7 @@ func snapshotTaskLocked(t *Task) *Task {
 		Error:           t.Error,
 		StartedAt:       t.StartedAt,
 		FinishedAt:      t.FinishedAt,
+		WroteFile:       t.WroteFile,
 	}
 	return cp
 }

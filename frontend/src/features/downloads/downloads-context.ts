@@ -9,7 +9,7 @@ export interface DownloadsContextValue {
     initialLoaded: boolean;
     submit: (illustId: number) => Promise<DownloadJob | null>;
     cancel: (jobId: string) => Promise<void>;
-    remove: (jobId: string, purgeFiles: boolean) => Promise<void>;
+    remove: (jobId: string) => Promise<void>;
     refresh: () => Promise<void>;
 }
 

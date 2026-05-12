@@ -70,13 +70,12 @@ func (h *APIHandler) CancelDownload(w http.ResponseWriter, r *http.Request, id D
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *APIHandler) RemoveDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath, params RemoveDownloadParams) {
+func (h *APIHandler) RemoveDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath) {
 	if err := h.requireAuth(); err != nil {
 		h.writeError(w, r, err)
 		return
 	}
-	purge := params.PurgeFiles != nil && *params.PurgeFiles
-	if err := h.dl.Remove(id, purge); err != nil {
+	if err := h.dl.Remove(id); err != nil {
 		h.writeError(w, r, err)
 		return
 	}
