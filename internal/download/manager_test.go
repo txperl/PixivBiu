@@ -389,11 +389,218 @@ func TestRemove_KeepsFilesOnDisk(t *testing.T) {
 	}
 }
 
-// Transactional-job cleanup must only touch files this job actually
-// wrote. Tasks that were queued-but-never-run (WroteFile=false) share
-// a deterministic FilePath with earlier jobs for the same illust;
-// those files are not ours to delete.
-func TestCancel_CleansUpOnlyWrittenFiles(t *testing.T) {
+// Two jobs with identical candidate paths must end up at different
+// FilePaths; a third must continue past " (1)" to " (2)".
+func TestResolveJobCollisionsLocked_BumpsAcrossJobs(t *testing.T) {
+	m := newTestManager(t)
+	base := filepath.Join(m.cfg.OutputDir, "shared.bin")
+
+	mkJob := func(id string) *Job {
+		return &Job{
+			ID:         id,
+			IllustType: IllustTypeIllust,
+			Status:     StatusQueued,
+			Tasks: []*Task{
+				{ID: "tsk_" + id, JobID: id, FilePath: base, Status: StatusQueued},
+			},
+		}
+	}
+
+	jobA, jobB, jobC := mkJob("a"), mkJob("b"), mkJob("c")
+
+	// Submit-equivalent ordering: resolve, then register.
+	m.mu.Lock()
+	m.resolveJobCollisionsLocked(jobA, m.reservedPathsLocked())
+	m.jobs[jobA.ID] = jobA
+	m.resolveJobCollisionsLocked(jobB, m.reservedPathsLocked())
+	m.jobs[jobB.ID] = jobB
+	m.resolveJobCollisionsLocked(jobC, m.reservedPathsLocked())
+	m.jobs[jobC.ID] = jobC
+	m.mu.Unlock()
+
+	wantA := base
+	wantB := filepath.Join(m.cfg.OutputDir, "shared (1).bin")
+	wantC := filepath.Join(m.cfg.OutputDir, "shared (2).bin")
+	if jobA.Tasks[0].FilePath != wantA {
+		t.Errorf("jobA: want %q, got %q", wantA, jobA.Tasks[0].FilePath)
+	}
+	if jobB.Tasks[0].FilePath != wantB {
+		t.Errorf("jobB: want %q, got %q", wantB, jobB.Tasks[0].FilePath)
+	}
+	if jobC.Tasks[0].FilePath != wantC {
+		t.Errorf("jobC: want %q, got %q", wantC, jobC.Tasks[0].FilePath)
+	}
+}
+
+// A file already on disk under the candidate path forces the resolver
+// to bump even when no other job has reserved it. Mirrors the "user
+// manually dropped a file in the way" case.
+func TestResolveJobCollisionsLocked_BumpsPastDiskFile(t *testing.T) {
+	m := newTestManager(t)
+	base := filepath.Join(m.cfg.OutputDir, "external.bin")
+	if err := os.WriteFile(base, []byte("seed"), 0o644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	job := &Job{
+		ID:         "j",
+		IllustType: IllustTypeIllust,
+		Status:     StatusQueued,
+		Tasks: []*Task{
+			{ID: "tsk", JobID: "j", FilePath: base, Status: StatusQueued},
+		},
+	}
+
+	m.mu.Lock()
+	m.jobs[job.ID] = job
+	m.resolveJobCollisionsLocked(job, m.reservedPathsLocked())
+	m.mu.Unlock()
+
+	want := filepath.Join(m.cfg.OutputDir, "external (1).bin")
+	if job.Tasks[0].FilePath != want {
+		t.Errorf("want %q, got %q", want, job.Tasks[0].FilePath)
+	}
+}
+
+// Ugoira tasks hold the zip path during download, but the resolver
+// must guarantee uniqueness of the *eventual* converted artefact
+// (e.g. .webp). Verify that two ugoira jobs with the same template
+// output don't collide on the final extension.
+func TestResolveJobCollisionsLocked_UgoiraFinalExtension(t *testing.T) {
+	m := newTestManager(t)
+	m.cfg.Ugoira.Format = "webp"
+
+	jobZip := func(id, stem string) *Job {
+		return &Job{
+			ID:         id,
+			IllustType: IllustTypeUgoira,
+			Status:     StatusQueued,
+			Tasks: []*Task{
+				{
+					ID: "tsk_" + id, JobID: id,
+					FilePath: filepath.Join(m.cfg.OutputDir, stem+".zip"),
+					Status:   StatusQueued,
+				},
+			},
+		}
+	}
+
+	a := jobZip("a", "anim")
+	b := jobZip("b", "anim")
+
+	m.mu.Lock()
+	m.resolveJobCollisionsLocked(a, m.reservedPathsLocked())
+	m.jobs[a.ID] = a
+	m.resolveJobCollisionsLocked(b, m.reservedPathsLocked())
+	m.jobs[b.ID] = b
+	m.mu.Unlock()
+
+	// First job keeps "anim.zip" (intermediate). Second must shift its
+	// stem because "anim.webp" — its eventual final — would have
+	// collided with jobA's eventual final.
+	if a.Tasks[0].FilePath != filepath.Join(m.cfg.OutputDir, "anim.zip") {
+		t.Errorf("jobA zip path: got %q", a.Tasks[0].FilePath)
+	}
+	if b.Tasks[0].FilePath != filepath.Join(m.cfg.OutputDir, "anim (1).zip") {
+		t.Errorf("jobB should bump stem: got %q", b.Tasks[0].FilePath)
+	}
+}
+
+// A graceful shutdown that interrupts ugoira conversion persists the
+// task as queued + WroteFile=true with the zip still at FilePath. On
+// the next Start, the resolver must NOT bump it: doing so leaves the
+// manager-owned zip orphaned forever. It should also reserve the
+// final extension so a new submit can't take it.
+func TestResolveJobCollisionsLocked_PreservesOwnedZipOnRestart(t *testing.T) {
+	m := newTestManager(t)
+	m.cfg.Ugoira.Format = "webp"
+
+	zipPath := filepath.Join(m.cfg.OutputDir, "anim.zip")
+	if err := os.WriteFile(zipPath, []byte("manager-owned zip"), 0o644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	job := &Job{
+		ID:         "j",
+		IllustType: IllustTypeUgoira,
+		Status:     StatusQueued,
+		Tasks: []*Task{
+			{
+				ID: "tsk", JobID: "j",
+				FilePath:  zipPath,
+				Status:    StatusQueued,
+				WroteFile: true,
+			},
+		},
+	}
+
+	reserved := map[string]struct{}{}
+	m.mu.Lock()
+	m.resolveJobCollisionsLocked(job, reserved)
+	m.jobs[job.ID] = job
+	m.mu.Unlock()
+
+	if job.Tasks[0].FilePath != zipPath {
+		t.Errorf("FilePath must not bump for an owned task; got %q", job.Tasks[0].FilePath)
+	}
+	wantFinal := filepath.Join(m.cfg.OutputDir, "anim.webp")
+	if _, ok := reserved[zipPath]; !ok {
+		t.Errorf("zip path not reserved: %v", reserved)
+	}
+	if _, ok := reserved[wantFinal]; !ok {
+		t.Errorf("final path %q not reserved: %v", wantFinal, reserved)
+	}
+}
+
+// A user-owned (or orphaned) `.zip` on disk that matches a fresh
+// ugoira submission's intermediate path must force a suffix bump, or
+// the worker would overwrite it on rename and ConvertUgoira (or
+// Cancel cleanup) would delete it.
+func TestResolveJobCollisionsLocked_UgoiraExistingZipBumps(t *testing.T) {
+	m := newTestManager(t)
+	m.cfg.Ugoira.Format = "webp"
+
+	existingZip := filepath.Join(m.cfg.OutputDir, "anim.zip")
+	if err := os.WriteFile(existingZip, []byte("user data"), 0o644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	job := &Job{
+		ID:         "j",
+		IllustType: IllustTypeUgoira,
+		Status:     StatusQueued,
+		Tasks: []*Task{
+			{
+				ID: "tsk", JobID: "j",
+				FilePath: existingZip,
+				Status:   StatusQueued,
+			},
+		},
+	}
+
+	m.mu.Lock()
+	m.resolveJobCollisionsLocked(job, m.reservedPathsLocked())
+	m.jobs[job.ID] = job
+	m.mu.Unlock()
+
+	wantZip := filepath.Join(m.cfg.OutputDir, "anim (1).zip")
+	if job.Tasks[0].FilePath != wantZip {
+		t.Errorf("zip path: want %q, got %q", wantZip, job.Tasks[0].FilePath)
+	}
+	// The user's original must remain readable: cleanup is per-task,
+	// and the bumped task now owns a different path.
+	if _, err := os.Stat(existingZip); err != nil {
+		t.Errorf("original zip must survive resolution: %v", err)
+	}
+}
+
+// Transactional-job cleanup must only delete files this job's
+// worker actually wrote. A task that was Cancelled or Failed before
+// its worker renamed a payload onto FilePath does not own whatever
+// happens to sit at that path now (e.g. a file the user or another
+// process dropped there between Submit and cancel) — the WroteFile
+// flag is what makes that distinction.
+func TestCancel_PreservesUnownedFilesAtTaskPath(t *testing.T) {
 	m := newTestManager(t)
 
 	owned := filepath.Join(m.cfg.OutputDir, "owned.bin")
@@ -434,6 +641,6 @@ func TestCancel_CleansUpOnlyWrittenFiles(t *testing.T) {
 		t.Errorf("owned file should be cleaned up, stat err=%v", err)
 	}
 	if _, err := os.Stat(foreign); err != nil {
-		t.Errorf("never-written file must not be deleted, got %v", err)
+		t.Errorf("foreign file at never-written task path must survive, got %v", err)
 	}
 }

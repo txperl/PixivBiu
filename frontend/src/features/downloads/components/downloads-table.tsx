@@ -203,7 +203,7 @@ function JobRowInner({ job, compact, error, submitError, cancel, submit, remove 
                                             await submit(job.illust_id);
                                         }}
                                         confirm={{
-                                            body: "已下载文件将被新下载覆盖，确定重新下载？",
+                                            body: "将创建新的下载副本，确定重新下载？",
                                             confirmLabel: "重新下载",
                                         }}
                                         error={submitError}

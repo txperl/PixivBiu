@@ -61,12 +61,10 @@ type Task struct {
 	StartedAt       time.Time `json:"started_at,omitzero"`
 	FinishedAt      time.Time `json:"finished_at,omitzero"`
 
-	// WroteFile records whether the worker has renamed a downloaded
-	// payload onto FilePath. httpDownload writes to a `.part` tempfile
-	// and atomic-renames on success; before that rename FilePath may
-	// hold an intact file from an earlier job at the same deterministic
-	// path. Cleanup gates on this flag so it only deletes files this
-	// task actually wrote.
+	// WroteFile gates cleanup so a file placed at FilePath externally
+	// between Submit and a cancel/failure is not mistaken for this
+	// task's output and deleted — collision resolution only sees
+	// disk state at Submit/Start time and can't cover that window.
 	WroteFile bool `json:"wrote_file,omitempty"`
 
 	// Runtime-only (not serialised).

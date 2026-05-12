@@ -2,6 +2,7 @@ package download
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"os"
 	"path"
@@ -339,6 +340,86 @@ func ExtFromURL(u string) string {
 	}
 	ext := path.Ext(u)
 	return ext
+}
+
+// ResolveCollision returns base when it is free, otherwise appends
+// " (1)", " (2)", … to the stem matching Chrome / Firefox / Finder.
+// The numbered scan caps at 9999 attempts before switching to a
+// random 8-hex-digit suffix, so a directory pre-filled with every
+// "name (n).ext" through 9999 still resolves to a fresh path.
+func ResolveCollision(base string, reserved map[string]struct{}) string {
+	return resolveCollisionWith(base, reserved, fileExists)
+}
+
+func resolveCollisionWith(base string, reserved map[string]struct{}, exists func(string) bool) string {
+	ext := filepath.Ext(base)
+	stem := strings.TrimSuffix(base, ext)
+	suffix := findFreeSuffix(func(s string) bool {
+		return !taken(stem+s+ext, reserved, exists)
+	})
+	return stem + suffix + ext
+}
+
+// ResolveCollisionPair resolves a single " (n)" suffix such that both
+// `base` and the same path with its extension swapped to `altExt` are
+// free in disk + reserved. Used for ugoira where the worker writes a
+// `.zip` intermediate but the eventual artefact is `.webp`/`.gif` —
+// resolving only one path would leave the other vulnerable to
+// overwriting an existing same-named file.
+func ResolveCollisionPair(base, altExt string, reserved map[string]struct{}) (string, string) {
+	return resolveCollisionPairWith(base, altExt, reserved, fileExists)
+}
+
+func resolveCollisionPairWith(base, altExt string, reserved map[string]struct{}, exists func(string) bool) (string, string) {
+	ext := filepath.Ext(base)
+	stem := strings.TrimSuffix(base, ext)
+	suffix := findFreeSuffix(func(s string) bool {
+		return !taken(stem+s+ext, reserved, exists) && !taken(stem+s+altExt, reserved, exists)
+	})
+	return stem + suffix + ext, stem + suffix + altExt
+}
+
+// findFreeSuffix returns "" if the bare (no-suffix) candidate set is
+// free, otherwise the lowest " (n)" with n ∈ [1, 9999] that is free,
+// otherwise a random 8-hex-digit fallback that has also been checked
+// against `free`. `free` reports whether a candidate set built around
+// the given suffix is collision-free.
+func findFreeSuffix(free func(suffix string) bool) string {
+	if free("") {
+		return ""
+	}
+	for i := 1; i <= 9999; i++ {
+		s := fmt.Sprintf(" (%d)", i)
+		if free(s) {
+			return s
+		}
+	}
+	// 64 tries × 32 bits each: cumulative failure probability ≈ 2⁻²⁶,
+	// effectively impossible unless `free` is misbehaving.
+	var buf [4]byte
+	for range 64 {
+		_, _ = rand.Read(buf[:])
+		s := fmt.Sprintf(" (%x)", buf)
+		if free(s) {
+			return s
+		}
+	}
+	// Last-resort: return an unchecked suffix. Caller has to live
+	// with whatever `free` claims; cleanup is ENOENT-tolerant anyway.
+	_, _ = rand.Read(buf[:])
+	return fmt.Sprintf(" (%x)", buf)
+}
+
+func taken(path string, reserved map[string]struct{}, exists func(string) bool) bool {
+	if _, ok := reserved[path]; ok {
+		return true
+	}
+	return exists(path)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // HomeDir returns the user's home dir, or empty on error. Used to

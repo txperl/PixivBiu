@@ -60,7 +60,7 @@ open  http://localhost:8080/docs                   # Scalar 交互式文档
 | `/downloads` | 单图 / 多图 / 动图下载，JSON 持久化，断点重启恢复 |
 | `/events` | SSE 统一消息流；`Last-Event-ID` 重连补齐，evict 时发 `system.resync` |
 
-下载路径用 Go `text/template`（变量 `.Title`/`.Index`/`.UserName` 等，函数 `sanitize`/`pad`/`date`/`trunc`/`default`）。每段路径强制 sanitize、拒绝 `..`、按字节截断保留扩展名。动图支持 `webp | gif | none` 三档。
+下载路径用 Go `text/template`（变量 `.Title`/`.Index`/`.UserName` 等，函数 `sanitize`/`pad`/`date`/`trunc`/`default`）。每段路径强制 sanitize、拒绝 `..`、按字节截断保留扩展名。同名文件按 ` (1)`/` (2)` 递增。动图支持 `webp | gif | none` 三档。
 
 ## 配置
 

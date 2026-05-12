@@ -215,6 +215,121 @@ func TestFuncMap_DateHandlesZero(t *testing.T) {
 	}
 }
 
+func TestResolveCollision_FreePathUnchanged(t *testing.T) {
+	got := resolveCollisionWith("/dl/a.jpg", nil, func(string) bool { return false })
+	if got != "/dl/a.jpg" {
+		t.Errorf("free path: want %q, got %q", "/dl/a.jpg", got)
+	}
+}
+
+func TestResolveCollision_DiskCollisionBumps(t *testing.T) {
+	disk := map[string]struct{}{"/dl/a.jpg": {}}
+	exists := func(p string) bool { _, ok := disk[p]; return ok }
+	got := resolveCollisionWith("/dl/a.jpg", nil, exists)
+	if got != "/dl/a (1).jpg" {
+		t.Errorf("want %q, got %q", "/dl/a (1).jpg", got)
+	}
+}
+
+func TestResolveCollision_ReservedOnlyBumps(t *testing.T) {
+	reserved := map[string]struct{}{"/dl/a.jpg": {}}
+	got := resolveCollisionWith("/dl/a.jpg", reserved, func(string) bool { return false })
+	if got != "/dl/a (1).jpg" {
+		t.Errorf("want %q, got %q", "/dl/a (1).jpg", got)
+	}
+}
+
+func TestResolveCollision_CascadesPastSiblings(t *testing.T) {
+	// Disk holds the base; reserved holds (1). Should pick (2).
+	disk := map[string]struct{}{"/dl/a.jpg": {}}
+	exists := func(p string) bool { _, ok := disk[p]; return ok }
+	reserved := map[string]struct{}{"/dl/a (1).jpg": {}}
+	got := resolveCollisionWith("/dl/a.jpg", reserved, exists)
+	if got != "/dl/a (2).jpg" {
+		t.Errorf("want %q, got %q", "/dl/a (2).jpg", got)
+	}
+}
+
+func TestResolveCollision_ExtensionlessPath(t *testing.T) {
+	disk := map[string]struct{}{"/dl/README": {}}
+	exists := func(p string) bool { _, ok := disk[p]; return ok }
+	got := resolveCollisionWith("/dl/README", nil, exists)
+	if got != "/dl/README (1)" {
+		t.Errorf("extensionless: want %q, got %q", "/dl/README (1)", got)
+	}
+}
+
+func TestResolveCollision_FallbackAfter9999Attempts(t *testing.T) {
+	// Every numbered candidate is taken; the 8-hex random fallback
+	// is free. The returned path must satisfy `free` — the prior
+	// implementation returned the first random suffix without
+	// checking, so this is the regression test for that contract.
+	exists := func(p string) bool {
+		if p == "/dl/a.jpg" {
+			return true
+		}
+		if !strings.HasPrefix(p, "/dl/a (") || !strings.HasSuffix(p, ").jpg") {
+			return false
+		}
+		inner := strings.TrimSuffix(strings.TrimPrefix(p, "/dl/a ("), ").jpg")
+		// Numbered suffixes are 1..4 decimal digits; the random
+		// fallback is exactly 8 hex chars. Mark everything else taken.
+		return len(inner) <= 4
+	}
+	got := resolveCollisionWith("/dl/a.jpg", nil, exists)
+	if exists(got) {
+		t.Fatalf("fallback returned a path the predicate marks taken: %q", got)
+	}
+	if !strings.HasPrefix(got, "/dl/a (") || !strings.HasSuffix(got, ").jpg") {
+		t.Fatalf("fallback shape unexpected: %q", got)
+	}
+	hexPart := strings.TrimSuffix(strings.TrimPrefix(got, "/dl/a ("), ").jpg")
+	if len(hexPart) != 8 {
+		t.Errorf("fallback hex suffix length: want 8, got %d (%q)", len(hexPart), hexPart)
+	}
+}
+
+func TestResolveCollisionPair_BothFreeNoSuffix(t *testing.T) {
+	gotBase, gotAlt := resolveCollisionPairWith("/dl/a.webp", ".zip", nil, func(string) bool { return false })
+	if gotBase != "/dl/a.webp" || gotAlt != "/dl/a.zip" {
+		t.Errorf("want (a.webp, a.zip), got (%q, %q)", gotBase, gotAlt)
+	}
+}
+
+func TestResolveCollisionPair_ZipTakenForcesBump(t *testing.T) {
+	// Only the .zip variant is on disk; the resolver must still bump
+	// the .webp side to keep both extensions sharing a suffix.
+	disk := map[string]struct{}{"/dl/a.zip": {}}
+	exists := func(p string) bool { _, ok := disk[p]; return ok }
+	gotBase, gotAlt := resolveCollisionPairWith("/dl/a.webp", ".zip", nil, exists)
+	if gotBase != "/dl/a (1).webp" || gotAlt != "/dl/a (1).zip" {
+		t.Errorf("want (a (1).webp, a (1).zip), got (%q, %q)", gotBase, gotAlt)
+	}
+}
+
+func TestResolveCollisionPair_FinalTakenForcesBump(t *testing.T) {
+	disk := map[string]struct{}{"/dl/a.webp": {}}
+	exists := func(p string) bool { _, ok := disk[p]; return ok }
+	gotBase, gotAlt := resolveCollisionPairWith("/dl/a.webp", ".zip", nil, exists)
+	if gotBase != "/dl/a (1).webp" || gotAlt != "/dl/a (1).zip" {
+		t.Errorf("want (a (1).webp, a (1).zip), got (%q, %q)", gotBase, gotAlt)
+	}
+}
+
+func TestResolveCollisionPair_StaggeredTakenSkipsToCommonFree(t *testing.T) {
+	// .webp is taken at n=0 only; .zip is taken at n=1 only. n=0 and
+	// n=1 each fail (one variant taken); n=2 is where both are free.
+	disk := map[string]struct{}{
+		"/dl/a.webp":     {},
+		"/dl/a (1).zip":  {},
+	}
+	exists := func(p string) bool { _, ok := disk[p]; return ok }
+	gotBase, gotAlt := resolveCollisionPairWith("/dl/a.webp", ".zip", nil, exists)
+	if gotBase != "/dl/a (2).webp" || gotAlt != "/dl/a (2).zip" {
+		t.Errorf("want n=2 pair, got (%q, %q)", gotBase, gotAlt)
+	}
+}
+
 // filepathSep returns the OS path separator as a string. Used in
 // assertions that check joined subdirectories.
 func filepathSep() rune {

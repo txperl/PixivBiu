@@ -111,7 +111,11 @@ func (m *Manager) Start(parent context.Context) {
 
 	m.mu.Lock()
 	var toReenqueue []*Task
-	for _, job := range m.jobs {
+	// SortedJobs gives a deterministic walk so two restarts of the
+	// same on-disk state always assign the same collision suffixes.
+	reserved := map[string]struct{}{}
+	for _, job := range SortedJobs(m.jobs) {
+		var hasNonTerminal bool
 		for _, t := range job.Tasks {
 			if t.Status == StatusRunning {
 				t.Status = StatusQueued
@@ -120,8 +124,14 @@ func (m *Manager) Start(parent context.Context) {
 			if t.Status == StatusQueued {
 				toReenqueue = append(toReenqueue, t)
 			}
+			if !t.Status.IsTerminal() {
+				hasNonTerminal = true
+			}
 		}
 		job.Status = aggregateStatus(job.Tasks)
+		if hasNonTerminal {
+			m.resolveJobCollisionsLocked(job, reserved)
+		}
 	}
 	m.mu.Unlock()
 	_ = m.persist()
@@ -302,6 +312,7 @@ func (m *Manager) Submit(ctx context.Context, illustID int64) (*Job, error) {
 	}
 
 	m.mu.Lock()
+	m.resolveJobCollisionsLocked(job, m.reservedPathsLocked())
 	m.jobs[jobID] = job
 	jobSnap := m.snapshotJobLocked(job)
 	m.mu.Unlock()
@@ -578,8 +589,9 @@ func (m *Manager) runDownloadWithRetries(taskCtx, parent context.Context, task *
 				atomic.StoreInt64(&task.SizeBytes, written)
 			}
 			m.mu.Lock()
-			// Mark before the status transition so a racing Cancel sees
-			// our ownership and cleans up correctly.
+			// Mark before the status transition so a racing Cancel
+			// sees our ownership and the inline cleanup below the
+			// lock removes the right file.
 			task.WroteFile = true
 			var accepted bool
 			if isUgoira {
@@ -754,11 +766,8 @@ func (m *Manager) transitionJobLocked(job *Job) (cleanupPaths []string, snap *Jo
 	return cleanupPaths, snap, true
 }
 
-// writtenPaths returns FilePaths of tasks whose worker has renamed a
-// payload onto FilePath. Tasks that were queued-but-never-run share a
-// deterministic FilePath with earlier jobs for the same illust; their
-// files on disk are not ours and must not be deleted. Caller must hold
-// m.mu.
+// writtenPaths returns the FilePath of every task with WroteFile set.
+// See Task.WroteFile for the ownership rationale. Caller must hold m.mu.
 func writtenPaths(tasks []*Task) []string {
 	out := make([]string, 0, len(tasks))
 	for _, t := range tasks {
@@ -767,6 +776,97 @@ func writtenPaths(tasks []*Task) []string {
 		}
 	}
 	return out
+}
+
+// finalPathLocked returns the eventual on-disk artefact path for a
+// task — equal to FilePath for images and for already-converted
+// ugoira, but swapped to the configured final extension when the
+// task is mid-flight ugoira still holding its `.zip` intermediate.
+// Caller must hold m.mu.
+func (m *Manager) finalPathLocked(job *Job, task *Task) string {
+	if task.FilePath == "" {
+		return ""
+	}
+	if job == nil || job.IllustType != IllustTypeUgoira {
+		return task.FilePath
+	}
+	finalExt := ugoiraFinalExt(m.cfg.Ugoira.Format)
+	if finalExt == ".zip" || !isZipPath(task.FilePath) {
+		return task.FilePath
+	}
+	return replaceExt(task.FilePath, finalExt)
+}
+
+// isZipPath reports whether path ends with a case-insensitive ".zip".
+// Used to distinguish ugoira's transient download target from its
+// post-conversion final artefact.
+func isZipPath(path string) bool {
+	return strings.EqualFold(filepath.Ext(path), ".zip")
+}
+
+// reservedPathsLocked collects the set of final on-disk paths owned
+// by every non-terminal task across all jobs. Seeds the collision
+// resolver so a new Submit cannot hand out a path that another
+// in-flight job will eventually land on. Terminal tasks are excluded:
+// completed files are on disk (caught by os.Stat in ResolveCollision)
+// and failed/cancelled files are already cleaned up. Caller must hold
+// m.mu.
+func (m *Manager) reservedPathsLocked() map[string]struct{} {
+	out := make(map[string]struct{})
+	for _, job := range m.jobs {
+		for _, t := range job.Tasks {
+			if t.Status.IsTerminal() {
+				continue
+			}
+			p := m.finalPathLocked(job, t)
+			if p != "" {
+				out[p] = struct{}{}
+			}
+		}
+	}
+	return out
+}
+
+// resolveJobCollisionsLocked rewrites each non-terminal task's
+// FilePath so it cannot collide with files on disk, paths in
+// `reserved`, or sibling tasks in this same job. Reserved is updated
+// in-place. For ugoira tasks still on the `.zip` intermediate, the
+// stem is suffixed but the `.zip` is retained so the post-download
+// `replaceExt` lands on the resolved final name. Caller must hold m.mu.
+func (m *Manager) resolveJobCollisionsLocked(job *Job, reserved map[string]struct{}) {
+	for _, t := range job.Tasks {
+		if t.Status.IsTerminal() {
+			continue
+		}
+		if t.WroteFile {
+			// We already own the file at FilePath (e.g. ugoira zip
+			// downloaded before a shutdown interrupted conversion).
+			// Resolving would orphan it; reserve our paths and skip.
+			if t.FilePath != "" {
+				reserved[t.FilePath] = struct{}{}
+			}
+			if final := m.finalPathLocked(job, t); final != "" {
+				reserved[final] = struct{}{}
+			}
+			continue
+		}
+		candidate := m.finalPathLocked(job, t)
+		if candidate == "" {
+			continue
+		}
+		if isZipPath(t.FilePath) && !isZipPath(candidate) {
+			// Both paths must share a suffix so the worker's `.zip`
+			// write and the post-conversion artefact stay collision-free.
+			resolvedFinal, resolvedZip := ResolveCollisionPair(candidate, ".zip", reserved)
+			reserved[resolvedFinal] = struct{}{}
+			reserved[resolvedZip] = struct{}{}
+			t.FilePath = resolvedZip
+			continue
+		}
+		resolved := ResolveCollision(candidate, reserved)
+		reserved[resolved] = struct{}{}
+		t.FilePath = resolved
+	}
 }
 
 // removeCleanupPaths os.Removes each path, logging non-ENOENT errors
