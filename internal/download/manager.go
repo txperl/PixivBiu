@@ -604,6 +604,12 @@ func (m *Manager) runDownloadWithRetries(taskCtx, parent context.Context, task *
 			m.mu.Unlock()
 			if accepted {
 				atomic.StoreInt64(&task.DownloadedBytes, written)
+				if isUgoira {
+					// Make WroteFile durable before the slow ugoira
+					// convert — a crash mid-encode otherwise lets the
+					// next boot's collision resolver bump the zip.
+					_ = m.persist()
+				}
 			} else {
 				// Cancel won the lock; drop the freshly-renamed file.
 				_ = os.Remove(task.FilePath)

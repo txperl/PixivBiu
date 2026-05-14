@@ -644,3 +644,48 @@ func TestCancel_PreservesUnownedFilesAtTaskPath(t *testing.T) {
 		t.Errorf("foreign file at never-written task path must survive, got %v", err)
 	}
 }
+
+func TestRunDownloadWithRetries_PersistsWroteFileBeforeUgoiraConvert(t *testing.T) {
+	body := []byte("ugoira-zip-bytes")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		_, _ = w.Write(body)
+	}))
+	t.Cleanup(srv.Close)
+
+	m := newTestManager(t)
+	dest := filepath.Join(t.TempDir(), "anim.zip")
+	task := &Task{
+		ID: "tsk_ugo", JobID: "job_ugo",
+		URL: srv.URL, FilePath: dest,
+		Status: StatusRunning, SizeBytes: -1,
+	}
+	job := &Job{
+		ID:         "job_ugo",
+		IllustType: IllustTypeUgoira,
+		Status:     StatusRunning,
+		Tasks:      []*Task{task},
+	}
+	m.jobs[job.ID] = job
+
+	ctx := context.Background()
+	if err := m.runDownloadWithRetries(ctx, ctx, task, true); err != nil {
+		t.Fatalf("runDownloadWithRetries: %v", err)
+	}
+
+	loaded, err := NewStore(m.cfg.StoreFile).Load()
+	if err != nil {
+		t.Fatalf("reload store: %v", err)
+	}
+	got, ok := loaded[job.ID]
+	if !ok || len(got.Tasks) != 1 {
+		t.Fatalf("loaded job missing or shape wrong: %+v", loaded)
+	}
+	if !got.Tasks[0].WroteFile {
+		t.Errorf("WroteFile not persisted; collision resolver would bump path on restart")
+	}
+	if got.Tasks[0].Status != StatusRunning {
+		t.Errorf("status: want %s (ugoira branch keeps task running through convert), got %s",
+			StatusRunning, got.Tasks[0].Status)
+	}
+}
