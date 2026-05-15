@@ -170,12 +170,17 @@ The SPA consumes the same spec via [`openapi-typescript`](https://openapi-ts.dev
 
 #### Frontend SSE + Downloads
 
-- Provider order is fixed: `LocaleProvider → AuthProvider → EventStreamProvider → DownloadsProvider`. `<EventStreamProvider>` opens the `EventSource` only while authenticated and tears it down on logout; subscribers register via `useEventStream().subscribe(topic, listener)` and survive open/close cycles.
-- `<DownloadsProvider>` is the state-authoritative consumer: seeds from `GET /downloads`, mutates on `download.*` events, refreshes on every SSE `connected` transition and on `system.resync`. Consume via `useDownloads()` for `{ jobs, activeCount, doneCount, lastError, submit, cancel, remove, refresh }`.
+- Provider order is fixed: `TooltipProvider → LocaleProvider → AuthProvider → EventStreamProvider → DownloadStateProvider`. `<EventStreamProvider>` opens the `EventSource` only while authenticated and tears it down on logout; subscribers register via `useEventStream().subscribe(topic, listener)` and survive open/close cycles. Use `useRefreshOnReconnect(fn)` from `features/events` for reconnect + `system.resync` refetches.
+- Download state is split across four focused hooks, all backed by `<DownloadStateProvider>` and SSE:
+  - `useTrackedDownloads()` — `Map<illust_id, TrackedJob>` of active + 30-min-recent terminals (swept on a cadence).
+  - `useDownloadCounts()` — global `{ activeCount, doneCount }`, driven by counts inlined into `download.job.*` events.
+  - `useDownloadMutations()` — `{ submit, cancel, remove, lastError }`; fire-and-forget, SSE drives state.
+  - `useDownloadsPage({ status?, page })` — server-paginated state for the Downloads management page (`page_size = DOWNLOADS_PAGE_SIZE`). Local to each instance; `job.*` triggers debounced refetch, `task.*` patches in place. Use `useTrackedDownloads` for global views.
 - Only `download.job.*` events write `job.status` on the client; `download.task.*` events update task state only. Don't recompute `job.status` client-side — the backend re-publishes `job.*` whenever its aggregation rule says it should change.
 - For pages that show `IllustCard`s with batch-download support: pair `useIllustSelection()` (returns `{ selected, toggle, replaceSelection, clearSelection }`) with `<DownloadFAB selected allIllustIds onReplaceSelection onClearSelection />`, passing the currently visible illust ids as `allIllustIds`. Call `clearSelection()` inside the fetch effect so the selection resets when the underlying list changes.
 - Per-illust download state in cards reads from `useIllustDownloadStatus(illustId)` → `{ job, active, percent }`; `IllustDownloadButton` already consumes it. `ACTIVE_STATUSES` from `features/downloads/api.ts` is the single source of "this job is in flight".
 - Reuse `<DownloadsTable jobs={...} compact?>` for any list rendering — `compact` hides the size + actions columns for tight layouts (the home-page sheet).
+- Use `<TooltipProvider>` from `@/components/ui/tooltip` for tooltips. Mounted at root with `delay={300}`. Keep `aria-label` on icon-only buttons.
 
 ### Naming Convention: `APIHandler` vs `Handler`
 
@@ -283,7 +288,7 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 | GET | `/search/illusts` | `searchIllusts` | Query: `word` (required), `search_target`, `sort`, `offset` |
 | GET | `/search/users` | `searchUsers` | Query: `word` (required), `offset` |
 | POST | `/downloads` | `submitDownload` | Body: `{illust_id}`. 202 + `DownloadJob`. Routes by illust type. |
-| GET | `/downloads` | `listDownloads` | Jobs newest-first |
+| GET | `/downloads` | `listDownloads` | Server-paginated, newest-first. Query: `status` (CSV), `page`, `per_page`, `updated_since`. Response carries `jobs[] + total + active_count + done_count`. |
 | GET | `/downloads/{id}` | `getDownload` | Single job |
 | POST | `/downloads/{id}/cancel` | `cancelDownload` | 204 / 404 / 409 (already terminal) |
 | DELETE | `/downloads/{id}` | `removeDownload` | History-log delete; never touches disk. 204 / 404 / 409 (still running) |
@@ -296,7 +301,7 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 | GET | `/docs` | Scalar API Reference — interactive docs + request tester |
 | GET | `/openapi.json` | The embedded OpenAPI spec, served as JSON |
 
-**Pagination:** list responses carry `next_offset` or `next_max_bookmark_id`. A non-null value means another page exists; pass it back unchanged. Null means you've reached the end.
+**Pagination:** Pixiv-backed list responses carry `next_offset` or `next_max_bookmark_id`; pass non-null values back unchanged, null means end-of-list. `GET /downloads` uses `page` / `per_page` and returns `total`.
 
 **Error classification** (see `internal/api/handler.go::classify`):
 - `unauthenticated` / 401 — no/expired access token; POST `/auth/login` first.
