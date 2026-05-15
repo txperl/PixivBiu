@@ -189,15 +189,11 @@ function IllustCard({ illust, selected = false, selectMode = false, onSelect }: 
             </div>
 
             <div className="px-3.5 pt-1 pb-3.5">
-                <div className="truncate font-medium text-foreground text-sm" title={illust.title}>
-                    {illust.title}
-                </div>
+                <div className="truncate font-medium text-foreground text-sm">{illust.title}</div>
                 <div className="mt-1.5 flex items-center gap-1.5 text-muted-foreground text-xs">
                     <UserLink userId={illust.user.id} className="flex min-w-0 flex-1 items-center gap-1.5">
                         <Avatar hue={hueFromId(illust.user.id)} initial={illust.user.name[0] ?? "?"} size={18} />
-                        <span className="truncate hover:underline" title={illust.user.name}>
-                            {illust.user.name}
-                        </span>
+                        <span className="truncate hover:underline">{illust.user.name}</span>
                     </UserLink>
                     <IllustBookmarkButton
                         key={illust.id}

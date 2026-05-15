@@ -1,6 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDownloadMutations } from "@/features/downloads";
 import { CheckIcon, CloseIcon, DownloadIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -75,12 +76,27 @@ function DownloadFAB({ selected, allIllustIds, onReplaceSelection, onClearSelect
                     <HugeiconsIcon icon={CheckIcon} strokeWidth={2} />
                     {doneLabel}
                 </Button>
+            ) : errorTitle ? (
+                <Tooltip>
+                    <TooltipTrigger
+                        render={
+                            <Button
+                                className={cn("h-10 rounded-2xl px-3 text-xs", "ring-2 ring-destructive/40")}
+                                onClick={onSubmit}
+                                disabled={pending || selectedCount === 0}
+                            >
+                                <HugeiconsIcon icon={DownloadIcon} />
+                                {pending ? "添加中…" : `批量下载 (${selectedCount})`}
+                            </Button>
+                        }
+                    />
+                    <TooltipContent>{errorTitle}</TooltipContent>
+                </Tooltip>
             ) : (
                 <Button
-                    className={cn("h-10 rounded-2xl px-3 text-xs", errorTitle && "ring-2 ring-destructive/40")}
+                    className="h-10 rounded-2xl px-3 text-xs"
                     onClick={onSubmit}
                     disabled={pending || selectedCount === 0}
-                    title={errorTitle ?? undefined}
                 >
                     <HugeiconsIcon icon={DownloadIcon} />
                     {pending ? "添加中…" : `批量下载 (${selectedCount})`}

@@ -1,9 +1,9 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { memo, type ReactNode, useState } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { DownloadApiError, DownloadJob, DownloadStatus, DownloadTask } from "@/features/downloads";
 import { isTerminalStatus, useDownloadMutations } from "@/features/downloads";
 import ActionIconButton from "@/features/downloads/components/action-icon-button";
-import { apiErrorMessage } from "@/lib/api";
 import { formatBytes, hueFromId } from "@/lib/format";
 import { ChevronDownIcon, ChevronRightIcon, CloseIcon, DeleteIcon, RefreshIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -61,14 +61,17 @@ function TaskRow({ task, compact }: { task: DownloadTask; compact: boolean }) {
                         {STATUS_LABEL[task.status]}
                     </span>
                     <div className="min-w-0 flex-1">
-                        <div className="truncate font-mono text-[11px] text-muted-foreground" title={task.file_path}>
-                            {task.file_path.split("/").pop() ?? task.file_path}
-                        </div>
-                        {task.error && (
-                            <div className="truncate text-[11px] text-destructive" title={task.error}>
-                                {task.error}
-                            </div>
-                        )}
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <div className="truncate font-mono text-[11px] text-muted-foreground">
+                                        {task.file_path.split("/").pop() ?? task.file_path}
+                                    </div>
+                                }
+                            />
+                            <TooltipContent>{task.file_path}</TooltipContent>
+                        </Tooltip>
+                        {task.error && <div className="truncate text-[11px] text-destructive">{task.error}</div>}
                     </div>
                 </div>
             </td>
@@ -121,7 +124,6 @@ function JobRowInner({ job, compact, error, submitError, cancel, submit, remove 
                     "border-muted/40 border-t transition-colors hover:bg-muted/30",
                     error && "ring-1 ring-destructive/40 ring-inset",
                 )}
-                title={error ? apiErrorMessage(error) : undefined}
             >
                 <td className="px-[18px] py-3 align-middle">
                     <div className="flex items-center gap-3">
@@ -140,9 +142,7 @@ function JobRowInner({ job, compact, error, submitError, cancel, submit, remove 
                         </button>
                         <div className="size-8 shrink-0 rounded-lg" style={{ background: `oklch(0.86 0.06 ${hue})` }} />
                         <div className="min-w-0">
-                            <div className="truncate font-medium text-foreground text-sm" title={job.title}>
-                                {job.title || "未命名"}
-                            </div>
+                            <div className="truncate font-medium text-foreground text-sm">{job.title || "未命名"}</div>
                             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                                 <span>#{job.illust_id}</span>
                                 <span>·</span>

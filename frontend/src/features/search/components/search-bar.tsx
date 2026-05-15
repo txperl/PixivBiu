@@ -2,6 +2,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { FilterIcon, GridIcon, SearchIcon } from "@/lib/icons";
 
 type SearchBarProps = {
@@ -76,12 +77,38 @@ function SearchBar({ defaultValue = "", autoFocus = false }: SearchBarProps) {
 
             <div className="flex-1" />
 
-            <Button type="button" variant="ghost" size="icon" title="筛选" className="size-10 rounded-full">
-                <HugeiconsIcon icon={FilterIcon} size={18} strokeWidth={1.5} />
-            </Button>
-            <Button type="button" variant="ghost" size="icon" title="布局" className="size-10 rounded-full">
-                <HugeiconsIcon icon={GridIcon} size={18} strokeWidth={1.5} />
-            </Button>
+            <Tooltip>
+                <TooltipTrigger
+                    render={
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label="筛选"
+                            className="size-10 rounded-full"
+                        >
+                            <HugeiconsIcon icon={FilterIcon} size={18} strokeWidth={1.5} />
+                        </Button>
+                    }
+                />
+                <TooltipContent>筛选</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger
+                    render={
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label="布局"
+                            className="size-10 rounded-full"
+                        >
+                            <HugeiconsIcon icon={GridIcon} size={18} strokeWidth={1.5} />
+                        </Button>
+                    }
+                />
+                <TooltipContent>布局</TooltipContent>
+            </Tooltip>
         </form>
     );
 }

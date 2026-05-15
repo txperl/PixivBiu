@@ -11,6 +11,7 @@ export type ConfirmPopoverProps = {
     side?: "top" | "bottom" | "left" | "right";
     align?: "start" | "center" | "end";
     contentClassName?: string;
+    wrapTrigger?: (node: ReactElement) => ReactElement;
     onConfirm: () => Promise<void> | void;
 };
 
@@ -22,6 +23,7 @@ function ConfirmPopover({
     side = "top",
     align = "end",
     contentClassName,
+    wrapTrigger,
     onConfirm,
 }: ConfirmPopoverProps) {
     const [open, setOpen] = useState(false);
@@ -38,9 +40,10 @@ function ConfirmPopover({
         }
     };
 
+    const popoverTrigger = <PopoverTrigger render={trigger} />;
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger render={trigger} />
+            {wrapTrigger ? wrapTrigger(popoverTrigger) : popoverTrigger}
             <PopoverContent
                 side={side}
                 align={align}

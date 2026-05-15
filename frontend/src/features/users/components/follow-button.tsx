@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { addFollow, deleteFollow } from "@/features/users/api";
 import { apiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -43,12 +44,11 @@ function FollowButton({ userId, initialIsFollowed, className }: FollowButtonProp
         setPending(false);
     };
 
-    return (
+    const button = (
         <button
             type="button"
             onClick={onClick}
             disabled={pending}
-            title={errorTitle ?? undefined}
             aria-pressed={followed}
             className={cn(
                 "group/follow shrink-0 cursor-pointer select-none rounded-full px-2.5 py-1 text-[11px] transition-colors disabled:cursor-wait disabled:opacity-60",
@@ -68,6 +68,14 @@ function FollowButton({ userId, initialIsFollowed, className }: FollowButtonProp
                 "+ 关注"
             )}
         </button>
+    );
+
+    if (!errorTitle) return button;
+    return (
+        <Tooltip>
+            <TooltipTrigger render={button} />
+            <TooltipContent>{errorTitle}</TooltipContent>
+        </Tooltip>
     );
 }
 

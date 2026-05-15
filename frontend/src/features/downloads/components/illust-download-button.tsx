@@ -1,5 +1,6 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDownloadMutations, useIllustDownloadStatus } from "@/features/downloads";
 import { CheckIcon, DownloadIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -76,12 +77,11 @@ function IllustDownloadButton({ illustId, className }: IllustDownloadButtonProps
           ? "bg-accent text-accent-foreground"
           : "bg-primary text-primary-foreground";
 
-    return (
+    const button = (
         <button
             type="button"
             onClick={onClick}
             disabled={pending || active}
-            title={errorTitle ?? undefined}
             aria-label={downloading ? "下载中" : "下载该作品"}
             className={cn(
                 "absolute right-3.5 bottom-3.5 flex size-10 scale-90 items-center justify-center opacity-0 shadow-md transition-all duration-300 disabled:cursor-wait group-hover:scale-100 group-hover:opacity-100",
@@ -131,6 +131,14 @@ function IllustDownloadButton({ illustId, className }: IllustDownloadButtonProps
             )}
             <HugeiconsIcon icon={justSent ? CheckIcon : DownloadIcon} size={16} strokeWidth={1.5} />
         </button>
+    );
+
+    if (!errorTitle) return button;
+    return (
+        <Tooltip>
+            <TooltipTrigger render={button} />
+            <TooltipContent>{errorTitle}</TooltipContent>
+        </Tooltip>
     );
 }
 

@@ -1,5 +1,6 @@
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
-import { type ReactNode, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { DownloadApiError } from "@/features/downloads";
 import { apiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -45,7 +46,6 @@ function ActionIconButton({ icon, title, ariaLabel, onAction, confirm, error, cl
         <button
             type="button"
             className={triggerClass}
-            title={titleAttr}
             aria-label={label}
             disabled={pending}
             onClick={confirm ? undefined : run}
@@ -54,13 +54,23 @@ function ActionIconButton({ icon, title, ariaLabel, onAction, confirm, error, cl
         </button>
     );
 
-    if (!confirm) return button;
+    const wrapWithTooltip = titleAttr
+        ? (node: ReactElement) => (
+              <Tooltip>
+                  <TooltipTrigger render={node} />
+                  <TooltipContent>{titleAttr}</TooltipContent>
+              </Tooltip>
+          )
+        : undefined;
+
+    if (!confirm) return wrapWithTooltip ? wrapWithTooltip(button) : button;
     return (
         <ConfirmPopover
             trigger={button}
             body={confirm.body}
             confirmLabel={confirm.confirmLabel}
             danger={confirm.danger}
+            wrapTrigger={wrapWithTooltip}
             onConfirm={onAction}
         />
     );

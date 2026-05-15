@@ -66,18 +66,14 @@ function ProfileHeader({
                     />
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <div className="flex items-center gap-2">
-                            <h1 className="truncate font-semibold text-2xl text-foreground" title={user.name}>
-                                {user.name}
-                            </h1>
+                            <h1 className="truncate font-semibold text-2xl text-foreground">{user.name}</h1>
                             {profile.is_premium && (
                                 <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-[10px] text-amber-600">
                                     Premium
                                 </span>
                             )}
                         </div>
-                        <div className="font-mono text-muted-foreground text-xs" title={user.account}>
-                            @{user.account}
-                        </div>
+                        <div className="font-mono text-muted-foreground text-xs">@{user.account}</div>
                         <p
                             className={cn(
                                 "mt-1 whitespace-pre-line text-foreground/85 text-xs leading-relaxed",

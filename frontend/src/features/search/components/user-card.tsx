@@ -25,12 +25,8 @@ function UserCard({ preview }: UserCardProps) {
                         className="size-12 shrink-0 rounded-full object-cover ring-2 ring-white/80"
                     />
                     <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium text-foreground text-sm hover:underline" title={user.name}>
-                            {user.name}
-                        </div>
-                        <div className="truncate font-mono text-[11px] text-muted-foreground" title={user.account}>
-                            @{user.account}
-                        </div>
+                        <div className="truncate font-medium text-foreground text-sm hover:underline">{user.name}</div>
+                        <div className="truncate font-mono text-[11px] text-muted-foreground">@{user.account}</div>
                     </div>
                 </UserLink>
                 <FollowButton userId={user.id} initialIsFollowed={user.is_followed} />
