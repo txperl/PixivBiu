@@ -87,7 +87,13 @@ export interface paths {
          *     the `download` topic on `GET /events`.
          */
         post: operations["SubmitDownload"];
-        delete?: never;
+        /**
+         * Bulk-remove terminal download jobs from history
+         * @description Deletes every job whose status is terminal and matches the optional
+         *     `status` filter. Empty filter defaults to all terminal statuses.
+         *     Non-terminal statuses return `400`. Files on disk are not touched.
+         */
+        delete: operations["ClearDownloads"];
         options?: never;
         head?: never;
         patch?: never;
@@ -445,6 +451,10 @@ export interface components {
         };
         BookmarkRequest: {
             restrict?: components["schemas"]["Restrict"];
+        };
+        ClearDownloadsResponse: {
+            /** @description Number of jobs deleted from history. */
+            removed: number;
         };
         /**
          * @description Pixiv artwork type the job was created for.
@@ -1016,6 +1026,35 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             502: components["responses"]["Upstream"];
+        };
+    };
+    ClearDownloads: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Comma-separated subset of `DownloadStatus` to include. Omit for no
+                 *     filter. Example: `queued,running`.
+                 * @example queued,running
+                 */
+                status?: components["parameters"]["DownloadStatusListQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removal summary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClearDownloadsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
         };
     };
     GetDownload: {

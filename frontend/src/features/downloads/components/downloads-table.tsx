@@ -12,9 +12,9 @@ import { cn } from "@/lib/utils";
 const STATUS_LABEL: Record<DownloadStatus, string> = {
     queued: "排队中",
     running: "下载中",
-    completed: "已完成",
+    completed: "完成",
     failed: "失败",
-    cancelled: "已取消",
+    cancelled: "取消",
 };
 
 const STATUS_TONE: Record<DownloadStatus, string> = {
@@ -22,7 +22,7 @@ const STATUS_TONE: Record<DownloadStatus, string> = {
     running: "bg-primary/15 text-primary",
     completed: "bg-chart-3/15 text-chart-3",
     failed: "bg-destructive/15 text-destructive",
-    cancelled: "bg-muted text-muted-foreground",
+    cancelled: "bg-destructive/15 text-destructive",
 };
 
 const TYPE_LABEL: Record<DownloadJob["illust_type"], string> = {
@@ -41,26 +41,20 @@ function aggregateBytes(tasks: DownloadTask[]) {
     return { downloaded, total };
 }
 
-function progressBarTone(status: DownloadStatus): string {
-    if (status === "completed") return "bg-chart-3";
-    if (status === "failed" || status === "cancelled") return "bg-muted-foreground/40";
-    return "bg-primary";
+function StatusBadge({ status, className }: { status: DownloadStatus; className?: string }) {
+    return (
+        <span className={cn("rounded-full p-2 py-1 text-[10px]", STATUS_TONE[status], className)}>
+            {STATUS_LABEL[status]}
+        </span>
+    );
 }
 
 function TaskRow({ task, compact }: { task: DownloadTask; compact: boolean }) {
     const pct = task.size_bytes > 0 ? Math.min(100, (task.downloaded_bytes / task.size_bytes) * 100) : null;
     return (
         <tr className="border-muted/40 border-t bg-muted/20">
-            <td className="px-[18px] py-2 pl-14 align-middle">
+            <td className="px-[18px] py-2 pl-23.5 align-middle">
                 <div className="flex items-center gap-2">
-                    <span
-                        className={cn(
-                            "inline-flex h-4 min-w-10 items-center justify-center rounded-full px-1.5 text-[10px]",
-                            STATUS_TONE[task.status],
-                        )}
-                    >
-                        {STATUS_LABEL[task.status]}
-                    </span>
                     <div className="min-w-0 flex-1">
                         <Tooltip>
                             <TooltipTrigger
@@ -77,17 +71,18 @@ function TaskRow({ task, compact }: { task: DownloadTask; compact: boolean }) {
                 </div>
             </td>
             <td className="px-[18px] py-2 align-middle">
-                <div className="flex items-center gap-2.5">
-                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-                        <div
-                            className={cn("h-full rounded-full", progressBarTone(task.status))}
-                            style={{ width: `${pct ?? (task.status === "completed" ? 100 : 0)}%` }}
-                        />
+                {task.status === "running" ? (
+                    <div className="flex items-center gap-2.5">
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                            <div className="h-full rounded-full bg-primary" style={{ width: `${pct ?? 0}%` }} />
+                        </div>
+                        <span className="min-w-8 text-right font-mono text-[11px] text-muted-foreground">
+                            {pct != null ? `${pct.toFixed(pct >= 99.95 ? 0 : 1)}%` : "—"}
+                        </span>
                     </div>
-                    <span className="min-w-8 text-right font-mono text-[11px] text-muted-foreground">
-                        {pct != null ? `${pct.toFixed(pct >= 99.95 ? 0 : 1)}%` : "—"}
-                    </span>
-                </div>
+                ) : (
+                    <StatusBadge status={task.status} />
+                )}
             </td>
             {!compact && (
                 <>
@@ -160,36 +155,39 @@ function JobRowInner({ job, compact, error, submitError, cancel, submit, remove 
                                 <span>{TYPE_LABEL[job.illust_type]}</span>
                                 <span>·</span>
                                 <span>{job.tasks.length} 任务</span>
-                                <span
-                                    className={cn(
-                                        "ml-1 inline-flex h-4 items-center rounded-full px-1.5 text-[10px]",
-                                        STATUS_TONE[job.status],
-                                    )}
-                                >
-                                    {STATUS_LABEL[job.status]}
-                                </span>
                             </div>
                         </div>
                     </div>
                 </td>
                 <td className="px-[18px] py-3 align-middle">
-                    <div className="flex items-center gap-2.5">
-                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-                            <div
-                                className={cn("h-full rounded-full", progressBarTone(job.status))}
-                                style={{ width: `${pct}%` }}
-                            />
+                    {job.status === "running" ? (
+                        <div className="flex items-center gap-2.5">
+                            <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                                <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="min-w-8 text-right font-mono text-[11px] text-muted-foreground">
+                                {Math.round(pct)}%
+                            </span>
                         </div>
-                        <span className="min-w-8 text-right font-mono text-[11px] text-muted-foreground">
-                            {Math.round(pct)}%
-                        </span>
-                    </div>
+                    ) : (
+                        <StatusBadge status={job.status} />
+                    )}
                 </td>
                 {!compact && (
                     <>
                         <td className="px-[18px] py-3 text-right font-mono text-muted-foreground text-xs">
-                            {formatBytes(downloaded)}
-                            {total > 0 && ` / ${formatBytes(total)}`}
+                            {terminal ? (
+                                total > 0 ? (
+                                    formatBytes(total)
+                                ) : (
+                                    "-"
+                                )
+                            ) : (
+                                <>
+                                    {`${formatBytes(downloaded)} / `}
+                                    {total > 0 ? formatBytes(total) : "-"}
+                                </>
+                            )}
                         </td>
                         <td className="px-[18px] py-3 text-right">
                             <div className="inline-flex gap-1">
@@ -268,7 +266,17 @@ function DownloadsTable({ jobs, empty, compact = false }: DownloadsTableProps) {
         return empty ?? <div className="px-[18px] py-8 text-center text-muted-foreground text-sm">暂无下载</div>;
     }
     return (
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full table-fixed border-collapse text-sm">
+            <colgroup>
+                <col />
+                <col className={compact ? "w-[25%]" : "w-[15%]"} />
+                {!compact && (
+                    <>
+                        <col className="w-44" />
+                        <col className="w-44" />
+                    </>
+                )}
+            </colgroup>
             <thead>
                 <tr className="bg-muted/40 text-[11px] text-muted-foreground">
                     <th className="px-[18px] py-2.5 text-left font-medium">作品</th>
@@ -276,7 +284,7 @@ function DownloadsTable({ jobs, empty, compact = false }: DownloadsTableProps) {
                     {!compact && (
                         <>
                             <th className="px-[18px] py-2.5 text-right font-medium">大小</th>
-                            <th className="w-20 px-[18px] py-2.5 text-right font-medium">操作</th>
+                            <th className="px-[18px] py-2.5 text-right font-medium">操作</th>
                         </>
                     )}
                 </tr>

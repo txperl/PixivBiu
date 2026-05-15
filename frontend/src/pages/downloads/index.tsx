@@ -4,10 +4,17 @@ import { useSearchParams } from "react-router";
 import { Sheet } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
 import type { DownloadStatus } from "@/features/downloads";
-import { DOWNLOADS_PAGE_SIZE, useDownloadCounts, useDownloadsPage } from "@/features/downloads";
+import {
+    DOWNLOADS_PAGE_SIZE,
+    TERMINAL_STATUSES,
+    useDownloadCounts,
+    useDownloadMutations,
+    useDownloadsPage,
+} from "@/features/downloads";
+import ConfirmPopover from "@/features/downloads/components/confirm-popover";
 import DownloadsPager from "@/features/downloads/components/downloads-pager";
 import DownloadsTable from "@/features/downloads/components/downloads-table";
-import { RefreshIcon } from "@/lib/icons";
+import { DeleteIcon, RefreshIcon } from "@/lib/icons";
 import { patchParams, readPage } from "@/lib/url-params";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +45,18 @@ const EMPTY_MESSAGE: Record<Filter, string> = {
     failed: "没有失败或取消的下载",
 };
 
+const CLEAR_STATUSES: Record<Exclude<Filter, "active">, DownloadStatus[]> = {
+    all: [...TERMINAL_STATUSES],
+    done: ["completed"],
+    failed: ["failed", "cancelled"],
+};
+
+const CLEAR_LABEL: Record<Exclude<Filter, "active">, string> = {
+    all: "已终止的",
+    done: "已完成的",
+    failed: "失败/取消的",
+};
+
 function DownloadsEmpty({ filter }: { filter: Filter }) {
     return (
         <div className="px-[18px] py-16 text-center">
@@ -60,6 +79,12 @@ function DownloadsPage() {
         page: requestedPage,
     });
     const { activeCount, doneCount } = useDownloadCounts();
+    const { clear } = useDownloadMutations();
+    const [clearing, setClearing] = useState(false);
+
+    // "all" tab 的 total 含 active；终态数 = total - activeCount。
+    // 其余非 active tab 的 total 本身即终态数。
+    const clearableCount = filter === "active" ? 0 : filter === "all" ? Math.max(0, total - activeCount) : total;
 
     const totalPages = Math.max(1, Math.ceil(total / DOWNLOADS_PAGE_SIZE));
     const currentPage = Math.min(Math.max(1, requestedPage), totalPages);
@@ -98,11 +123,22 @@ function DownloadsPage() {
         setRefreshing(false);
     };
 
+    const onClear = async () => {
+        if (filter === "active" || clearing) return;
+        setClearing(true);
+        try {
+            await clear(CLEAR_STATUSES[filter]);
+            await refetch();
+        } finally {
+            setClearing(false);
+        }
+    };
+
     return (
         <div className="relative flex flex-col gap-4 px-7 pt-7 pb-7">
             <header className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                 <h1 className="font-semibold text-5xl text-foreground">下载管理</h1>
-                <span className="font-mono text-muted-foreground text-sm">
+                <span className="font-mono text-muted-foreground text-xs">
                     {activeCount} 进行 / {doneCount} 完成
                 </span>
             </header>
@@ -124,9 +160,22 @@ function DownloadsPage() {
                     </button>
                 ))}
                 <div className="flex-1" />
-                <Button variant="ghost" size="sm" onClick={onRefresh} disabled={refreshing}>
+                {filter !== "active" && clearableCount > 0 && (
+                    <ConfirmPopover
+                        trigger={
+                            <Button variant="ghost" size="sm" disabled={clearing}>
+                                <HugeiconsIcon icon={DeleteIcon} />
+                                清空
+                            </Button>
+                        }
+                        body={`将从下载历史中移除所有 ${clearableCount} 条${CLEAR_LABEL[filter]}记录（已下载文件保留在磁盘）。`}
+                        confirmLabel="清空"
+                        danger
+                        onConfirm={onClear}
+                    />
+                )}
+                <Button variant="ghost" size="icon-sm" onClick={onRefresh} disabled={refreshing}>
                     <HugeiconsIcon icon={RefreshIcon} className={cn(refreshing && "animate-spin")} />
-                    刷新
                 </Button>
             </div>
 

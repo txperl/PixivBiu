@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { DownloadApiError, DownloadJob } from "./api";
+import type { DownloadApiError, DownloadJob, DownloadStatus } from "./api";
 
 // TrackedJob is a DownloadJob plus the timestamp at which it entered a
 // terminal state, used by the sweep timer to evict expired entries from
@@ -27,6 +27,7 @@ export interface DownloadStateContextValue {
     submit: (illustId: number) => Promise<DownloadJob | null>;
     cancel: (jobId: string) => Promise<void>;
     remove: (jobId: string) => Promise<void>;
+    clear: (statuses: DownloadStatus[]) => Promise<number>;
 }
 
 export const DownloadStateContext = createContext<DownloadStateContextValue | null>(null);

@@ -144,6 +144,24 @@ func (h *APIHandler) RemoveDownload(w http.ResponseWriter, r *http.Request, id D
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *APIHandler) ClearDownloads(w http.ResponseWriter, r *http.Request, params ClearDownloadsParams) {
+	if err := h.requireAuth(); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	statuses, err := parseStatusList(params.Status)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, Error{Code: "bad_request", Message: err.Error()})
+		return
+	}
+	removed, err := h.dl.RemoveTerminal(statuses)
+	if err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, ClearDownloadsResponse{Removed: removed})
+}
+
 // projectJob adapts an internal *download.Job to the generated
 // DownloadJob wire type. The mapping copies per-request so workers
 // that keep mutating the underlying job don't race with marshalling.

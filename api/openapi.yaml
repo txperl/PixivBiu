@@ -790,3 +790,11 @@ components:
           format: int64
           minimum: 1
           description: Pixiv illustration ID.
+
+    ClearDownloadsResponse:
+      type: object
+      required: [removed]
+      properties:
+        removed:
+          type: integer
+          description: Number of jobs deleted from history.

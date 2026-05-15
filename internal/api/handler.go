@@ -61,7 +61,8 @@ func classify(err error) (code string, status int, detail string) {
 		errors.Is(err, pixivgo.ErrAuthRequired):
 		return "unauthenticated", http.StatusUnauthorized, ""
 	case errors.Is(err, pixiv.ErrNoRefreshToken),
-		errors.Is(err, download.ErrInvalidIllust):
+		errors.Is(err, download.ErrInvalidIllust),
+		errors.Is(err, download.ErrNonTerminalStatus):
 		return "bad_request", http.StatusBadRequest, ""
 	case errors.Is(err, download.ErrNotFound):
 		return "not_found", http.StatusNotFound, ""

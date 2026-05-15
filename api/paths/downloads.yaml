@@ -45,6 +45,24 @@ root:
             schema: { $ref: '../openapi.yaml#/components/schemas/DownloadJobList' }
       '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+  delete:
+    operationId: clearDownloads
+    summary: Bulk-remove terminal download jobs from history
+    description: |
+      Deletes every job whose status is terminal and matches the optional
+      `status` filter. Empty filter defaults to all terminal statuses.
+      Non-terminal statuses return `400`. Files on disk are not touched.
+    tags: [downloads]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/DownloadStatusListQuery'
+    responses:
+      '200':
+        description: Removal summary.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/ClearDownloadsResponse' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
 
 byId:
   get:

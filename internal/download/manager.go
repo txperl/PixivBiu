@@ -377,6 +377,64 @@ func (m *Manager) Remove(id string) error {
 	return nil
 }
 
+// RemoveTerminal deletes every job whose status is terminal and (when
+// statuses is non-empty) appears in statuses. Empty/nil statuses
+// defaults to the full terminal set. Returns ErrNonTerminalStatus if
+// any input status is non-terminal. Same record-only contract as Remove.
+//
+// Counts inlined into every job.deleted event are computed ONCE after
+// the bulk delete, so the burst carries identical final numbers
+// instead of N intermediate snapshots.
+func (m *Manager) RemoveTerminal(statuses []Status) (int, error) {
+	var allowed map[Status]struct{}
+	if len(statuses) > 0 {
+		allowed = make(map[Status]struct{}, len(statuses))
+		for _, s := range statuses {
+			if !s.IsTerminal() {
+				return 0, ErrNonTerminalStatus
+			}
+			allowed[s] = struct{}{}
+		}
+	}
+
+	type deletion struct {
+		jobID     string
+		illustID  int64
+		taskCount int
+	}
+	var deletions []deletion
+
+	m.mu.Lock()
+	for id, job := range m.jobs {
+		if !job.Status.IsTerminal() {
+			continue
+		}
+		if allowed != nil {
+			if _, ok := allowed[job.Status]; !ok {
+				continue
+			}
+		}
+		deletions = append(deletions, deletion{
+			jobID:     job.ID,
+			illustID:  job.IllustID,
+			taskCount: len(job.Tasks),
+		})
+		delete(m.jobs, id)
+	}
+	m.mu.Unlock()
+
+	if len(deletions) == 0 {
+		return 0, nil
+	}
+	_ = m.persist()
+
+	active, done := m.Counts()
+	for _, d := range deletions {
+		m.pub.JobDeleted(d.jobID, d.illustID, d.taskCount, active, done)
+	}
+	return len(deletions), nil
+}
+
 // Submit creates a Job for the given illust ID. It fetches the
 // illust detail, builds tasks per page (single / multi / ugoira),
 // enqueues them, and returns the Job. The returned Job is the live

@@ -10,6 +10,7 @@ export function useDownloadMutations() {
         submit: ctx.submit,
         cancel: ctx.cancel,
         remove: ctx.remove,
+        clear: ctx.clear,
         lastError: ctx.lastError,
     };
 }

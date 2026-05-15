@@ -2,6 +2,7 @@ package download
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"math"
@@ -387,6 +388,162 @@ func TestRemove_KeepsFilesOnDisk(t *testing.T) {
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Errorf("file should remain after Remove, got %v", err)
+	}
+}
+
+func seedRemoveTerminalFixture(t *testing.T, m *Manager) {
+	t.Helper()
+	m.jobs["job_done"] = &Job{ID: "job_done", IllustID: 1, Status: StatusCompleted}
+	m.jobs["job_fail"] = &Job{ID: "job_fail", IllustID: 2, Status: StatusFailed}
+	m.jobs["job_cncl"] = &Job{ID: "job_cncl", IllustID: 3, Status: StatusCancelled}
+	m.jobs["job_run"] = &Job{ID: "job_run", IllustID: 4, Status: StatusRunning}
+	m.jobs["job_q"] = &Job{ID: "job_q", IllustID: 5, Status: StatusQueued}
+}
+
+func TestRemoveTerminal_NilStatusesClearsAllTerminals(t *testing.T) {
+	m := newTestManager(t)
+	seedRemoveTerminalFixture(t, m)
+
+	removed, err := m.RemoveTerminal(nil)
+	if err != nil {
+		t.Fatalf("RemoveTerminal: %v", err)
+	}
+	if removed != 3 {
+		t.Errorf("removed: want 3, got %d", removed)
+	}
+	for _, id := range []string{"job_done", "job_fail", "job_cncl"} {
+		if _, err := m.Get(id); err == nil {
+			t.Errorf("%s should be gone", id)
+		}
+	}
+	for _, id := range []string{"job_run", "job_q"} {
+		if _, err := m.Get(id); err != nil {
+			t.Errorf("%s should remain, got %v", id, err)
+		}
+	}
+	// persist landed: store no longer contains the deleted records.
+	loaded, err := m.store.Load()
+	if err != nil {
+		t.Fatalf("store.Load: %v", err)
+	}
+	for _, id := range []string{"job_done", "job_fail", "job_cncl"} {
+		if _, ok := loaded[id]; ok {
+			t.Errorf("%s still present on disk after RemoveTerminal", id)
+		}
+	}
+}
+
+func TestRemoveTerminal_FiltersBySpecificStatus(t *testing.T) {
+	m := newTestManager(t)
+	seedRemoveTerminalFixture(t, m)
+
+	removed, err := m.RemoveTerminal([]Status{StatusCompleted})
+	if err != nil {
+		t.Fatalf("RemoveTerminal: %v", err)
+	}
+	if removed != 1 {
+		t.Errorf("removed: want 1, got %d", removed)
+	}
+	if _, err := m.Get("job_done"); err == nil {
+		t.Errorf("job_done should be gone")
+	}
+	for _, id := range []string{"job_fail", "job_cncl", "job_run", "job_q"} {
+		if _, err := m.Get(id); err != nil {
+			t.Errorf("%s should remain, got %v", id, err)
+		}
+	}
+}
+
+func TestRemoveTerminal_RejectsNonTerminalStatus(t *testing.T) {
+	m := newTestManager(t)
+	seedRemoveTerminalFixture(t, m)
+
+	removed, err := m.RemoveTerminal([]Status{StatusCompleted, StatusRunning})
+	if err != ErrNonTerminalStatus {
+		t.Fatalf("err: want ErrNonTerminalStatus, got %v", err)
+	}
+	if removed != 0 {
+		t.Errorf("removed: want 0 on rejection, got %d", removed)
+	}
+	// Nothing was deleted on input validation failure.
+	if _, err := m.Get("job_done"); err != nil {
+		t.Errorf("job_done should still exist, got %v", err)
+	}
+}
+
+func TestRemoveTerminal_NoMatchReturnsZero(t *testing.T) {
+	m := newTestManager(t)
+	m.jobs["job_run"] = &Job{ID: "job_run", Status: StatusRunning}
+
+	removed, err := m.RemoveTerminal(nil)
+	if err != nil {
+		t.Fatalf("RemoveTerminal: %v", err)
+	}
+	if removed != 0 {
+		t.Errorf("removed: want 0, got %d", removed)
+	}
+}
+
+// Verify every job.deleted event in the bulk carries identical
+// post-mutation counts — guards against the O(N²) Counts() regression.
+func TestRemoveTerminal_PublishesEventsWithStableCounts(t *testing.T) {
+	hub := inbox.NewHub(64)
+	pub := NewPublisher(hub, 0)
+	cfg := config.DownloadConfig{
+		OutputDir:         t.TempDir(),
+		FileTemplate:      `{{.IllustID}}{{.Ext}}`,
+		FileGroupTemplate: `{{.IllustID}}_{{.Index}}{{.Ext}}`,
+		MaxConcurrent:     1,
+		HTTPTimeout:       5 * time.Second,
+		Retry:             config.RetryConfig{Max: 2, InitialBackoff: 5 * time.Millisecond},
+		PximgBase:         "https://i.pximg.net",
+		StoreFile:         filepath.Join(t.TempDir(), "downloads.json"),
+	}
+	m, err := NewManager(cfg, "", slog.New(slog.DiscardHandler), nil, NewStore(cfg.StoreFile), pub)
+	if err != nil {
+		t.Fatalf("NewManager: %v", err)
+	}
+	m.jobs["job_done"] = &Job{ID: "job_done", IllustID: 1, Status: StatusCompleted}
+	m.jobs["job_fail"] = &Job{ID: "job_fail", IllustID: 2, Status: StatusFailed}
+	m.jobs["job_run"] = &Job{ID: "job_run", IllustID: 3, Status: StatusRunning}
+
+	ch, _, _, cancel := hub.Subscribe([]string{"download"}, "")
+	defer cancel()
+
+	if _, err := m.RemoveTerminal(nil); err != nil {
+		t.Fatalf("RemoveTerminal: %v", err)
+	}
+
+	deadline := time.After(200 * time.Millisecond)
+	var deletedActive, deletedDone []int
+	for len(deletedActive) < 2 {
+		select {
+		case env := <-ch:
+			if env.Type != "job.deleted" {
+				continue
+			}
+			var payload struct {
+				ActiveCount int `json:"active_count"`
+				DoneCount   int `json:"done_count"`
+			}
+			if err := json.Unmarshal(env.Data, &payload); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			deletedActive = append(deletedActive, payload.ActiveCount)
+			deletedDone = append(deletedDone, payload.DoneCount)
+		case <-deadline:
+			t.Fatalf("timed out: got %d events", len(deletedActive))
+		}
+	}
+	for i := range deletedActive {
+		if deletedActive[i] != deletedActive[0] || deletedDone[i] != deletedDone[0] {
+			t.Errorf("event %d counts differ: active %d vs %d, done %d vs %d",
+				i, deletedActive[i], deletedActive[0], deletedDone[i], deletedDone[0])
+		}
+	}
+	// After the bulk delete only job_run remains → active=1, done=0.
+	if deletedActive[0] != 1 || deletedDone[0] != 0 {
+		t.Errorf("counts post-bulk: want active=1 done=0, got active=%d done=%d", deletedActive[0], deletedDone[0])
 	}
 }
 

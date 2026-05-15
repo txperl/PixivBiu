@@ -104,11 +104,12 @@ type UgoiraFrame struct {
 // Sentinel errors. See internal/api/handler.go::classify for how the
 // HTTP layer maps these.
 var (
-	ErrNotFound        = errors.New("download: job not found")
-	ErrAlreadyTerminal = errors.New("download: job already in terminal state")
-	ErrStillRunning    = errors.New("download: job is still running — cancel it first")
-	ErrInvalidIllust   = errors.New("download: illust has no downloadable content")
-	ErrNotImplemented  = errors.New("download: feature not implemented")
+	ErrNotFound          = errors.New("download: job not found")
+	ErrAlreadyTerminal   = errors.New("download: job already in terminal state")
+	ErrStillRunning      = errors.New("download: job is still running — cancel it first")
+	ErrInvalidIllust     = errors.New("download: illust has no downloadable content")
+	ErrNonTerminalStatus = errors.New("download: clear requires a terminal status")
+	ErrNotImplemented    = errors.New("download: feature not implemented")
 )
 
 // aggregateStatus computes a Job's status from its tasks using the

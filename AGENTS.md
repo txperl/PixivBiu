@@ -174,7 +174,7 @@ The SPA consumes the same spec via [`openapi-typescript`](https://openapi-ts.dev
 - Download state is split across four focused hooks, all backed by `<DownloadStateProvider>` and SSE:
   - `useTrackedDownloads()` — `Map<illust_id, TrackedJob>` of active + 30-min-recent terminals (swept on a cadence).
   - `useDownloadCounts()` — global `{ activeCount, doneCount }`, driven by counts inlined into `download.job.*` events.
-  - `useDownloadMutations()` — `{ submit, cancel, remove, lastError }`; fire-and-forget, SSE drives state.
+  - `useDownloadMutations()` — `{ submit, cancel, remove, clear, lastError }`; fire-and-forget, SSE drives state. `clear(statuses)` bulk-removes terminal jobs in `statuses`; pass `TERMINAL_STATUSES` from `features/downloads/api.ts` to wipe all terminals.
   - `useDownloadsPage({ status?, page })` — server-paginated state for the Downloads management page (`page_size = DOWNLOADS_PAGE_SIZE`). Local to each instance; `job.*` triggers debounced refetch, `task.*` patches in place. Use `useTrackedDownloads` for global views.
 - Only `download.job.*` events write `job.status` on the client; `download.task.*` events update task state only. Don't recompute `job.status` client-side — the backend re-publishes `job.*` whenever its aggregation rule says it should change.
 - For pages that show `IllustCard`s with batch-download support: pair `useIllustSelection()` (returns `{ selected, toggle, replaceSelection, clearSelection }`) with `<DownloadFAB selected allIllustIds onReplaceSelection onClearSelection />`, passing the currently visible illust ids as `allIllustIds`. Call `clearSelection()` inside the fetch effect so the selection resets when the underlying list changes.
@@ -292,6 +292,7 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 | GET | `/downloads/{id}` | `getDownload` | Single job |
 | POST | `/downloads/{id}/cancel` | `cancelDownload` | 204 / 404 / 409 (already terminal) |
 | DELETE | `/downloads/{id}` | `removeDownload` | History-log delete; never touches disk. 204 / 404 / 409 (still running) |
+| DELETE | `/downloads` | `clearDownloads` | Bulk history-log delete. Query: `status` (CSV, must be terminal). Empty = all terminal. Returns `{removed}`. 400 if any non-terminal status is supplied. |
 | GET | `/events` | `getEvents` | SSE (`text/event-stream`). Query: `topics` (CSV). Honours `Last-Event-ID`. |
 
 **Dev-only endpoints** (outside `/api/v1`):
@@ -334,13 +335,13 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 
 ## Download Module
 
-**Architecture.** `internal/download` is self-contained: the HTTP layer only uses `Manager.{Submit,List,Get,Cancel,Remove}` and a generic `inbox.Publisher` interface — it does not know about SSE. `internal/inbox` owns the transport.
+**Architecture.** `internal/download` is self-contained: the HTTP layer only uses `Manager.{Submit,List,Get,Cancel,Remove,RemoveTerminal}` and a generic `inbox.Publisher` interface — it does not know about SSE. `internal/inbox` owns the transport.
 
 **Persistence.** `usr/downloads.json` is written atomically (temp file + rename, 0600) on every state transition (queued → running → terminal). Progress ticks are NOT persisted — they flow through the inbox only. On restart the manager reloads the file and re-queues any `queued`/`running` tasks (no resume-in-place; files are overwritten on replay).
 
 **Concurrency.** A worker pool of `download.max_concurrent` goroutines drains a buffered `chan *Task`. Per-task retry uses exponential backoff (capped at 30s); non-retryable classes are `ctx.Canceled`, local FS errors, and explicit 4xx (except 408/429). Each HTTP GET writes to `<target>.<taskID>.part` first; cancel or error always removes the partial file.
 
-**Transactional cleanup.** Job is the transaction boundary: when it aggregates to `failed` or is moved to `cancelled`, every task file the job actually renamed onto `FilePath` is deleted. Ownership is recorded in `Task.WroteFile`, set in `runDownloadWithRetries` right after the successful rename — collision resolution makes the destination path unique at Submit/Start time, but a user or another process could still create a file at that path before cleanup runs, and `WroteFile` is what keeps cleanup from deleting it. Both the worker end-of-task path and `Manager.Cancel` funnel through `transitionJobLocked`; the helper collects cleanup paths, the caller does the IO outside `m.mu`. `Manager.Remove` is a history-log delete only and never touches disk — physical file removal is out of the app's surface.
+**Transactional cleanup.** Job is the transaction boundary: when it aggregates to `failed` or is moved to `cancelled`, every task file the job actually renamed onto `FilePath` is deleted. Ownership is recorded in `Task.WroteFile`, set in `runDownloadWithRetries` right after the successful rename — collision resolution makes the destination path unique at Submit/Start time, but a user or another process could still create a file at that path before cleanup runs, and `WroteFile` is what keeps cleanup from deleting it. Both the worker end-of-task path and `Manager.Cancel` funnel through `transitionJobLocked`; the helper collects cleanup paths, the caller does the IO outside `m.mu`. `Manager.Remove` / `Manager.RemoveTerminal` are history-log deletes only and never touch disk — physical file removal is out of the app's surface.
 
 **Collision handling.** At Submit time the manager runs `ResolveCollision` on each task's *final* on-disk path; ugoira tasks resolve final + intermediate `.zip` together via `ResolveCollisionPair` so both paths share a suffix and neither can clobber an existing file. When the candidate is already on disk or already reserved by another in-flight job's task, a browser-style ` (1)`, ` (2)`, … suffix is appended before the extension. After 9999 numbered attempts the fallback is a random 8-hex-digit suffix, also checked against the same constraint. Restart recovery re-runs the resolver, except for tasks that already wrote their payload (`WroteFile=true`) — those keep their FilePath so resumed conversion doesn't orphan the existing file.
 

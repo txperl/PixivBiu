@@ -4,6 +4,7 @@ import type { InboxEvent } from "@/features/events";
 import { useEventStream, useRefreshOnReconnect } from "@/features/events";
 import {
     cancelDownload,
+    clearDownloads,
     type DownloadApiError,
     type DownloadJob,
     type DownloadStatus,
@@ -313,10 +314,23 @@ export function DownloadStateProvider({ children }: { children: ReactNode }) {
         },
         [clearError, setError],
     );
+    const clear = useCallback(
+        async (statuses: DownloadStatus[]): Promise<number> => {
+            const key = "clear";
+            clearError(key);
+            const { data, error } = await clearDownloads(statuses);
+            if (error) {
+                setError(key, error);
+                return 0;
+            }
+            return data?.removed ?? 0;
+        },
+        [clearError, setError],
+    );
 
     const value = useMemo<DownloadStateContextValue>(
-        () => ({ tracked, activeCount, doneCount, lastError, initialLoaded, submit, cancel, remove }),
-        [tracked, activeCount, doneCount, lastError, initialLoaded, submit, cancel, remove],
+        () => ({ tracked, activeCount, doneCount, lastError, initialLoaded, submit, cancel, remove, clear }),
+        [tracked, activeCount, doneCount, lastError, initialLoaded, submit, cancel, remove, clear],
     );
 
     return <DownloadStateContext.Provider value={value}>{children}</DownloadStateContext.Provider>;

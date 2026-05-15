@@ -6,7 +6,7 @@ export type {
     DownloadStatus,
     DownloadTask,
 } from "./api";
-export { ACTIVE_STATUSES, isTerminalStatus } from "./api";
+export { ACTIVE_STATUSES, isTerminalStatus, TERMINAL_STATUSES } from "./api";
 export { DOWNLOADS_PAGE_SIZE } from "./constants";
 export { DownloadStateProvider } from "./download-state-provider";
 export { useDownloadCounts } from "./use-download-counts";
