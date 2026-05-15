@@ -4,23 +4,6 @@
  */
 
 export interface paths {
-    "/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Check service health */
-        get: operations["getHealth"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -36,7 +19,7 @@ export interface paths {
          *     token and persists it server-side; subsequent authenticated
          *     endpoints reuse that stored session.
          */
-        post: operations["login"];
+        post: operations["Login"];
         delete?: never;
         options?: never;
         head?: never;
@@ -56,7 +39,7 @@ export interface paths {
          * Log out the current session
          * @description Clears the persisted tokens and removes the on-disk state file. Idempotent.
          */
-        post: operations["logout"];
+        post: operations["Logout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -71,247 +54,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get current auth status */
-        get: operations["getAuthStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/illusts/ranking": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List ranked illusts */
-        get: operations["listRanking"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/illusts/recommended": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List recommended illusts */
-        get: operations["listRecommended"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/illusts/following": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List illusts from followed users */
-        get: operations["listFollowingIllusts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/illusts/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get illust detail */
-        get: operations["getIllust"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/illusts/{id}/ugoira": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get ugoira metadata
-         * @description Returns the frame-timing manifest and the zip URL packaging
-         *     each frame. Used by clients to render Pixiv's animated
-         *     illustrations.
-         */
-        get: operations["getUgoiraMetadata"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/illusts/{id}/bookmark": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get current user's bookmark detail for an illust */
-        get: operations["getBookmarkDetail"];
-        /** Bookmark an illust */
-        put: operations["addBookmark"];
-        post?: never;
-        /** Remove an illust bookmark */
-        delete: operations["deleteBookmark"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/users/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a user's profile detail */
-        get: operations["getUser"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/users/{id}/illusts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List illusts by a user */
-        get: operations["listUserIllusts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/users/{id}/bookmarks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List a user's bookmarks
-         * @description Cursor-paginated by `max_bookmark_id`. Pass
-         *     `next_max_bookmark_id` from the previous response as the next
-         *     cursor.
-         */
-        get: operations["listUserBookmarks"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/users/{id}/following": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List users followed by a user */
-        get: operations["listUserFollowing"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/users/{id}/follow": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Follow a user */
-        put: operations["addFollow"];
-        post?: never;
-        /** Unfollow a user */
-        delete: operations["deleteFollow"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/search/illusts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search illusts
-         * @description Matches by keyword or tag; see `search_target` for matching mode and `sort` for ordering.
-         */
-        get: operations["searchIllusts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/search/users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search users
-         * @description Matches Pixiv display name or account.
-         */
-        get: operations["searchUsers"];
+        get: operations["GetAuthStatus"];
         put?: never;
         post?: never;
         delete?: never;
@@ -334,7 +77,7 @@ export interface paths {
          *     Response carries the total count plus global `active_count` /
          *     `done_count` so clients don't need a separate counts endpoint.
          */
-        get: operations["listDownloads"];
+        get: operations["ListDownloads"];
         put?: never;
         /**
          * Submit a download job
@@ -343,7 +86,7 @@ export interface paths {
          *     response is `202 Accepted`; the client follows progress via
          *     the `download` topic on `GET /events`.
          */
-        post: operations["submitDownload"];
+        post: operations["SubmitDownload"];
         delete?: never;
         options?: never;
         head?: never;
@@ -358,7 +101,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get a download job */
-        get: operations["getDownload"];
+        get: operations["GetDownload"];
         put?: never;
         post?: never;
         /**
@@ -370,7 +113,7 @@ export interface paths {
          *     `POST /downloads/{id}/cancel` first. To delete files, use a file
          *     manager.
          */
-        delete: operations["removeDownload"];
+        delete: operations["RemoveDownload"];
         options?: never;
         head?: never;
         patch?: never;
@@ -389,7 +132,7 @@ export interface paths {
          * Cancel a running download job
          * @description Cancels every non-terminal task in the job. Returns `409` if the job is already in a terminal state.
          */
-        post: operations["cancelDownload"];
+        post: operations["CancelDownload"];
         delete?: never;
         options?: never;
         head?: never;
@@ -418,7 +161,264 @@ export interface paths {
          *     first sends a single `system.resync` event so the client
          *     knows to re-fetch authoritative state via the REST endpoints.
          */
-        get: operations["getEvents"];
+        get: operations["GetEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check service health */
+        get: operations["GetHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/illusts/following": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List illusts from followed users */
+        get: operations["ListFollowingIllusts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/illusts/ranking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List ranked illusts */
+        get: operations["ListRanking"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/illusts/recommended": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List recommended illusts */
+        get: operations["ListRecommended"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/illusts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get illust detail */
+        get: operations["GetIllust"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/illusts/{id}/bookmark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get current user's bookmark detail for an illust */
+        get: operations["GetBookmarkDetail"];
+        /** Bookmark an illust */
+        put: operations["AddBookmark"];
+        post?: never;
+        /** Remove an illust bookmark */
+        delete: operations["DeleteBookmark"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/illusts/{id}/ugoira": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get ugoira metadata
+         * @description Returns the frame-timing manifest and the zip URL packaging
+         *     each frame. Used by clients to render Pixiv's animated
+         *     illustrations.
+         */
+        get: operations["GetUgoiraMetadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/illusts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search illusts
+         * @description Matches by keyword or tag; see `search_target` for matching mode and `sort` for ordering.
+         */
+        get: operations["SearchIllusts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search users
+         * @description Matches Pixiv display name or account.
+         */
+        get: operations["SearchUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a user's profile detail */
+        get: operations["GetUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/bookmarks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a user's bookmarks
+         * @description Cursor-paginated by `max_bookmark_id`. Pass
+         *     `next_max_bookmark_id` from the previous response as the next
+         *     cursor.
+         */
+        get: operations["ListUserBookmarks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Follow a user */
+        put: operations["AddFollow"];
+        post?: never;
+        /** Unfollow a user */
+        delete: operations["DeleteFollow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/following": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List users followed by a user */
+        get: operations["ListUserFollowing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/illusts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List illusts by a user */
+        get: operations["ListUserIllusts"];
         put?: never;
         post?: never;
         delete?: never;
@@ -431,9 +431,82 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        HealthStatus: {
-            /** @example ok */
-            status: string;
+        AuthStatus: {
+            authenticated: boolean;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** Format: int64 */
+            user_id?: number | null;
+            user_name?: string | null;
+        };
+        BookmarkDetail: {
+            is_bookmarked: boolean;
+            restrict: components["schemas"]["Restrict"];
+        };
+        BookmarkRequest: {
+            restrict?: components["schemas"]["Restrict"];
+        };
+        /**
+         * @description Pixiv artwork type the job was created for.
+         * @enum {string}
+         */
+        DownloadIllustType: "illust" | "manga" | "ugoira";
+        DownloadJob: {
+            /** Format: date-time */
+            created_at: string;
+            id: string;
+            /** Format: int64 */
+            illust_id: number;
+            illust_type: components["schemas"]["DownloadIllustType"];
+            /** @description Thumbnail (square_medium → medium → large). Absent on jobs persisted before this field existed. */
+            preview_url?: string;
+            status: components["schemas"]["DownloadStatus"];
+            tasks: components["schemas"]["DownloadTask"][];
+            title?: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        DownloadJobList: {
+            /**
+             * @description Global count of `queued` + `running` jobs (independent of filter).
+             *     Drives the sidebar badge.
+             */
+            active_count: number;
+            /** @description Global count of `completed` jobs (independent of filter). */
+            done_count: number;
+            jobs: components["schemas"]["DownloadJob"][];
+            /** @description Echo of the requested 1-based page index after clamping. */
+            page: number;
+            /** @description Echo of the effective page size after clamping. */
+            per_page: number;
+            /** @description Total jobs matching the filter (status + updated_since). */
+            total: number;
+        };
+        /**
+         * @description Lifecycle state of a download job or task.
+         * @enum {string}
+         */
+        DownloadStatus: "queued" | "running" | "completed" | "failed" | "cancelled";
+        DownloadTask: {
+            /** Format: int64 */
+            downloaded_bytes: number;
+            error?: string | null;
+            /** @description Target path on disk. */
+            file_path: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+            id: string;
+            job_id: string;
+            /**
+             * Format: int64
+             * @description Content-Length, or -1 if unknown.
+             */
+            size_bytes: number;
+            /** Format: date-time */
+            started_at?: string | null;
+            status: components["schemas"]["DownloadStatus"];
+            /** @description Final request URL (after pximg mirror rewrite). */
+            url: string;
         };
         Error: {
             /**
@@ -441,18 +514,189 @@ export interface components {
              * @example unauthenticated
              */
             code: string;
-            /** @description Human-readable error message. */
-            message: string;
             /** @description Optional additional context (e.g., upstream body). */
             detail?: string;
+            /** @description Human-readable error message. */
+            message: string;
         };
-        /**
-         * @default public
-         * @enum {string}
-         */
-        Restrict: "public" | "private";
+        FollowRequest: {
+            restrict?: components["schemas"]["Restrict"];
+        };
+        HealthStatus: {
+            /** @example ok */
+            status: string;
+        };
+        /** @description Pixiv illustration metadata. Shape mirrors pixivgo.IllustrationInfo. */
+        Illust: {
+            caption: string;
+            create_date: string;
+            /** Format: int64 */
+            height: number;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            illust_ai_type: number;
+            /** Format: int64 */
+            illust_book_style: number;
+            image_urls: components["schemas"]["ImageUrls"];
+            is_bookmarked: boolean;
+            is_muted: boolean;
+            meta_pages: components["schemas"]["MetaPage"][];
+            meta_single_page: components["schemas"]["MetaSinglePage"];
+            /** Format: int64 */
+            page_count: number;
+            /** Format: int64 */
+            restrict: number;
+            restriction_attributes: string[];
+            /** Format: int64 */
+            sanity_level: number;
+            series: components["schemas"]["Series"] | null;
+            tags: components["schemas"]["IllustrationTag"][];
+            title: string;
+            tools: string[];
+            /** Format: int64 */
+            total_bookmarks: number;
+            /** Format: int64 */
+            total_comments?: number;
+            /** Format: int64 */
+            total_view: number;
+            type: string;
+            user: components["schemas"]["User"];
+            visible: boolean;
+            /** Format: int64 */
+            width: number;
+            /** Format: int64 */
+            x_restrict: number;
+        };
+        /** @description Wrapper for a single illust detail. Mirrors pixivgo.IllustDetailResponse. */
+        IllustDetailResponse: {
+            illust: components["schemas"]["Illust"];
+        };
+        IllustPage: {
+            illusts: components["schemas"]["Illust"][];
+            /**
+             * Format: int64
+             * @description Set only by `/users/{id}/bookmarks`; pass back as `max_bookmark_id`.
+             */
+            next_max_bookmark_id?: number | null;
+            /**
+             * Format: int64
+             * @description Next offset to pass back, or null if no further page.
+             */
+            next_offset?: number | null;
+        };
         /** @enum {string} */
         IllustType: "illust" | "manga";
+        IllustrationTag: {
+            name: string;
+            translated_name: string | null;
+        };
+        ImageUrls: {
+            large: string;
+            medium: string;
+            square_medium: string;
+        };
+        LoginRequest: {
+            /** @description Long-lived Pixiv OAuth refresh token. See README for how to obtain. */
+            refresh_token: string;
+        };
+        MetaPage: {
+            image_urls: components["schemas"]["ImageUrls"];
+        };
+        MetaSinglePage: {
+            original_image_url?: string;
+        };
+        /** @description Pixiv novel metadata. Shape mirrors pixivgo.NovelInfo. */
+        Novel: {
+            caption: string;
+            /** Format: int64 */
+            comment_access_control?: number;
+            create_date: string;
+            /** Format: int64 */
+            id: number;
+            image_urls: components["schemas"]["ImageUrls"];
+            is_bookmarked: boolean;
+            is_muted: boolean;
+            is_mypixiv_only: boolean;
+            is_original: boolean;
+            is_x_restricted: boolean;
+            /** Format: int64 */
+            novel_ai_type: number;
+            /** Format: int64 */
+            page_count: number;
+            /** Format: int64 */
+            restrict: number;
+            series: components["schemas"]["Series"] | null;
+            tags: components["schemas"]["NovelTag"][];
+            /** Format: int64 */
+            text_length: number;
+            title: string;
+            /** Format: int64 */
+            total_bookmarks: number;
+            /** Format: int64 */
+            total_comments: number;
+            /** Format: int64 */
+            total_view: number;
+            user: components["schemas"]["User"];
+            visible: boolean;
+            /** Format: int64 */
+            x_restrict: number;
+        };
+        NovelTag: {
+            added_by_uploaded_user: boolean;
+            name: string;
+            translated_name: string | null;
+        };
+        /** @description Pixiv user profile. Shape mirrors pixivgo.Profile. */
+        Profile: {
+            /** Format: int64 */
+            address_id: number;
+            background_image_url: string;
+            birth: string;
+            birth_day: string;
+            /** Format: int64 */
+            birth_year: number;
+            country_code: string;
+            gender: string;
+            is_premium: boolean;
+            is_using_custom_profile_image: boolean;
+            job: string;
+            /** Format: int64 */
+            job_id: number;
+            pawoo_url: string | null;
+            region: string;
+            /** Format: int64 */
+            total_follow_users: number;
+            /** Format: int64 */
+            total_illust_bookmarks_public: number;
+            /** Format: int64 */
+            total_illust_series: number;
+            /** Format: int64 */
+            total_illusts: number;
+            /** Format: int64 */
+            total_manga: number;
+            /** Format: int64 */
+            total_mypixiv_users: number;
+            /** Format: int64 */
+            total_novel_series: number;
+            /** Format: int64 */
+            total_novels: number;
+            twitter_account: string;
+            twitter_url: string | null;
+            webpage: string | null;
+        };
+        ProfileImageUrls: {
+            medium: string;
+        };
+        /** @description Pixiv profile publicity flags. Shape mirrors pixivgo.ProfilePublicity. */
+        ProfilePublicity: {
+            birth_day: string;
+            birth_year: string;
+            gender: string;
+            job: string;
+            pawoo: boolean;
+            region: string;
+        };
         /** @enum {string} */
         RankingMode:
             | "day"
@@ -469,335 +713,25 @@ export interface components {
             | "week_r18"
             | "week_r18g";
         /**
-         * @default partial_match_for_tags
+         * @default public
          * @enum {string}
          */
-        SearchTarget: "partial_match_for_tags" | "exact_match_for_tags" | "title_and_caption" | "keyword";
+        Restrict: "public" | "private";
         /**
          * @default date_desc
          * @enum {string}
          */
         SearchSort: "date_desc" | "date_asc" | "popular_desc";
-        LoginRequest: {
-            /** @description Long-lived Pixiv OAuth refresh token. See README for how to obtain. */
-            refresh_token: string;
-        };
-        AuthStatus: {
-            authenticated: boolean;
-            /** Format: int64 */
-            user_id?: number | null;
-            user_name?: string | null;
-            /** Format: date-time */
-            expires_at?: string | null;
-        };
-        BookmarkRequest: {
-            restrict?: components["schemas"]["Restrict"];
-        };
-        BookmarkDetail: {
-            is_bookmarked: boolean;
-            restrict: components["schemas"]["Restrict"];
-        };
-        FollowRequest: {
-            restrict?: components["schemas"]["Restrict"];
-        };
-        /** @description Pixiv illustration metadata. Shape mirrors pixivgo.IllustrationInfo. */
-        Illust: {
-            /** Format: int64 */
-            id: number;
-            title: string;
-            type: string;
-            image_urls: components["schemas"]["ImageUrls"];
-            caption: string;
-            /** Format: int64 */
-            restrict: number;
-            user: components["schemas"]["User"];
-            tags: components["schemas"]["IllustrationTag"][];
-            tools: string[];
-            create_date: string;
-            /** Format: int64 */
-            page_count: number;
-            /** Format: int64 */
-            width: number;
-            /** Format: int64 */
-            height: number;
-            /** Format: int64 */
-            sanity_level: number;
-            /** Format: int64 */
-            x_restrict: number;
-            series: components["schemas"]["Series"] | null;
-            meta_single_page: components["schemas"]["MetaSinglePage"];
-            meta_pages: components["schemas"]["MetaPage"][];
-            /** Format: int64 */
-            total_view: number;
-            /** Format: int64 */
-            total_bookmarks: number;
-            is_bookmarked: boolean;
-            visible: boolean;
-            is_muted: boolean;
-            /** Format: int64 */
-            illust_ai_type: number;
-            /** Format: int64 */
-            illust_book_style: number;
-            /** Format: int64 */
-            total_comments?: number;
-            restriction_attributes: string[];
-        };
-        /** @description Pixiv user summary. Shape mirrors pixivgo.UserInfo. */
-        User: {
-            /** Format: int64 */
-            id: number;
-            name: string;
-            account: string;
-            profile_image_urls: components["schemas"]["ProfileImageUrls"];
-            comment?: string;
-            is_followed: boolean | null;
-            is_access_blocking_user?: boolean;
-            is_accept_request?: boolean;
-        };
-        /** @description User + a few sample illusts. Shape mirrors pixivgo.UserPreview. */
-        UserPreview: {
-            user: components["schemas"]["User"];
-            illusts: components["schemas"]["Illust"][];
-            novels: components["schemas"]["Novel"][];
-            is_muted: boolean;
-        };
-        IllustPage: {
-            illusts: components["schemas"]["Illust"][];
-            /**
-             * Format: int64
-             * @description Next offset to pass back, or null if no further page.
-             */
-            next_offset?: number | null;
-            /**
-             * Format: int64
-             * @description Set only by `/users/{id}/bookmarks`; pass back as `max_bookmark_id`.
-             */
-            next_max_bookmark_id?: number | null;
-        };
-        UserIllustsPage: {
-            user: components["schemas"]["User"];
-            illusts: components["schemas"]["Illust"][];
-            /** Format: int64 */
-            next_offset?: number | null;
-        };
-        UserDetailPage: {
-            user: components["schemas"]["User"];
-            profile: components["schemas"]["Profile"];
-            profile_publicity: components["schemas"]["ProfilePublicity"];
-            workspace: components["schemas"]["Workspace"];
-        };
-        /** @description Pixiv user profile. Shape mirrors pixivgo.Profile. */
-        Profile: {
-            webpage: string | null;
-            gender: string;
-            birth: string;
-            birth_day: string;
-            /** Format: int64 */
-            birth_year: number;
-            region: string;
-            /** Format: int64 */
-            address_id: number;
-            country_code: string;
-            job: string;
-            /** Format: int64 */
-            job_id: number;
-            /** Format: int64 */
-            total_follow_users: number;
-            /** Format: int64 */
-            total_mypixiv_users: number;
-            /** Format: int64 */
-            total_illusts: number;
-            /** Format: int64 */
-            total_manga: number;
-            /** Format: int64 */
-            total_novels: number;
-            /** Format: int64 */
-            total_illust_bookmarks_public: number;
-            /** Format: int64 */
-            total_illust_series: number;
-            /** Format: int64 */
-            total_novel_series: number;
-            background_image_url: string;
-            twitter_account: string;
-            twitter_url: string | null;
-            pawoo_url: string | null;
-            is_premium: boolean;
-            is_using_custom_profile_image: boolean;
-        };
-        /** @description Pixiv profile publicity flags. Shape mirrors pixivgo.ProfilePublicity. */
-        ProfilePublicity: {
-            gender: string;
-            region: string;
-            birth_day: string;
-            birth_year: string;
-            job: string;
-            pawoo: boolean;
-        };
-        /** @description Pixiv workspace info. Shape mirrors pixivgo.Workspace. */
-        Workspace: {
-            pc: string;
-            monitor: string;
-            tool: string;
-            scanner: string;
-            tablet: string;
-            mouse: string;
-            printer: string;
-            desktop: string;
-            music: string;
-            desk: string;
-            chair: string;
-            comment: string;
-            workspace_image_url: string | null;
-        };
-        UserPreviewPage: {
-            user_previews: components["schemas"]["UserPreview"][];
-            /** Format: int64 */
-            next_offset?: number | null;
-        };
-        /** @description Wrapper for a single illust detail. Mirrors pixivgo.IllustDetailResponse. */
-        IllustDetailResponse: {
-            illust: components["schemas"]["Illust"];
-        };
-        /** @description Ugoira (animated illust) metadata. Mirrors pixivgo.UgoiraMetadataResponse. */
-        UgoiraMetadataResponse: {
-            ugoira_metadata: components["schemas"]["UgoiraMetadata"];
-        };
-        ProfileImageUrls: {
-            medium: string;
-        };
-        ImageUrls: {
-            square_medium: string;
-            medium: string;
-            large: string;
-        };
-        IllustrationTag: {
-            name: string;
-            translated_name: string | null;
-        };
+        /**
+         * @default partial_match_for_tags
+         * @enum {string}
+         */
+        SearchTarget: "partial_match_for_tags" | "exact_match_for_tags" | "title_and_caption" | "keyword";
         /** @description Pixiv returns `{}` instead of `null` for empty series; in that case `id` is 0. */
         Series: {
             /** Format: int64 */
             id: number;
             title: string;
-        };
-        MetaSinglePage: {
-            original_image_url?: string;
-        };
-        MetaPage: {
-            image_urls: components["schemas"]["ImageUrls"];
-        };
-        /** @description Pixiv novel metadata. Shape mirrors pixivgo.NovelInfo. */
-        Novel: {
-            /** Format: int64 */
-            id: number;
-            title: string;
-            caption: string;
-            /** Format: int64 */
-            restrict: number;
-            /** Format: int64 */
-            x_restrict: number;
-            is_original: boolean;
-            image_urls: components["schemas"]["ImageUrls"];
-            create_date: string;
-            tags: components["schemas"]["NovelTag"][];
-            /** Format: int64 */
-            page_count: number;
-            /** Format: int64 */
-            text_length: number;
-            user: components["schemas"]["User"];
-            series: components["schemas"]["Series"] | null;
-            is_bookmarked: boolean;
-            /** Format: int64 */
-            total_bookmarks: number;
-            /** Format: int64 */
-            total_view: number;
-            visible: boolean;
-            /** Format: int64 */
-            total_comments: number;
-            is_muted: boolean;
-            is_mypixiv_only: boolean;
-            is_x_restricted: boolean;
-            /** Format: int64 */
-            novel_ai_type: number;
-            /** Format: int64 */
-            comment_access_control?: number;
-        };
-        NovelTag: {
-            name: string;
-            translated_name: string | null;
-            added_by_uploaded_user: boolean;
-        };
-        UgoiraMetadata: {
-            zip_urls: components["schemas"]["UgoiraZipUrls"];
-            frames: components["schemas"]["UgoiraFrame"][];
-        };
-        UgoiraZipUrls: {
-            medium: string;
-        };
-        UgoiraFrame: {
-            file: string;
-            /** Format: int64 */
-            delay: number;
-        };
-        /**
-         * @description Lifecycle state of a download job or task.
-         * @enum {string}
-         */
-        DownloadStatus: "queued" | "running" | "completed" | "failed" | "cancelled";
-        /**
-         * @description Pixiv artwork type the job was created for.
-         * @enum {string}
-         */
-        DownloadIllustType: "illust" | "manga" | "ugoira";
-        DownloadTask: {
-            id: string;
-            job_id: string;
-            /** @description Final request URL (after pximg mirror rewrite). */
-            url: string;
-            /** @description Target path on disk. */
-            file_path: string;
-            status: components["schemas"]["DownloadStatus"];
-            /**
-             * Format: int64
-             * @description Content-Length, or -1 if unknown.
-             */
-            size_bytes: number;
-            /** Format: int64 */
-            downloaded_bytes: number;
-            error?: string | null;
-            /** Format: date-time */
-            started_at?: string | null;
-            /** Format: date-time */
-            finished_at?: string | null;
-        };
-        DownloadJob: {
-            id: string;
-            /** Format: int64 */
-            illust_id: number;
-            illust_type: components["schemas"]["DownloadIllustType"];
-            title?: string;
-            status: components["schemas"]["DownloadStatus"];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            tasks: components["schemas"]["DownloadTask"][];
-        };
-        DownloadJobList: {
-            jobs: components["schemas"]["DownloadJob"][];
-            /** @description Total jobs matching the filter (status + updated_since). */
-            total: number;
-            /** @description Echo of the requested 1-based page index after clamping. */
-            page: number;
-            /** @description Echo of the effective page size after clamping. */
-            per_page: number;
-            /**
-             * @description Global count of `queued` + `running` jobs (independent of filter).
-             *     Drives the sidebar badge.
-             */
-            active_count: number;
-            /** @description Global count of `completed` jobs (independent of filter). */
-            done_count: number;
         };
         SubmitDownloadRequest: {
             /**
@@ -806,23 +740,91 @@ export interface components {
              */
             illust_id: number;
         };
+        UgoiraFrame: {
+            /** Format: int64 */
+            delay: number;
+            file: string;
+        };
+        UgoiraMetadata: {
+            frames: components["schemas"]["UgoiraFrame"][];
+            zip_urls: components["schemas"]["UgoiraZipUrls"];
+        };
+        /** @description Ugoira (animated illust) metadata. Mirrors pixivgo.UgoiraMetadataResponse. */
+        UgoiraMetadataResponse: {
+            ugoira_metadata: components["schemas"]["UgoiraMetadata"];
+        };
+        UgoiraZipUrls: {
+            medium: string;
+        };
+        /** @description Pixiv user summary. Shape mirrors pixivgo.UserInfo. */
+        User: {
+            account: string;
+            comment?: string;
+            /** Format: int64 */
+            id: number;
+            is_accept_request?: boolean;
+            is_access_blocking_user?: boolean;
+            is_followed: boolean | null;
+            name: string;
+            profile_image_urls: components["schemas"]["ProfileImageUrls"];
+        };
+        UserDetailPage: {
+            profile: components["schemas"]["Profile"];
+            profile_publicity: components["schemas"]["ProfilePublicity"];
+            user: components["schemas"]["User"];
+            workspace: components["schemas"]["Workspace"];
+        };
+        UserIllustsPage: {
+            illusts: components["schemas"]["Illust"][];
+            /** Format: int64 */
+            next_offset?: number | null;
+            user: components["schemas"]["User"];
+        };
+        /** @description User + a few sample illusts. Shape mirrors pixivgo.UserPreview. */
+        UserPreview: {
+            illusts: components["schemas"]["Illust"][];
+            is_muted: boolean;
+            novels: components["schemas"]["Novel"][];
+            user: components["schemas"]["User"];
+        };
+        UserPreviewPage: {
+            /** Format: int64 */
+            next_offset?: number | null;
+            user_previews: components["schemas"]["UserPreview"][];
+        };
+        /** @description Pixiv workspace info. Shape mirrors pixivgo.Workspace. */
+        Workspace: {
+            chair: string;
+            comment: string;
+            desk: string;
+            desktop: string;
+            monitor: string;
+            mouse: string;
+            music: string;
+            pc: string;
+            printer: string;
+            scanner: string;
+            tablet: string;
+            tool: string;
+            workspace_image_url: string | null;
+        };
     };
     responses: {
-        /** @description Action succeeded; no body. */
-        NoContent: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content?: never;
-        };
-        /** @description No valid Pixiv session. Call `POST /auth/login` first. */
-        Unauthenticated: {
+        /** @description Invalid parameters. */
+        BadRequest: {
             headers: {
                 [name: string]: unknown;
             };
             content: {
                 "application/json": components["schemas"]["Error"];
             };
+        };
+        /** @description Action succeeded; no body. */
+        NoContent: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content?: never;
         };
         /** @description Resource not found on Pixiv. */
         NotFound: {
@@ -833,8 +835,8 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Invalid parameters. */
-        BadRequest: {
+        /** @description No valid Pixiv session. Call `POST /auth/login` first. */
+        Unauthenticated: {
             headers: {
                 [name: string]: unknown;
             };
@@ -853,36 +855,36 @@ export interface components {
         };
     };
     parameters: {
-        /** @description Pixiv illustration ID. */
-        IllustIdPath: number;
-        /** @description Pixiv user ID. */
-        UserIdPath: number;
-        /** @description Offset for offset-paginated list endpoints. */
-        OffsetQuery: number;
-        /** @description Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response. */
-        MaxBookmarkIdQuery: number;
-        /** @description Visibility scope (public or private). */
-        RestrictQuery: components["schemas"]["Restrict"];
-        /** @description Illust type filter; both are returned when omitted (where supported). */
-        IllustTypeQuery: components["schemas"]["IllustType"];
         /** @description Download job identifier returned by `POST /downloads`. */
         DownloadIdPath: string;
+        /** @description 1-based page index. */
+        DownloadPageQuery: number;
+        /** @description Items per page; clamped to `[1, 100]`. */
+        DownloadPerPageQuery: number;
         /**
          * @description Comma-separated subset of `DownloadStatus` to include. Omit for no
          *     filter. Example: `queued,running`.
          * @example queued,running
          */
         DownloadStatusListQuery: string;
-        /** @description 1-based page index. */
-        DownloadPageQuery: number;
-        /** @description Items per page; clamped to `[1, 100]`. */
-        DownloadPerPageQuery: number;
         /**
          * @description RFC3339 timestamp. Only jobs with `updated_at >= updated_since`
          *     are returned. Used by the frontend to load the recent-tracked
          *     window without scanning the whole history.
          */
         DownloadUpdatedSinceQuery: string;
+        /** @description Pixiv illustration ID. */
+        IllustIdPath: number;
+        /** @description Illust type filter; both are returned when omitted (where supported). */
+        IllustTypeQuery: components["schemas"]["IllustType"];
+        /** @description Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response. */
+        MaxBookmarkIdQuery: number;
+        /** @description Offset for offset-paginated list endpoints. */
+        OffsetQuery: number;
+        /** @description Visibility scope (public or private). */
+        RestrictQuery: components["schemas"]["Restrict"];
+        /** @description Pixiv user ID. */
+        UserIdPath: number;
     };
     requestBodies: never;
     headers: never;
@@ -890,27 +892,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    getHealth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Service is healthy. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthStatus"];
-                };
-            };
-        };
-    };
-    login: {
+    Login: {
         parameters: {
             query?: never;
             header?: never;
@@ -937,7 +919,7 @@ export interface operations {
             502: components["responses"]["Upstream"];
         };
     };
-    logout: {
+    Logout: {
         parameters: {
             query?: never;
             header?: never;
@@ -949,7 +931,7 @@ export interface operations {
             204: components["responses"]["NoContent"];
         };
     };
-    getAuthStatus: {
+    GetAuthStatus: {
         parameters: {
             query?: never;
             header?: never;
@@ -969,422 +951,7 @@ export interface operations {
             };
         };
     };
-    listRanking: {
-        parameters: {
-            query?: {
-                mode?: components["schemas"]["RankingMode"];
-                /** @description Ranking date in `YYYY-MM-DD`. Omit for the latest. */
-                date?: string;
-                /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["OffsetQuery"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Ranking page. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IllustPage"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    listRecommended: {
-        parameters: {
-            query?: {
-                /** @description Illust type filter; both are returned when omitted (where supported). */
-                type?: components["parameters"]["IllustTypeQuery"];
-                /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["OffsetQuery"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Recommendation page. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IllustPage"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    listFollowingIllusts: {
-        parameters: {
-            query?: {
-                /** @description Visibility scope (public or private). */
-                restrict?: components["parameters"]["RestrictQuery"];
-                /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["OffsetQuery"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Following feed page. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IllustPage"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    getIllust: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Pixiv illustration ID. */
-                id: components["parameters"]["IllustIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Illustration detail. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IllustDetailResponse"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    getUgoiraMetadata: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Pixiv illustration ID. */
-                id: components["parameters"]["IllustIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Ugoira metadata. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UgoiraMetadataResponse"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    getBookmarkDetail: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Pixiv illustration ID. */
-                id: components["parameters"]["IllustIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Bookmark detail. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BookmarkDetail"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    addBookmark: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Pixiv illustration ID. */
-                id: components["parameters"]["IllustIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["BookmarkRequest"];
-            };
-        };
-        responses: {
-            204: components["responses"]["NoContent"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    deleteBookmark: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Pixiv illustration ID. */
-                id: components["parameters"]["IllustIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: components["responses"]["NoContent"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    getUser: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Pixiv user ID. */
-                id: components["parameters"]["UserIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description User detail. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserDetailPage"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    listUserIllusts: {
-        parameters: {
-            query?: {
-                /** @description Illust type filter; both are returned when omitted (where supported). */
-                type?: components["parameters"]["IllustTypeQuery"];
-                /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["OffsetQuery"];
-            };
-            header?: never;
-            path: {
-                /** @description Pixiv user ID. */
-                id: components["parameters"]["UserIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description User illusts page. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserIllustsPage"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    listUserBookmarks: {
-        parameters: {
-            query?: {
-                /** @description Visibility scope (public or private). */
-                restrict?: components["parameters"]["RestrictQuery"];
-                /** @description Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response. */
-                max_bookmark_id?: components["parameters"]["MaxBookmarkIdQuery"];
-            };
-            header?: never;
-            path: {
-                /** @description Pixiv user ID. */
-                id: components["parameters"]["UserIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Bookmarks page. `next_max_bookmark_id` is set when another page exists. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IllustPage"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    listUserFollowing: {
-        parameters: {
-            query?: {
-                /** @description Visibility scope (public or private). */
-                restrict?: components["parameters"]["RestrictQuery"];
-                /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["OffsetQuery"];
-            };
-            header?: never;
-            path: {
-                /** @description Pixiv user ID. */
-                id: components["parameters"]["UserIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Following page. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserPreviewPage"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    addFollow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Pixiv user ID. */
-                id: components["parameters"]["UserIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["FollowRequest"];
-            };
-        };
-        responses: {
-            204: components["responses"]["NoContent"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    deleteFollow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Pixiv user ID. */
-                id: components["parameters"]["UserIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: components["responses"]["NoContent"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    searchIllusts: {
-        parameters: {
-            query: {
-                word: string;
-                search_target?: components["schemas"]["SearchTarget"];
-                sort?: components["schemas"]["SearchSort"];
-                /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["OffsetQuery"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Search results page. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IllustPage"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthenticated"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    searchUsers: {
-        parameters: {
-            query: {
-                word: string;
-                /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["OffsetQuery"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description User search results. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserPreviewPage"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthenticated"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    listDownloads: {
+    ListDownloads: {
         parameters: {
             query?: {
                 /**
@@ -1423,7 +990,7 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
         };
     };
-    submitDownload: {
+    SubmitDownload: {
         parameters: {
             query?: never;
             header?: never;
@@ -1451,7 +1018,7 @@ export interface operations {
             502: components["responses"]["Upstream"];
         };
     };
-    getDownload: {
+    GetDownload: {
         parameters: {
             query?: never;
             header?: never;
@@ -1476,7 +1043,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
-    removeDownload: {
+    RemoveDownload: {
         parameters: {
             query?: never;
             header?: never;
@@ -1502,7 +1069,7 @@ export interface operations {
             };
         };
     };
-    cancelDownload: {
+    CancelDownload: {
         parameters: {
             query?: never;
             header?: never;
@@ -1528,7 +1095,7 @@ export interface operations {
             };
         };
     };
-    getEvents: {
+    GetEvents: {
         parameters: {
             query?: {
                 /**
@@ -1553,6 +1120,441 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthenticated"];
+        };
+    };
+    GetHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Service is healthy. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthStatus"];
+                };
+            };
+        };
+    };
+    ListFollowingIllusts: {
+        parameters: {
+            query?: {
+                /** @description Visibility scope (public or private). */
+                restrict?: components["parameters"]["RestrictQuery"];
+                /** @description Offset for offset-paginated list endpoints. */
+                offset?: components["parameters"]["OffsetQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Following feed page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IllustPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    ListRanking: {
+        parameters: {
+            query?: {
+                mode?: components["schemas"]["RankingMode"];
+                /** @description Ranking date in `YYYY-MM-DD`. Omit for the latest. */
+                date?: string;
+                /** @description Offset for offset-paginated list endpoints. */
+                offset?: components["parameters"]["OffsetQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ranking page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IllustPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    ListRecommended: {
+        parameters: {
+            query?: {
+                /** @description Illust type filter; both are returned when omitted (where supported). */
+                type?: components["parameters"]["IllustTypeQuery"];
+                /** @description Offset for offset-paginated list endpoints. */
+                offset?: components["parameters"]["OffsetQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recommendation page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IllustPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    GetIllust: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv illustration ID. */
+                id: components["parameters"]["IllustIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Illustration detail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IllustDetailResponse"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    GetBookmarkDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv illustration ID. */
+                id: components["parameters"]["IllustIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bookmark detail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookmarkDetail"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    AddBookmark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv illustration ID. */
+                id: components["parameters"]["IllustIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BookmarkRequest"];
+            };
+        };
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    DeleteBookmark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv illustration ID. */
+                id: components["parameters"]["IllustIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    GetUgoiraMetadata: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv illustration ID. */
+                id: components["parameters"]["IllustIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ugoira metadata. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UgoiraMetadataResponse"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    SearchIllusts: {
+        parameters: {
+            query: {
+                word: string;
+                search_target?: components["schemas"]["SearchTarget"];
+                sort?: components["schemas"]["SearchSort"];
+                /** @description Offset for offset-paginated list endpoints. */
+                offset?: components["parameters"]["OffsetQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Search results page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IllustPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    SearchUsers: {
+        parameters: {
+            query: {
+                word: string;
+                /** @description Offset for offset-paginated list endpoints. */
+                offset?: components["parameters"]["OffsetQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User search results. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreviewPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    GetUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User detail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetailPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    ListUserBookmarks: {
+        parameters: {
+            query?: {
+                /** @description Visibility scope (public or private). */
+                restrict?: components["parameters"]["RestrictQuery"];
+                /** @description Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response. */
+                max_bookmark_id?: components["parameters"]["MaxBookmarkIdQuery"];
+            };
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bookmarks page. `next_max_bookmark_id` is set when another page exists. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IllustPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    AddFollow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FollowRequest"];
+            };
+        };
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    DeleteFollow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    ListUserFollowing: {
+        parameters: {
+            query?: {
+                /** @description Visibility scope (public or private). */
+                restrict?: components["parameters"]["RestrictQuery"];
+                /** @description Offset for offset-paginated list endpoints. */
+                offset?: components["parameters"]["OffsetQuery"];
+            };
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Following page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreviewPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    ListUserIllusts: {
+        parameters: {
+            query?: {
+                /** @description Illust type filter; both are returned when omitted (where supported). */
+                type?: components["parameters"]["IllustTypeQuery"];
+                /** @description Offset for offset-paginated list endpoints. */
+                offset?: components["parameters"]["OffsetQuery"];
+            };
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User illusts page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserIllustsPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
 }

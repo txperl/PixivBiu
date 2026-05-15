@@ -161,6 +161,10 @@ func projectJob(j *download.Job) DownloadJob {
 	if title != "" {
 		out.Title = &title
 	}
+	if j.PreviewURL != "" {
+		p := j.PreviewURL
+		out.PreviewUrl = &p
+	}
 	for _, t := range j.Tasks {
 		out.Tasks = append(out.Tasks, projectTask(t))
 	}

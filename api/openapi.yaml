@@ -746,6 +746,7 @@ components:
         illust_id:   { type: integer, format: int64 }
         illust_type: { $ref: '#/components/schemas/DownloadIllustType' }
         title:       { type: string }
+        preview_url: { type: string, description: "Thumbnail (square_medium → medium → large). Absent on jobs persisted before this field existed." }
         status:      { $ref: '#/components/schemas/DownloadStatus' }
         created_at:  { type: string, format: date-time }
         updated_at:  { type: string, format: date-time }

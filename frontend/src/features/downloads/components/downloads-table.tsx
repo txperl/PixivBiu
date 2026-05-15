@@ -1,5 +1,6 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { memo, type ReactNode, useState } from "react";
+import PximgImage from "@/components/pximg-image";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { DownloadApiError, DownloadJob, DownloadStatus, DownloadTask } from "@/features/downloads";
 import { isTerminalStatus, useDownloadMutations } from "@/features/downloads";
@@ -140,7 +141,17 @@ function JobRowInner({ job, compact, error, submitError, cancel, submit, remove 
                                 strokeWidth={1.5}
                             />
                         </button>
-                        <div className="size-8 shrink-0 rounded-lg" style={{ background: `oklch(0.86 0.06 ${hue})` }} />
+                        <PximgImage
+                            src={job.preview_url}
+                            alt={job.title || `#${job.illust_id}`}
+                            fallback={
+                                <div
+                                    className="size-8 shrink-0 rounded-lg"
+                                    style={{ background: `oklch(0.86 0.06 ${hue})` }}
+                                />
+                            }
+                            className="size-8 shrink-0 rounded-lg object-cover"
+                        />
                         <div className="min-w-0">
                             <div className="truncate font-medium text-foreground text-sm">{job.title || "未命名"}</div>
                             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">

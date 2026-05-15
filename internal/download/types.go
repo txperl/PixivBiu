@@ -82,6 +82,7 @@ type Job struct {
 	IllustID   int64      `json:"illust_id"`
 	IllustType IllustType `json:"illust_type"`
 	Title      string     `json:"title"`
+	PreviewURL string     `json:"preview_url,omitempty"`
 	Status     Status     `json:"status"`
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`

@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/txperl/pixivgo"
 )
 
 // progressCallback is invoked after each Copy chunk so the caller
@@ -187,6 +189,16 @@ func backoff(attempt int, base time.Duration) time.Duration {
 		}
 	}
 	return d
+}
+
+func pickPreviewURL(u pixivgo.ImageUrls) string {
+	if u.SquareMedium != "" {
+		return u.SquareMedium
+	}
+	if u.Medium != "" {
+		return u.Medium
+	}
+	return u.Large
 }
 
 // rewritePximg swaps the `https://i.pximg.net` prefix of rawURL with

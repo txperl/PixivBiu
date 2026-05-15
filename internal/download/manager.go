@@ -396,6 +396,7 @@ func (m *Manager) Submit(ctx context.Context, illustID int64) (*Job, error) {
 		IllustID:   illustID,
 		IllustType: illustType,
 		Title:      info.Title,
+		PreviewURL: rewritePximg(pickPreviewURL(info.ImageUrls), m.cfg.PximgBase),
 		Status:     StatusQueued,
 		CreatedAt:  now,
 		UpdatedAt:  now,
