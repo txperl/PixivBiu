@@ -1,0 +1,61 @@
+{
+    "lsp": {
+        "biome": {
+            "binary": {
+                "path": "./node_modules/@biomejs/cli-darwin-arm64/biome",
+                "arguments": ["lsp-proxy"]
+            },
+            "settings": {
+                "require_config_file": true
+            }
+        }
+    },
+    "format_on_save": "on",
+    "languages": {
+        "JavaScript": {
+            "formatter": { "language_server": { "name": "biome" } },
+            "code_actions_on_format": {
+                "source.fixAll.biome": true,
+                "source.organizeImports.biome": true
+            }
+        },
+        "JSX": {
+            "formatter": { "language_server": { "name": "biome" } },
+            "code_actions_on_format": {
+                "source.fixAll.biome": true,
+                "source.organizeImports.biome": true
+            }
+        },
+        "TypeScript": {
+            "formatter": { "language_server": { "name": "biome" } },
+            "code_actions_on_format": {
+                "source.fixAll.biome": true,
+                "source.organizeImports.biome": true
+            }
+        },
+        "TSX": {
+            "formatter": { "language_server": { "name": "biome" } },
+            "code_actions_on_format": {
+                "source.fixAll.biome": true,
+                "source.organizeImports.biome": true
+            }
+        },
+        "CSS": {
+            "formatter": { "language_server": { "name": "biome" } }
+        },
+        "JSON": {
+            "formatter": { "language_server": { "name": "biome" } },
+            "code_actions_on_format": {
+                "source.fixAll.biome": true,
+                "source.organizeImports.biome": true
+            }
+        },
+        "JSONC": {
+            "formatter": { "language_server": { "name": "biome" } },
+            "code_actions_on_format": {
+                "source.fixAll.biome": true,
+                "source.organizeImports.biome": true
+            }
+        }
+    }
+}
