@@ -25,15 +25,25 @@ root:
       '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
   get:
     operationId: listDownloads
-    summary: List download jobs
-    description: Newest first.
+    summary: List download jobs (paginated)
+    description: |
+      Server-paginated list. Order is newest first. Without filters
+      every job is returned, but `page` / `per_page` always apply.
+      Response carries the total count plus global `active_count` /
+      `done_count` so clients don't need a separate counts endpoint.
     tags: [downloads]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/DownloadStatusListQuery'
+      - $ref: '../openapi.yaml#/components/parameters/DownloadPageQuery'
+      - $ref: '../openapi.yaml#/components/parameters/DownloadPerPageQuery'
+      - $ref: '../openapi.yaml#/components/parameters/DownloadUpdatedSinceQuery'
     responses:
       '200':
-        description: Jobs list.
+        description: Jobs list page.
         content:
           application/json:
             schema: { $ref: '../openapi.yaml#/components/schemas/DownloadJobList' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
 
 byId:

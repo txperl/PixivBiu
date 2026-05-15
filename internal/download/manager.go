@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -165,6 +166,127 @@ func (m *Manager) List() []*Job {
 	return SortedJobs(out)
 }
 
+// ListFilter selects, orders, and paginates jobs for ListPage.
+type ListFilter struct {
+	// Statuses restricts the result to jobs whose status is in the
+	// slice. nil/empty = no status filter.
+	Statuses []Status
+	// UpdatedSince restricts the result to jobs whose UpdatedAt is at
+	// or after this instant. Zero time = no time filter.
+	UpdatedSince time.Time
+	// Page is 1-based; values < 1 are clamped to 1.
+	Page int
+	// PerPage is clamped to [1, 100]; 0 defaults to 20.
+	PerPage int
+}
+
+// ListPage filters, sorts (newest first), and paginates jobs.
+// Returned items are deep-copy snapshots — safe to marshal without
+// holding m.mu. `total` counts jobs matching the filter; `active`
+// (queued+running) and `done` (completed) are GLOBAL aggregates
+// independent of the filter, so one call can drive both the page
+// view and sidebar/sheet badges.
+func (m *Manager) ListPage(filter ListFilter) (items []*Job, total, active, done int) {
+	page, perPage := NormalizePagination(filter.Page, filter.PerPage)
+
+	var statusSet map[Status]struct{}
+	if len(filter.Statuses) > 0 {
+		statusSet = make(map[Status]struct{}, len(filter.Statuses))
+		for _, s := range filter.Statuses {
+			statusSet[s] = struct{}{}
+		}
+	}
+
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	matched := make([]*Job, 0, len(m.jobs))
+	for _, j := range m.jobs {
+		switch j.Status {
+		case StatusQueued, StatusRunning:
+			active++
+		case StatusCompleted:
+			done++
+		}
+		if statusSet != nil {
+			if _, ok := statusSet[j.Status]; !ok {
+				continue
+			}
+		}
+		if !filter.UpdatedSince.IsZero() && j.UpdatedAt.Before(filter.UpdatedSince) {
+			continue
+		}
+		matched = append(matched, j)
+	}
+	slices.SortFunc(matched, func(a, b *Job) int {
+		return b.CreatedAt.Compare(a.CreatedAt)
+	})
+	total = len(matched)
+
+	// Bail before computing `start` so adversarial `page` values (close to
+	// MaxInt) can't overflow (page-1)*perPage into a negative or wrapped slice index.
+	if total == 0 || page > (total-1)/perPage+1 {
+		return []*Job{}, total, active, done
+	}
+
+	start := (page - 1) * perPage
+	end := start + perPage
+	if end > total {
+		end = total
+	}
+	items = make([]*Job, 0, end-start)
+	for _, j := range matched[start:end] {
+		items = append(items, m.snapshotJobLocked(j))
+	}
+	return items, total, active, done
+}
+
+// Counts returns the global aggregates without sorting or snapshotting
+// jobs. Used by the SSE publisher to inline counts into job lifecycle
+// events. Cheap because it's a single RLock'd scan.
+func (m *Manager) Counts() (active, done int) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, j := range m.jobs {
+		switch j.Status {
+		case StatusQueued, StatusRunning:
+			active++
+		case StatusCompleted:
+			done++
+		}
+	}
+	return active, done
+}
+
+// NormalizePagination clamps user-supplied paging params to safe values.
+// Exported so the HTTP handler can echo the same effective page/per_page
+// the manager will use, without duplicating the rules.
+func NormalizePagination(page, perPage int) (int, int) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+	if perPage > 100 {
+		perPage = 100
+	}
+	return page, perPage
+}
+
+// publishJobStateChange wraps Publisher.JobStateChange to inline the
+// current global counts. Call after m.mu has been released so Counts()
+// can take its own RLock.
+func (m *Manager) publishJobStateChange(snap *Job) {
+	active, done := m.Counts()
+	m.pub.JobStateChange(snap, active, done)
+}
+
+func (m *Manager) publishJobDeleted(jobID string, illustID int64, taskCount int) {
+	active, done := m.Counts()
+	m.pub.JobDeleted(jobID, illustID, taskCount, active, done)
+}
+
 // Get returns a deep-copy snapshot of one job by ID. See List.
 func (m *Manager) Get(id string) (*Job, error) {
 	m.mu.RLock()
@@ -217,7 +339,7 @@ func (m *Manager) Cancel(id string) error {
 		m.pub.TaskStateChange(s)
 	}
 	if changed {
-		m.pub.JobStateChange(jobSnap)
+		m.publishJobStateChange(jobSnap)
 	}
 	return nil
 }
@@ -246,7 +368,7 @@ func (m *Manager) Remove(id string) error {
 	m.mu.Unlock()
 
 	_ = m.persist()
-	m.pub.JobDeleted(jobID, illustID, taskCount)
+	m.publishJobDeleted(jobID, illustID, taskCount)
 	return nil
 }
 
@@ -319,7 +441,7 @@ func (m *Manager) Submit(ctx context.Context, illustID int64) (*Job, error) {
 	if err := m.persist(); err != nil {
 		m.logger.Warn("download persist failed", slog.Any("error", err))
 	}
-	m.pub.JobStateChange(jobSnap)
+	m.publishJobStateChange(jobSnap)
 
 	// Async: the bounded queue would otherwise make Submit block on any
 	// job whose task count exceeds free capacity, breaking the 202 contract.
@@ -536,7 +658,7 @@ func (m *Manager) leaseTask(task *Task, cancel context.CancelFunc) (*Job, bool) 
 
 	m.pub.TaskStateChange(startSnap)
 	if jobSnap != nil {
-		m.pub.JobStateChange(jobSnap)
+		m.publishJobStateChange(jobSnap)
 	}
 	return job, true
 }
@@ -717,7 +839,7 @@ func (m *Manager) finalizeTask(task *Task, job *Job, lastErr error) {
 	}
 	m.removeCleanupPaths(cleanupPaths)
 	if changed {
-		m.pub.JobStateChange(jobSnap)
+		m.publishJobStateChange(jobSnap)
 	}
 }
 

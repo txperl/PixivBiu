@@ -3,12 +3,48 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync/atomic"
 
 	"github.com/txperl/PixivBiu/internal/download"
 )
+
+var allDownloadStatuses = map[download.Status]struct{}{
+	download.StatusQueued:    {},
+	download.StatusRunning:   {},
+	download.StatusCompleted: {},
+	download.StatusFailed:    {},
+	download.StatusCancelled: {},
+}
+
+// parseStatusList parses the `status` csv query param into a Status
+// slice. Empty/nil = nil result (no filter). Unknown values produce
+// an error that the handler maps to 400.
+func parseStatusList(raw *string) ([]download.Status, error) {
+	if raw == nil || *raw == "" {
+		return nil, nil
+	}
+	parts := strings.Split(*raw, ",")
+	out := make([]download.Status, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		s := download.Status(p)
+		if _, ok := allDownloadStatuses[s]; !ok {
+			return nil, fmt.Errorf("unknown status %q", p)
+		}
+		out = append(out, s)
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}
 
 func (h *APIHandler) SubmitDownload(w http.ResponseWriter, r *http.Request) {
 	if err := h.requireAuth(); err != nil {
@@ -32,17 +68,43 @@ func (h *APIHandler) SubmitDownload(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, projectJob(job))
 }
 
-func (h *APIHandler) ListDownloads(w http.ResponseWriter, r *http.Request) {
+func (h *APIHandler) ListDownloads(w http.ResponseWriter, r *http.Request, params ListDownloadsParams) {
 	if err := h.requireAuth(); err != nil {
 		h.writeError(w, r, err)
 		return
 	}
-	jobs := h.dl.List()
-	out := DownloadJobList{Jobs: make([]DownloadJob, 0, len(jobs))}
-	for _, j := range jobs {
-		out.Jobs = append(out.Jobs, projectJob(j))
+
+	statuses, err := parseStatusList(params.Status)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, Error{Code: "bad_request", Message: err.Error()})
+		return
 	}
-	writeJSON(w, http.StatusOK, out)
+
+	filter := download.ListFilter{Statuses: statuses}
+	if params.Page != nil {
+		filter.Page = *params.Page
+	}
+	if params.PerPage != nil {
+		filter.PerPage = *params.PerPage
+	}
+	if params.UpdatedSince != nil {
+		filter.UpdatedSince = *params.UpdatedSince
+	}
+
+	items, total, active, done := h.dl.ListPage(filter)
+	jobs := make([]DownloadJob, 0, len(items))
+	for _, j := range items {
+		jobs = append(jobs, projectJob(j))
+	}
+	effPage, effPerPage := download.NormalizePagination(filter.Page, filter.PerPage)
+	writeJSON(w, http.StatusOK, DownloadJobList{
+		Jobs:        jobs,
+		Total:       total,
+		Page:        effPage,
+		PerPage:     effPerPage,
+		ActiveCount: active,
+		DoneCount:   done,
+	})
 }
 
 func (h *APIHandler) GetDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath) {

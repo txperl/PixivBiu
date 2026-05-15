@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { NavLink, useLocation, useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/features/auth";
-import { useDownloads } from "@/features/downloads";
+import { useDownloadCounts } from "@/features/downloads";
 import {
     DownloadIcon,
     FollowIcon,
@@ -88,7 +88,7 @@ function NavItem({ item, pathname, search }: { item: NavItemDef; pathname: strin
 
 function Nav() {
     const { status } = useAuth();
-    const { activeCount } = useDownloads();
+    const { activeCount } = useDownloadCounts();
     const { pathname } = useLocation();
     const [search] = useSearchParams();
 

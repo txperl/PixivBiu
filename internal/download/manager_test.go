@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -642,6 +643,180 @@ func TestCancel_PreservesUnownedFilesAtTaskPath(t *testing.T) {
 	}
 	if _, err := os.Stat(foreign); err != nil {
 		t.Errorf("foreign file at never-written task path must survive, got %v", err)
+	}
+}
+
+func seedJobs(m *Manager, jobs ...*Job) {
+	for _, j := range jobs {
+		m.jobs[j.ID] = j
+	}
+}
+
+func TestListPage_NoFilterPaginates(t *testing.T) {
+	m := newTestManager(t)
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := range 25 {
+		seedJobs(m, &Job{
+			ID:        "j" + strconv.Itoa(i),
+			Status:    StatusCompleted,
+			CreatedAt: base.Add(time.Duration(i) * time.Minute),
+			UpdatedAt: base.Add(time.Duration(i) * time.Minute),
+		})
+	}
+
+	items, total, active, done := m.ListPage(ListFilter{Page: 1, PerPage: 10})
+	if total != 25 {
+		t.Errorf("total: want 25, got %d", total)
+	}
+	if active != 0 || done != 25 {
+		t.Errorf("counts: want active=0 done=25, got active=%d done=%d", active, done)
+	}
+	if len(items) != 10 {
+		t.Fatalf("page 1 len: want 10, got %d", len(items))
+	}
+	// Newest first: j24 should lead.
+	if items[0].ID != "j24" {
+		t.Errorf("page 1 head: want j24, got %s", items[0].ID)
+	}
+
+	items, _, _, _ = m.ListPage(ListFilter{Page: 3, PerPage: 10})
+	if len(items) != 5 {
+		t.Errorf("page 3 len: want 5, got %d", len(items))
+	}
+}
+
+func TestListPage_StatusFilter(t *testing.T) {
+	m := newTestManager(t)
+	now := time.Now().UTC()
+	seedJobs(m,
+		&Job{ID: "q1", Status: StatusQueued, CreatedAt: now, UpdatedAt: now},
+		&Job{ID: "r1", Status: StatusRunning, CreatedAt: now, UpdatedAt: now},
+		&Job{ID: "c1", Status: StatusCompleted, CreatedAt: now, UpdatedAt: now},
+		&Job{ID: "f1", Status: StatusFailed, CreatedAt: now, UpdatedAt: now},
+		&Job{ID: "x1", Status: StatusCancelled, CreatedAt: now, UpdatedAt: now},
+	)
+
+	items, total, active, done := m.ListPage(ListFilter{
+		Statuses: []Status{StatusQueued, StatusRunning},
+		Page:     1,
+		PerPage:  20,
+	})
+	if total != 2 || len(items) != 2 {
+		t.Errorf("active filter: want total=2 len=2, got total=%d len=%d", total, len(items))
+	}
+	if active != 2 || done != 1 {
+		t.Errorf("global counts unaffected by filter: want active=2 done=1, got active=%d done=%d", active, done)
+	}
+}
+
+func TestListPage_UpdatedSinceFilter(t *testing.T) {
+	m := newTestManager(t)
+	now := time.Now().UTC()
+	cutoff := now.Add(-30 * time.Minute)
+	seedJobs(m,
+		&Job{ID: "old", Status: StatusCompleted, CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour)},
+		&Job{ID: "edge", Status: StatusCompleted, CreatedAt: cutoff, UpdatedAt: cutoff},
+		&Job{ID: "fresh", Status: StatusCompleted, CreatedAt: now, UpdatedAt: now},
+	)
+
+	items, total, _, _ := m.ListPage(ListFilter{
+		UpdatedSince: cutoff,
+		Page:         1,
+		PerPage:      20,
+	})
+	if total != 2 {
+		t.Fatalf("total: want 2 (edge + fresh), got %d", total)
+	}
+	got := map[string]bool{}
+	for _, j := range items {
+		got[j.ID] = true
+	}
+	if !got["edge"] || !got["fresh"] || got["old"] {
+		t.Errorf("filter set: got %+v, want {edge, fresh}", got)
+	}
+}
+
+func TestListPage_PageBeyondTotal(t *testing.T) {
+	m := newTestManager(t)
+	now := time.Now().UTC()
+	seedJobs(m,
+		&Job{ID: "a", Status: StatusCompleted, CreatedAt: now, UpdatedAt: now},
+		&Job{ID: "b", Status: StatusCompleted, CreatedAt: now, UpdatedAt: now},
+	)
+
+	items, total, _, _ := m.ListPage(ListFilter{Page: 5, PerPage: 20})
+	if total != 2 {
+		t.Errorf("total: want 2, got %d", total)
+	}
+	if len(items) != 0 {
+		t.Errorf("items beyond range: want 0, got %d", len(items))
+	}
+}
+
+// Regression: adversarial `page` values used to overflow (page-1)*perPage
+// and slice into matched[] with a wrapped index, panicking the request.
+func TestListPage_HugePageDoesNotOverflow(t *testing.T) {
+	m := newTestManager(t)
+	now := time.Now().UTC()
+	seedJobs(m, &Job{ID: "j1", Status: StatusCompleted, CreatedAt: now, UpdatedAt: now})
+
+	items, total, _, _ := m.ListPage(ListFilter{Page: math.MaxInt, PerPage: 100})
+	if total != 1 {
+		t.Errorf("total: want 1, got %d", total)
+	}
+	if len(items) != 0 {
+		t.Errorf("items beyond range: want 0, got %d", len(items))
+	}
+}
+
+func TestListPage_PerPageBoundaries(t *testing.T) {
+	m := newTestManager(t)
+	now := time.Now().UTC()
+	for i := range 5 {
+		seedJobs(m, &Job{
+			ID:        "j" + strconv.Itoa(i),
+			Status:    StatusCompleted,
+			CreatedAt: now.Add(time.Duration(i) * time.Second),
+			UpdatedAt: now,
+		})
+	}
+
+	// PerPage 0 → default 20
+	items, _, _, _ := m.ListPage(ListFilter{Page: 1, PerPage: 0})
+	if len(items) != 5 {
+		t.Errorf("PerPage 0: want all 5 (default 20), got %d", len(items))
+	}
+	// PerPage < 0 → default 20
+	items, _, _, _ = m.ListPage(ListFilter{Page: 1, PerPage: -1})
+	if len(items) != 5 {
+		t.Errorf("PerPage -1: want all 5, got %d", len(items))
+	}
+	// Page 0 → 1
+	items, _, _, _ = m.ListPage(ListFilter{Page: 0, PerPage: 2})
+	if len(items) != 2 {
+		t.Errorf("Page 0 (=1) with PerPage 2: want 2, got %d", len(items))
+	}
+}
+
+func TestCounts(t *testing.T) {
+	m := newTestManager(t)
+	now := time.Now().UTC()
+	seedJobs(m,
+		&Job{ID: "q1", Status: StatusQueued, CreatedAt: now, UpdatedAt: now},
+		&Job{ID: "q2", Status: StatusQueued, CreatedAt: now, UpdatedAt: now},
+		&Job{ID: "r1", Status: StatusRunning, CreatedAt: now, UpdatedAt: now},
+		&Job{ID: "c1", Status: StatusCompleted, CreatedAt: now, UpdatedAt: now},
+		&Job{ID: "c2", Status: StatusCompleted, CreatedAt: now, UpdatedAt: now},
+		&Job{ID: "f1", Status: StatusFailed, CreatedAt: now, UpdatedAt: now},
+		&Job{ID: "x1", Status: StatusCancelled, CreatedAt: now, UpdatedAt: now},
+	)
+
+	active, done := m.Counts()
+	if active != 3 {
+		t.Errorf("active: want 3 (2 queued + 1 running), got %d", active)
+	}
+	if done != 2 {
+		t.Errorf("done: want 2 (completed only), got %d", done)
 	}
 }
 

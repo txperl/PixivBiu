@@ -1,7 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useDownloads } from "@/features/downloads";
+import { useDownloadMutations } from "@/features/downloads";
 import { CheckIcon, CloseIcon, DownloadIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +13,7 @@ type DownloadFABProps = {
 };
 
 function DownloadFAB({ selected, allIllustIds, onReplaceSelection, onClearSelection }: DownloadFABProps) {
-    const { submit } = useDownloads();
+    const { submit } = useDownloadMutations();
     const [pending, setPending] = useState(false);
     const [doneLabel, setDoneLabel] = useState<string | null>(null);
     const [errorTitle, setErrorTitle] = useState<string | null>(null);

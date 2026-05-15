@@ -328,8 +328,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List download jobs
-         * @description Newest first.
+         * List download jobs (paginated)
+         * @description Server-paginated list. Order is newest first. Without filters
+         *     every job is returned, but `page` / `per_page` always apply.
+         *     Response carries the total count plus global `active_count` /
+         *     `done_count` so clients don't need a separate counts endpoint.
          */
         get: operations["listDownloads"];
         put?: never;
@@ -782,6 +785,19 @@ export interface components {
         };
         DownloadJobList: {
             jobs: components["schemas"]["DownloadJob"][];
+            /** @description Total jobs matching the filter (status + updated_since). */
+            total: number;
+            /** @description Echo of the requested 1-based page index after clamping. */
+            page: number;
+            /** @description Echo of the effective page size after clamping. */
+            per_page: number;
+            /**
+             * @description Global count of `queued` + `running` jobs (independent of filter).
+             *     Drives the sidebar badge.
+             */
+            active_count: number;
+            /** @description Global count of `completed` jobs (independent of filter). */
+            done_count: number;
         };
         SubmitDownloadRequest: {
             /**
@@ -851,6 +867,22 @@ export interface components {
         IllustTypeQuery: components["schemas"]["IllustType"];
         /** @description Download job identifier returned by `POST /downloads`. */
         DownloadIdPath: string;
+        /**
+         * @description Comma-separated subset of `DownloadStatus` to include. Omit for no
+         *     filter. Example: `queued,running`.
+         * @example queued,running
+         */
+        DownloadStatusListQuery: string;
+        /** @description 1-based page index. */
+        DownloadPageQuery: number;
+        /** @description Items per page; clamped to `[1, 100]`. */
+        DownloadPerPageQuery: number;
+        /**
+         * @description RFC3339 timestamp. Only jobs with `updated_at >= updated_since`
+         *     are returned. Used by the frontend to load the recent-tracked
+         *     window without scanning the whole history.
+         */
+        DownloadUpdatedSinceQuery: string;
     };
     requestBodies: never;
     headers: never;
@@ -1354,14 +1386,31 @@ export interface operations {
     };
     listDownloads: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description Comma-separated subset of `DownloadStatus` to include. Omit for no
+                 *     filter. Example: `queued,running`.
+                 * @example queued,running
+                 */
+                status?: components["parameters"]["DownloadStatusListQuery"];
+                /** @description 1-based page index. */
+                page?: components["parameters"]["DownloadPageQuery"];
+                /** @description Items per page; clamped to `[1, 100]`. */
+                per_page?: components["parameters"]["DownloadPerPageQuery"];
+                /**
+                 * @description RFC3339 timestamp. Only jobs with `updated_at >= updated_since`
+                 *     are returned. Used by the frontend to load the recent-tracked
+                 *     window without scanning the whole history.
+                 */
+                updated_since?: components["parameters"]["DownloadUpdatedSinceQuery"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Jobs list. */
+            /** @description Jobs list page. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1370,6 +1419,7 @@ export interface operations {
                     "application/json": components["schemas"]["DownloadJobList"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
         };
     };

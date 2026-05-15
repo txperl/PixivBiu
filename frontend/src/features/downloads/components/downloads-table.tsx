@@ -1,7 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { memo, type ReactNode, useState } from "react";
 import type { DownloadApiError, DownloadJob, DownloadStatus, DownloadTask } from "@/features/downloads";
-import { isTerminalStatus, useDownloads } from "@/features/downloads";
+import { isTerminalStatus, useDownloadMutations } from "@/features/downloads";
 import ActionIconButton from "@/features/downloads/components/action-icon-button";
 import { apiErrorMessage } from "@/lib/api";
 import { formatBytes, hueFromId } from "@/lib/format";
@@ -251,7 +251,7 @@ type DownloadsTableProps = {
 };
 
 function DownloadsTable({ jobs, empty, compact = false }: DownloadsTableProps) {
-    const { cancel, remove, submit, lastError } = useDownloads();
+    const { cancel, remove, submit, lastError } = useDownloadMutations();
 
     if (jobs.length === 0) {
         return empty ?? <div className="px-[18px] py-8 text-center text-muted-foreground text-sm">暂无下载</div>;

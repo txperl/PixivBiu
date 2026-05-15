@@ -5,6 +5,8 @@ export type JobEventData = {
     illust_id: number;
     task_count: number;
     error?: string;
+    active_count: number;
+    done_count: number;
 };
 
 export type TaskStartedData = {

@@ -65,11 +65,17 @@ type taskEventPayload struct {
 	Error    string `json:"error,omitempty"`
 }
 
+// jobEventPayload is the JSON body of a job.* lifecycle event. ActiveCount
+// and DoneCount are inlined so the frontend can drive sidebar/sheet badges
+// without a separate counts endpoint. Counts reflect global state at
+// publish time (not filtered by anything).
 type jobEventPayload struct {
-	JobID     string `json:"job_id"`
-	IllustID  int64  `json:"illust_id,omitempty"`
-	TaskCount int    `json:"task_count,omitempty"`
-	Error     string `json:"error,omitempty"`
+	JobID       string `json:"job_id"`
+	IllustID    int64  `json:"illust_id,omitempty"`
+	TaskCount   int    `json:"task_count,omitempty"`
+	Error       string `json:"error,omitempty"`
+	ActiveCount int    `json:"active_count"`
+	DoneCount   int    `json:"done_count"`
 }
 
 // TaskProgress publishes an intermediate progress event, skipping if
@@ -140,14 +146,17 @@ func (p *Publisher) TaskStateChange(task *Task) {
 
 // JobStateChange publishes a job-level event. Pass a snapshotJobLocked
 // copy. Call after per-task events so clients see tasks-then-aggregate.
-func (p *Publisher) JobStateChange(job *Job) {
+// activeCount and doneCount are inlined into the event payload.
+func (p *Publisher) JobStateChange(job *Job, activeCount, doneCount int) {
 	if job == nil {
 		return
 	}
 	payload := jobEventPayload{
-		JobID:     job.ID,
-		IllustID:  job.IllustID,
-		TaskCount: len(job.Tasks),
+		JobID:       job.ID,
+		IllustID:    job.IllustID,
+		TaskCount:   len(job.Tasks),
+		ActiveCount: activeCount,
+		DoneCount:   doneCount,
 	}
 	if job.Status == StatusFailed {
 		for _, t := range job.Tasks {
@@ -171,10 +180,12 @@ func (p *Publisher) JobStateChange(job *Job) {
 	}
 }
 
-func (p *Publisher) JobDeleted(jobID string, illustID int64, taskCount int) {
+func (p *Publisher) JobDeleted(jobID string, illustID int64, taskCount, activeCount, doneCount int) {
 	p.hub.Publish(TopicDownload, TypeJobDeleted, jobEventPayload{
-		JobID:     jobID,
-		IllustID:  illustID,
-		TaskCount: taskCount,
+		JobID:       jobID,
+		IllustID:    illustID,
+		TaskCount:   taskCount,
+		ActiveCount: activeCount,
+		DoneCount:   doneCount,
 	})
 }

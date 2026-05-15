@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { ACTIVE_STATUSES, type DownloadJob } from "./api";
-import { useDownloads } from "./use-downloads";
+import { useTrackedDownloads } from "./use-tracked-downloads";
 
 export type IllustDownloadStatus = {
     job: DownloadJob | null;
@@ -9,10 +9,10 @@ export type IllustDownloadStatus = {
 };
 
 export function useIllustDownloadStatus(illustId: number): IllustDownloadStatus {
-    const { jobs } = useDownloads();
+    const { tracked } = useTrackedDownloads();
     return useMemo(() => {
-        // jobs are sorted desc by created_at in the provider, so find() picks the most recent.
-        const job = jobs.find((j) => j.illust_id === illustId) ?? null;
+        // Map is keyed by illust_id and holds the most recent job per illust.
+        const job = tracked.get(illustId) ?? null;
         if (!job) return { job: null, active: false, percent: null };
         const active = ACTIVE_STATUSES.includes(job.status);
         if (!active) return { job, active: false, percent: null };
@@ -27,5 +27,5 @@ export function useIllustDownloadStatus(illustId: number): IllustDownloadStatus 
         }
         if (total <= 0) return { job, active: true, percent: null };
         return { job, active: true, percent: Math.min(1, downloaded / total) };
-    }, [jobs, illustId]);
+    }, [tracked, illustId]);
 }

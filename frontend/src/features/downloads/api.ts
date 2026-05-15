@@ -13,8 +13,40 @@ export function isTerminalStatus(s: DownloadStatus): boolean {
     return s === "completed" || s === "failed" || s === "cancelled";
 }
 
-export async function listDownloads(): Promise<{ data: DownloadJobList | null; error: DownloadApiError | null }> {
-    const { data, error } = await api.GET("/downloads");
+export type ListDownloadsQuery = {
+    status?: DownloadStatus | DownloadStatus[];
+    page?: number;
+    perPage?: number;
+    updatedSince?: Date;
+};
+
+function serializeStatus(s: ListDownloadsQuery["status"]): string | undefined {
+    if (!s) return undefined;
+    return Array.isArray(s) ? s.join(",") : s;
+}
+
+export async function listDownloads(
+    query: ListDownloadsQuery = {},
+): Promise<{ data: DownloadJobList | null; error: DownloadApiError | null }> {
+    const { data, error } = await api.GET("/downloads", {
+        params: {
+            query: {
+                status: serializeStatus(query.status),
+                page: query.page,
+                per_page: query.perPage,
+                updated_since: query.updatedSince?.toISOString(),
+            },
+        },
+    });
+    return { data: data ?? null, error: error ?? null };
+}
+
+export async function getDownload(
+    jobId: string,
+): Promise<{ data: DownloadJob | null; error: DownloadApiError | null }> {
+    const { data, error } = await api.GET("/downloads/{id}", {
+        params: { path: { id: jobId } },
+    });
     return { data: data ?? null, error: error ?? null };
 }
 

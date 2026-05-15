@@ -1,6 +1,6 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useDownloads, useIllustDownloadStatus } from "@/features/downloads";
+import { useDownloadMutations, useIllustDownloadStatus } from "@/features/downloads";
 import { CheckIcon, DownloadIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +16,7 @@ const RING_CIRCUM = 2 * Math.PI * RING_RADIUS;
 const INDETERMINATE_OFFSET = RING_CIRCUM * 0.75;
 
 function IllustDownloadButton({ illustId, className }: IllustDownloadButtonProps) {
-    const { submit } = useDownloads();
+    const { submit } = useDownloadMutations();
     const { job, active, percent } = useIllustDownloadStatus(illustId);
     const jobRef = useRef(job);
     jobRef.current = job;

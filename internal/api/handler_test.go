@@ -87,6 +87,58 @@ func TestClassify_DownloadConflictErrorsMapTo409(t *testing.T) {
 	}
 }
 
+func TestParseStatusList(t *testing.T) {
+	str := func(s string) *string { return &s }
+
+	cases := []struct {
+		name    string
+		in      *string
+		want    []download.Status
+		wantErr bool
+	}{
+		{"nil", nil, nil, false},
+		{"empty string", str(""), nil, false},
+		{"whitespace-only csv", str(" , ,"), nil, false},
+		{"single", str("queued"), []download.Status{download.StatusQueued}, false},
+		{
+			"all five",
+			str("queued,running,completed,failed,cancelled"),
+			[]download.Status{
+				download.StatusQueued,
+				download.StatusRunning,
+				download.StatusCompleted,
+				download.StatusFailed,
+				download.StatusCancelled,
+			},
+			false,
+		},
+		{"with spaces", str(" queued , running "), []download.Status{download.StatusQueued, download.StatusRunning}, false},
+		{"unknown value", str("queued,bogus"), nil, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := parseStatusList(c.in)
+			if c.wantErr {
+				if err == nil {
+					t.Fatalf("want error, got nil; result=%v", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(got) != len(c.want) {
+				t.Fatalf("len: want %d, got %d (%v)", len(c.want), len(got), got)
+			}
+			for i := range got {
+				if got[i] != c.want[i] {
+					t.Errorf("[%d]: want %q, got %q", i, c.want[i], got[i])
+				}
+			}
+		})
+	}
+}
+
 // Guard against future refactors that drop the io import / stop
 // treating Decoder errors specifically.
 func TestClassify_ReaderAtEOF(t *testing.T) {

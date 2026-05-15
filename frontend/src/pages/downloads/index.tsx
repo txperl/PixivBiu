@@ -1,10 +1,10 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Sheet } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
-import type { DownloadJob } from "@/features/downloads";
-import { useDownloads } from "@/features/downloads";
+import type { DownloadStatus } from "@/features/downloads";
+import { DOWNLOADS_PAGE_SIZE, useDownloadCounts, useDownloadsPage } from "@/features/downloads";
 import DownloadsPager from "@/features/downloads/components/downloads-pager";
 import DownloadsTable from "@/features/downloads/components/downloads-table";
 import { RefreshIcon } from "@/lib/icons";
@@ -12,8 +12,6 @@ import { patchParams, readPage } from "@/lib/url-params";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "active" | "done" | "failed";
-
-const PAGE_SIZE = 20;
 
 const FILTERS: { key: Filter; label: string }[] = [
     { key: "all", label: "全部" },
@@ -24,11 +22,13 @@ const FILTERS: { key: Filter; label: string }[] = [
 
 const VALID_FILTERS = new Set<Filter>(FILTERS.map((f) => f.key));
 
-const FILTER_PREDICATES: Record<Filter, (job: DownloadJob) => boolean> = {
-    all: () => true,
-    active: (j) => j.status === "queued" || j.status === "running",
-    done: (j) => j.status === "completed",
-    failed: (j) => j.status === "failed" || j.status === "cancelled",
+// Maps the UI's filter buckets to the backend's status enum. "all" is
+// undefined: no status query → server returns every job.
+const FILTER_STATUSES: Record<Filter, DownloadStatus[] | undefined> = {
+    all: undefined,
+    active: ["queued", "running"],
+    done: ["completed"],
+    failed: ["failed", "cancelled"],
 };
 
 const EMPTY_MESSAGE: Record<Filter, string> = {
@@ -48,7 +48,6 @@ function DownloadsEmpty({ filter }: { filter: Filter }) {
 }
 
 function DownloadsPage() {
-    const { jobs, activeCount, doneCount, refresh, initialLoaded } = useDownloads();
     const [searchParams, setSearchParams] = useSearchParams();
     const [refreshing, setRefreshing] = useState(false);
 
@@ -56,16 +55,19 @@ function DownloadsPage() {
     const filter: Filter = filterParam && VALID_FILTERS.has(filterParam) ? filterParam : "all";
     const requestedPage = readPage(searchParams);
 
-    const filtered = useMemo(() => jobs.filter(FILTER_PREDICATES[filter]), [jobs, filter]);
-    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-    const currentPage = Math.min(Math.max(1, requestedPage), totalPages);
-    const pageJobs = useMemo(
-        () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-        [filtered, currentPage],
-    );
+    const { items, total, isLoading, refetch } = useDownloadsPage({
+        status: FILTER_STATUSES[filter],
+        page: requestedPage,
+    });
+    const { activeCount, doneCount } = useDownloadCounts();
 
+    const totalPages = Math.max(1, Math.ceil(total / DOWNLOADS_PAGE_SIZE));
+    const currentPage = Math.min(Math.max(1, requestedPage), totalPages);
+
+    // Reflect server-side clamping back into the URL: if requestedPage is
+    // out of range (e.g. items were removed), navigate to a valid page.
     useEffect(() => {
-        if (!initialLoaded) return;
+        if (isLoading) return;
         if (requestedPage === currentPage) return;
         setSearchParams(
             (sp) =>
@@ -74,9 +76,10 @@ function DownloadsPage() {
                 }),
             { replace: true },
         );
-    }, [initialLoaded, requestedPage, currentPage, setSearchParams]);
+    }, [isLoading, requestedPage, currentPage, setSearchParams]);
 
     const handleFilterChange = (next: Filter) => {
+        // resetPage=true: switching filters always lands on page 1.
         setSearchParams(patchParams(searchParams, { filter: next === "all" ? undefined : next }, true));
     };
 
@@ -91,7 +94,7 @@ function DownloadsPage() {
     const onRefresh = async () => {
         if (refreshing) return;
         setRefreshing(true);
-        await refresh();
+        await refetch();
         setRefreshing(false);
     };
 
@@ -128,14 +131,14 @@ function DownloadsPage() {
             </div>
 
             <Sheet>
-                {!initialLoaded ? (
+                {isLoading ? (
                     <div className="px-[18px] py-16 text-center text-muted-foreground text-sm">加载中…</div>
                 ) : (
-                    <DownloadsTable jobs={pageJobs} empty={<DownloadsEmpty filter={filter} />} />
+                    <DownloadsTable jobs={items} empty={<DownloadsEmpty filter={filter} />} />
                 )}
             </Sheet>
 
-            {initialLoaded && totalPages > 1 && (
+            {!isLoading && totalPages > 1 && (
                 <DownloadsPager currentPage={currentPage} totalPages={totalPages} onJump={handleJump} />
             )}
         </div>
