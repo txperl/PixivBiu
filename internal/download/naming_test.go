@@ -27,9 +27,9 @@ func mustRender(t *testing.T, tmpl *template.Template, ctx NameContext) string {
 	return out
 }
 
-func mustRenderRoot(t *testing.T, tmpl *template.Template, ctx NameContext) string {
+func mustRenderRoot(t *testing.T, tmpl *template.Template, baseDir string, ctx NameContext) string {
 	t.Helper()
-	r := &Renderer{OutputDir: tmpl}
+	r := &Renderer{OutputDir: tmpl, BaseDir: baseDir}
 	out, err := r.RenderRootPath(tmpl, ctx)
 	if err != nil {
 		t.Fatalf("render root: %v", err)
@@ -133,7 +133,7 @@ func TestRenderRelativePath_LeadingSlashNormalisedToRelative(t *testing.T) {
 
 func TestRenderRootPath_PreservesPosixAbsolute(t *testing.T) {
 	tmpl := mustParse(t, "root", `/mnt/pixiv/{{.Title}}`)
-	out := mustRenderRoot(t, tmpl, NameContext{Title: "Work"})
+	out := mustRenderRoot(t, tmpl, "", NameContext{Title: "Work"})
 	want := "/mnt/pixiv/Work"
 	if out != want {
 		t.Errorf("absolute root lost: want %q, got %q", want, out)
@@ -142,20 +142,46 @@ func TestRenderRootPath_PreservesPosixAbsolute(t *testing.T) {
 
 func TestRenderRootPath_HomeAnchorSurvives(t *testing.T) {
 	tmpl := mustParse(t, "root", `{{.Home}}/Downloads`)
-	out := mustRenderRoot(t, tmpl, NameContext{Home: "/Users/someone"})
+	out := mustRenderRoot(t, tmpl, "", NameContext{Home: "/Users/someone"})
 	want := "/Users/someone/Downloads"
 	if out != want {
 		t.Errorf(".Home anchor lost: want %q, got %q", want, out)
 	}
 }
 
-func TestRenderRootPath_RelativeStaysRelative(t *testing.T) {
+func TestRenderRootPath_RelativeStaysRelativeWithoutBaseDir(t *testing.T) {
 	tmpl := mustParse(t, "root", `./downloads/{{.Title}}`)
-	out := mustRenderRoot(t, tmpl, NameContext{Title: "Work"})
-	// "./" -> "." segment is skipped; result is a relative path.
+	out := mustRenderRoot(t, tmpl, "", NameContext{Title: "Work"})
 	want := "downloads" + string(filepathSep()) + "Work"
 	if out != want {
 		t.Errorf("relative root mangled: want %q, got %q", want, out)
+	}
+}
+
+func TestRenderRootPath_RelativeResolvedAgainstBaseDir(t *testing.T) {
+	tmpl := mustParse(t, "root", `./downloads/{{.Title}}`)
+	out := mustRenderRoot(t, tmpl, "/opt/pixiv", NameContext{Title: "Work"})
+	want := "/opt/pixiv/downloads/Work"
+	if out != want {
+		t.Errorf("relative root should anchor to BaseDir: want %q, got %q", want, out)
+	}
+}
+
+func TestRenderRootPath_AbsoluteUntouchedWhenBaseDirSet(t *testing.T) {
+	tmpl := mustParse(t, "root", `/mnt/pixiv/{{.Title}}`)
+	out := mustRenderRoot(t, tmpl, "/opt/pixiv", NameContext{Title: "Work"})
+	want := "/mnt/pixiv/Work"
+	if out != want {
+		t.Errorf("absolute root must ignore BaseDir: want %q, got %q", want, out)
+	}
+}
+
+func TestRenderRootPath_HomeAnchoredTemplateUntouchedWhenBaseDirSet(t *testing.T) {
+	tmpl := mustParse(t, "root", `{{.Home}}/Downloads`)
+	out := mustRenderRoot(t, tmpl, "/opt/pixiv", NameContext{Home: "/Users/someone"})
+	want := "/Users/someone/Downloads"
+	if out != want {
+		t.Errorf("{{.Home}}-anchored template must ignore BaseDir: want %q, got %q", want, out)
 	}
 }
 
@@ -164,7 +190,7 @@ func TestRenderRootPath_BareRootIsLegal(t *testing.T) {
 	// under filesystem root). It must not error like RenderRelativePath
 	// does on empty cleaned-segment lists.
 	tmpl := mustParse(t, "root", `/`)
-	out := mustRenderRoot(t, tmpl, NameContext{})
+	out := mustRenderRoot(t, tmpl, "", NameContext{})
 	if out != "/" {
 		t.Errorf("bare root: want %q, got %q", "/", out)
 	}
@@ -175,7 +201,7 @@ func TestRenderRootPath_WindowsDriveLetter(t *testing.T) {
 		t.Skip("windows drive letter parsing only meaningful on Windows")
 	}
 	tmpl := mustParse(t, "root", `C:\pixiv\{{.Title}}`)
-	out := mustRenderRoot(t, tmpl, NameContext{Title: "Work"})
+	out := mustRenderRoot(t, tmpl, "", NameContext{Title: "Work"})
 	want := `C:\pixiv\Work`
 	if out != want {
 		t.Errorf("drive-letter root lost: want %q, got %q", want, out)
@@ -313,6 +339,54 @@ func TestResolveCollisionPair_FinalTakenForcesBump(t *testing.T) {
 	gotBase, gotAlt := resolveCollisionPairWith("/dl/a.webp", ".zip", nil, exists)
 	if gotBase != "/dl/a (1).webp" || gotAlt != "/dl/a (1).zip" {
 		t.Errorf("want (a (1).webp, a (1).zip), got (%q, %q)", gotBase, gotAlt)
+	}
+}
+
+func TestResolveExecRoot_GoBuildTempFallsBackToCWD(t *testing.T) {
+	cases := []struct {
+		name string
+		exe  string
+		cwd  string
+		want string
+	}{
+		{
+			name: "go-run temp dir falls back to cwd",
+			exe:  "/var/folders/xx/T/go-build123456789/b001/exe/server",
+			cwd:  "/home/me/proj",
+			want: "/home/me/proj",
+		},
+		{
+			name: "installed binary keeps exec dir",
+			exe:  "/usr/local/bin/pixivbiu",
+			cwd:  "/elsewhere",
+			want: "/usr/local/bin",
+		},
+		{
+			name: "repo-built binary keeps exec dir",
+			exe:  "/home/me/proj/bin/pixivbiu",
+			cwd:  "/anywhere",
+			want: "/home/me/proj/bin",
+		},
+		{
+			name: "go-build-prefixed install path keeps exec dir",
+			exe:  "/opt/go-builds/pixivbiu/bin/pixivbiu",
+			cwd:  "/anywhere",
+			want: "/opt/go-builds/pixivbiu/bin",
+		},
+		{
+			name: "bare go-build path component keeps exec dir",
+			exe:  "/home/me/.cache/go-build/binaries/pixivbiu",
+			cwd:  "/anywhere",
+			want: "/home/me/.cache/go-build/binaries",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := resolveExecRoot(c.exe, c.cwd)
+			if got != c.want {
+				t.Errorf("resolveExecRoot(%q, %q) = %q, want %q", c.exe, c.cwd, got, c.want)
+			}
+		})
 	}
 }
 

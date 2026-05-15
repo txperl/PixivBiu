@@ -32,6 +32,8 @@ type Manager struct {
 	pub      *Publisher
 	renderer *Renderer
 	client   *http.Client
+	execRoot string
+	homeDir  string
 
 	mu   sync.RWMutex
 	jobs map[string]*Job
@@ -59,7 +61,8 @@ func NewManager(
 	store *Store,
 	pub *Publisher,
 ) (*Manager, error) {
-	renderer, err := NewRenderer(cfg)
+	execRoot := ExecRoot()
+	renderer, err := NewRenderer(cfg, execRoot)
 	if err != nil {
 		return nil, fmt.Errorf("build renderer: %w", err)
 	}
@@ -87,6 +90,8 @@ func NewManager(
 		pub:      pub,
 		renderer: renderer,
 		client:   client,
+		execRoot: execRoot,
+		homeDir:  HomeDir(),
 		jobs:     jobs,
 		queue:    make(chan *Task, qSize),
 	}
@@ -415,8 +420,8 @@ func (m *Manager) Submit(ctx context.Context, illustID int64) (*Job, error) {
 		UserName:  Sanitize(info.User.Name),
 		CreatedAt: parsePixivTime(info.CreateDate),
 		Now:       now.Local(),
-		Home:      HomeDir(),
-		Root:      ExecRoot(),
+		Home:      m.homeDir,
+		Root:      m.execRoot,
 	}
 
 	switch illustType {

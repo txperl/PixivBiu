@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -39,16 +40,22 @@ type NameContext struct {
 // Renderer holds pre-parsed templates. Build it once at startup from
 // DownloadConfig so that bad template syntax fails the server boot
 // rather than surfacing mid-download.
+//
+// BaseDir anchors a relative `output_dir` so the on-disk write path
+// does not drift with the process CWD. Empty BaseDir leaves relative
+// paths unresolved.
 type Renderer struct {
 	OutputDir *template.Template
 	FileName  *template.Template
 	FileGroup *template.Template
+	BaseDir   string
 }
 
 // NewRenderer parses all three templates with the shared funcmap.
 // Any parse error short-circuits and identifies which template is
-// broken so operators can fix config.yaml quickly.
-func NewRenderer(cfg config.DownloadConfig) (*Renderer, error) {
+// broken so operators can fix config.yaml quickly. baseDir anchors a
+// relative `output_dir`; pass ExecRoot() in production.
+func NewRenderer(cfg config.DownloadConfig, baseDir string) (*Renderer, error) {
 	fm := funcMap()
 	out, err := template.New("output_dir").Funcs(fm).Parse(cfg.OutputDir)
 	if err != nil {
@@ -62,7 +69,7 @@ func NewRenderer(cfg config.DownloadConfig) (*Renderer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse file_group_template: %w", err)
 	}
-	return &Renderer{OutputDir: out, FileName: file, FileGroup: group}, nil
+	return &Renderer{OutputDir: out, FileName: file, FileGroup: group, BaseDir: baseDir}, nil
 }
 
 // RenderRelativePath executes `tmpl` against ctx and returns a cleaned,
@@ -120,7 +127,11 @@ func (r *Renderer) RenderRootPath(tmpl *template.Template, ctx NameContext) (str
 	if anchored {
 		joined = "/" + joined
 	}
-	return filepath.FromSlash(volume + joined), nil
+	result := filepath.FromSlash(volume + joined)
+	if r.BaseDir != "" && !filepath.IsAbs(result) {
+		result = filepath.Join(r.BaseDir, result)
+	}
+	return result, nil
 }
 
 // executeTemplate runs tmpl and wraps errors with the template name.
@@ -433,11 +444,37 @@ func HomeDir() string {
 }
 
 // ExecRoot returns the directory of the running executable, or "."
-// on error. Populates NameContext.Root.
+// on error. Populates NameContext.Root and anchors a relative
+// download.output_dir.
+//
+// `go run` places the built binary under a `go-build*` temp directory
+// that the toolchain wipes on process exit. Anchoring downloads there
+// would silently destroy dev-mode artefacts and leave the persisted
+// store pointing at missing files, so we detect that layout and fall
+// back to the process CWD (which under `make dev` is the repo root).
 func ExecRoot() string {
 	exe, err := os.Executable()
 	if err != nil {
 		return "."
 	}
-	return filepath.Dir(exe)
+	cwd, cwdErr := os.Getwd()
+	if cwdErr != nil {
+		cwd = "."
+	}
+	return resolveExecRoot(exe, cwd)
+}
+
+// goBuildTempRE matches Go's temp-build directory segment:
+// `os.MkdirTemp(..., "go-build")` produces `go-build` + decimal digits.
+// Anchoring on the bare prefix would catch install paths like
+// `/opt/go-builds/...`; requiring the digit suffix scopes us to the
+// real toolchain layout.
+var goBuildTempRE = regexp.MustCompile(`(^|/)go-build[0-9]+(/|$)`)
+
+func resolveExecRoot(exe, cwd string) string {
+	dir := filepath.Dir(exe)
+	if goBuildTempRE.MatchString(filepath.ToSlash(dir)) {
+		return cwd
+	}
+	return dir
 }
