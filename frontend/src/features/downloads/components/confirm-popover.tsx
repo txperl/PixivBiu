@@ -20,8 +20,8 @@ function ConfirmPopover({
     body,
     confirmLabel,
     danger,
-    side = "top",
-    align = "end",
+    side,
+    align,
     contentClassName,
     wrapTrigger,
     onConfirm,
@@ -44,12 +44,7 @@ function ConfirmPopover({
     return (
         <Popover open={open} onOpenChange={setOpen}>
             {wrapTrigger ? wrapTrigger(popoverTrigger) : popoverTrigger}
-            <PopoverContent
-                side={side}
-                align={align}
-                sideOffset={6}
-                className={cn("w-auto min-w-56 gap-2 p-3", contentClassName)}
-            >
+            <PopoverContent side={side} align={align} sideOffset={6} className={cn(contentClassName)}>
                 <div className="text-foreground text-sm">{body}</div>
                 <div className="mt-1 flex justify-end gap-2">
                     <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={pending}>

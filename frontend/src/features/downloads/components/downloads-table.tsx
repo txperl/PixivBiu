@@ -6,7 +6,7 @@ import type { DownloadApiError, DownloadJob, DownloadStatus, DownloadTask } from
 import { isTerminalStatus, useDownloadMutations } from "@/features/downloads";
 import ActionIconButton from "@/features/downloads/components/action-icon-button";
 import { formatBytes, hueFromId } from "@/lib/format";
-import { ChevronDownIcon, ChevronRightIcon, CloseIcon, DeleteIcon, RefreshIcon } from "@/lib/icons";
+import { ChevronDownIcon, ChevronRightIcon, CloseIcon, DeleteIcon, RedoDotIcon, RefreshIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABEL: Record<DownloadStatus, string> = {
@@ -197,8 +197,8 @@ function JobRowInner({ job, compact, error, submitError, cancel, submit, remove 
                                         title="取消下载"
                                         onAction={() => cancel(job.id)}
                                         confirm={{
-                                            body: "取消将清除已下载的部分文件，确定吗？",
-                                            confirmLabel: "确定取消",
+                                            body: "将取消并删除已下载的部分文件，确定吗？",
+                                            confirmLabel: "确认",
                                             danger: true,
                                         }}
                                         error={error}
@@ -206,7 +206,7 @@ function JobRowInner({ job, compact, error, submitError, cancel, submit, remove 
                                 )}
                                 {job.status === "completed" && (
                                     <ActionIconButton
-                                        icon={RefreshIcon}
+                                        icon={RedoDotIcon}
                                         title="重新下载"
                                         onAction={async () => {
                                             await submit(job.illust_id);
@@ -220,7 +220,7 @@ function JobRowInner({ job, compact, error, submitError, cancel, submit, remove 
                                 )}
                                 {(job.status === "failed" || job.status === "cancelled") && (
                                     <ActionIconButton
-                                        icon={RefreshIcon}
+                                        icon={RedoDotIcon}
                                         title="重试"
                                         onAction={async () => {
                                             await submit(job.illust_id);
@@ -234,7 +234,7 @@ function JobRowInner({ job, compact, error, submitError, cancel, submit, remove 
                                         title="移除"
                                         onAction={() => remove(job.id)}
                                         confirm={{
-                                            body: "将从下载历史中移除此记录（已下载文件保留在磁盘）。",
+                                            body: "将移除此下载记录，已下载的文件会被保留。",
                                             confirmLabel: "移除",
                                         }}
                                         error={error}

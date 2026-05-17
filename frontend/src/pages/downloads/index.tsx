@@ -52,7 +52,7 @@ const CLEAR_STATUSES: Record<Exclude<Filter, "active">, DownloadStatus[]> = {
 };
 
 const CLEAR_LABEL: Record<Exclude<Filter, "active">, string> = {
-    all: "已终止的",
+    all: "已结束的",
     done: "已完成的",
     failed: "失败/取消的",
 };
@@ -78,7 +78,7 @@ function DownloadsPage() {
         status: FILTER_STATUSES[filter],
         page: requestedPage,
     });
-    const { activeCount, doneCount } = useDownloadCounts();
+    const { activeCount } = useDownloadCounts();
     const { clear } = useDownloadMutations();
     const [clearing, setClearing] = useState(false);
 
@@ -139,7 +139,7 @@ function DownloadsPage() {
             <header className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                 <h1 className="font-semibold text-5xl text-foreground">下载管理</h1>
                 <span className="font-mono text-muted-foreground text-xs">
-                    {activeCount} 进行 / {doneCount} 完成
+                    {activeCount} 进行 / {total} 全部
                 </span>
             </header>
 
@@ -163,12 +163,11 @@ function DownloadsPage() {
                 {filter !== "active" && clearableCount > 0 && (
                     <ConfirmPopover
                         trigger={
-                            <Button variant="ghost" size="sm" disabled={clearing}>
+                            <Button variant="ghost" size="icon-sm" disabled={clearing}>
                                 <HugeiconsIcon icon={DeleteIcon} />
-                                清空
                             </Button>
                         }
-                        body={`将从下载历史中移除所有 ${clearableCount} 条${CLEAR_LABEL[filter]}记录（已下载文件保留在磁盘）。`}
+                        body={`将清空 ${clearableCount} 条${CLEAR_LABEL[filter]}下载记录，已下载的文件会被保留。`}
                         confirmLabel="清空"
                         danger
                         onConfirm={onClear}
