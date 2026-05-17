@@ -5,6 +5,7 @@ byId:
     tags: [users]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
+      - $ref: '../openapi.yaml#/components/parameters/ClientModeQuery'
     responses:
       '200':
         description: User detail.
@@ -24,6 +25,7 @@ illusts:
       - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
       - $ref: '../openapi.yaml#/components/parameters/IllustTypeQuery'
       - $ref: '../openapi.yaml#/components/parameters/OffsetQuery'
+      - $ref: '../openapi.yaml#/components/parameters/ClientModeQuery'
     responses:
       '200':
         description: User illusts page.
@@ -47,6 +49,8 @@ bookmarks:
       - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
       - $ref: '../openapi.yaml#/components/parameters/RestrictQuery'
       - $ref: '../openapi.yaml#/components/parameters/MaxBookmarkIdQuery'
+      - $ref: '../openapi.yaml#/components/parameters/BookmarkTagQuery'
+      - $ref: '../openapi.yaml#/components/parameters/ClientModeQuery'
     responses:
       '200':
         description: Bookmarks page. `next_max_bookmark_id` is set when another page exists.

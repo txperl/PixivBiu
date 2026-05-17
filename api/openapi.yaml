@@ -115,6 +115,43 @@ components:
       required: false
       description: Illust type filter; both are returned when omitted (where supported).
       schema: { $ref: '#/components/schemas/IllustType' }
+    ClientModeQuery:
+      name: client_mode
+      in: query
+      required: false
+      description: |
+        Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
+        to apply the same policy filter as the official iOS client;
+        pass `none` to disable.
+      schema: { $ref: '#/components/schemas/ClientMode' }
+    DurationQuery:
+      name: duration
+      in: query
+      required: false
+      description: Time-window filter for search results.
+      schema: { $ref: '#/components/schemas/SearchDuration' }
+    ExcludeAiQuery:
+      name: exclude_ai
+      in: query
+      required: false
+      description: |
+        When true, exclude AI-generated works from search results
+        (Pixiv `search_ai_type=1`). Omit or set false to include them.
+      schema: { type: boolean }
+    BookmarkTagQuery:
+      name: tag
+      in: query
+      required: false
+      description: Restrict bookmarks to those tagged with this exact tag name.
+      schema: { type: string, minLength: 1 }
+    IncludeRankingIllustsQuery:
+      name: include_ranking_illusts
+      in: query
+      required: false
+      description: |
+        When false, omit the daily-ranking section Pixiv injects into the
+        recommended feed. Omit to keep Pixiv's default behaviour.
+      schema: { type: boolean }
     DownloadIdPath:
       name: id
       in: path
@@ -207,6 +244,19 @@ components:
     IllustType:
       type: string
       enum: [illust, manga]
+
+    ClientMode:
+      type: string
+      enum: [for_ios, none]
+      description: |
+        Pixiv `filter` knob — controls iOS-app-style content gating.
+        `for_ios` applies Pixiv's iOS-client policy filter; `none` disables
+        it. Named `client_mode` here to avoid collision with the generic
+        notion of "filtering".
+
+    SearchDuration:
+      type: string
+      enum: [within_last_day, within_last_week, within_last_month]
 
     RankingMode:
       type: string

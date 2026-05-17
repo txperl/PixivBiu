@@ -273,20 +273,20 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 | POST | `/auth/logout` | `logout` | Clears in-memory + on-disk state |
 | GET | `/auth/status` | `getAuthStatus` | `{authenticated, user_id?, user_name?, expires_at?}` |
 | GET | `/illusts/{id}` | `getIllust` | Illustration detail |
-| GET | `/illusts/ranking` | `listRanking` | Query: `mode`, `date`, `offset` |
-| GET | `/illusts/recommended` | `listRecommended` | Query: `type`, `offset` |
+| GET | `/illusts/ranking` | `listRanking` | Query: `mode`, `date`, `offset`, `client_mode` |
+| GET | `/illusts/recommended` | `listRecommended` | Query: `type`, `offset`, `client_mode`, `include_ranking_illusts` |
 | GET | `/illusts/following` | `listFollowingIllusts` | Query: `restrict`, `offset` |
 | GET | `/illusts/{id}/ugoira` | `getUgoiraMetadata` | Frame timing + zip URL |
 | PUT | `/illusts/{id}/bookmark` | `addBookmark` | Body: `{restrict?}`, 204 on success |
 | DELETE | `/illusts/{id}/bookmark` | `deleteBookmark` | 204 on success |
-| GET | `/users/{id}` | `getUser` | User profile detail (user + profile + publicity + workspace) |
-| GET | `/users/{id}/illusts` | `listUserIllusts` | Query: `type`, `offset` |
-| GET | `/users/{id}/bookmarks` | `listUserBookmarks` | Query: `restrict`, `max_bookmark_id` (cursor) |
+| GET | `/users/{id}` | `getUser` | User profile detail (user + profile + publicity + workspace). Query: `client_mode` |
+| GET | `/users/{id}/illusts` | `listUserIllusts` | Query: `type`, `offset`, `client_mode` |
+| GET | `/users/{id}/bookmarks` | `listUserBookmarks` | Query: `restrict`, `max_bookmark_id` (cursor), `tag`, `client_mode` |
 | GET | `/users/{id}/following` | `listUserFollowing` | Query: `restrict`, `offset` |
 | PUT | `/users/{id}/follow` | `addFollow` | Body: `{restrict?}`, 204 on success |
 | DELETE | `/users/{id}/follow` | `deleteFollow` | 204 on success |
-| GET | `/search/illusts` | `searchIllusts` | Query: `word` (required), `search_target`, `sort`, `offset` |
-| GET | `/search/users` | `searchUsers` | Query: `word` (required), `offset` |
+| GET | `/search/illusts` | `searchIllusts` | Query: `word` (required), `search_target`, `sort`, `start_date`, `end_date`, `duration`, `exclude_ai`, `offset`, `client_mode` |
+| GET | `/search/users` | `searchUsers` | Query: `word` (required), `sort`, `duration`, `offset`, `client_mode` |
 | POST | `/downloads` | `submitDownload` | Body: `{illust_id}`. 202 + `DownloadJob`. Routes by illust type. |
 | GET | `/downloads` | `listDownloads` | Server-paginated, newest-first. Query: `status` (CSV), `page`, `per_page`, `updated_since`. Response carries `jobs[] + total + active_count + done_count`. |
 | GET | `/downloads/{id}` | `getDownload` | Single job |

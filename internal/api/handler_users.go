@@ -11,13 +11,14 @@ import (
 	"github.com/txperl/PixivBiu/internal/pixiv"
 )
 
-func (h *APIHandler) GetUser(w http.ResponseWriter, r *http.Request, id UserIdPath) {
+func (h *APIHandler) GetUser(w http.ResponseWriter, r *http.Request, id UserIdPath, params GetUserParams) {
 	if err := h.requireAuth(); err != nil {
 		h.writeError(w, r, err)
 		return
 	}
 	resp, err := h.svc.Client().UserDetail(r.Context(), pixivgo.UserDetailParams{
 		UserID: int(id),
+		Filter: pixivgo.Filter(derefEnum(params.ClientMode)),
 	})
 	if err != nil {
 		h.writeError(w, r, err)
@@ -39,6 +40,7 @@ func (h *APIHandler) ListUserIllusts(w http.ResponseWriter, r *http.Request, id 
 	resp, err := h.svc.Client().UserIllusts(r.Context(), pixivgo.UserIllustsParams{
 		UserID: int(id),
 		Type:   pixivgo.IllustType(derefEnum(params.Type)),
+		Filter: pixivgo.Filter(derefEnum(params.ClientMode)),
 		Offset: i64OptToIntOpt(params.Offset),
 	})
 	if err != nil {
@@ -60,7 +62,9 @@ func (h *APIHandler) ListUserBookmarks(w http.ResponseWriter, r *http.Request, i
 	resp, err := h.svc.Client().UserBookmarksIllust(r.Context(), pixivgo.UserBookmarksIllustParams{
 		UserID:        int(id),
 		Restrict:      pixivgo.Restrict(derefEnum(params.Restrict)),
+		Filter:        pixivgo.Filter(derefEnum(params.ClientMode)),
 		MaxBookmarkID: i64OptToIntOpt(params.MaxBookmarkId),
+		Tag:           params.Tag,
 	})
 	if err != nil {
 		h.writeError(w, r, err)

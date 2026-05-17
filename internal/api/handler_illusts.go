@@ -48,6 +48,7 @@ func (h *APIHandler) ListRanking(w http.ResponseWriter, r *http.Request, params 
 	}
 	resp, err := h.svc.Client().IllustRanking(r.Context(), pixivgo.IllustRankingParams{
 		Mode:   pixivgo.RankingMode(derefEnum(params.Mode)),
+		Filter: pixivgo.Filter(derefEnum(params.ClientMode)),
 		Date:   params.Date,
 		Offset: i64OptToIntOpt(params.Offset),
 	})
@@ -64,8 +65,10 @@ func (h *APIHandler) ListRecommended(w http.ResponseWriter, r *http.Request, par
 		return
 	}
 	resp, err := h.svc.Client().IllustRecommended(r.Context(), pixivgo.IllustRecommendedParams{
-		ContentType: pixivgo.IllustType(derefEnum(params.Type)),
-		Offset:      i64OptToIntOpt(params.Offset),
+		ContentType:           pixivgo.IllustType(derefEnum(params.Type)),
+		Filter:                pixivgo.Filter(derefEnum(params.ClientMode)),
+		IncludeRankingIllusts: params.IncludeRankingIllusts,
+		Offset:                i64OptToIntOpt(params.Offset),
 	})
 	if err != nil {
 		h.writeError(w, r, err)

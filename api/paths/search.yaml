@@ -17,7 +17,20 @@ illusts:
         in: query
         required: false
         schema: { $ref: '../openapi.yaml#/components/schemas/SearchSort' }
+      - name: start_date
+        in: query
+        required: false
+        description: Lower bound `YYYY-MM-DD` for creation date.
+        schema: { type: string, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }
+      - name: end_date
+        in: query
+        required: false
+        description: Upper bound `YYYY-MM-DD` for creation date.
+        schema: { type: string, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' }
+      - $ref: '../openapi.yaml#/components/parameters/DurationQuery'
+      - $ref: '../openapi.yaml#/components/parameters/ExcludeAiQuery'
       - $ref: '../openapi.yaml#/components/parameters/OffsetQuery'
+      - $ref: '../openapi.yaml#/components/parameters/ClientModeQuery'
     responses:
       '200':
         description: Search results page.
@@ -39,7 +52,13 @@ users:
         in: query
         required: true
         schema: { type: string, minLength: 1 }
+      - name: sort
+        in: query
+        required: false
+        schema: { $ref: '../openapi.yaml#/components/schemas/SearchSort' }
+      - $ref: '../openapi.yaml#/components/parameters/DurationQuery'
       - $ref: '../openapi.yaml#/components/parameters/OffsetQuery'
+      - $ref: '../openapi.yaml#/components/parameters/ClientModeQuery'
     responses:
       '200':
         description: User search results.

@@ -457,6 +457,14 @@ export interface components {
             removed: number;
         };
         /**
+         * @description Pixiv `filter` knob — controls iOS-app-style content gating.
+         *     `for_ios` applies Pixiv's iOS-client policy filter; `none` disables
+         *     it. Named `client_mode` here to avoid collision with the generic
+         *     notion of "filtering".
+         * @enum {string}
+         */
+        ClientMode: "for_ios" | "none";
+        /**
          * @description Pixiv artwork type the job was created for.
          * @enum {string}
          */
@@ -708,25 +716,14 @@ export interface components {
             region: string;
         };
         /** @enum {string} */
-        RankingMode:
-            | "day"
-            | "week"
-            | "month"
-            | "day_male"
-            | "day_female"
-            | "week_original"
-            | "week_rookie"
-            | "day_manga"
-            | "day_r18"
-            | "day_male_r18"
-            | "day_female_r18"
-            | "week_r18"
-            | "week_r18g";
+        RankingMode: "day" | "week" | "month" | "day_male" | "day_female" | "week_original" | "week_rookie" | "day_manga" | "day_r18" | "day_male_r18" | "day_female_r18" | "week_r18" | "week_r18g";
         /**
          * @default public
          * @enum {string}
          */
         Restrict: "public" | "private";
+        /** @enum {string} */
+        SearchDuration: "within_last_day" | "within_last_week" | "within_last_month";
         /**
          * @default date_desc
          * @enum {string}
@@ -865,6 +862,14 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Restrict bookmarks to those tagged with this exact tag name. */
+        BookmarkTagQuery: string;
+        /**
+         * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
+         *     to apply the same policy filter as the official iOS client;
+         *     pass `none` to disable.
+         */
+        ClientModeQuery: components["schemas"]["ClientMode"];
         /** @description Download job identifier returned by `POST /downloads`. */
         DownloadIdPath: string;
         /** @description 1-based page index. */
@@ -883,10 +888,22 @@ export interface components {
          *     window without scanning the whole history.
          */
         DownloadUpdatedSinceQuery: string;
+        /** @description Time-window filter for search results. */
+        DurationQuery: components["schemas"]["SearchDuration"];
+        /**
+         * @description When true, exclude AI-generated works from search results
+         *     (Pixiv `search_ai_type=1`). Omit or set false to include them.
+         */
+        ExcludeAiQuery: boolean;
         /** @description Pixiv illustration ID. */
         IllustIdPath: number;
         /** @description Illust type filter; both are returned when omitted (where supported). */
         IllustTypeQuery: components["schemas"]["IllustType"];
+        /**
+         * @description When false, omit the daily-ranking section Pixiv injects into the
+         *     recommended feed. Omit to keep Pixiv's default behaviour.
+         */
+        IncludeRankingIllustsQuery: boolean;
         /** @description Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response. */
         MaxBookmarkIdQuery: number;
         /** @description Offset for offset-paginated list endpoints. */
@@ -1216,6 +1233,12 @@ export interface operations {
                 date?: string;
                 /** @description Offset for offset-paginated list endpoints. */
                 offset?: components["parameters"]["OffsetQuery"];
+                /**
+                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
+                 *     to apply the same policy filter as the official iOS client;
+                 *     pass `none` to disable.
+                 */
+                client_mode?: components["parameters"]["ClientModeQuery"];
             };
             header?: never;
             path?: never;
@@ -1243,6 +1266,17 @@ export interface operations {
                 type?: components["parameters"]["IllustTypeQuery"];
                 /** @description Offset for offset-paginated list endpoints. */
                 offset?: components["parameters"]["OffsetQuery"];
+                /**
+                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
+                 *     to apply the same policy filter as the official iOS client;
+                 *     pass `none` to disable.
+                 */
+                client_mode?: components["parameters"]["ClientModeQuery"];
+                /**
+                 * @description When false, omit the daily-ranking section Pixiv injects into the
+                 *     recommended feed. Omit to keep Pixiv's default behaviour.
+                 */
+                include_ranking_illusts?: components["parameters"]["IncludeRankingIllustsQuery"];
             };
             header?: never;
             path?: never;
@@ -1387,8 +1421,25 @@ export interface operations {
                 word: string;
                 search_target?: components["schemas"]["SearchTarget"];
                 sort?: components["schemas"]["SearchSort"];
+                /** @description Lower bound `YYYY-MM-DD` for creation date. */
+                start_date?: string;
+                /** @description Upper bound `YYYY-MM-DD` for creation date. */
+                end_date?: string;
+                /** @description Time-window filter for search results. */
+                duration?: components["parameters"]["DurationQuery"];
+                /**
+                 * @description When true, exclude AI-generated works from search results
+                 *     (Pixiv `search_ai_type=1`). Omit or set false to include them.
+                 */
+                exclude_ai?: components["parameters"]["ExcludeAiQuery"];
                 /** @description Offset for offset-paginated list endpoints. */
                 offset?: components["parameters"]["OffsetQuery"];
+                /**
+                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
+                 *     to apply the same policy filter as the official iOS client;
+                 *     pass `none` to disable.
+                 */
+                client_mode?: components["parameters"]["ClientModeQuery"];
             };
             header?: never;
             path?: never;
@@ -1414,8 +1465,17 @@ export interface operations {
         parameters: {
             query: {
                 word: string;
+                sort?: components["schemas"]["SearchSort"];
+                /** @description Time-window filter for search results. */
+                duration?: components["parameters"]["DurationQuery"];
                 /** @description Offset for offset-paginated list endpoints. */
                 offset?: components["parameters"]["OffsetQuery"];
+                /**
+                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
+                 *     to apply the same policy filter as the official iOS client;
+                 *     pass `none` to disable.
+                 */
+                client_mode?: components["parameters"]["ClientModeQuery"];
             };
             header?: never;
             path?: never;
@@ -1439,7 +1499,14 @@ export interface operations {
     };
     GetUser: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
+                 *     to apply the same policy filter as the official iOS client;
+                 *     pass `none` to disable.
+                 */
+                client_mode?: components["parameters"]["ClientModeQuery"];
+            };
             header?: never;
             path: {
                 /** @description Pixiv user ID. */
@@ -1470,6 +1537,14 @@ export interface operations {
                 restrict?: components["parameters"]["RestrictQuery"];
                 /** @description Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response. */
                 max_bookmark_id?: components["parameters"]["MaxBookmarkIdQuery"];
+                /** @description Restrict bookmarks to those tagged with this exact tag name. */
+                tag?: components["parameters"]["BookmarkTagQuery"];
+                /**
+                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
+                 *     to apply the same policy filter as the official iOS client;
+                 *     pass `none` to disable.
+                 */
+                client_mode?: components["parameters"]["ClientModeQuery"];
             };
             header?: never;
             path: {
@@ -1572,6 +1647,12 @@ export interface operations {
                 type?: components["parameters"]["IllustTypeQuery"];
                 /** @description Offset for offset-paginated list endpoints. */
                 offset?: components["parameters"]["OffsetQuery"];
+                /**
+                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
+                 *     to apply the same policy filter as the official iOS client;
+                 *     pass `none` to disable.
+                 */
+                client_mode?: components["parameters"]["ClientModeQuery"];
             };
             header?: never;
             path: {
