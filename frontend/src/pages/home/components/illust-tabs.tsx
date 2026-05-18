@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import LeapyLoading from "@/components/series-leapy/leapy-loading";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuickActionPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
-import DownloadFAB from "@/features/downloads/components/download-fab";
 import {
     type Illust,
     type IllustApiError,
@@ -67,6 +67,12 @@ function HomeIllustTabs() {
     const versionRef = useRef<Record<TabId, number>>({ "for-you": 0, week: 0, follow: 0 });
     const state = states[activeTab];
     const currentIllustIds = state.status === "success" ? state.illusts.map((il) => il.id) : [];
+    useQuickActionPanel({
+        selected,
+        allIllustIds: currentIllustIds,
+        onReplaceSelection: replaceSelection,
+        onClearSelection: clearSelection,
+    });
 
     const replaceAll = useCallback((id: TabId) => {
         const version = ++versionRef.current[id];
@@ -193,12 +199,6 @@ function HomeIllustTabs() {
                         )}
                     </>
                 ))}
-            <DownloadFAB
-                selected={selected}
-                allIllustIds={currentIllustIds}
-                onReplaceSelection={replaceSelection}
-                onClearSelection={clearSelection}
-            />
         </section>
     );
 }

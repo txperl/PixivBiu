@@ -6,7 +6,7 @@ import type { DownloadApiError, DownloadJob, DownloadStatus, DownloadTask } from
 import { isTerminalStatus, useDownloadMutations } from "@/features/downloads";
 import ActionIconButton from "@/features/downloads/components/action-icon-button";
 import { formatBytes, hueFromId } from "@/lib/format";
-import { ChevronDownIcon, ChevronRightIcon, CloseIcon, DeleteIcon, RedoDotIcon, RefreshIcon } from "@/lib/icons";
+import { ChevronDownIcon, ChevronRightIcon, CloseIcon, DeleteIcon, RedoDotIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABEL: Record<DownloadStatus, string> = {

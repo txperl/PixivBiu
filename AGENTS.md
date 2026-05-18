@@ -72,7 +72,7 @@ PixivBiu-go/
 │   │   ├── main.tsx              #   Entry — mounts <App />, imports global CSS
 │   │   ├── app/                  #   App shell: App.tsx + providers.tsx + router.tsx + layouts/{root-layout,root-sidebar}
 │   │   ├── pages/                #   Route-level shells (thin); folder-per-route — only compose features
-│   │   ├── features/             #   Domain modules: auth · illusts · users · search · ranking · downloads · events
+│   │   ├── features/             #   Domain modules: auth · illusts · users · search · ranking · downloads · events · activity-bar
 │   │   │                         #     each owns api.ts (calls openapi-fetch) + components/ + (optional) hooks/store/types
 │   │   ├── components/           #   Cross-feature shared UI; ui/ for shadcn primitives (don't put business UI here)
 │   │   ├── i18n/                 #   See i18n bullet above
@@ -170,14 +170,15 @@ The SPA consumes the same spec via [`openapi-typescript`](https://openapi-ts.dev
 
 #### Frontend SSE + Downloads
 
-- Provider order is fixed: `TooltipProvider → LocaleProvider → AuthProvider → EventStreamProvider → DownloadStateProvider`. `<EventStreamProvider>` opens the `EventSource` only while authenticated and tears it down on logout; subscribers register via `useEventStream().subscribe(topic, listener)` and survive open/close cycles. Use `useRefreshOnReconnect(fn)` from `features/events` for reconnect + `system.resync` refetches.
+- Provider order is fixed: `TooltipProvider → LocaleProvider → AuthProvider → EventStreamProvider → DownloadStateProvider → ActivityBarProvider`. `<EventStreamProvider>` opens the `EventSource` only while authenticated and tears it down on logout; subscribers register via `useEventStream().subscribe(topic, listener)` and survive open/close cycles. Use `useRefreshOnReconnect(fn)` from `features/events` for reconnect + `system.resync` refetches.
 - Download state is split across four focused hooks, all backed by `<DownloadStateProvider>` and SSE:
   - `useTrackedDownloads()` — `Map<illust_id, TrackedJob>` of active + 30-min-recent terminals (swept on a cadence).
   - `useDownloadCounts()` — global `{ activeCount, doneCount }`, driven by counts inlined into `download.job.*` events.
   - `useDownloadMutations()` — `{ submit, cancel, remove, clear, lastError }`; fire-and-forget, SSE drives state. `clear(statuses)` bulk-removes terminal jobs in `statuses`; pass `TERMINAL_STATUSES` from `features/downloads/api.ts` to wipe all terminals.
   - `useDownloadsPage({ status?, page })` — server-paginated state for the Downloads management page (`page_size = DOWNLOADS_PAGE_SIZE`). Local to each instance; `job.*` triggers debounced refetch, `task.*` patches in place. Use `useTrackedDownloads` for global views.
 - Only `download.job.*` events write `job.status` on the client; `download.task.*` events update task state only. Don't recompute `job.status` client-side — the backend re-publishes `job.*` whenever its aggregation rule says it should change.
-- For pages that show `IllustCard`s with batch-download support: pair `useIllustSelection()` (returns `{ selected, toggle, replaceSelection, clearSelection }`) with `<DownloadFAB selected allIllustIds onReplaceSelection onClearSelection />`, passing the currently visible illust ids as `allIllustIds`. Call `clearSelection()` inside the fetch effect so the selection resets when the underlying list changes.
+- For pages that show `IllustCard`s with batch-download support: pair `useIllustSelection()` (returns `{ selected, toggle, replaceSelection, clearSelection }`) with `useQuickActionPanel({ selected, allIllustIds, onReplaceSelection, onClearSelection })` from `@/features/activity-bar`, passing the currently visible illust ids as `allIllustIds`. Pass `null` to opt out. Call `clearSelection()` inside the fetch effect so the selection resets when the underlying list changes.
+- To add a new Activity Bar panel: write `features/activity-bar/items/<name>.ts` (id const + payload type + `use<Name>Panel` + `use<Name>Data`) and `panels/<name>-panel.tsx` (reads via `use<Name>Data`), then add the def to `ITEM_DEFS` in `items.ts`. Export only the typed `use<Name>Panel` / `use<Name>Data` from the barrel.
 - Per-illust download state in cards reads from `useIllustDownloadStatus(illustId)` → `{ job, active, percent }`; `IllustDownloadButton` already consumes it. `ACTIVE_STATUSES` from `features/downloads/api.ts` is the single source of "this job is in flight".
 - Reuse `<DownloadsTable jobs={...} compact?>` for any list rendering — `compact` hides the size + actions columns for tight layouts (the home-page sheet).
 - Use `<TooltipProvider>` from `@/components/ui/tooltip` for tooltips. Mounted at root with `delay={300}`. Keep `aria-label` on icon-only buttons.

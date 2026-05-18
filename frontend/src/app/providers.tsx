@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ActivityBarProvider } from "@/features/activity-bar";
 import { AuthProvider } from "@/features/auth";
 import { DownloadStateProvider } from "@/features/downloads";
 import { EventStreamProvider } from "@/features/events";
@@ -11,7 +12,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
             <LocaleProvider>
                 <AuthProvider>
                     <EventStreamProvider>
-                        <DownloadStateProvider>{children}</DownloadStateProvider>
+                        <DownloadStateProvider>
+                            <ActivityBarProvider>{children}</ActivityBarProvider>
+                        </DownloadStateProvider>
                     </EventStreamProvider>
                 </AuthProvider>
             </LocaleProvider>

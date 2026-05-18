@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
+import { useQuickActionPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
-import DownloadFAB from "@/features/downloads/components/download-fab";
 import {
     DEFAULT_RANKING_MODE,
     type IllustPage,
@@ -56,6 +56,12 @@ function RankingPage() {
     const [state, setState] = useState<FetchState<IllustPage>>({ status: "idle" });
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
     const currentIllustIds = state.status === "success" ? state.data.illusts.map((il) => il.id) : [];
+    useQuickActionPanel({
+        selected,
+        allIllustIds: currentIllustIds,
+        onReplaceSelection: replaceSelection,
+        onClearSelection: clearSelection,
+    });
 
     useEffect(() => {
         let cancelled = false;
@@ -121,13 +127,6 @@ function RankingPage() {
             {state.status === "success" && state.data.illusts.length > 0 && (
                 <SearchPager currentPage={page} hasNext={state.data.next_offset != null} onJump={onJumpPage} />
             )}
-
-            <DownloadFAB
-                selected={selected}
-                allIllustIds={currentIllustIds}
-                onReplaceSelection={replaceSelection}
-                onClearSelection={clearSelection}
-            />
         </div>
     );
 }

@@ -30,5 +30,6 @@ export {
     Settings03Icon as SettingsIcon,
     Tag01Icon as TagIcon,
     Tick02Icon as CheckIcon,
+    TriangleIcon,
     UserMultiple03Icon as FollowIcon,
 } from "@hugeicons/core-free-icons";

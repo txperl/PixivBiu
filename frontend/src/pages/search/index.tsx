@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuickActionPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
-import DownloadFAB from "@/features/downloads/components/download-fab";
 import {
     DEFAULT_SEARCH_SORT,
     DEFAULT_SEARCH_TARGET,
@@ -55,6 +55,16 @@ function SearchPage() {
     const [userState, setUserState] = useState<FetchState<UserPreviewPage>>({ status: "idle" });
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
     const currentIllustIds = illustState.status === "success" ? illustState.data.illusts.map((il) => il.id) : [];
+    useQuickActionPanel(
+        type === "illust"
+            ? {
+                  selected,
+                  allIllustIds: currentIllustIds,
+                  onReplaceSelection: replaceSelection,
+                  onClearSelection: clearSelection,
+              }
+            : null,
+    );
 
     useEffect(() => {
         clearSelection();
@@ -179,15 +189,6 @@ function SearchPage() {
                         <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />
                     )}
                 </>
-            )}
-
-            {type === "illust" && (
-                <DownloadFAB
-                    selected={selected}
-                    allIllustIds={currentIllustIds}
-                    onReplaceSelection={replaceSelection}
-                    onClearSelection={clearSelection}
-                />
             )}
         </div>
     );

@@ -5,9 +5,9 @@ import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuickActionPanel } from "@/features/activity-bar";
 import { useAuth } from "@/features/auth";
 import { useIllustSelection } from "@/features/downloads";
-import DownloadFAB from "@/features/downloads/components/download-fab";
 import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/illust-grid";
 import SearchPager from "@/features/search/components/search-pager";
 import { SearchError } from "@/features/search/components/search-states";
@@ -215,6 +215,16 @@ function UserPage() {
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
     const currentIllustIds =
         tabState.status === "success" && "illusts" in tabState.data ? tabState.data.illusts.map((il) => il.id) : [];
+    useQuickActionPanel(
+        tab !== "following"
+            ? {
+                  selected,
+                  allIllustIds: currentIllustIds,
+                  onReplaceSelection: replaceSelection,
+                  onClearSelection: clearSelection,
+              }
+            : null,
+    );
 
     // Pixiv paginates bookmarks by cursor (max_bookmark_id), built up by paging forward
     // from page 1. Public/private bookmark chains are independent — keep one map per
@@ -333,15 +343,6 @@ function UserPage() {
             <TabBody tab={tab} state={tabState} selected={selected} onToggle={toggle} />
 
             {tabState.status === "success" && <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />}
-
-            {tab !== "following" && (
-                <DownloadFAB
-                    selected={selected}
-                    allIllustIds={currentIllustIds}
-                    onReplaceSelection={replaceSelection}
-                    onClearSelection={clearSelection}
-                />
-            )}
         </div>
     );
 }
