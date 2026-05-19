@@ -11,7 +11,7 @@ type IllustGridProps = {
 function IllustGrid({ illusts, selected, onToggle }: IllustGridProps) {
     const selectMode = (selected?.size ?? 0) > 0;
     return (
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
             {illusts.map((il) => (
                 <IllustCard
                     key={il.id}
@@ -27,7 +27,7 @@ function IllustGrid({ illusts, selected, onToggle }: IllustGridProps) {
 
 export function IllustGridSkeleton() {
     return (
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
             {Array.from({ length: 15 }).map((_, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders
                 <div key={i} className="overflow-hidden rounded-2xl bg-card">
