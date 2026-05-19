@@ -20,7 +20,7 @@ type SheetHeadProps = {
 
 function SheetHead({ icon, title, meta, actions }: SheetHeadProps) {
     return (
-        <div className="flex items-center gap-3 px-[18px] py-3.5">
+        <div className="flex items-center gap-3 border-muted/40 border-b px-[18px] py-3">
             <div className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <HugeiconsIcon icon={icon} size={16} strokeWidth={1.5} />
             </div>

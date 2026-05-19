@@ -10,6 +10,7 @@ type UseDownloadsPageParams = {
     // Empty/undefined = no status filter.
     status?: DownloadStatus[];
     page: number;
+    perPage?: number;
 };
 
 export type UseDownloadsPageResult = {
@@ -31,7 +32,7 @@ const TASK_EVENT_STATUS: Record<string, DownloadStatus> = {
 // SSE task.* events patch items in place. State is local to each instance
 // (not shared via context), unlike useTrackedDownloads.
 export function useDownloadsPage(params: UseDownloadsPageParams): UseDownloadsPageResult {
-    const { status, page: requestedPage } = params;
+    const { status, page: requestedPage, perPage = DOWNLOADS_PAGE_SIZE } = params;
     const { subscribe } = useEventStream();
 
     const [items, setItems] = useState<DownloadJob[]>([]);
@@ -52,7 +53,7 @@ export function useDownloadsPage(params: UseDownloadsPageParams): UseDownloadsPa
         const { data } = await listDownloads({
             status: statusKey ? (statusKey.split(",") as DownloadStatus[]) : undefined,
             page: requestedPage,
-            perPage: DOWNLOADS_PAGE_SIZE,
+            perPage,
         });
         // Stale response (filter/page changed mid-flight).
         if (epoch !== fetchEpoch.current) return;
@@ -62,7 +63,7 @@ export function useDownloadsPage(params: UseDownloadsPageParams): UseDownloadsPa
         }
         setIsFetching(false);
         setIsLoading(false);
-    }, [statusKey, requestedPage]);
+    }, [statusKey, requestedPage, perPage]);
 
     useEffect(() => {
         void refetch();

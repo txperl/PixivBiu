@@ -23,7 +23,7 @@ import { SearchError } from "@/features/search/components/search-states";
 import { RefreshIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
-type TabId = "for-you" | "week" | "follow";
+export type TabId = "for-you" | "week" | "follow";
 
 type TabState =
     | { status: "idle" }
@@ -92,9 +92,13 @@ function toFreshSuccess(data: IllustPage): TabState {
     };
 }
 
-function HomeIllustTabs() {
+type HomeIllustTabsProps = {
+    activeTab: TabId;
+    onActiveTabChange: (id: TabId) => void;
+};
+
+function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
-    const [activeTab, setActiveTab] = useState<TabId>("for-you");
     const [forYou, setForYou] = useState<ForYouParams>(DEFAULT_FOR_YOU);
     const [follow, setFollow] = useState<FollowParams>(DEFAULT_FOLLOW);
     const [states, setStates] = useState<Record<TabId, TabState>>(INITIAL);
@@ -194,7 +198,7 @@ function HomeIllustTabs() {
     const handleTabChange = (v: string) => {
         if (v === activeTab) return;
         clearSelection();
-        setActiveTab(v as TabId);
+        onActiveTabChange(v as TabId);
     };
 
     const handleRefresh = () => {

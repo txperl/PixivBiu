@@ -1,23 +1,16 @@
-import { useMemo } from "react";
 import { NavLink } from "react-router";
 import { Sheet, SheetHead } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
-import { useDownloadCounts, useTrackedDownloads } from "@/features/downloads";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useDownloadCounts, useDownloadsPage } from "@/features/downloads";
 import DownloadsTable from "@/features/downloads/components/downloads-table";
 import { DownloadIcon } from "@/lib/icons";
 
-const RECENT_LIMIT = 5;
+const RECENT_LIMIT = 10;
 
-function DownloadsSheet() {
-    const { tracked } = useTrackedDownloads();
+function RecentDownloads() {
+    const { items } = useDownloadsPage({ page: 1, perPage: RECENT_LIMIT });
     const { activeCount, doneCount } = useDownloadCounts();
-    // Recent = the freshest jobs in the tracked map (active + 30min-old terminal).
-    // Sort by created_at desc since insertion order isn't authoritative.
-    const recent = useMemo(() => {
-        return Array.from(tracked.values())
-            .sort((a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0))
-            .slice(0, RECENT_LIMIT);
-    }, [tracked]);
 
     return (
         <Sheet>
@@ -33,9 +26,11 @@ function DownloadsSheet() {
                     </NavLink>
                 }
             />
-            <DownloadsTable jobs={recent} compact />
+            <ScrollArea className="h-[300px]">
+                <DownloadsTable jobs={items} compact />
+            </ScrollArea>
         </Sheet>
     );
 }
 
-export default DownloadsSheet;
+export default RecentDownloads;

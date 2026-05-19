@@ -99,6 +99,7 @@ function TaskRow({ task, compact }: { task: DownloadTask; compact: boolean }) {
 type JobRowProps = {
     job: DownloadJob;
     compact: boolean;
+    isFirst: boolean;
     error?: DownloadApiError;
     submitError?: DownloadApiError;
     cancel: (jobId: string) => Promise<void>;
@@ -106,7 +107,7 @@ type JobRowProps = {
     remove: (jobId: string) => Promise<void>;
 };
 
-function JobRowInner({ job, compact, error, submitError, cancel, submit, remove }: JobRowProps) {
+function JobRowInner({ job, compact, isFirst, error, submitError, cancel, submit, remove }: JobRowProps) {
     const [expanded, setExpanded] = useState(false);
     const { downloaded, total } = aggregateBytes(job.tasks);
     const pct = total > 0 ? Math.min(100, (downloaded / total) * 100) : job.status === "completed" ? 100 : 0;
@@ -117,7 +118,8 @@ function JobRowInner({ job, compact, error, submitError, cancel, submit, remove 
         <>
             <tr
                 className={cn(
-                    "border-muted/40 border-t transition-colors hover:bg-muted/30",
+                    "transition-colors hover:bg-muted/30",
+                    !isFirst && "border-muted/40 border-t",
                     error && "ring-1 ring-destructive/40 ring-inset",
                 )}
             >
@@ -277,24 +279,23 @@ function DownloadsTable({ jobs, empty, compact = false }: DownloadsTableProps) {
                     </>
                 )}
             </colgroup>
-            <thead>
-                <tr className="bg-muted/40 text-[11px] text-muted-foreground">
-                    <th className="px-[18px] py-2.5 text-left font-medium">作品</th>
-                    <th className="px-[18px] py-2.5 text-left font-medium">进度</th>
-                    {!compact && (
-                        <>
-                            <th className="px-[18px] py-2.5 text-right font-medium">大小</th>
-                            <th className="px-[18px] py-2.5 text-right font-medium">操作</th>
-                        </>
-                    )}
-                </tr>
-            </thead>
+            {!compact && (
+                <thead>
+                    <tr className="bg-muted/40 text-[11px] text-muted-foreground">
+                        <th className="px-[18px] py-2.5 text-left font-medium">作品</th>
+                        <th className="px-[18px] py-2.5 text-left font-medium">进度</th>
+                        <th className="px-[18px] py-2.5 text-right font-medium">大小</th>
+                        <th className="px-[18px] py-2.5 text-right font-medium">操作</th>
+                    </tr>
+                </thead>
+            )}
             <tbody>
-                {jobs.map((job) => (
+                {jobs.map((job, i) => (
                     <JobRow
                         key={job.id}
                         job={job}
                         compact={compact}
+                        isFirst={i === 0}
                         error={lastError[job.id]}
                         submitError={lastError[`submit:${job.illust_id}`]}
                         cancel={cancel}
