@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { useQuickActionPanel } from "@/features/activity-bar";
+import { useFilterPanel, useQuickActionPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
+import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
 import {
     DEFAULT_RANKING_MODE,
     type IllustPage,
@@ -55,13 +56,16 @@ function RankingPage() {
 
     const [state, setState] = useState<FetchState<IllustPage>>({ status: "idle" });
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
-    const currentIllustIds = state.status === "success" ? state.data.illusts.map((il) => il.id) : [];
+    const rawIllusts = state.status === "success" ? state.data.illusts : undefined;
+    const { filtered, totalBefore, totalAfter } = useFilteredIllusts(rawIllusts);
+    const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
     useQuickActionPanel({
         selected,
         allIllustIds: currentIllustIds,
         onReplaceSelection: replaceSelection,
         onClearSelection: clearSelection,
     });
+    useFilterPanel({ specialFilters: null, specialFiltersActive: false, totalBefore, totalAfter });
 
     useEffect(() => {
         let cancelled = false;
@@ -120,8 +124,10 @@ function RankingPage() {
             {state.status === "success" &&
                 (state.data.illusts.length === 0 ? (
                     <RankingEmpty date={date} />
+                ) : filtered.length === 0 ? (
+                    <FilteredEmpty totalBefore={totalBefore} />
                 ) : (
-                    <IllustGrid illusts={state.data.illusts} selected={selected} onToggle={toggle} />
+                    <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
                 ))}
 
             {state.status === "success" && state.data.illusts.length > 0 && (

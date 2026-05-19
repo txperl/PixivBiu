@@ -3,17 +3,13 @@ import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 
 import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { SEARCH_PARAM_KEYS } from "@/features/search/api";
 import { FilterIcon, GridIcon, SearchIcon } from "@/lib/icons";
 
 type SearchBarProps = {
     defaultValue?: string;
     autoFocus?: boolean;
 };
-
-// Submitting always navigates to /search/{keyword}; current search-page query
-// keys (type/target/sort) are preserved so users can refine the query in place.
-// `page` is intentionally dropped on a new keyword so we restart from page 1.
-const PRESERVED_QUERY_KEYS = ["type", "target", "sort"] as const;
 
 function SearchBar({ defaultValue = "", autoFocus = false }: SearchBarProps) {
     const navigate = useNavigate();
@@ -33,7 +29,7 @@ function SearchBar({ defaultValue = "", autoFocus = false }: SearchBarProps) {
         const trimmed = value.trim();
         if (!trimmed) return;
         const next = new URLSearchParams();
-        for (const k of PRESERVED_QUERY_KEYS) {
+        for (const k of SEARCH_PARAM_KEYS) {
             const v = searchParams.get(k);
             if (v) next.set(k, v);
         }

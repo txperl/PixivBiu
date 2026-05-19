@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useActivityItem, useActivityItemData } from "../use-activity-item";
 
 export const QUICK_ACTION_ID = "quickAction" as const;
@@ -36,6 +36,21 @@ export function useQuickActionPanel(args: QuickActionData | null) {
     }, [selected, stableIds, onReplaceSelection, onClearSelection]);
 
     useActivityItem(QUICK_ACTION_ID, payload);
+
+    // Enforce `selected ⊆ allIllustIds`. The visible set is the only universe a
+    // user can act on; ids that drift outside it would surface stale entries in
+    // batch actions and the selection count. Only stableIds-reference changes
+    // (filter, refetch) can introduce drift — toggles always add visible ids.
+    const lastIdsRef = useRef<readonly number[] | null>(null);
+    useEffect(() => {
+        if (lastIdsRef.current === stableIds) return;
+        lastIdsRef.current = stableIds;
+        if (!selected || selected.size === 0 || !onReplaceSelection) return;
+        const allowed = new Set(stableIds);
+        const next = Array.from(selected).filter((id) => allowed.has(id));
+        if (next.length === selected.size) return;
+        onReplaceSelection(next);
+    }, [selected, stableIds, onReplaceSelection]);
 }
 
 export function useQuickActionData(): QuickActionData | null {

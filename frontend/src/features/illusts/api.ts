@@ -9,6 +9,7 @@ export type IllustApiError = components["schemas"]["Error"];
 
 export type ListRecommendedParams = {
     type?: IllustType;
+    includeRankingIllusts?: boolean;
     offset?: number;
 };
 
@@ -19,6 +20,7 @@ export async function listRecommended(
         params: {
             query: {
                 type: params.type,
+                include_ranking_illusts: params.includeRankingIllusts,
                 offset: params.offset,
             },
         },

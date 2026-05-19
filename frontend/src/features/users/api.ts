@@ -39,6 +39,7 @@ export async function listUserIllusts(
 export type ListUserBookmarksParams = {
     userId: number;
     restrict?: Restrict;
+    tag?: string;
     maxBookmarkId?: number;
 };
 
@@ -48,7 +49,11 @@ export async function listUserBookmarks(
     const { data, error } = await api.GET("/users/{id}/bookmarks", {
         params: {
             path: { id: params.userId },
-            query: { restrict: params.restrict, max_bookmark_id: params.maxBookmarkId },
+            query: {
+                restrict: params.restrict,
+                tag: params.tag,
+                max_bookmark_id: params.maxBookmarkId,
+            },
         },
     });
     return { data: data ?? null, error: error ?? null };

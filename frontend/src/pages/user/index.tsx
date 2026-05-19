@@ -1,13 +1,15 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQuickActionPanel } from "@/features/activity-bar";
+import { useFilterPanel, useQuickActionPanel } from "@/features/activity-bar";
 import { useAuth } from "@/features/auth";
 import { useIllustSelection } from "@/features/downloads";
+import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
+import type { Illust } from "@/features/search/api";
 import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/illust-grid";
 import SearchPager from "@/features/search/components/search-pager";
 import { SearchError } from "@/features/search/components/search-states";
@@ -25,6 +27,7 @@ import {
     type UserPreviewPage,
 } from "@/features/users/api";
 import FollowButton from "@/features/users/components/follow-button";
+import UserBookmarksSpecialFilters from "@/features/users/components/user-bookmarks-special-filters";
 import type { FetchState } from "@/lib/fetch-state";
 import { formatCount, hueFromId } from "@/lib/format";
 import { patchParams, readPage } from "@/lib/url-params";
@@ -151,11 +154,17 @@ function NoResults({ tab }: { tab: Tab }) {
     );
 }
 
-function fetchTabData(tab: Tab, userId: number, page: number, cursor: number | undefined) {
+function fetchTabData(
+    tab: Tab,
+    userId: number,
+    page: number,
+    cursor: number | undefined,
+    bookmarkTag: string | undefined,
+) {
     const offset = (page - 1) * USER_PAGE_SIZE;
-    if (tab === "bookmarks") return listUserBookmarks({ userId, maxBookmarkId: cursor });
+    if (tab === "bookmarks") return listUserBookmarks({ userId, tag: bookmarkTag, maxBookmarkId: cursor });
     if (tab === "bookmarks_private") {
-        return listUserBookmarks({ userId, restrict: "private", maxBookmarkId: cursor });
+        return listUserBookmarks({ userId, restrict: "private", tag: bookmarkTag, maxBookmarkId: cursor });
     }
     if (tab === "following") return listUserFollowing({ userId, offset });
     return listUserIllusts({ userId, type: tab as UserIllustsType, offset });
@@ -171,11 +180,15 @@ function TabBody({
     state,
     selected,
     onToggle,
+    filteredIllusts,
+    totalBefore,
 }: {
     tab: Tab;
     state: FetchState<TabData>;
     selected: Set<number>;
     onToggle: (id: number) => void;
+    filteredIllusts: Illust[];
+    totalBefore: number;
 }) {
     if (state.status === "loading") {
         return tab === "following" ? <UserListSkeleton /> : <IllustGridSkeleton />;
@@ -187,11 +200,9 @@ function TabBody({
     if ("user_previews" in data) {
         return data.user_previews.length === 0 ? <NoResults tab={tab} /> : <UserList previews={data.user_previews} />;
     }
-    return data.illusts.length === 0 ? (
-        <NoResults tab={tab} />
-    ) : (
-        <IllustGrid illusts={data.illusts} selected={selected} onToggle={onToggle} />
-    );
+    if (data.illusts.length === 0) return <NoResults tab={tab} />;
+    if (filteredIllusts.length === 0) return <FilteredEmpty totalBefore={totalBefore} />;
+    return <IllustGrid illusts={filteredIllusts} selected={selected} onToggle={onToggle} />;
 }
 
 function UserPage() {
@@ -207,14 +218,19 @@ function UserPage() {
     const rawTab = readTab(searchParams);
     const tab: Tab = isOwnerOnlyTab(rawTab) && !isMe ? "bookmarks" : rawTab;
     const page = readPage(searchParams);
+    const bookmarkTag = searchParams.get("tag")?.trim() || "";
 
     const visibleTabs = TABS.filter((t) => !isOwnerOnlyTab(t) || isMe);
 
     const [profileState, setProfileState] = useState<FetchState<UserDetailPage>>({ status: "idle" });
     const [tabState, setTabState] = useState<FetchState<TabData>>({ status: "idle" });
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
-    const currentIllustIds =
-        tabState.status === "success" && "illusts" in tabState.data ? tabState.data.illusts.map((il) => il.id) : [];
+
+    const rawTabIllusts =
+        tabState.status === "success" && "illusts" in tabState.data ? tabState.data.illusts : undefined;
+    const { filtered, totalBefore, totalAfter } = useFilteredIllusts(rawTabIllusts);
+    const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
+
     useQuickActionPanel(
         tab !== "following"
             ? {
@@ -226,18 +242,37 @@ function UserPage() {
             : null,
     );
 
+    const specialFilters = useMemo(() => {
+        if (tab === "bookmarks" || tab === "bookmarks_private") {
+            return (
+                <UserBookmarksSpecialFilters
+                    tag={bookmarkTag}
+                    onTagChange={(v) => setSearchParams((sp) => patchParams(sp, { tag: v || undefined }, true))}
+                />
+            );
+        }
+        return null;
+    }, [tab, bookmarkTag, setSearchParams]);
+
+    const specialFiltersActive = (tab === "bookmarks" || tab === "bookmarks_private") && bookmarkTag !== "";
+
+    useFilterPanel(tab === "following" ? null : { specialFilters, specialFiltersActive, totalBefore, totalAfter });
+
     // Pixiv paginates bookmarks by cursor (max_bookmark_id), built up by paging forward
     // from page 1. Public/private bookmark chains are independent — keep one map per
-    // restrict so leaving and returning to a bookmark tab preserves the chain.
+    // restrict. The chain is also tag-specific (Pixiv returns different cursors per tag),
+    // so reset when the tag changes.
     // useRef, not useMemo: React may discard memoized values, silently losing the chain.
     const cursorsRef = useRef<{
         userId: number;
+        tag: string;
         bookmarks: Map<number, number | undefined>;
         bookmarksPrivate: Map<number, number | undefined>;
     } | null>(null);
-    if (!cursorsRef.current || cursorsRef.current.userId !== userId) {
+    if (!cursorsRef.current || cursorsRef.current.userId !== userId || cursorsRef.current.tag !== bookmarkTag) {
         cursorsRef.current = {
             userId,
+            tag: bookmarkTag,
             bookmarks: new Map([[1, undefined]]),
             bookmarksPrivate: new Map([[1, undefined]]),
         };
@@ -274,7 +309,8 @@ function UserPage() {
         setTabState({ status: "loading" });
         clearSelection();
         const cursor = isBookmarkTab(tab) ? cursors.get(page) : undefined;
-        fetchTabData(tab, userId, page, cursor).then(({ data, error }) => {
+        const tagArg = isBookmarkTab(tab) && bookmarkTag ? bookmarkTag : undefined;
+        fetchTabData(tab, userId, page, cursor, tagArg).then(({ data, error }) => {
             if (cancelled) return;
             if (error) setTabState({ status: "error", error });
             else if (data) {
@@ -287,7 +323,7 @@ function UserPage() {
         return () => {
             cancelled = true;
         };
-    }, [userId, validId, tab, rawTab, authResolved, page, cursors, setSearchParams, clearSelection]);
+    }, [userId, validId, tab, rawTab, authResolved, page, cursors, bookmarkTag, setSearchParams, clearSelection]);
 
     const updateParams = (patch: Record<string, string | undefined>, resetPage = false) => {
         setSearchParams(patchParams(searchParams, patch, resetPage));
@@ -340,7 +376,14 @@ function UserPage() {
                 </div>
             </Tabs>
 
-            <TabBody tab={tab} state={tabState} selected={selected} onToggle={toggle} />
+            <TabBody
+                tab={tab}
+                state={tabState}
+                selected={selected}
+                onToggle={toggle}
+                filteredIllusts={filtered}
+                totalBefore={totalBefore}
+            />
 
             {tabState.status === "success" && <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />}
         </div>
