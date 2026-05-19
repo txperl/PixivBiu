@@ -5,7 +5,7 @@ import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useFilterPanel, useQuickActionPanel } from "@/features/activity-bar";
+import { useFilterPanel } from "@/features/activity-bar";
 import { useAuth } from "@/features/auth";
 import { useIllustSelection } from "@/features/downloads";
 import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
@@ -231,17 +231,6 @@ function UserPage() {
     const { filtered, totalBefore, totalAfter } = useFilteredIllusts(rawTabIllusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
 
-    useQuickActionPanel(
-        tab !== "following"
-            ? {
-                  selected,
-                  allIllustIds: currentIllustIds,
-                  onReplaceSelection: replaceSelection,
-                  onClearSelection: clearSelection,
-              }
-            : null,
-    );
-
     const specialFilters = useMemo(() => {
         if (tab === "bookmarks" || tab === "bookmarks_private") {
             return (
@@ -270,6 +259,12 @@ function UserPage() {
                   onResetSpecialFilters: resetSpecialFilters,
                   totalBefore,
                   totalAfter,
+                  quickAction: {
+                      selected,
+                      allIllustIds: currentIllustIds,
+                      onReplaceSelection: replaceSelection,
+                      onClearSelection: clearSelection,
+                  },
               },
     );
 

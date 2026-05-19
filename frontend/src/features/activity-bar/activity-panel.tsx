@@ -20,7 +20,7 @@ function ActivityPanel() {
                     <HugeiconsIcon icon={CloseIcon} strokeWidth={2} />
                 </Button>
             </header>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1">
                 <Body />
             </div>
         </aside>

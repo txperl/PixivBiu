@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { useFilterPanel, useQuickActionPanel } from "@/features/activity-bar";
+import { useFilterPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
 import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
 import {
@@ -59,18 +59,18 @@ function RankingPage() {
     const rawIllusts = state.status === "success" ? state.data.illusts : undefined;
     const { filtered, totalBefore, totalAfter } = useFilteredIllusts(rawIllusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
-    useQuickActionPanel({
-        selected,
-        allIllustIds: currentIllustIds,
-        onReplaceSelection: replaceSelection,
-        onClearSelection: clearSelection,
-    });
     useFilterPanel({
         specialFilters: null,
         specialFiltersActiveCount: 0,
         onResetSpecialFilters: null,
         totalBefore,
         totalAfter,
+        quickAction: {
+            selected,
+            allIllustIds: currentIllustIds,
+            onReplaceSelection: replaceSelection,
+            onClearSelection: clearSelection,
+        },
     });
 
     useEffect(() => {

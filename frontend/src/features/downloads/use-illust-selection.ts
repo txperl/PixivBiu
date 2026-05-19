@@ -12,7 +12,7 @@ export function useIllustSelection() {
         });
     }, []);
 
-    const replaceSelection = useCallback((ids: number[]) => {
+    const replaceSelection = useCallback((ids: readonly number[]) => {
         setSelected(new Set(ids));
     }, []);
 

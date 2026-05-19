@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useFilterPanel, useQuickActionPanel } from "@/features/activity-bar";
+import { useFilterPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
 import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
 import {
@@ -101,17 +101,6 @@ function SearchPage() {
     const { filtered, totalBefore, totalAfter } = useFilteredIllusts(rawIllusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
 
-    useQuickActionPanel(
-        type === "illust"
-            ? {
-                  selected,
-                  allIllustIds: currentIllustIds,
-                  onReplaceSelection: replaceSelection,
-                  onClearSelection: clearSelection,
-              }
-            : null,
-    );
-
     const patch = useCallback(
         (p: Record<string, string | undefined>, resetPage = true) =>
             setSearchParams((sp) => patchParams(sp, p, resetPage)),
@@ -173,6 +162,15 @@ function SearchPage() {
         onResetSpecialFilters: resetSpecialFilters,
         totalBefore: type === "illust" ? totalBefore : 0,
         totalAfter: type === "illust" ? totalAfter : 0,
+        quickAction:
+            type === "illust"
+                ? {
+                      selected,
+                      allIllustIds: currentIllustIds,
+                      onReplaceSelection: replaceSelection,
+                      onClearSelection: clearSelection,
+                  }
+                : null,
     });
 
     useEffect(() => {

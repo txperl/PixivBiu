@@ -3,7 +3,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import LeapyLoading from "@/components/series-leapy/leapy-loading";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useFilterPanel, useQuickActionPanel } from "@/features/activity-bar";
+import { useFilterPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
 import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
 import {
@@ -104,12 +104,6 @@ function HomeIllustTabs() {
     const rawIllusts = state.status === "success" ? state.illusts : undefined;
     const { filtered, totalBefore, totalAfter } = useFilteredIllusts(rawIllusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
-    useQuickActionPanel({
-        selected,
-        allIllustIds: currentIllustIds,
-        onReplaceSelection: replaceSelection,
-        onClearSelection: clearSelection,
-    });
 
     const specialFilters: ReactNode | null = useMemo(() => {
         if (activeTab === "for-you") {
@@ -147,6 +141,12 @@ function HomeIllustTabs() {
         onResetSpecialFilters: resetSpecialFilters,
         totalBefore,
         totalAfter,
+        quickAction: {
+            selected,
+            allIllustIds: currentIllustIds,
+            onReplaceSelection: replaceSelection,
+            onClearSelection: clearSelection,
+        },
     });
 
     const replaceAll = useCallback((id: TabId, forYouParams: ForYouParams, followParams: FollowParams) => {
