@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
+import FilterRow from "@/features/filter/components/filter-row";
 
 type Props = {
     tag: string;
@@ -26,8 +27,7 @@ function UserBookmarksSpecialFilters({ tag, onTagChange }: Props) {
     };
 
     return (
-        <div className="flex flex-col gap-1.5">
-            <div className="text-muted-foreground text-xs">收藏标签</div>
+        <FilterRow label="收藏标签" inactive={tag === ""}>
             <Input
                 value={draft}
                 placeholder="留空 = 所有标签"
@@ -39,7 +39,7 @@ function UserBookmarksSpecialFilters({ tag, onTagChange }: Props) {
             <div className="text-muted-foreground text-xs leading-relaxed">
                 仅显示带有该收藏标签的作品。按 Enter 应用。
             </div>
-        </div>
+        </FilterRow>
     );
 }
 

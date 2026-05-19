@@ -6,7 +6,7 @@ export const FILTER_ID = "filter" as const;
 
 export type FilterPanelData = {
     specialFilters: ReactNode | null;
-    specialFiltersActive: boolean;
+    specialFiltersActiveCount: number;
     onResetSpecialFilters: (() => void) | null;
     totalBefore: number;
     totalAfter: number;
@@ -14,7 +14,7 @@ export type FilterPanelData = {
 
 export function useFilterPanel(args: FilterPanelData | null) {
     const specialFilters = args?.specialFilters ?? null;
-    const specialFiltersActive = args?.specialFiltersActive ?? false;
+    const specialFiltersActiveCount = args?.specialFiltersActiveCount ?? 0;
     const onResetSpecialFilters = args?.onResetSpecialFilters ?? null;
     const totalBefore = args?.totalBefore ?? 0;
     const totalAfter = args?.totalAfter ?? 0;
@@ -22,8 +22,8 @@ export function useFilterPanel(args: FilterPanelData | null) {
 
     const payload = useMemo<FilterPanelData | null>(() => {
         if (!isActive) return null;
-        return { specialFilters, specialFiltersActive, onResetSpecialFilters, totalBefore, totalAfter };
-    }, [isActive, specialFilters, specialFiltersActive, onResetSpecialFilters, totalBefore, totalAfter]);
+        return { specialFilters, specialFiltersActiveCount, onResetSpecialFilters, totalBefore, totalAfter };
+    }, [isActive, specialFilters, specialFiltersActiveCount, onResetSpecialFilters, totalBefore, totalAfter]);
 
     useActivityItem(FILTER_ID, payload);
 }

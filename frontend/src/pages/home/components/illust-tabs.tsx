@@ -55,6 +55,17 @@ const INITIAL: Record<TabId, TabState> = {
 const DEFAULT_FOR_YOU: ForYouParams = { type: undefined, includeRankingIllusts: true };
 const DEFAULT_FOLLOW: FollowParams = { restrict: "public" };
 
+function countForYouActive(p: ForYouParams): number {
+    let n = 0;
+    if (p.type !== DEFAULT_FOR_YOU.type) n++;
+    if (p.includeRankingIllusts !== DEFAULT_FOR_YOU.includeRankingIllusts) n++;
+    return n;
+}
+
+function countFollowActive(p: FollowParams): number {
+    return p.restrict !== DEFAULT_FOLLOW.restrict ? 1 : 0;
+}
+
 function fetchTab(
     id: TabId,
     forYou: ForYouParams,
@@ -122,12 +133,8 @@ function HomeIllustTabs() {
         return null;
     }, [activeTab, forYou.type, forYou.includeRankingIllusts, follow.restrict]);
 
-    const specialFiltersActive =
-        activeTab === "for-you"
-            ? forYou.type !== undefined || !forYou.includeRankingIllusts
-            : activeTab === "follow"
-              ? follow.restrict !== "public"
-              : false;
+    const specialFiltersActiveCount =
+        activeTab === "for-you" ? countForYouActive(forYou) : activeTab === "follow" ? countFollowActive(follow) : 0;
 
     const resetSpecialFilters = useCallback(() => {
         if (activeTab === "for-you") setForYou(DEFAULT_FOR_YOU);
@@ -136,7 +143,7 @@ function HomeIllustTabs() {
 
     useFilterPanel({
         specialFilters,
-        specialFiltersActive,
+        specialFiltersActiveCount,
         onResetSpecialFilters: resetSpecialFilters,
         totalBefore,
         totalAfter,

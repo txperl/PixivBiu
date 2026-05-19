@@ -67,7 +67,7 @@ function RankingPage() {
     });
     useFilterPanel({
         specialFilters: null,
-        specialFiltersActive: false,
+        specialFiltersActiveCount: 0,
         onResetSpecialFilters: null,
         totalBefore,
         totalAfter,

@@ -3,8 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import FilterRow from "@/features/filter/components/filter-row";
 import Segmented from "@/features/filter/components/segmented";
 import {
+    DEFAULT_SEARCH_SORT,
+    DEFAULT_SEARCH_TARGET,
     SEARCH_DURATIONS,
     SEARCH_SORTS,
     SEARCH_TARGETS,
@@ -47,6 +50,7 @@ function DatePickerField({
     placeholder,
     minDate,
     maxDate,
+    inactive,
 }: {
     label: string;
     value?: string;
@@ -54,11 +58,11 @@ function DatePickerField({
     placeholder: string;
     minDate?: Date;
     maxDate?: Date;
+    inactive?: boolean;
 }) {
     const selected = parseDate(value);
     return (
-        <div className="flex flex-col gap-1.5">
-            <div className="text-muted-foreground text-xs">{label}</div>
+        <FilterRow label={label} inactive={inactive}>
             <div className="flex items-center gap-1">
                 <Popover>
                     <PopoverTrigger
@@ -101,7 +105,7 @@ function DatePickerField({
                     </Button>
                 )}
             </div>
-        </div>
+        </FilterRow>
     );
 }
 
@@ -110,15 +114,16 @@ function LabeledSelect<T extends string>({
     value,
     options,
     onChange,
+    inactive,
 }: {
     label: string;
     value: T;
     options: ReadonlyArray<{ value: T; label: string }>;
     onChange: (v: T) => void;
+    inactive?: boolean;
 }) {
     return (
-        <div className="flex flex-col gap-1.5">
-            <div className="text-muted-foreground text-xs">{label}</div>
+        <FilterRow label={label} inactive={inactive}>
             <Select
                 items={options}
                 value={value}
@@ -139,7 +144,7 @@ function LabeledSelect<T extends string>({
                     </SelectGroup>
                 </SelectContent>
             </Select>
-        </div>
+        </FilterRow>
     );
 }
 
@@ -175,13 +180,21 @@ export function SearchIllustSpecialFilters(props: SearchIllustSpecialFiltersProp
                 value={props.target}
                 options={targetItems}
                 onChange={props.onTargetChange}
+                inactive={props.target === DEFAULT_SEARCH_TARGET}
             />
-            <LabeledSelect label="排序" value={props.sort} options={sortItems} onChange={props.onSortChange} />
+            <LabeledSelect
+                label="排序"
+                value={props.sort}
+                options={sortItems}
+                onChange={props.onSortChange}
+                inactive={props.sort === DEFAULT_SEARCH_SORT}
+            />
             <LabeledSelect
                 label="时间窗"
                 value={props.duration ?? "__any__"}
                 options={durationItems}
                 onChange={(v) => props.onDurationChange(v === "__any__" ? undefined : (v as SearchDuration))}
+                inactive={props.duration === undefined}
             />
             <DatePickerField
                 label="发布起"
@@ -189,6 +202,7 @@ export function SearchIllustSpecialFilters(props: SearchIllustSpecialFiltersProp
                 onChange={props.onStartDateChange}
                 placeholder="不限"
                 maxDate={startMax}
+                inactive={props.startDate === undefined}
             />
             <DatePickerField
                 label="发布止"
@@ -196,9 +210,9 @@ export function SearchIllustSpecialFilters(props: SearchIllustSpecialFiltersProp
                 onChange={props.onEndDateChange}
                 placeholder="不限"
                 minDate={endMin}
+                inactive={props.endDate === undefined}
             />
-            <div className="flex flex-col gap-1.5">
-                <div className="text-muted-foreground text-xs">AI 作品</div>
+            <FilterRow label="AI 作品" inactive={!props.excludeAi}>
                 <Segmented
                     value={props.excludeAi ? "exclude" : "any"}
                     options={[
@@ -207,7 +221,7 @@ export function SearchIllustSpecialFilters(props: SearchIllustSpecialFiltersProp
                     ]}
                     onChange={(v) => props.onExcludeAiChange(v === "exclude")}
                 />
-            </div>
+            </FilterRow>
         </div>
     );
 }
@@ -227,12 +241,19 @@ export function SearchUserSpecialFilters(props: SearchUserSpecialFiltersProps) {
     ] as const;
     return (
         <div className="flex flex-col gap-3">
-            <LabeledSelect label="排序" value={props.sort} options={sortItems} onChange={props.onSortChange} />
+            <LabeledSelect
+                label="排序"
+                value={props.sort}
+                options={sortItems}
+                onChange={props.onSortChange}
+                inactive={props.sort === DEFAULT_SEARCH_SORT}
+            />
             <LabeledSelect
                 label="时间窗"
                 value={props.duration ?? "__any__"}
                 options={durationItems}
                 onChange={(v) => props.onDurationChange(v === "__any__" ? undefined : (v as SearchDuration))}
+                inactive={props.duration === undefined}
             />
         </div>
     );

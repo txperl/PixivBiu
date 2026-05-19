@@ -37,17 +37,27 @@ export const DEFAULT_GENERAL_FILTERS: GeneralFilters = {
     bookmarked: "any",
 };
 
+export type GeneralFilterFlags = Record<keyof GeneralFilters, boolean>;
+
+export function getGeneralFilterFlags(f: GeneralFilters): GeneralFilterFlags {
+    return {
+        xRestrict: f.xRestrict.length > 0,
+        ai: f.ai !== "any",
+        illustType: f.illustType.length > 0,
+        minBookmarks: f.minBookmarks !== 0,
+        minViews: f.minViews !== 0,
+        pageCount: f.pageCount !== "any",
+        aspectRatio: f.aspectRatio.length > 0,
+        bookmarked: f.bookmarked !== "any",
+        includeTags: f.includeTags.length > 0,
+        excludeTags: f.excludeTags.length > 0,
+    };
+}
+
+export function countActiveGeneralFilters(f: GeneralFilters): number {
+    return Object.values(getGeneralFilterFlags(f)).filter(Boolean).length;
+}
+
 export function isGeneralFiltersDefault(f: GeneralFilters): boolean {
-    return (
-        f.xRestrict.length === 0 &&
-        f.ai === "any" &&
-        f.illustType.length === 0 &&
-        f.minBookmarks === 0 &&
-        f.minViews === 0 &&
-        f.pageCount === "any" &&
-        f.aspectRatio.length === 0 &&
-        f.includeTags.length === 0 &&
-        f.excludeTags.length === 0 &&
-        f.bookmarked === "any"
-    );
+    return countActiveGeneralFilters(f) === 0;
 }

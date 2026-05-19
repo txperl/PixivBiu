@@ -3,6 +3,7 @@ import {
     type AiFilter,
     type AspectRatio,
     type BookmarkedFilter,
+    getGeneralFilterFlags,
     type IllustTypeKey,
     MIN_BOOKMARKS_TIERS,
     MIN_VIEWS_TIERS,
@@ -10,6 +11,7 @@ import {
     type XRestrictKey,
 } from "../types";
 import CheckChipGroup, { type ChipOption } from "./check-chip-group";
+import FilterRow from "./filter-row";
 import Segmented, { type SegmentedOption } from "./segmented";
 import TagInput from "./tag-input";
 import ThresholdSelect from "./threshold-select";
@@ -57,88 +59,81 @@ function formatCount(v: number): string {
     return `≥${v}`;
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div className="flex flex-col gap-1.5">
-            <div className="text-muted-foreground text-xs">{label}</div>
-            {children}
-        </div>
-    );
-}
-
 function GeneralFiltersSection() {
     const { filters, setFilters } = useGeneralFilters();
+    const active = getGeneralFilterFlags(filters);
 
     return (
         <div className="flex flex-col gap-3.5">
-            <Row label="分级">
+            <FilterRow label="分级" inactive={!active.xRestrict}>
                 <CheckChipGroup
                     values={filters.xRestrict}
                     options={X_RESTRICT_OPTS}
                     onChange={(v) => setFilters({ xRestrict: v })}
                 />
-            </Row>
+            </FilterRow>
 
-            <Row label="AI 作品">
+            <FilterRow label="AI 作品" inactive={!active.ai}>
                 <Segmented value={filters.ai} options={AI_OPTS} onChange={(v) => setFilters({ ai: v })} />
-            </Row>
+            </FilterRow>
 
-            <Row label="作品类型">
+            <FilterRow label="作品类型" inactive={!active.illustType}>
                 <CheckChipGroup
                     values={filters.illustType}
                     options={ILLUST_TYPE_OPTS}
                     onChange={(v) => setFilters({ illustType: v })}
                 />
-            </Row>
+            </FilterRow>
 
             <div className="grid grid-cols-2 gap-3">
-                <Row label="最低收藏">
+                <FilterRow label="最低收藏" inactive={!active.minBookmarks}>
                     <ThresholdSelect
                         value={filters.minBookmarks}
                         options={MIN_BOOKMARKS_TIERS}
                         formatOption={formatCount}
                         onChange={(v) => setFilters({ minBookmarks: v })}
                     />
-                </Row>
-                <Row label="最低浏览">
+                </FilterRow>
+                <FilterRow label="最低浏览" inactive={!active.minViews}>
                     <ThresholdSelect
                         value={filters.minViews}
                         options={MIN_VIEWS_TIERS}
                         formatOption={formatCount}
                         onChange={(v) => setFilters({ minViews: v })}
                     />
-                </Row>
+                </FilterRow>
             </div>
 
-            <Row label="页数">
+            <FilterRow label="页数" inactive={!active.pageCount}>
                 <Segmented
                     value={filters.pageCount}
                     options={PAGE_COUNT_OPTS}
                     onChange={(v) => setFilters({ pageCount: v })}
                 />
-            </Row>
+            </FilterRow>
 
-            <Row label="纵横比">
+            <FilterRow label="纵横比" inactive={!active.aspectRatio}>
                 <CheckChipGroup
                     values={filters.aspectRatio}
                     options={ASPECT_OPTS}
                     onChange={(v) => setFilters({ aspectRatio: v })}
                 />
-            </Row>
+            </FilterRow>
 
-            <Row label="收藏状态">
+            <FilterRow label="收藏状态" inactive={!active.bookmarked}>
                 <Segmented
                     value={filters.bookmarked}
                     options={BOOKMARKED_OPTS}
                     onChange={(v) => setFilters({ bookmarked: v })}
                 />
-            </Row>
+            </FilterRow>
 
             <TagInput
                 label="标签包含（任一命中）"
                 placeholder="输入后回车 / 逗号添加"
                 values={filters.includeTags}
                 onChange={(v) => setFilters({ includeTags: v })}
+                inactive={!active.includeTags}
             />
 
             <TagInput
@@ -146,6 +141,7 @@ function GeneralFiltersSection() {
                 placeholder="输入后回车 / 逗号添加"
                 values={filters.excludeTags}
                 onChange={(v) => setFilters({ excludeTags: v })}
+                inactive={!active.excludeTags}
             />
         </div>
     );

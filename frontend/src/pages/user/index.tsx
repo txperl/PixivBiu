@@ -254,7 +254,8 @@ function UserPage() {
         return null;
     }, [tab, bookmarkTag, setSearchParams]);
 
-    const specialFiltersActive = (tab === "bookmarks" || tab === "bookmarks_private") && bookmarkTag !== "";
+    const specialFiltersActiveCount =
+        (tab === "bookmarks" || tab === "bookmarks_private") && bookmarkTag !== "" ? 1 : 0;
 
     const resetSpecialFilters = useCallback(() => {
         setSearchParams((sp) => patchParams(sp, { tag: undefined }, true));
@@ -265,7 +266,7 @@ function UserPage() {
             ? null
             : {
                   specialFilters,
-                  specialFiltersActive,
+                  specialFiltersActiveCount,
                   onResetSpecialFilters: resetSpecialFilters,
                   totalBefore,
                   totalAfter,

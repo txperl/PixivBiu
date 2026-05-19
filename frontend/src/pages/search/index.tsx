@@ -61,22 +61,22 @@ function readExcludeAi(sp: URLSearchParams): boolean {
     return sp.get("exclude_ai") === "1";
 }
 
-function isIllustSpecialActive(
+function countIllustSpecialActive(
     target: SearchTarget,
     sort: SearchSort,
     duration: SearchDuration | undefined,
     startDate: string | undefined,
     endDate: string | undefined,
     excludeAi: boolean,
-): boolean {
-    return (
-        target !== DEFAULT_SEARCH_TARGET ||
-        sort !== DEFAULT_SEARCH_SORT ||
-        duration !== undefined ||
-        startDate !== undefined ||
-        endDate !== undefined ||
-        excludeAi
-    );
+): number {
+    let n = 0;
+    if (target !== DEFAULT_SEARCH_TARGET) n++;
+    if (sort !== DEFAULT_SEARCH_SORT) n++;
+    if (duration !== undefined) n++;
+    if (startDate !== undefined) n++;
+    if (endDate !== undefined) n++;
+    if (excludeAi) n++;
+    return n;
 }
 
 function SearchPage() {
@@ -147,10 +147,10 @@ function SearchPage() {
         );
     }, [type, target, sort, duration, startDate, endDate, excludeAi, patch]);
 
-    const specialFiltersActive =
+    const specialFiltersActiveCount =
         type === "illust"
-            ? isIllustSpecialActive(target, sort, duration, startDate, endDate, excludeAi)
-            : sort !== DEFAULT_SEARCH_SORT || duration !== undefined;
+            ? countIllustSpecialActive(target, sort, duration, startDate, endDate, excludeAi)
+            : (sort !== DEFAULT_SEARCH_SORT ? 1 : 0) + (duration !== undefined ? 1 : 0);
 
     const resetSpecialFilters = useCallback(() => {
         if (type === "illust") {
@@ -169,7 +169,7 @@ function SearchPage() {
 
     useFilterPanel({
         specialFilters,
-        specialFiltersActive,
+        specialFiltersActiveCount,
         onResetSpecialFilters: resetSpecialFilters,
         totalBefore: type === "illust" ? totalBefore : 0,
         totalAfter: type === "illust" ? totalAfter : 0,

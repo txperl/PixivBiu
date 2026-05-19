@@ -50,7 +50,7 @@ function ActivityBarButton({ def, indicator }: { def: ActivityItemDef; indicator
 function ActivityBar() {
     const { filters } = useGeneralFilters();
     const filterData = useFilterPanelData();
-    const filterDot = !isGeneralFiltersDefault(filters) || !!filterData?.specialFiltersActive;
+    const filterDot = !isGeneralFiltersDefault(filters) || (filterData?.specialFiltersActiveCount ?? 0) > 0;
 
     return (
         <aside className="flex h-full w-8 shrink-0 flex-col items-center gap-1 border-border border-l bg-sidebar py-2">

@@ -10,9 +10,10 @@ type TagInputProps = {
     values: ReadonlyArray<string>;
     onChange: (next: ReadonlyArray<string>) => void;
     className?: string;
+    inactive?: boolean;
 };
 
-function TagInput({ label, placeholder, values, onChange, className }: TagInputProps) {
+function TagInput({ label, placeholder, values, onChange, className, inactive = false }: TagInputProps) {
     const [draft, setDraft] = useState("");
     const inputId = useId();
 
@@ -45,35 +46,37 @@ function TagInput({ label, placeholder, values, onChange, className }: TagInputP
             <label htmlFor={inputId} className="text-muted-foreground text-xs">
                 {label}
             </label>
-            <Input
-                id={inputId}
-                value={draft}
-                placeholder={placeholder}
-                onChange={(e) => setDraft(e.currentTarget.value)}
-                onBlur={() => add(draft)}
-                onKeyDown={onKeyDown}
-                className="h-8 text-xs"
-            />
-            {values.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                    {values.map((v) => (
-                        <span
-                            key={v}
-                            className="inline-flex h-6 items-center gap-1 rounded-full bg-secondary px-2 text-secondary-foreground text-xs"
-                        >
-                            {v}
-                            <button
-                                type="button"
-                                aria-label={`移除 ${v}`}
-                                onClick={() => remove(v)}
-                                className="-mr-0.5 inline-flex size-4 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+            <div className={cn("flex flex-col gap-1.5 transition-opacity duration-150", inactive && "opacity-50")}>
+                <Input
+                    id={inputId}
+                    value={draft}
+                    placeholder={placeholder}
+                    onChange={(e) => setDraft(e.currentTarget.value)}
+                    onBlur={() => add(draft)}
+                    onKeyDown={onKeyDown}
+                    className="h-8 text-xs"
+                />
+                {values.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                        {values.map((v) => (
+                            <span
+                                key={v}
+                                className="inline-flex h-6 items-center gap-1 rounded-full bg-secondary px-2 text-secondary-foreground text-xs"
                             >
-                                <HugeiconsIcon icon={CloseIcon} size={10} strokeWidth={2.5} />
-                            </button>
-                        </span>
-                    ))}
-                </div>
-            )}
+                                {v}
+                                <button
+                                    type="button"
+                                    aria-label={`移除 ${v}`}
+                                    onClick={() => remove(v)}
+                                    className="-mr-0.5 inline-flex size-4 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                                >
+                                    <HugeiconsIcon icon={CloseIcon} size={10} strokeWidth={2.5} />
+                                </button>
+                            </span>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

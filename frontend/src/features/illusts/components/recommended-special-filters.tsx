@@ -1,4 +1,5 @@
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import FilterRow from "@/features/filter/components/filter-row";
 import Segmented from "@/features/filter/components/segmented";
 import type { IllustType } from "@/features/illusts/api";
 
@@ -18,8 +19,7 @@ const TYPE_ITEMS = [
 function RecommendedSpecialFilters({ type, includeRankingIllusts, onTypeChange, onIncludeRankingChange }: Props) {
     return (
         <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-                <div className="text-muted-foreground text-xs">作品类型</div>
+            <FilterRow label="作品类型" inactive={type === undefined}>
                 <Select
                     items={TYPE_ITEMS}
                     value={type ?? "__any__"}
@@ -41,9 +41,8 @@ function RecommendedSpecialFilters({ type, includeRankingIllusts, onTypeChange, 
                         </SelectGroup>
                     </SelectContent>
                 </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-                <div className="text-muted-foreground text-xs">每日排行注入</div>
+            </FilterRow>
+            <FilterRow label="每日排行注入" inactive={includeRankingIllusts}>
                 <Segmented
                     value={includeRankingIllusts ? "on" : "off"}
                     options={[
@@ -52,7 +51,7 @@ function RecommendedSpecialFilters({ type, includeRankingIllusts, onTypeChange, 
                     ]}
                     onChange={(v) => onIncludeRankingChange(v === "on")}
                 />
-            </div>
+            </FilterRow>
         </div>
     );
 }

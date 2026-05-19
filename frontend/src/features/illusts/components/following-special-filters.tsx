@@ -1,3 +1,4 @@
+import FilterRow from "@/features/filter/components/filter-row";
 import Segmented from "@/features/filter/components/segmented";
 import type { Restrict } from "@/features/illusts/api";
 
@@ -8,8 +9,7 @@ type Props = {
 
 function FollowingSpecialFilters({ restrict, onRestrictChange }: Props) {
     return (
-        <div className="flex flex-col gap-1.5">
-            <div className="text-muted-foreground text-xs">关注范围</div>
+        <FilterRow label="关注范围" inactive={restrict === "public"}>
             <Segmented
                 value={restrict}
                 options={[
@@ -18,7 +18,7 @@ function FollowingSpecialFilters({ restrict, onRestrictChange }: Props) {
                 ]}
                 onChange={onRestrictChange}
             />
-        </div>
+        </FilterRow>
     );
 }
 
