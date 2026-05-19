@@ -152,9 +152,25 @@ function SearchPage() {
             ? isIllustSpecialActive(target, sort, duration, startDate, endDate, excludeAi)
             : sort !== DEFAULT_SEARCH_SORT || duration !== undefined;
 
+    const resetSpecialFilters = useCallback(() => {
+        if (type === "illust") {
+            patch({
+                target: undefined,
+                sort: undefined,
+                duration: undefined,
+                start_date: undefined,
+                end_date: undefined,
+                exclude_ai: undefined,
+            });
+        } else {
+            patch({ sort: undefined, duration: undefined });
+        }
+    }, [type, patch]);
+
     useFilterPanel({
         specialFilters,
         specialFiltersActive,
+        onResetSpecialFilters: resetSpecialFilters,
         totalBefore: type === "illust" ? totalBefore : 0,
         totalAfter: type === "illust" ? totalAfter : 0,
     });

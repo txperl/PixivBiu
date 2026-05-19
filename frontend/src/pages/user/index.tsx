@@ -1,5 +1,5 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
@@ -256,7 +256,21 @@ function UserPage() {
 
     const specialFiltersActive = (tab === "bookmarks" || tab === "bookmarks_private") && bookmarkTag !== "";
 
-    useFilterPanel(tab === "following" ? null : { specialFilters, specialFiltersActive, totalBefore, totalAfter });
+    const resetSpecialFilters = useCallback(() => {
+        setSearchParams((sp) => patchParams(sp, { tag: undefined }, true));
+    }, [setSearchParams]);
+
+    useFilterPanel(
+        tab === "following"
+            ? null
+            : {
+                  specialFilters,
+                  specialFiltersActive,
+                  onResetSpecialFilters: resetSpecialFilters,
+                  totalBefore,
+                  totalAfter,
+              },
+    );
 
     // Pixiv paginates bookmarks by cursor (max_bookmark_id), built up by paging forward
     // from page 1. Public/private bookmark chains are independent — keep one map per

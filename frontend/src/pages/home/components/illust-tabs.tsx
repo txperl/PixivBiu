@@ -129,7 +129,18 @@ function HomeIllustTabs() {
               ? follow.restrict !== "public"
               : false;
 
-    useFilterPanel({ specialFilters, specialFiltersActive, totalBefore, totalAfter });
+    const resetSpecialFilters = useCallback(() => {
+        if (activeTab === "for-you") setForYou(DEFAULT_FOR_YOU);
+        else if (activeTab === "follow") setFollow(DEFAULT_FOLLOW);
+    }, [activeTab]);
+
+    useFilterPanel({
+        specialFilters,
+        specialFiltersActive,
+        onResetSpecialFilters: resetSpecialFilters,
+        totalBefore,
+        totalAfter,
+    });
 
     const replaceAll = useCallback((id: TabId, forYouParams: ForYouParams, followParams: FollowParams) => {
         const version = ++versionRef.current[id];

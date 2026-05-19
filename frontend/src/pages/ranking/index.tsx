@@ -65,7 +65,13 @@ function RankingPage() {
         onReplaceSelection: replaceSelection,
         onClearSelection: clearSelection,
     });
-    useFilterPanel({ specialFilters: null, specialFiltersActive: false, totalBefore, totalAfter });
+    useFilterPanel({
+        specialFilters: null,
+        specialFiltersActive: false,
+        onResetSpecialFilters: null,
+        totalBefore,
+        totalAfter,
+    });
 
     useEffect(() => {
         let cancelled = false;

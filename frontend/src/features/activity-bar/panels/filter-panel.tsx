@@ -38,7 +38,23 @@ function FilterPanel() {
         <div className="flex flex-col gap-4 p-3">
             {data.specialFilters && (
                 <section className="flex flex-col gap-2.5">
-                    <SectionHeader title="接口筛选" tip="作为参数随请求发送，改动会触发重新拉取。" />
+                    <SectionHeader
+                        title="接口筛选"
+                        tip="作为参数随请求发送，改动会触发重新拉取。"
+                        action={
+                            data.onResetSpecialFilters ? (
+                                <Button
+                                    variant="ghost"
+                                    size="xs"
+                                    onClick={data.onResetSpecialFilters}
+                                    disabled={!data.specialFiltersActive}
+                                    aria-label="重置接口筛选"
+                                >
+                                    重置
+                                </Button>
+                            ) : undefined
+                        }
+                    />
                     {data.specialFilters}
                 </section>
             )}
