@@ -26,13 +26,13 @@ function ThresholdSelect<T extends number>({
                 if ((options as readonly number[]).includes(next)) onChange(next);
             }}
         >
-            <SelectTrigger className={className ?? "h-8 w-full"}>
+            <SelectTrigger size="sm" className={className ?? "w-full text-xs"}>
                 <SelectValue />
             </SelectTrigger>
             <SelectContent>
                 <SelectGroup>
                     {items.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
+                        <SelectItem key={item.value} value={item.value} className="text-xs">
                             {item.label}
                         </SelectItem>
                     ))}

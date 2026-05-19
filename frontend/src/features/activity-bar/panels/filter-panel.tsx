@@ -8,27 +8,18 @@ import { DownloadIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { type QuickActionData, useFilterPanelData } from "../items/filter";
 
-function SectionHeader({
-    title,
-    tip,
-    count,
-    action,
-}: {
-    title: string;
-    tip: string;
-    count: number;
-    action?: React.ReactNode;
-}) {
+function SectionHeader({ title, count, onReset }: { title: string; count: number; onReset?: (() => void) | null }) {
+    const canReset = count > 0 && onReset != null;
     return (
-        <div className="flex flex-col gap-0.5">
-            <div className="flex items-center justify-between">
-                <div className="font-medium text-foreground text-xs uppercase tracking-wider">
-                    {title}
-                    {count > 0 && <span className="ml-1 font-semibold text-muted-foreground">({count})</span>}
-                </div>
-                {action}
-            </div>
-            <div className="text-[11px] text-muted-foreground leading-snug">{tip}</div>
+        <div className="flex items-center justify-end font-medium text-foreground text-sm tracking-wider">
+            {count > 0 && <span className="mr-1 font-semibold text-[10px] text-muted-foreground">({count})</span>}
+            {canReset ? (
+                <button type="button" onClick={onReset} aria-label={`重置${title}`} className="hover:underline">
+                    重置
+                </button>
+            ) : (
+                <span>{title}</span>
+            )}
         </div>
     );
 }
@@ -128,45 +119,13 @@ function FilterPanel() {
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
                 {data.specialFilters && (
                     <section className="flex flex-col gap-2.5">
-                        <SectionHeader
-                            title="接口筛选"
-                            tip="作为参数随请求发送，改动会触发重新拉取。"
-                            count={specialCount}
-                            action={
-                                data.onResetSpecialFilters ? (
-                                    <Button
-                                        variant="ghost"
-                                        size="xs"
-                                        onClick={data.onResetSpecialFilters}
-                                        disabled={specialCount === 0}
-                                        aria-label="重置接口筛选"
-                                    >
-                                        重置
-                                    </Button>
-                                ) : undefined
-                            }
-                        />
+                        <SectionHeader title="接口筛选" count={specialCount} onReset={data.onResetSpecialFilters} />
                         {data.specialFilters}
                     </section>
                 )}
 
                 <section className="flex flex-col gap-2.5">
-                    <SectionHeader
-                        title="页面筛选"
-                        tip="对当前结果做客户端过滤，设置全局生效并跨页面保留。"
-                        count={generalCount}
-                        action={
-                            <Button
-                                variant="ghost"
-                                size="xs"
-                                onClick={resetFilters}
-                                disabled={generalCount === 0}
-                                aria-label="重置页面筛选"
-                            >
-                                重置
-                            </Button>
-                        }
-                    />
+                    <SectionHeader title="页面筛选" count={generalCount} onReset={resetFilters} />
                     <GeneralFiltersSection />
                 </section>
             </div>

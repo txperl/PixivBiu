@@ -54,7 +54,7 @@ function TagInput({ label, placeholder, values, onChange, className, inactive = 
                     onChange={(e) => setDraft(e.currentTarget.value)}
                     onBlur={() => add(draft)}
                     onKeyDown={onKeyDown}
-                    className="h-8 text-xs"
+                    className="h-7 text-xs md:text-xs"
                 />
                 {values.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">

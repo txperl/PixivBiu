@@ -131,13 +131,13 @@ function LabeledSelect<T extends string>({
                     if (typeof v === "string") onChange(v as T);
                 }}
             >
-                <SelectTrigger className="h-8 w-full">
+                <SelectTrigger size="sm" className="w-full text-xs">
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                     <SelectGroup>
                         {options.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
+                            <SelectItem key={opt.value} value={opt.value} className="text-xs">
                                 {opt.label}
                             </SelectItem>
                         ))}

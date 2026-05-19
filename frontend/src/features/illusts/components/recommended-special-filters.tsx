@@ -28,13 +28,13 @@ function RecommendedSpecialFilters({ type, includeRankingIllusts, onTypeChange, 
                         onTypeChange(v === "__any__" ? undefined : (v as IllustType));
                     }}
                 >
-                    <SelectTrigger className="h-8 w-full">
+                    <SelectTrigger size="sm" className="w-full text-xs">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectGroup>
                             {TYPE_ITEMS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
+                                <SelectItem key={opt.value} value={opt.value} className="text-xs">
                                     {opt.label}
                                 </SelectItem>
                             ))}
