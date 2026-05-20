@@ -12,15 +12,6 @@ export function SearchError({ error }: { error: SearchApiError }) {
     );
 }
 
-export function SearchEmptyState() {
-    return (
-        <div className="flex flex-col items-center gap-2 py-20 text-center">
-            <div className="font-medium text-foreground text-lg">输入关键词开始搜索</div>
-            <div className="text-muted-foreground text-sm">支持作品标签、标题、作者名</div>
-        </div>
-    );
-}
-
 export function SearchNoResults({ word }: { word: string }) {
     return (
         <div className="flex flex-col items-center gap-2 py-20 text-center">
