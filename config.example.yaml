@@ -7,15 +7,16 @@ server:
     shutdown: 10s
 
 log:
-  level: info   # debug | info | warn | error
-  format: text  # text | json
+  level: info # debug | info | warn | error
+  format: text # text | json
 
 pixiv:
-  proxy: ""                       # HTTP/SOCKS proxy URL; empty = direct. Also applies to downloads.
-  language: zh-cn                 # Accept-Language sent to Pixiv (tag translations)
-  bypass_sni: false               # true = use pixivgo/bypass (DoH + alt SNI) for firewalled networks.
-                                  # Only covers the API host; for downloads, set download.pximg_base.
-  state_file: ./usr/state.json    # token persistence; refresh_token NEVER lives in this config
+  proxy: "" # HTTP/SOCKS proxy URL; empty = direct. Also applies to downloads.
+  language: zh-cn # Accept-Language sent to Pixiv (tag translations)
+  bypass_sni:
+    false # true = use pixivgo/bypass (DoH + alt SNI) for firewalled networks.
+    # Only covers the API host; for downloads, set download.pximg_base.
+  state_file: ./usr/state.json # token persistence; refresh_token NEVER lives in this config
 
 download:
   # Output path templates use Go's text/template. Every template is parsed
@@ -35,9 +36,9 @@ download:
   # Registered funcs: sanitize  pad  date  lower  upper  trunc  default
   #
   # A `/` in this template produces a subfolder.
-  output_dir: './downloads'
-  file_template: '{{.Now | date "2006-01-02"}}/{{.IllustID}}_{{.Title | trunc 100}}{{.Ext}}'
-  file_group_template: '{{.IllustID}}_{{.Title | trunc 80}}/{{.Index | pad 2}}{{.Ext}}'
+  output_dir: "./downloads/{{.Now | date '2006-01-02'}}"
+  file_template: "{{.IllustID}}_{{.Title | trunc 80}}{{.Ext}}"
+  file_group_template: "{{.IllustID}}_{{.Title | trunc 80}}/{{.Index | pad 2}}{{.Ext}}"
 
   max_concurrent: 4
   http_timeout: 60s
@@ -46,17 +47,18 @@ download:
     initial_backoff: 1s
 
   referer: "https://app-api.pixiv.net/"
-  pximg_base: "https://i.pximg.net"   # set to a reverse proxy URL to rewrite image host
+  pximg_base: "https://i.pximg.net" # set to a reverse proxy URL to rewrite image host
 
   ugoira:
-    format: webp      # webp | gif | none   (none = keep original zip, no conversion)
+    format: webp # webp | gif | none   (none = keep original zip, no conversion)
 
-  store_file: ./usr/downloads.json    # download index persistence
+  store_file: ./usr/downloads.json # download index persistence
 
 inbox:
-  buffer_size: 200           # event ring buffer; drives Last-Event-ID replay window
-  progress_throttle: 250ms   # minimum gap between download.task.progress events for the same task
-  heartbeat: 15s             # SSE keep-alive comment interval
+  buffer_size: 200 # event ring buffer; drives Last-Event-ID replay window
+  progress_throttle: 250ms # minimum gap between download.task.progress events for the same task
+  heartbeat: 15s # SSE keep-alive comment interval
+
 
 # Environment overrides use PIXIVBIU_ prefix, underscores map to dots.
 # Examples:
