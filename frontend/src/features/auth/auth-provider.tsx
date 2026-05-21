@@ -39,9 +39,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return await refresh();
     }, [refresh]);
 
+    const startOAuth = useCallback(async () => {
+        setPending(true);
+        const result = await authApi.startOAuth();
+        setPending(false);
+        return result;
+    }, []);
+
+    const exchangeOAuth = useCallback(async (state: string, code: string) => {
+        const trimmedState = state.trim();
+        const trimmedCode = code.trim();
+        if (!trimmedState || !trimmedCode) {
+            return { code: "invalid_argument", message: "State and code are required" } satisfies AuthApiError;
+        }
+        setPending(true);
+        const { data, error } = await authApi.exchangeOAuth(trimmedState, trimmedCode);
+        setPending(false);
+        if (error) return error;
+        setStatus(data);
+        return null;
+    }, []);
+
     const value = useMemo<AuthContextValue>(
-        () => ({ status, pending, refresh, login, logout }),
-        [status, pending, refresh, login, logout],
+        () => ({ status, pending, refresh, login, logout, startOAuth, exchangeOAuth }),
+        [status, pending, refresh, login, logout, startOAuth, exchangeOAuth],
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -22,6 +22,49 @@ login:
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
       '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
 
+oauthStart:
+  post:
+    operationId: startOAuth
+    summary: Begin a browser-driven Pixiv OAuth (PKCE) login
+    description: |
+      Generates a server-side PKCE verifier and returns the hosted Pixiv
+      login URL the client should open in a popup. The server keeps the
+      verifier indexed by `state`; the client posts `state` + the
+      authorisation `code` back to `/auth/oauth/exchange` to complete login.
+      Issued states expire after ~10 minutes and are single-use.
+    tags: [auth]
+    responses:
+      '200':
+        description: Login flow started.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/OAuthStartResponse' }
+
+oauthExchange:
+  post:
+    operationId: exchangeOAuth
+    summary: Complete a browser-driven Pixiv OAuth login
+    description: |
+      Trades the Pixiv authorisation code (returned in the callback URL of
+      the hosted login page) for a refresh + access token using the PKCE
+      verifier the server stored under `state`. `code` may be the bare
+      code, or the full callback URL — the server extracts `?code=…`.
+      Persists the resulting tokens just like `/auth/login`.
+    tags: [auth]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/OAuthExchangeRequest' }
+    responses:
+      '200':
+        description: Authenticated. The access token is stored server-side.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/AuthStatus' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
 logout:
   post:
     operationId: logout

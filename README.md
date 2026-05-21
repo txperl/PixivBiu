@@ -55,12 +55,30 @@ open  http://localhost:8080/docs                   # Scalar 交互式文档
 
 | 域 | 说明 |
 |---|---|
-| `/auth/*` | refresh_token 登录、登出、状态查询；token 自动刷新 |
+| `/auth/*` | 浏览器内 Pixiv OAuth (PKCE) 登录；登出、状态查询；token 自动刷新；refresh_token 直登保留为高级入口 |
 | `/illusts/*`、`/users/*`、`/search/*` | Pixiv 只读浏览 + 书签/关注写入 |
 | `/downloads` | 单图 / 多图 / 动图下载，JSON 持久化，断点重启恢复 |
 | `/events` | SSE 统一消息流；`Last-Event-ID` 重连补齐，evict 时发 `system.resync` |
 
 下载路径用 Go `text/template`（变量 `.Title`/`.Index`/`.UserName` 等，函数 `sanitize`/`pad`/`date`/`trunc`/`default`）。每段路径强制 sanitize、拒绝 `..`、按字节截断保留扩展名。同名文件按 ` (1)`/` (2)` 递增。动图支持 `webp | gif | none` 三档。
+
+## 登录
+
+PixivBiu 内置 Pixiv OAuth (PKCE) 流程，全程在浏览器里完成：
+
+1. 顶栏点头像 → **使用 Pixiv 账号登录**，会弹出 Pixiv 官方登录页（验证码 / 二次验证都由 Pixiv 自家处理）
+2. **在弹窗里** 按 `F12` / `⌥⌘I` 打开 DevTools
+3. 切到 **Network** 面板，勾选 **Preserve log / 持续记录**
+4. 在 Network 顶部的 **Filter** 框输入 `callback?`
+5. 在弹窗里用 Pixiv 账号完成登录（之后浏览器会停在空白 / 报错页，这是预期的）
+6. 找到过滤出的那条 `callback?state=…&code=…` 请求 → 右键 → **Copy / 复制** → **Copy URL / 复制链接**
+7. 粘到 PixivBiu 登录对话框里 → 完成
+
+> 之所以要走 DevTools 取 code：Pixiv 的 OAuth 回调用的是 Android 自定义 URL scheme `pixiv://`，桌面浏览器无法跳转，code 不会出现在地址栏，只能从 Network 抓。
+
+后端临时持有 PKCE `code_verifier`（仅内存、10 分钟 TTL、单次使用），换得的 refresh_token / access_token 写入 `usr/state.json`，后续靠它自动刷新。
+
+> 已有 refresh_token 的老用户 / 自动化场景，可展开登录对话框里的「已经有 refresh token？」面板直接粘贴。`POST /auth/login {refresh_token}` 仍然可用。
 
 ## 配置
 

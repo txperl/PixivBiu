@@ -9,7 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/txperl/PixivBiu/internal/auth"
 	"github.com/txperl/PixivBiu/internal/download"
+	"github.com/txperl/PixivBiu/internal/pixiv"
 )
 
 func TestClassify_JSONDecodeErrorsMapTo400(t *testing.T) {
@@ -134,6 +136,63 @@ func TestParseStatusList(t *testing.T) {
 				if got[i] != c.want[i] {
 					t.Errorf("[%d]: want %q, got %q", i, c.want[i], got[i])
 				}
+			}
+		})
+	}
+}
+
+func TestClassify_OAuthErrorsMapTo400(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+	}{
+		{"no auth code", pixiv.ErrNoAuthCode},
+		{"unknown pkce state", auth.ErrUnknownState},
+		{"wrapped unknown state", fmt.Errorf("consume verifier: %w", auth.ErrUnknownState)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			code, status, _ := classify(c.err)
+			if status != http.StatusBadRequest {
+				t.Errorf("status: want 400, got %d", status)
+			}
+			if code != "bad_request" {
+				t.Errorf("code: want bad_request, got %q", code)
+			}
+		})
+	}
+}
+
+func TestExtractAuthCode(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"bare code", "abc-123", "abc-123"},
+		{"trims whitespace", "  abc-123  \n", "abc-123"},
+		{"empty", "", ""},
+		{"empty after trim", "   ", ""},
+		{
+			"pixiv callback URL",
+			"https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback?code=THE_CODE&foo=bar",
+			"THE_CODE",
+		},
+		{
+			"http URL",
+			"http://example.com/cb?code=XYZ",
+			"XYZ",
+		},
+		{
+			"URL without code falls through to raw",
+			"https://example.com/no-code-here",
+			"https://example.com/no-code-here",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := extractAuthCode(c.in); got != c.want {
+				t.Errorf("extractAuthCode(%q): want %q, got %q", c.in, c.want, got)
 			}
 		})
 	}

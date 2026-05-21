@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/httplog/v3"
 	"github.com/txperl/pixivgo"
 
+	"github.com/txperl/PixivBiu/internal/auth"
 	"github.com/txperl/PixivBiu/internal/download"
 	"github.com/txperl/PixivBiu/internal/inbox"
 	"github.com/txperl/PixivBiu/internal/pixiv"
@@ -20,11 +21,12 @@ type APIHandler struct {
 	svc       *pixiv.Service
 	hub       *inbox.Hub
 	dl        *download.Manager
+	pkce      *auth.Store
 	heartbeat time.Duration
 }
 
-func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, heartbeat time.Duration) *APIHandler {
-	return &APIHandler{svc: svc, hub: hub, dl: dl, heartbeat: heartbeat}
+func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat time.Duration) *APIHandler {
+	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat}
 }
 
 var _ ServerInterface = (*APIHandler)(nil)
@@ -61,6 +63,8 @@ func classify(err error) (code string, status int, detail string) {
 		errors.Is(err, pixivgo.ErrAuthRequired):
 		return "unauthenticated", http.StatusUnauthorized, ""
 	case errors.Is(err, pixiv.ErrNoRefreshToken),
+		errors.Is(err, pixiv.ErrNoAuthCode),
+		errors.Is(err, auth.ErrUnknownState),
 		errors.Is(err, download.ErrInvalidIllust),
 		errors.Is(err, download.ErrNonTerminalStatus):
 		return "bad_request", http.StatusBadRequest, ""

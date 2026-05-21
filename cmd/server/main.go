@@ -18,6 +18,7 @@ import (
 	"github.com/go-chi/httplog/v3"
 
 	"github.com/txperl/PixivBiu/internal/api"
+	"github.com/txperl/PixivBiu/internal/auth"
 	"github.com/txperl/PixivBiu/internal/config"
 	"github.com/txperl/PixivBiu/internal/download"
 	"github.com/txperl/PixivBiu/internal/inbox"
@@ -76,7 +77,8 @@ func run() error {
 	dlMgr.Start(ctx)
 	defer dlMgr.Shutdown()
 
-	handler := api.NewHandler(svc, hub, dlMgr, cfg.Inbox.Heartbeat)
+	pkceStore := auth.NewStore()
+	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, cfg.Inbox.Heartbeat)
 	httpHandler := server.New(cfg, logger, handler)
 
 	addr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))

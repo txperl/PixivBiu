@@ -270,9 +270,11 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 | Method | Path | operationId | Notes |
 |---|---|---|---|
 | GET | `/health` | `getHealth` | Liveness check (no auth) |
-| POST | `/auth/login` | `login` | Body: `{refresh_token}`. Persists to `usr/state.json`. |
+| POST | `/auth/login` | `login` | Body: `{refresh_token}`. Direct refresh-token login (advanced/legacy). Persists to `usr/state.json`. |
 | POST | `/auth/logout` | `logout` | Clears in-memory + on-disk state |
 | GET | `/auth/status` | `getAuthStatus` | `{authenticated, user_id?, user_name?, expires_at?}` |
+| POST | `/auth/oauth/start` | `startOAuth` | Issue PKCE state + return Pixiv hosted login URL. Verifier kept server-side in `internal/auth.Store` (in-memory, 10 min TTL). |
+| POST | `/auth/oauth/exchange` | `exchangeOAuth` | Body: `{state, code}`. `code` may be the bare authorisation code or the full callback URL the user pasted. Funnels through the same persistence path as `/auth/login`. |
 | GET | `/illusts/{id}` | `getIllust` | Illustration detail |
 | GET | `/illusts/ranking` | `listRanking` | Query: `mode`, `date`, `offset`, `client_mode` |
 | GET | `/illusts/recommended` | `listRecommended` | Query: `type`, `offset`, `client_mode`, `include_ranking_illusts` |
@@ -307,7 +309,7 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 
 **Error classification** (see `internal/api/handler.go::classify`):
 - `unauthenticated` / 401 — no/expired access token; POST `/auth/login` first.
-- `bad_request` / 400 — malformed input / invalid illust.
+- `bad_request` / 400 — malformed input / invalid illust / missing or expired PKCE state / missing auth code.
 - `forbidden` / 403 — upstream 403 (e.g., restricted / deleted illust).
 - `not_found` / 404 — upstream 404 / unknown download job.
 - `conflict` / 409 — cancelling a terminal job, or removing a non-terminal one.
@@ -333,6 +335,8 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 - File is gitignored (`/usr/` in `.gitignore`). Mode `0600`, parent dir mode `0700`.
 - `internal/pixiv/service.go` runs a background refresh loop that calls `client.Auth()` whenever the access token has < 5 min left, then overwrites the file.
 - On first boot with no state file, the server is "unauthenticated" — all non-`/health`, non-`/auth/*` endpoints return 401.
+
+**OAuth (PKCE) login flow.** Pixiv's mobile OAuth uses the `pixiv://` URL scheme for its callback, so a desktop browser cannot land on the callback URL — the navigation silently fails. The pragmatic UX is: open Pixiv's hosted login in a popup, ask the user to capture the `…/auth/pixiv/callback?code=…` URL from **DevTools › Network** (with Preserve log enabled), and paste it back. `internal/auth/pkce.go` keeps issued PKCE verifiers in an in-memory `Store` (TTL 10 min, capped at 64 entries, single-use). The handler stitches `/auth/oauth/start` (issue) and `/auth/oauth/exchange` (consume + `Service.LoginWithAuthCode`) together; the actual `authorization_code` grant lives in `internal/pixiv/oauth_code.go` because pixivgo only implements the refresh-token grant. `extractAuthCode` (in `handler_auth.go`) accepts either the full callback URL or a bare code so the user doesn't have to pre-process. Once the exchange returns a refresh token, the rest of the path (access-token persistence, background refresh loop) is shared with `/auth/login` — there's only one code path keeping `usr/state.json` honest. Front-end `login-dialog.tsx` does light client-side validation: if the pasted value parses as a URL but has no `code=` (or hostname is `accounts.pixiv.net`), it shows an inline hint pointing the user back to the Network panel rather than round-tripping to Pixiv and getting an opaque 400.
 
 ## Download Module
 

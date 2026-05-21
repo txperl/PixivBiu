@@ -37,6 +37,10 @@ paths:
     $ref: './paths/auth.yaml#/logout'
   /auth/status:
     $ref: './paths/auth.yaml#/status'
+  /auth/oauth/start:
+    $ref: './paths/auth.yaml#/oauthStart'
+  /auth/oauth/exchange:
+    $ref: './paths/auth.yaml#/oauthExchange'
 
   /illusts/ranking:
     $ref: './paths/illusts.yaml#/ranking'
@@ -296,6 +300,36 @@ components:
         refresh_token:
           type: string
           description: Long-lived Pixiv OAuth refresh token. See README for how to obtain.
+
+    OAuthStartResponse:
+      type: object
+      required: [state, login_url]
+      properties:
+        state:
+          type: string
+          description: |
+            Opaque handle the client must echo back to `/auth/oauth/exchange`.
+            The server uses it to look up the matching PKCE verifier.
+        login_url:
+          type: string
+          description: |
+            Pixiv-hosted login URL the client should open in a popup. After
+            the user authenticates Pixiv redirects to a fixed callback URL
+            that carries `?code=…`; the user pastes that URL (or just the
+            code) back into the client.
+
+    OAuthExchangeRequest:
+      type: object
+      required: [state, code]
+      properties:
+        state:
+          type: string
+          description: The `state` returned by `/auth/oauth/start`.
+        code:
+          type: string
+          description: |
+            Either the bare authorisation `code` Pixiv emitted, or the full
+            callback URL the user pasted (the server extracts `?code=…`).
 
     AuthStatus:
       type: object

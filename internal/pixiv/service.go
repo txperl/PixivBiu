@@ -25,6 +25,11 @@ type Service struct {
 	logger *slog.Logger
 	store  *state.Store
 	client *pixivgo.Client
+	// httpc is the raw HTTP client used for OAuth flows pixivgo doesn't
+	// implement (authorization_code grant). It shares proxy/SNI-bypass
+	// configuration with pixivgo so the OAuth call traverses the same path
+	// as everything else.
+	httpc *http.Client
 
 	mu        sync.RWMutex
 	token     state.Token
@@ -38,7 +43,7 @@ type Service struct {
 // the network. Use Start to perform the initial Auth and kick off the refresh
 // loop. Shutdown cancels the loop and waits for it to exit.
 func NewService(cfg config.PixivConfig, logger *slog.Logger, store *state.Store) (*Service, error) {
-	client, err := buildClient(cfg)
+	client, httpc, err := buildClient(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +58,7 @@ func NewService(cfg config.PixivConfig, logger *slog.Logger, store *state.Store)
 		logger:    logger,
 		store:     store,
 		client:    client,
+		httpc:     httpc,
 		token:     tok,
 		refreshCh: make(chan struct{}, 1),
 	}
@@ -114,6 +120,25 @@ func (s *Service) Login(ctx context.Context, refreshToken string) (state.Token, 
 		return state.Token{}, ErrNoRefreshToken
 	}
 	return s.refresh(ctx, refreshToken)
+}
+
+// LoginWithAuthCode completes the browser-driven Pixiv OAuth flow: it trades
+// the authorization code (+ the PKCE verifier the server issued earlier) for
+// a refresh token via Pixiv's token endpoint, then funnels the result through
+// the same refresh path as Login so persistence / refresh-loop wiring is
+// shared and there's no second code path for token state to drift on.
+func (s *Service) LoginWithAuthCode(ctx context.Context, code, verifier string) (state.Token, error) {
+	if code == "" {
+		return state.Token{}, ErrNoAuthCode
+	}
+	if verifier == "" {
+		return state.Token{}, ErrNoRefreshToken
+	}
+	rt, err := ExchangeAuthCode(ctx, s.httpc, code, verifier)
+	if err != nil {
+		return state.Token{}, err
+	}
+	return s.refresh(ctx, rt)
 }
 
 // Logout clears the in-memory and on-disk token state.
@@ -193,8 +218,11 @@ func (s *Service) loop(ctx context.Context) {
 }
 
 // buildClient constructs a pixivgo client with proxy / bypass / language
-// settings applied. It does NOT authenticate.
-func buildClient(cfg config.PixivConfig) (*pixivgo.Client, error) {
+// settings applied. It does NOT authenticate. The second return is the raw
+// *http.Client backing the pixivgo client (or http.DefaultClient when neither
+// proxy nor SNI-bypass is configured) so callers can reuse the same network
+// path for OAuth flows pixivgo doesn't cover.
+func buildClient(cfg config.PixivConfig) (*pixivgo.Client, *http.Client, error) {
 	opts := []pixivgo.Option{}
 	if cfg.Language != "" {
 		opts = append(opts, pixivgo.WithAcceptLanguage(cfg.Language))
@@ -203,19 +231,20 @@ func buildClient(cfg config.PixivConfig) (*pixivgo.Client, error) {
 	if cfg.BypassSNI {
 		hc, base, err := bypass.NewHTTPClient(context.Background())
 		if err != nil {
-			return nil, fmt.Errorf("init sni bypass: %w", err)
+			return nil, nil, fmt.Errorf("init sni bypass: %w", err)
 		}
 		opts = append(opts, pixivgo.WithHTTPClient(hc), pixivgo.WithBaseURL(base))
-		return pixivgo.NewClient(opts...), nil
+		return pixivgo.NewClient(opts...), hc, nil
 	}
 
 	if cfg.Proxy != "" {
 		u, err := url.Parse(cfg.Proxy)
 		if err != nil {
-			return nil, fmt.Errorf("parse pixiv proxy %q: %w", cfg.Proxy, err)
+			return nil, nil, fmt.Errorf("parse pixiv proxy %q: %w", cfg.Proxy, err)
 		}
 		hc := &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(u)}}
 		opts = append(opts, pixivgo.WithHTTPClient(hc))
+		return pixivgo.NewClient(opts...), hc, nil
 	}
-	return pixivgo.NewClient(opts...), nil
+	return pixivgo.NewClient(opts...), http.DefaultClient, nil
 }
