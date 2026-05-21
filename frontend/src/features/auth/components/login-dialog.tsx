@@ -1,9 +1,12 @@
+import { HugeiconsIcon } from "@hugeicons/react";
 import { type ReactNode, type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AuthApiError } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/use-auth";
+import { PasteIcon } from "@/lib/icons";
 
 interface LoginDialogProps {
     open: boolean;
@@ -240,6 +243,16 @@ function PasteView({
     onBack: () => void;
     onSubmit: (e: SyntheticEvent<HTMLFormElement, SubmitEvent>) => void;
 }) {
+    const onPasteFromClipboard = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            // Empty clipboard: keep whatever the user already typed instead of wiping it.
+            if (text) onPastedCodeChange(text);
+        } catch {
+            // Denied / unsupported (Safari, insecure context): user can still paste manually.
+        }
+    };
+
     return (
         <form onSubmit={onSubmit} className="space-y-3">
             <PopupSteps />
@@ -248,16 +261,36 @@ function PasteView({
                 <label htmlFor="login-callback-url" className="mb-1 block text-muted-foreground text-xs">
                     复制的链接
                 </label>
-                <Input
-                    id="login-callback-url"
-                    type="text"
-                    autoComplete="off"
-                    spellCheck={false}
-                    autoFocus
-                    value={pastedCode}
-                    onChange={(e) => onPastedCodeChange(e.target.value)}
-                    placeholder="https://..."
-                />
+                <div className="relative">
+                    <Input
+                        id="login-callback-url"
+                        type="text"
+                        autoComplete="off"
+                        spellCheck={false}
+                        autoFocus
+                        value={pastedCode}
+                        onChange={(e) => onPastedCodeChange(e.target.value)}
+                        placeholder="https://..."
+                        className="pr-8 text-xs"
+                    />
+                    <Tooltip>
+                        <TooltipTrigger
+                            delay={100}
+                            render={
+                                <button
+                                    type="button"
+                                    onClick={onPasteFromClipboard}
+                                    disabled={pending}
+                                    aria-label="从剪贴板粘贴"
+                                    className="absolute inset-y-1 right-1 flex items-center justify-center rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+                                >
+                                    <HugeiconsIcon icon={PasteIcon} size={14} strokeWidth={2} />
+                                </button>
+                            }
+                        />
+                        <TooltipContent>从剪贴板粘贴</TooltipContent>
+                    </Tooltip>
+                </div>
                 {pasteHint && (
                     <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-amber-700 text-xs dark:text-amber-300">
                         {pasteHint}
@@ -268,9 +301,14 @@ function PasteView({
             {error && <ErrorBlock error={error} />}
 
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <Button type="button" variant="ghost" size="sm" onClick={onReopenPopup} disabled={pending}>
+                <button
+                    type="button"
+                    className="text-xs opacity-50 hover:underline hover:opacity-100"
+                    onClick={onReopenPopup}
+                    disabled={pending}
+                >
                     重新打开弹窗
-                </Button>
+                </button>
                 <div className="flex gap-2">
                     <Button type="button" variant="ghost" onClick={onBack} disabled={pending}>
                         返回
