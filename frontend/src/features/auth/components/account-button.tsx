@@ -1,5 +1,4 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -10,15 +9,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/features/auth/use-auth";
 import { MoreIcon } from "@/lib/icons";
-import LoginDialog from "./login-dialog";
 
 const AVATAR_GRADIENT = "linear-gradient(135deg, oklch(0.78 0.10 45), oklch(0.68 0.13 45))";
 
 function AccountButton() {
     const { status, pending, refresh, logout } = useAuth();
-    const [loginOpen, setLoginOpen] = useState(false);
 
-    if (status === null) {
+    // The sidebar is only ever rendered when authenticated (RootLayout guards
+    // unauth users to /login), so we only need the loading skeleton and the
+    // signed-in view here.
+    if (status === null || !status.authenticated) {
         return (
             <div className="flex items-center gap-3" aria-busy="true">
                 <div className="size-8 shrink-0 animate-pulse rounded-full bg-muted" />
@@ -27,27 +27,6 @@ function AccountButton() {
                     <div className="h-2.5 w-12 animate-pulse rounded bg-muted" />
                 </div>
             </div>
-        );
-    }
-
-    if (!status.authenticated) {
-        return (
-            <>
-                <button
-                    type="button"
-                    onClick={() => setLoginOpen(true)}
-                    className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                >
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted font-medium text-muted-foreground text-sm">
-                        ?
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <div className="font-medium text-foreground text-sm">未登录</div>
-                        <div className="text-[11px] text-muted-foreground">点击登录 Pixiv 账号</div>
-                    </div>
-                </button>
-                <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
-            </>
         );
     }
 
