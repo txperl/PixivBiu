@@ -20,7 +20,7 @@ The current backend covers **auth + read-only browsing + bookmark/follow + downl
 - **Language**: Go 1.26
 - **Router**: [chi v5](https://github.com/go-chi/chi) — lightweight, idiomatic HTTP router
 - **API codegen**: [oapi-codegen v2](https://github.com/oapi-codegen/oapi-codegen) — generates types + chi server interface from OpenAPI 3 spec. Installed as a `go tool` (Go 1.24+ tool directive).
-- **Config**: [koanf v2](https://github.com/knadh/koanf) — providers for confmap (defaults), file+yaml, env
+- **Config**: [koanf v2](https://github.com/knadh/koanf) — providers for confmap (defaults + file layer) and env. The settings file is JSON (`usr/settings.json`), loaded by an in-package `Store` instead of koanf's file/yaml providers; the same Store + a reflected schema power the `/config/*` REST surface.
 - **Logging**: `log/slog` (stdlib) + [go-chi/httplog v3](https://github.com/go-chi/httplog) — HTTP access logs go through httplog middleware; all events aligned to ECS schema (`SchemaECS` + `ReplaceAttr` on the slog handler)
 - **Decode hooks**: `github.com/go-viper/mapstructure/v2` (for `time.Duration` parsing)
 - **Animated WebP**: [HugoSmits86/nativewebp](https://github.com/HugoSmits86/nativewebp) — pure Go, zero cgo, used for ugoira → animated WebP
@@ -47,7 +47,8 @@ PixivBiu-go/
 │   │   ├── users.yaml            #     /users/*
 │   │   ├── search.yaml           #     /search/*
 │   │   ├── downloads.yaml        #     /downloads · /downloads/{id}
-│   │   └── events.yaml           #     /events (SSE)
+│   │   ├── events.yaml           #     /events (SSE)
+│   │   └── config.yaml           #     /config · /config/schema · /config/reset
 │   └── cfg.yaml                  #   oapi-codegen configuration (self-mapping for cross-file $refs)
 ├── cmd/server/main.go            # Entry point: load config → init logger → wire pixiv/inbox/download → HTTP
 ├── internal/
@@ -58,14 +59,19 @@ PixivBiu-go/
 │   │   ├── handler_{auth,illusts,users,search}.go   # Per-domain handlers
 │   │   ├── handler_downloads.go  #   /downloads/* + DownloadJob/Task projection
 │   │   └── handler_events.go     #   /events SSE (delegates to inbox.ServeSSE)
-│   ├── config/config.go          # koanf-based loader (defaults → file → env)
+│   ├── config/                   # Layered settings (defaults → usr/settings.json → env)
+│   │   ├── config.go             #   Struct + `cfg:` tags (sole source of truth for keys, defaults, validation)
+│   │   ├── manager.go            #   Manager: freeze-at-startup snapshot, Patch/Reset, validators
+│   │   ├── schema.go             #   Reflects Config → JSON Schema (served at GET /config/schema)
+│   │   └── store.go              #   Atomic JSON read/write of settings.json (diff-against-defaults)
+│   ├── atomicfile/               # Shared temp-file+rename writer used by settings/state/downloads stores
 │   ├── pixiv/                    # pixivgo wrapper + background token refresh
 │   ├── state/state.go            # Atomic JSON token persistence (usr/state.json)
 │   ├── inbox/                    # In-memory pub-sub + SSE dispatcher (ring buffer + Last-Event-ID replay)
 │   ├── download/                 # Download manager, worker pool, naming templates, ugoira conversion
 │   │                             #   store.go persists usr/downloads.json atomically
 │   └── server/server.go          # chi router assembly, middleware wiring
-├── usr/                          # Gitignored; holds state.json + downloads.json
+├── usr/                          # Gitignored; holds settings.json + state.json + downloads.json
 ├── downloads/                    # Gitignored; default download.output_dir
 ├── frontend/                     # React + Vite SPA (feature-based; kebab-case file names)
 │   ├── src/
@@ -80,8 +86,6 @@ PixivBiu-go/
 │   │   └── styles/               #   globals.css + material-you.css
 │   ├── package.json              #   `bun run dev | build | check`. `build` runs `paraglide-js compile` before tsc.
 │   └── vite.config.ts            #   `paraglideVitePlugin` + Tailwind + React
-├── config.example.yaml           # Configuration template (source of truth for keys + defaults)
-├── config.yaml                   # Local config (gitignored)
 ├── Makefile                      # gen / dev / build / test / tidy / fmt / vet / clean
 ├── go.mod / go.sum
 ```
@@ -96,8 +100,8 @@ PixivBiu-go/
    ```bash
    go mod tidy
    go get -tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
-   cp config.example.yaml config.yaml
    ```
+   No config file step — `usr/settings.json` is auto-created (and managed) by the running server via `/api/v1/config/*`.
 
 ### Common Commands
 
@@ -106,7 +110,7 @@ PixivBiu-go/
 | `make help`   | Show all available targets |
 | `make gen-backend`  | Regenerate `internal/api/server.gen.go` from `api/openapi.yaml` |
 | `make gen-frontend` | Regenerate `frontend/src/lib/api/schema.gen.ts` from running backend's `/openapi.json` |
-| `make dev`    | Run the server (`go run ./cmd/server -config ./config.yaml`) |
+| `make dev`    | Run the server (`go run ./cmd/server -config ./usr/settings.json`) |
 | `make build`  | Build binary to `bin/pixivbiu` |
 | `make test`   | Run tests |
 | `make tidy`   | `go mod tidy` |
@@ -203,16 +207,27 @@ When adding new handler files inside `internal/api/`, attach methods to `APIHand
 
 ### Configuration
 
-Precedence (low → high): **defaults → `config.yaml` → environment variables**.
+Precedence (low → high): **defaults → `usr/settings.json` → environment variables**.
 
-- Defaults live in `internal/config/config.go` (`defaults()` function). Add new keys there as well as updating the Go struct.
-- The YAML schema is in `config.example.yaml`. Keep it in sync with the Go struct and the defaults function.
-- Environment variable convention: prefix `PIXIVBIU_`, underscores map to dots. For example:
+The settings file is **managed by the running server via `/api/v1/config/*`** — there is no user-edited template (`config.example.yaml` is gone). The Go struct in `internal/config/config.go` is the **single source of truth**: its field types feed defaults, its `cfg:` struct tags drive the reflected JSON Schema, the openapi `ConfigPatch` accepts the same dotted keys, and env-var resolution shares the same key list.
+
+- **Adding/editing a setting** = edit `internal/config/config.go`:
+  1. Add the Go field with a `koanf:"..."` tag (lowercase, no underscores).
+  2. Add the entry to `defaults()` (the `sync.OnceValue` map).
+  3. Tag with `cfg:"desc=...,enum=...|...,min=N,max=N,sensitive=true,restart=true,advanced=true"` — the schema reflector picks this up. Both PATCH validation AND `GET /config/schema` come from these tags.
+  4. Bump `SchemaVersion` only when changing the shape in a way older `settings.json` files can't apply cleanly.
+- **Setting keys are all lowercase** (no camelCase, no underscores) so env-var naming maps cleanly. Group multi-word concepts under nested sections (`server.timeouts.{read,write,shutdown}`) instead of using underscores in keys.
+- **`time.Duration` fields** accept Go duration strings (`"15s"`, `"1m30s"`); the mapstructure decode hook handles conversion.
+- **Env-var convention**: prefix `PIXIVBIU_`, underscores map to dots. Examples:
   - `PIXIVBIU_SERVER_PORT=9090` → `server.port`
   - `PIXIVBIU_SERVER_TIMEOUTS_SHUTDOWN=20s` → `server.timeouts.shutdown`
-  - `PIXIVBIU_LOG_LEVEL=debug` → `log.level`
-- YAML keys are **all lowercase** (no camelCase, no underscores) so the env-var naming maps cleanly. When adding multi-word concepts, group them under a nested section (see `server.timeouts.{read,write,shutdown}`) instead of using underscores in keys.
-- `time.Duration` fields accept Go duration strings (`"15s"`, `"1m30s"`). The mapstructure decode hook handles the conversion.
+  - `PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT=gif` → `download.ugoira.format`
+- **Effective is frozen at startup.** Services hold value-typed slices of `Config` from boot; `Manager.Patch` / `Manager.Reset` validate and persist new values to `settings.json` but do **not** mutate the in-memory snapshot — change takes effect on next restart. `View.File != View.Effective` is the wire signal the frontend uses to show a "restart to apply" hint.
+- **Sensitive masking.** Fields tagged `sensitive=true` (currently `pixiv.proxy`) are stored cleartext on disk but returned as `***` in `GET /config`. PATCH treats `"***"` or `""` for a sensitive field as **no-op**, so the frontend can safely round-trip a redacted view.
+- **Diff-only persistence.** `Store.Save` strips keys whose value matches the built-in default before writing — `settings.json` only ever contains real user overrides. JSON-encode normalisation handles `int` vs `float64` so a round-trip doesn't grow the file.
+- **Validator hook.** Service-level parse rules (download template parse, `pixiv.proxy` URL shape) register via `config.WithValidator(...)` in `cmd/server/main.go`. Validators run both at startup AND inside `Patch`/`Reset` before persisting — same invariants for boot and PATCH means a saved config will not crash the next boot. Return `*config.PatchError{Errors: map[string]string{...}}` to attach per-field messages; bare errors collapse under the generic `_` key.
+- **PatchError → HTTP 400.** `handler.go::classify` recognises `*config.PatchError` and surfaces the joined per-key message in the `detail` field of the error response.
+- **Path override**: `-config <path>` (default `./usr/settings.json`). If the file does not exist, defaults + env are used (no error); the file is created on the first successful PATCH.
 
 ### Logging
 
@@ -243,25 +258,26 @@ RequestID → RealIP → httplog.RequestLogger → (generated routes)
 
 ## Configuration Reference
 
-The canonical template is `config.example.yaml`. Current sections:
+The canonical key list lives in `internal/config/config.go` (Go struct + `defaults()` + `cfg:` tags). At runtime, `GET /api/v1/config/schema` returns the reflected JSON Schema — that's the authoritative, always-fresh reference; this section is a hand-curated summary.
 
 - `server.host` — bind address (default `0.0.0.0`)
 - `server.port` — TCP port (default `8080`)
 - `server.timeouts.{read,write,shutdown}` — HTTP timeouts / graceful shutdown deadline
 - `log.level` — `debug` | `info` | `warn` | `error` (default `info`)
 - `log.format` — `text` | `json` (default `text`)
-- `pixiv.{proxy,language,bypass_sni,state_file}` — Pixiv client + token persistence
+- `pixiv.proxy` — HTTP/SOCKS proxy URL, **sensitive** (masked in API). Must include `scheme://host` — bare `host:port` is rejected at PATCH.
+- `pixiv.{language,bypass_sni,state_file}` — Pixiv client + token persistence
 - `download.{output_dir,file_template,file_group_template}` — text/template paths (see "Download module" below)
-- `download.max_concurrent` — worker pool size (default `4`)
+- `download.max_concurrent` — worker pool size (default `4`, min `1`, max `64`)
 - `download.http_timeout` — per-request timeout (default `60s`)
-- `download.retry.{max,initial_backoff}` — exponential backoff (cap 30s)
+- `download.retry.{max,initial_backoff}` — exponential backoff (cap 30s); `max` clamped to `[0, 10]`
 - `download.referer` — sent with every image request (default `https://app-api.pixiv.net/`)
 - `download.pximg_base` — rewrite `i.pximg.net` to a reverse-proxy mirror
-- `download.ugoira.format` — `webp` | `gif` | `none`
+- `download.ugoira.format` — `webp` | `gif` | `none` (note: empty string is no longer accepted — pick one of the three)
 - `download.store_file` — `usr/downloads.json`
 - `inbox.{buffer_size,progress_throttle,heartbeat}` — event ring buffer cap / progress throttle / SSE keep-alive
 
-Local config file path can be overridden with `-config <path>`. If the file does not exist, defaults + env are used (no error).
+Per-field `cfg:` tags also drive `x-cfg-restart-required` / `x-cfg-advanced` / `x-cfg-sensitive` hints used by the settings UI.
 
 ## Currently Implemented API
 
@@ -297,6 +313,10 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 | DELETE | `/downloads/{id}` | `removeDownload` | History-log delete; never touches disk. 204 / 404 / 409 (still running) |
 | DELETE | `/downloads` | `clearDownloads` | Bulk history-log delete. Query: `status` (CSV, must be terminal). Empty = all terminal. Returns `{removed}`. 400 if any non-terminal status is supplied. |
 | GET | `/events` | `getEvents` | SSE (`text/event-stream`). Query: `topics` (CSV). Honours `Last-Event-ID`. |
+| GET | `/config` | `getConfig` | Returns `{effective, file, sources, schema_version}`. `effective` is the frozen startup snapshot; `file` advances on every PATCH/RESET. Sensitive fields masked. |
+| PATCH | `/config` | `patchConfig` | Body: flat-or-nested dotted-key map. Validated end-to-end (type/min/max/enum + service validators) before atomic write. 400 with per-key detail on failure. |
+| POST | `/config/reset` | `resetConfig` | Body: `{keys?: string[]}` or `{all: true}` (mutually exclusive). Drops file-layer entries so they fall back to env/default on next restart. |
+| GET | `/config/schema` | `getConfigSchema` | JSON Schema (Draft 2020-12) reflected from `Config` + `cfg:` tags; carries `x-cfg-category`/`x-cfg-sensitive`/`x-cfg-restart-required`/`x-cfg-advanced`. |
 
 **Dev-only endpoints** (outside `/api/v1`):
 
@@ -331,7 +351,7 @@ All endpoints are mounted under `/api/v1`. Success responses return the resource
 }
 ```
 
-- File is the **sole** source of truth — tokens must never live in `config.yaml` or env vars.
+- File is the **sole** source of truth — tokens must never live in `settings.json` or env vars.
 - File is gitignored (`/usr/` in `.gitignore`). Mode `0600`, parent dir mode `0700`.
 - `internal/pixiv/service.go` runs a background refresh loop that calls `client.Auth()` whenever the access token has < 5 min left, then overwrites the file.
 - On first boot with no state file, the server is "unauthenticated" — all non-`/health`, non-`/auth/*` endpoints return 401.

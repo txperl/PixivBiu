@@ -3,10 +3,13 @@
 
 /bin
 
-# Local config
+# Legacy local config — superseded by usr/settings.json since v3.
+# Kept ignored so an existing config.yaml on dev machines (often holding
+# proxy creds or other secrets) doesn't surface as untracked and get
+# swept into a `git add .`.
 /config.yaml
 
-# User data
+# User data — settings.json / state.json / downloads.json
 /usr
 /downloads
 

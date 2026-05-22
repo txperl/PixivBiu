@@ -1,6 +1,8 @@
 package config
 
 import (
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,59 +10,64 @@ import (
 	"time"
 )
 
-func writeConfig(t *testing.T, body string) string {
+func newMgr(t *testing.T, settingsBody string) *Manager {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "config.yaml")
-	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if settingsBody != "" {
+		if err := os.WriteFile(path, []byte(settingsBody), 0o600); err != nil {
+			t.Fatalf("write settings: %v", err)
+		}
 	}
-	return path
+	mgr, err := NewManager(path)
+	if err != nil {
+		t.Fatalf("NewManager: %v", err)
+	}
+	return mgr
+}
+
+func TestLoad_MissingFile_UsesDefaults(t *testing.T) {
+	mgr := newMgr(t, "")
+	cfg := mgr.Config()
+	if cfg.Download.MaxConcurrent != 4 {
+		t.Errorf("default MaxConcurrent = %d, want 4", cfg.Download.MaxConcurrent)
+	}
+	if cfg.Server.Port != 8080 {
+		t.Errorf("default Server.Port = %d, want 8080", cfg.Server.Port)
+	}
+}
+
+func TestLoad_RejectsInvalidJSON(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if _, err := NewManager(path); err == nil {
+		t.Fatal("expected parse error, got nil")
+	}
 }
 
 func TestLoad_RejectsUnknownUgoiraFormat(t *testing.T) {
-	path := writeConfig(t, "download:\n  ugoira:\n    format: lol\n")
-	_, err := Load(path)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "ugoira.format") {
-		t.Errorf("error should mention the bad field, got: %v", err)
+	body := `{"download": {"ugoira": {"format": "lol"}}}`
+	path := filepath.Join(t.TempDir(), "settings.json")
+	_ = os.WriteFile(path, []byte(body), 0o600)
+	if _, err := NewManager(path); err == nil || !strings.Contains(err.Error(), "ugoira.format") {
+		t.Errorf("expected ugoira.format error, got: %v", err)
 	}
 }
 
-func TestLoad_AcceptsKnownUgoiraFormats(t *testing.T) {
-	for _, f := range []string{"webp", "gif", "none", "WEBP", "Gif", ""} {
-		t.Run(f, func(t *testing.T) {
-			body := "download:\n  ugoira:\n    format: " + f + "\n"
-			if f == "" {
-				body = "download:\n  ugoira: {}\n"
-			}
-			if _, err := Load(writeConfig(t, body)); err != nil {
-				t.Fatalf("Load(%q): %v", f, err)
-			}
-		})
-	}
-}
-
-// Regression: env overrides on underscored koanf tags used to be no-ops.
-func TestLoad_EnvOverride_UnderscoredKey(t *testing.T) {
+func TestEnvOverride_UnderscoredKey(t *testing.T) {
 	t.Setenv("PIXIVBIU_DOWNLOAD_MAX_CONCURRENT", "8")
-	cfg, err := Load("")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if cfg.Download.MaxConcurrent != 8 {
-		t.Errorf("MaxConcurrent = %d, want 8", cfg.Download.MaxConcurrent)
+	mgr := newMgr(t, "")
+	if mgr.Config().Download.MaxConcurrent != 8 {
+		t.Errorf("MaxConcurrent = %d, want 8", mgr.Config().Download.MaxConcurrent)
 	}
 }
 
-func TestLoad_EnvOverride_NestedWithUnderscore(t *testing.T) {
+func TestEnvOverride_NestedWithUnderscore(t *testing.T) {
 	t.Setenv("PIXIVBIU_PIXIV_BYPASS_SNI", "true")
 	t.Setenv("PIXIVBIU_INBOX_BUFFER_SIZE", "500")
-	cfg, err := Load("")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
+	mgr := newMgr(t, "")
+	cfg := mgr.Config()
 	if !cfg.Pixiv.BypassSNI {
 		t.Errorf("BypassSNI = false, want true")
 	}
@@ -69,26 +76,359 @@ func TestLoad_EnvOverride_NestedWithUnderscore(t *testing.T) {
 	}
 }
 
-func TestLoad_EnvOverride_PureNesting(t *testing.T) {
+func TestEnvOverride_PureNesting(t *testing.T) {
 	t.Setenv("PIXIVBIU_SERVER_TIMEOUTS_SHUTDOWN", "20s")
-	cfg, err := Load("")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if cfg.Server.Timeouts.Shutdown != 20*time.Second {
-		t.Errorf("Shutdown = %s, want 20s", cfg.Server.Timeouts.Shutdown)
+	if mgr := newMgr(t, ""); mgr.Config().Server.Timeouts.Shutdown != 20*time.Second {
+		t.Errorf("Shutdown = %s, want 20s", mgr.Config().Server.Timeouts.Shutdown)
 	}
 }
 
-// Exercises the tie-break when multiple underscores admit several splits.
-func TestLoad_EnvOverride_MultiUnderscoreTemplate(t *testing.T) {
+func TestEnvOverride_MultiUnderscoreTemplate(t *testing.T) {
 	want := "custom/{{.IllustID}}_{{.Title}}/{{.Index}}{{.Ext}}"
 	t.Setenv("PIXIVBIU_DOWNLOAD_FILE_GROUP_TEMPLATE", want)
-	cfg, err := Load("")
+	if got := newMgr(t, "").Config().Download.FileGroupTemplate; got != want {
+		t.Errorf("FileGroupTemplate = %q, want %q", got, want)
+	}
+}
+
+func TestPatch_DiffOnlyPersistence(t *testing.T) {
+	mgr := newMgr(t, "")
+	if _, err := mgr.Patch(map[string]any{"download.max_concurrent": 16}); err != nil {
+		t.Fatalf("Patch: %v", err)
+	}
+	data, _ := os.ReadFile(mgr.StorePath())
+	var nested map[string]any
+	_ = json.Unmarshal(data, &nested)
+	// Only the changed key + its parents should be present.
+	dl, _ := nested["download"].(map[string]any)
+	if dl == nil || dl["max_concurrent"] == nil {
+		t.Fatalf("expected diff to contain download.max_concurrent, got: %s", data)
+	}
+	for k := range nested {
+		if k != "download" {
+			t.Errorf("unexpected top-level key in diff: %q", k)
+		}
+	}
+	for k := range dl {
+		if k != "max_concurrent" {
+			t.Errorf("unexpected download key in diff: %q", k)
+		}
+	}
+}
+
+func TestPatch_BackToDefaultRemovesEntry(t *testing.T) {
+	mgr := newMgr(t, `{"download":{"max_concurrent": 16}}`)
+	if _, err := mgr.Patch(map[string]any{"download.max_concurrent": 4}); err != nil { // 4 is default
+		t.Fatalf("Patch: %v", err)
+	}
+	data, _ := os.ReadFile(mgr.StorePath())
+	var nested map[string]any
+	_ = json.Unmarshal(data, &nested)
+	if nestedGet(nested, "download", "max_concurrent") != nil {
+		t.Errorf("expected default value to be pruned, got: %s", data)
+	}
+}
+
+func TestPatch_RejectsUnknownKey(t *testing.T) {
+	mgr := newMgr(t, "")
+	_, err := mgr.Patch(map[string]any{"download.does_not_exist": 1})
+	pe, ok := err.(*PatchError)
+	if !ok || pe.Errors["download.does_not_exist"] == "" {
+		t.Errorf("expected PatchError on unknown key, got: %v", err)
+	}
+}
+
+func TestPatch_RejectsEmptyEnum(t *testing.T) {
+	mgr := newMgr(t, "")
+	for _, key := range []string{"log.level", "log.format", "download.ugoira.format"} {
+		t.Run(key, func(t *testing.T) {
+			_, err := mgr.Patch(map[string]any{key: ""})
+			pe, ok := err.(*PatchError)
+			if !ok || pe.Errors[key] == "" {
+				t.Errorf("expected PatchError on empty enum value, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestPatch_EnforcesMinMax(t *testing.T) {
+	mgr := newMgr(t, "")
+	if _, err := mgr.Patch(map[string]any{"download.max_concurrent": -1}); err == nil {
+		t.Error("expected min violation error")
+	}
+	if _, err := mgr.Patch(map[string]any{"download.max_concurrent": 9999}); err == nil {
+		t.Error("expected max violation error")
+	}
+}
+
+func TestPatch_SensitiveMaskIsNoOp(t *testing.T) {
+	mgr := newMgr(t, `{"pixiv":{"proxy":"http://u:p@h:1"}}`)
+	if _, err := mgr.Patch(map[string]any{"pixiv.proxy": SensitiveMask}); err != nil {
+		t.Fatalf("Patch mask: %v", err)
+	}
+	if mgr.Config().Pixiv.Proxy != "http://u:p@h:1" {
+		t.Errorf("mask should not overwrite; got %q", mgr.Config().Pixiv.Proxy)
+	}
+}
+
+func TestPatch_SensitiveRealValueOverwrites(t *testing.T) {
+	mgr := newMgr(t, "")
+	if _, err := mgr.Patch(map[string]any{"pixiv.proxy": "http://x:1"}); err != nil {
+		t.Fatalf("Patch: %v", err)
+	}
+	var nested map[string]any
+	data, _ := os.ReadFile(mgr.StorePath())
+	_ = json.Unmarshal(data, &nested)
+	if nestedGet(nested, "pixiv", "proxy") != "http://x:1" {
+		t.Errorf("file proxy = %v, want http://x:1", nestedGet(nested, "pixiv", "proxy"))
+	}
+}
+
+func TestReset_Keys(t *testing.T) {
+	mgr := newMgr(t, `{"download":{"max_concurrent": 16},"pixiv":{"language":"ja"}}`)
+	if _, err := mgr.Reset([]string{"download.max_concurrent"}, false); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	var nested map[string]any
+	data, _ := os.ReadFile(mgr.StorePath())
+	_ = json.Unmarshal(data, &nested)
+	if nestedGet(nested, "download", "max_concurrent") != nil {
+		t.Errorf("reset should have dropped max_concurrent from file, got: %s", data)
+	}
+	if nestedGet(nested, "pixiv", "language") != "ja" {
+		t.Errorf("unrelated key was reset from file: %s", data)
+	}
+}
+
+func TestPatch_RejectsEmptyBody(t *testing.T) {
+	mgr := newMgr(t, "")
+	_, err := mgr.Patch(map[string]any{})
+	pe, ok := err.(*PatchError)
+	if !ok || pe.Errors["_"] == "" {
+		t.Errorf("expected PatchError on empty patch, got: %v", err)
+	}
+}
+
+func TestReset_RejectsNeitherAllNorKeys(t *testing.T) {
+	mgr := newMgr(t, `{"download":{"max_concurrent": 16}}`)
+	_, err := mgr.Reset(nil, false)
+	pe, ok := err.(*PatchError)
+	if !ok || pe.Errors["_"] == "" {
+		t.Errorf("expected PatchError on empty reset, got: %v", err)
+	}
+	// File must be untouched.
+	data, _ := os.ReadFile(mgr.StorePath())
+	var nested map[string]any
+	_ = json.Unmarshal(data, &nested)
+	if nestedGet(nested, "download", "max_concurrent") == nil {
+		t.Errorf("file should be untouched after rejected reset, got: %s", data)
+	}
+}
+
+func TestReset_AllAndKeysRejected(t *testing.T) {
+	mgr := newMgr(t, `{"download":{"max_concurrent": 16}}`)
+	_, err := mgr.Reset([]string{"download.max_concurrent"}, true)
+	pe, ok := err.(*PatchError)
+	if !ok {
+		t.Fatalf("expected PatchError, got: %v", err)
+	}
+	if pe.Errors["_"] == "" {
+		t.Errorf("expected mutex error message, got: %v", pe.Errors)
+	}
+	// Confirm the file is unchanged: the previous override survived.
+	data, _ := os.ReadFile(mgr.StorePath())
+	var nested map[string]any
+	_ = json.Unmarshal(data, &nested)
+	if nestedGet(nested, "download", "max_concurrent") == nil {
+		t.Errorf("file should be untouched after rejected reset, got: %s", data)
+	}
+}
+
+func TestReset_All(t *testing.T) {
+	mgr := newMgr(t, `{"download":{"max_concurrent": 16},"pixiv":{"language":"ja"}}`)
+	if _, err := mgr.Reset(nil, true); err != nil {
+		t.Fatalf("Reset all: %v", err)
+	}
+	data, _ := os.ReadFile(mgr.StorePath())
+	if strings.TrimSpace(string(data)) != "{}" {
+		t.Errorf("reset all should have cleared file, got: %s", data)
+	}
+}
+
+// EffectiveStaysFrozen pins down the contract: Patch/Reset persist
+// changes to the file layer but never mutate what the running process
+// uses. Frontend learns "restart needed" by comparing View.File to
+// View.Effective.
+func TestPatch_EffectiveStaysFrozen(t *testing.T) {
+	mgr := newMgr(t, "")
+	before := mgr.Config().Download.MaxConcurrent
+	view, err := mgr.Patch(map[string]any{"download.max_concurrent": 32})
 	if err != nil {
-		t.Fatalf("Load: %v", err)
+		t.Fatalf("Patch: %v", err)
 	}
-	if cfg.Download.FileGroupTemplate != want {
-		t.Errorf("FileGroupTemplate = %q, want %q", cfg.Download.FileGroupTemplate, want)
+	if mgr.Config().Download.MaxConcurrent != before {
+		t.Errorf("startup snapshot mutated: got %d, want %d", mgr.Config().Download.MaxConcurrent, before)
 	}
+	// Effective values pass through coerceForView (returns int64), while
+	// File values are the raw JSON map (encoding/json gives float64 for
+	// numbers). The asymmetric type assertions reflect that pipeline.
+	if got := nestedGet(view.Effective, "download", "max_concurrent"); got != int64(before) {
+		t.Errorf("view.Effective.max_concurrent = %v, want frozen %d", got, before)
+	}
+	if got := nestedGet(view.File, "download", "max_concurrent"); got != float64(32) {
+		t.Errorf("view.File.max_concurrent = %v, want 32 (the patched value)", got)
+	}
+}
+
+func TestView_SourcesAndMasking(t *testing.T) {
+	t.Setenv("PIXIVBIU_DOWNLOAD_MAX_CONCURRENT", "99")
+	mgr := newMgr(t, `{"pixiv":{"proxy":"http://u:p@h:1","language":"ja"}}`)
+	view, err := mgr.View()
+	if err != nil {
+		t.Fatalf("View: %v", err)
+	}
+	if view.Sources["download.max_concurrent"] != SourceEnv {
+		t.Errorf("env source not labeled, sources=%v", view.Sources)
+	}
+	if view.Sources["pixiv.language"] != SourceFile {
+		t.Errorf("file source not labeled, got %v", view.Sources["pixiv.language"])
+	}
+	if view.Sources["server.port"] != SourceDefaults {
+		t.Errorf("defaults source not labeled, got %v", view.Sources["server.port"])
+	}
+	// proxy is sensitive: both file and effective views must mask it
+	if eff := nestedGet(view.Effective, "pixiv", "proxy"); eff != SensitiveMask {
+		t.Errorf("effective proxy not masked: %v", eff)
+	}
+	if fp := nestedGet(view.File, "pixiv", "proxy"); fp != SensitiveMask {
+		t.Errorf("file proxy not masked: %v", fp)
+	}
+}
+
+func TestView_CoercesEnvStringsToSchemaTypes(t *testing.T) {
+	t.Setenv("PIXIVBIU_SERVER_PORT", "9090")
+	t.Setenv("PIXIVBIU_PIXIV_BYPASS_SNI", "true")
+	mgr := newMgr(t, "")
+	view, err := mgr.View()
+	if err != nil {
+		t.Fatalf("View: %v", err)
+	}
+	port := nestedGet(view.Effective, "server", "port")
+	if _, ok := port.(int64); !ok {
+		t.Errorf("server.port should be int64 after env coercion, got %T (%v)", port, port)
+	}
+	sni := nestedGet(view.Effective, "pixiv", "bypass_sni")
+	if b, ok := sni.(bool); !ok || !b {
+		t.Errorf("pixiv.bypass_sni should be true (bool) after env coercion, got %T (%v)", sni, sni)
+	}
+}
+
+func TestSchema_HasExpectedShape(t *testing.T) {
+	mgr := newMgr(t, "")
+	sc := mgr.Schema()
+	if _, ok := sc.Fields["download.max_concurrent"]; !ok {
+		t.Fatal("schema missing download.max_concurrent")
+	}
+	fm := sc.Fields["pixiv.proxy"]
+	if fm == nil || !fm.Sensitive {
+		t.Errorf("pixiv.proxy not flagged sensitive: %+v", fm)
+	}
+	uf := sc.Fields["download.ugoira.format"]
+	if uf == nil || len(uf.Enum) == 0 {
+		t.Errorf("ugoira.format enum missing: %+v", uf)
+	}
+	mc := sc.Fields["download.max_concurrent"]
+	if mc == nil || mc.Min == nil || mc.Max == nil {
+		t.Errorf("max_concurrent min/max missing: %+v", mc)
+	}
+}
+
+// rejectBadTemplate is the kind of cheap predicate-style validator the
+// download package would register from main.go; it lets these tests
+// exercise the validator wiring without taking on the download import.
+func rejectBadTemplate(c *Config) error {
+	if strings.Contains(c.Download.FileTemplate, "<<BAD>>") {
+		return errors.New("file_template: rejected by test validator")
+	}
+	return nil
+}
+
+func newMgrWithValidators(t *testing.T, settingsBody string, vs ...func(*Config) error) (*Manager, error) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if settingsBody != "" {
+		if err := os.WriteFile(path, []byte(settingsBody), 0o600); err != nil {
+			t.Fatalf("write settings: %v", err)
+		}
+	}
+	opts := make([]Option, 0, len(vs))
+	for _, v := range vs {
+		opts = append(opts, WithValidator(v))
+	}
+	return NewManager(path, opts...)
+}
+
+func TestNewManager_RunsValidators(t *testing.T) {
+	body := `{"download":{"file_template":"<<BAD>>"}}`
+	_, err := newMgrWithValidators(t, body, rejectBadTemplate)
+	pe := &PatchError{}
+	if !errors.As(err, &pe) || !strings.Contains(pe.Errors["_"], "rejected by test validator") {
+		t.Errorf("expected validator error at startup, got: %v", err)
+	}
+}
+
+func TestPatch_ValidatorRejectsAndFileUntouched(t *testing.T) {
+	mgr, err := newMgrWithValidators(t, "", rejectBadTemplate)
+	if err != nil {
+		t.Fatalf("NewManager: %v", err)
+	}
+	_, err = mgr.Patch(map[string]any{
+		"download.file_template": "<<BAD>>",
+	})
+	pe := &PatchError{}
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected PatchError, got: %v", err)
+	}
+	if !strings.Contains(pe.Errors["_"], "rejected by test validator") {
+		t.Errorf("unexpected validator error: %v", pe.Errors)
+	}
+	if _, err := os.Stat(mgr.StorePath()); !os.IsNotExist(err) {
+		t.Errorf("settings.json should not be written when validator rejects, stat err=%v", err)
+	}
+}
+
+func TestPatch_ValidatorPatchErrorAttribution(t *testing.T) {
+	v := func(c *Config) error {
+		if !strings.Contains(c.Download.FileTemplate, "<<BAD>>") {
+			return nil
+		}
+		return &PatchError{Errors: map[string]string{"download.file_template": "stub: bad syntax"}}
+	}
+	mgr, err := newMgrWithValidators(t, "", v)
+	if err != nil {
+		t.Fatalf("NewManager: %v", err)
+	}
+	_, err = mgr.Patch(map[string]any{"download.file_template": "<<BAD>>"})
+	pe := &PatchError{}
+	if !errors.As(err, &pe) {
+		t.Fatalf("expected PatchError, got: %v", err)
+	}
+	if pe.Errors["download.file_template"] == "" {
+		t.Errorf("expected per-field attribution preserved, got: %v", pe.Errors)
+	}
+	if pe.Errors["_"] != "" {
+		t.Errorf("expected no generic key when validator returned PatchError, got: %v", pe.Errors)
+	}
+}
+
+func nestedGet(m map[string]any, keys ...string) any {
+	var cur any = m
+	for _, k := range keys {
+		mm, ok := cur.(map[string]any)
+		if !ok {
+			return nil
+		}
+		cur = mm[k]
+	}
+	return cur
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/txperl/pixivgo"
 
 	"github.com/txperl/PixivBiu/internal/auth"
+	"github.com/txperl/PixivBiu/internal/config"
 	"github.com/txperl/PixivBiu/internal/download"
 	"github.com/txperl/PixivBiu/internal/inbox"
 	"github.com/txperl/PixivBiu/internal/pixiv"
@@ -23,10 +24,11 @@ type APIHandler struct {
 	dl        *download.Manager
 	pkce      *auth.Store
 	heartbeat time.Duration
+	cfgMgr    *config.Manager
 }
 
-func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat time.Duration) *APIHandler {
-	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat}
+func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat time.Duration, cfgMgr *config.Manager) *APIHandler {
+	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, cfgMgr: cfgMgr}
 }
 
 var _ ServerInterface = (*APIHandler)(nil)
@@ -39,6 +41,17 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// decodeJSON unmarshals the request body into v. EOF is treated as the
+// empty body so handlers can keep their "optional body" semantics
+// without each duplicating the errors.Is(io.EOF) dance.
+func decodeJSON(r *http.Request, v any) error {
+	err := json.NewDecoder(r.Body).Decode(v)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	return nil
 }
 
 // writeError classifies err, attaches error.message + error.type to the
@@ -84,6 +97,12 @@ func classify(err error) (code string, status int, detail string) {
 		errors.As(err, &jsonUnmarshal) ||
 		errors.Is(err, io.ErrUnexpectedEOF) {
 		return "bad_request", http.StatusBadRequest, ""
+	}
+	// Config patch/reset validation errors carry per-key messages.
+	// Surface the joined message via detail so the client can show it.
+	var cfgErr *config.PatchError
+	if errors.As(err, &cfgErr) {
+		return "bad_request", http.StatusBadRequest, cfgErr.Error()
 	}
 	var pe *pixivgo.PixivError
 	if errors.As(err, &pe) {

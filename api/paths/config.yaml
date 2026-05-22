@@ -1,0 +1,95 @@
+root:
+  get:
+    operationId: getConfig
+    summary: Get the effective config + per-key source layering
+    description: |
+      Returns three views of the current config:
+      - `effective`: the values the running process is actually using
+      - `file`: the user overrides currently persisted in settings.json
+      - `sources`: per dotted-key origin (`defaults` | `file` | `env`)
+
+      Sensitive fields (e.g. `pixiv.proxy`) are masked in both `effective`
+      and `file` views. PATCH treats the mask sentinel as "do not modify",
+      so the frontend can safely round-trip a redacted view back as a PATCH.
+    tags: [config]
+    responses:
+      '200':
+        description: Current config view.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/ConfigView' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+  patch:
+    operationId: patchConfig
+    summary: Merge a partial update into the persisted overrides
+    description: |
+      Applies a flat or nested map of dotted-key → value writes to the
+      file layer, revalidates the candidate config end-to-end, and
+      atomically writes the diff-against-defaults back to settings.json.
+      Empty bodies, unknown keys, type mismatches, range/enum violations
+      are all rejected with 400.
+
+      Note: writes only advance `file`. `effective` is frozen to what
+      the running services were started with; the change takes effect
+      on the next restart. Env-layer overrides also keep winning at
+      restart time until unset.
+    tags: [config]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/ConfigPatch' }
+    responses:
+      '200':
+        description: Patch applied. Returns the refreshed view.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/ConfigView' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+
+reset:
+  post:
+    operationId: resetConfig
+    summary: Drop overrides from the file layer (per key or wholesale)
+    description: |
+      Removes selected keys from settings.json so they fall back to the
+      next layer's value (env or default). With `all: true` the entire
+      file layer is cleared. Exactly one of `all: true` or a non-empty
+      `keys` array must be present — empty bodies, both-at-once, and
+      mutually-exclusive conflicts are all rejected with 400.
+    tags: [config]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/ConfigResetRequest' }
+    responses:
+      '200':
+        description: Reset applied. Returns the refreshed view.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/ConfigView' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+
+schema:
+  get:
+    operationId: getConfigSchema
+    summary: Get the JSON Schema describing all settings
+    description: |
+      Returns a JSON Schema (Draft 2020-12) reflected from the server's
+      Config struct, with per-field metadata (`x-cfg-category`,
+      `x-cfg-sensitive`, `x-cfg-restart-required`, `x-cfg-advanced`,
+      `x-cfg-go-type`). Frontend renders forms from this; backend uses
+      the same source-of-truth for validation.
+    tags: [config]
+    responses:
+      '200':
+        description: JSON Schema document.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }

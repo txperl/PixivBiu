@@ -9,9 +9,10 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/txperl/PixivBiu/internal/atomicfile"
 )
 
 // Token is the persisted auth state.
@@ -63,47 +64,18 @@ func (s *Store) Load() (Token, error) {
 	return t, nil
 }
 
-// Save writes the token to disk atomically (temp file + rename).
-// The parent directory is created with 0700 if missing; the file is written 0600.
+// Save writes the token to disk atomically. The parent directory is
+// created with 0700 if missing; the file is written 0600.
 func (s *Store) Save(t Token) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	dir := filepath.Dir(s.path)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("create state dir %q: %w", dir, err)
-	}
 
 	data, err := json.MarshalIndent(t, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal token: %w", err)
 	}
-
-	tmp, err := os.CreateTemp(dir, ".state-*.tmp")
-	if err != nil {
-		return fmt.Errorf("create temp state file: %w", err)
-	}
-	tmpName := tmp.Name()
-	// On any failure past this point, remove the leftover temp file.
-	cleanup := func() { _ = os.Remove(tmpName) }
-
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		cleanup()
-		return fmt.Errorf("write temp state file: %w", err)
-	}
-	if err := tmp.Chmod(0o600); err != nil {
-		_ = tmp.Close()
-		cleanup()
-		return fmt.Errorf("chmod temp state file: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		cleanup()
-		return fmt.Errorf("close temp state file: %w", err)
-	}
-	if err := os.Rename(tmpName, s.path); err != nil {
-		cleanup()
-		return fmt.Errorf("rename state file: %w", err)
+	if err := atomicfile.Write(s.path, data); err != nil {
+		return fmt.Errorf("save state file: %w", err)
 	}
 	return nil
 }

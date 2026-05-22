@@ -15,7 +15,7 @@ gen-frontend:  ## Generate frontend OpenAPI types (requires `make dev` running)
 	cd frontend && bun run gen:api
 
 dev:  ## Run the server
-	go run $(PKG) -config ./config.yaml
+	go run $(PKG) -config ./usr/settings.json
 
 build:  ## Build server binary
 	CGO_ENABLED=0 go build -o $(BIN) $(PKG)

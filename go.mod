@@ -8,10 +8,8 @@ require (
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-chi/httplog/v3 v3.3.0
 	github.com/go-viper/mapstructure/v2 v2.5.0
-	github.com/knadh/koanf/parsers/yaml v1.1.0
 	github.com/knadh/koanf/providers/confmap v1.0.0
 	github.com/knadh/koanf/providers/env v1.1.0
-	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/v2 v2.3.4
 	github.com/oapi-codegen/runtime v1.4.0
 	github.com/txperl/pixivgo v0.0.0-20260417090103-026ffa870239
@@ -38,11 +36,9 @@ require (
 	github.com/speakeasy-api/openapi-overlay v0.10.2 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.3 // indirect
 	golang.org/x/image v0.24.0 // indirect
 	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

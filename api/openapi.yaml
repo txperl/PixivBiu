@@ -17,6 +17,7 @@ tags:
   - name: search
   - name: downloads
   - name: events
+  - name: config
 
 paths:
   /health:
@@ -80,6 +81,13 @@ paths:
 
   /events:
     $ref: './paths/events.yaml#/stream'
+
+  /config:
+    $ref: './paths/config.yaml#/root'
+  /config/schema:
+    $ref: './paths/config.yaml#/schema'
+  /config/reset:
+    $ref: './paths/config.yaml#/reset'
 
 components:
   parameters:
@@ -882,3 +890,62 @@ components:
         removed:
           type: integer
           description: Number of jobs deleted from history.
+
+    ConfigSource:
+      type: string
+      enum: [defaults, file, env]
+      description: |
+        Which config layer supplied the effective value for a key.
+        `env` always wins; `file` overrides `defaults`.
+
+    ConfigView:
+      type: object
+      required: [effective, file, sources, schema_version]
+      properties:
+        effective:
+          type: object
+          additionalProperties: true
+          description: |
+            Nested map of the values the running process is actually using.
+            Frozen at startup — PATCH/RESET do NOT advance this view until
+            the next restart. Sensitive fields masked.
+        file:
+          type: object
+          additionalProperties: true
+          description: |
+            Nested map of overrides currently persisted in settings.json.
+            Advances on every successful PATCH/RESET. Frontend detects
+            "saved, awaiting restart" by comparing this against `effective`.
+            Sensitive fields masked.
+        sources:
+          type: object
+          description: Per dotted-key origin label; each value is one of `defaults`, `file`, `env`.
+          additionalProperties:
+            $ref: '#/components/schemas/ConfigSource'
+        schema_version:
+          type: string
+          description: |
+            Bumps when the shape of settings.json changes incompatibly.
+            Frontend can refuse / migrate when its compiled schema doesn't match.
+
+    ConfigPatch:
+      type: object
+      additionalProperties: true
+      description: |
+        Free-form map of writes. Keys are either nested (matching the
+        struct shape) or flat dotted paths (e.g. `"download.max_concurrent": 8`);
+        both forms are accepted. Sending the sensitive mask sentinel
+        (`***`) or `""` for a sensitive field is a no-op.
+
+    ConfigResetRequest:
+      type: object
+      properties:
+        keys:
+          type: array
+          items: { type: string }
+          description: Dotted-path keys to drop from the file layer.
+        all:
+          type: boolean
+          description: |
+            When true, clear the entire file layer. Mutually exclusive
+            with `keys`; sending both is rejected with 400.

@@ -1,0 +1,526 @@
+package config
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"slices"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+)
+
+// SensitiveMask is the string returned in place of sensitive field
+// values. PATCH treats receiving this value (or "") as "do not modify",
+// so the frontend can safely round-trip a redacted GET back as a PATCH.
+const SensitiveMask = "***"
+
+// Source identifies which layer supplied a key's effective value.
+type Source string
+
+const (
+	SourceDefaults Source = "defaults"
+	SourceFile     Source = "file"
+	SourceEnv      Source = "env"
+)
+
+// View is the wire-shape consumed by GET /config.
+// Effective and File both have sensitive fields masked.
+type View struct {
+	Effective     map[string]any    `json:"effective"`
+	File          map[string]any    `json:"file"`
+	Sources       map[string]Source `json:"sources"`
+	SchemaVersion string            `json:"schema_version"`
+}
+
+// PatchError carries per-key validation failures for PATCH/POST reset.
+// Keys are dotted setting paths (e.g. "download.max_concurrent"). The
+// reserved key "_" is used for failures that don't bind to a specific
+// field — empty bodies, mutually-exclusive flags, or service-level
+// validator errors that didn't self-attribute.
+type PatchError struct {
+	Errors map[string]string
+}
+
+func (e *PatchError) Error() string {
+	keys := make([]string, 0, len(e.Errors))
+	for k := range e.Errors {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, fmt.Sprintf("%s: %s", k, e.Errors[k]))
+	}
+	return strings.Join(parts, "; ")
+}
+
+// Manager owns the on-disk settings file, the schema, and an immutable
+// snapshot of the config the running process was started with.
+//
+// Because services (logger, pixiv, download) hold value-typed slices of
+// Config taken at startup, hot-reload would be a no-op for them. So we
+// deliberately freeze the "effective" view to that startup snapshot:
+// `Patch` and `Reset` validate + persist new values to settings.json
+// but do NOT mutate the snapshot. Callers see file != effective until
+// the process restarts, which is honest about runtime behaviour and
+// avoids the "saved, but didn't take effect" trap.
+//
+// envSnap / effSnap / srcSnap are frozen at NewManager time so View
+// can serve concurrent requests without locking or rescanning os.Environ.
+type Manager struct {
+	store      *Store
+	schema     *Schema
+	envSnap    map[string]any
+	effSnap    map[string]any
+	srcSnap    map[string]Source
+	cfg        *Config
+	validators []func(*Config) error
+
+	mu sync.Mutex // serialises Patch/Reset writes against each other
+}
+
+// Option configures a Manager at construction time.
+type Option func(*Manager)
+
+// WithValidator registers a candidate-config check that runs both at
+// startup (against the file+env merged Config) and inside Patch/Reset
+// before persisting. Services with non-trivial parse rules (download
+// templates, pixiv proxy URL) inject themselves here so the same
+// invariants gate startup AND PATCH — preventing a "settings save
+// succeeded but next boot crashes" footgun.
+//
+// Returning *PatchError preserves per-field attribution; any other
+// error is surfaced under the generic "_" key.
+func WithValidator(fn func(*Config) error) Option {
+	return func(m *Manager) { m.validators = append(m.validators, fn) }
+}
+
+// NewManager opens the settings file at path, builds the schema, and
+// captures the immutable startup snapshot used by all subsequent reads.
+func NewManager(path string, opts ...Option) (*Manager, error) {
+	schema, err := BuildSchema()
+	if err != nil {
+		return nil, fmt.Errorf("build schema: %w", err)
+	}
+	store := NewStore(path)
+	envSnap := snapshotEnv(schema)
+
+	fileLayer, err := store.Load()
+	if err != nil {
+		return nil, err
+	}
+	k, err := buildKoanf(fileLayer)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := unmarshalConfig(k)
+	if err != nil {
+		return nil, err
+	}
+	eff, sources := snapshotEffective(schema, fileLayer, envSnap)
+
+	m := &Manager{
+		store:   store,
+		schema:  schema,
+		envSnap: envSnap,
+		effSnap: eff,
+		srcSnap: sources,
+		cfg:     cfg,
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	if err := m.runValidators(cfg); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// Config returns the startup snapshot that services were initialised
+// with. The pointer is stable for the Manager's lifetime; the pointed-to
+// Config is treated as immutable and must not be modified by callers.
+// No lock is required: Patch/Reset never re-assign m.cfg.
+func (m *Manager) Config() *Config { return m.cfg }
+
+func (m *Manager) Schema() *Schema   { return m.schema }
+func (m *Manager) StorePath() string { return m.store.Path() }
+
+// View returns the masked, layered view for GET /config.
+// `Effective` always reflects what the running services use; only
+// `File` advances on Patch/Reset until the process restarts.
+func (m *Manager) View() (*View, error) {
+	return m.buildView()
+}
+
+// Patch merges `patch` (flat dotted-key map; nested maps also accepted)
+// into the file layer, revalidates the candidate config, and atomically
+// writes the diff-against-defaults form to disk. Sensitive fields
+// receiving the mask sentinel or "" are skipped.
+//
+// The startup snapshot is NOT updated; callers see View.File diverge
+// from View.Effective until the process restarts.
+func (m *Manager) Patch(patch map[string]any) (*View, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	flat := flatten("", patch)
+	if len(flat) == 0 {
+		return nil, &PatchError{Errors: map[string]string{
+			"_": "patch must contain at least one setting",
+		}}
+	}
+	if perr := m.precheckPatch(flat); perr != nil {
+		return nil, perr
+	}
+
+	fileLayer, err := m.store.Load()
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range flat {
+		if m.schema.IsSensitive(k) && isMaskSentinel(v) {
+			continue
+		}
+		fileLayer[k] = v
+	}
+	if err := m.validateAndPersist(fileLayer); err != nil {
+		return nil, err
+	}
+	return m.buildView()
+}
+
+// Reset removes keys from the file layer (or clears it entirely with
+// all=true), reverting affected fields to the next layer's value on
+// the next restart. `all` and `keys` are mutually exclusive: passing
+// both is rejected as a 400 so a UI bug can't accidentally wipe the
+// entire override layer.
+func (m *Manager) Reset(keys []string, all bool) (*View, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if all && len(keys) > 0 {
+		return nil, &PatchError{Errors: map[string]string{
+			"_": "`all` and `keys` are mutually exclusive",
+		}}
+	}
+	if !all && len(keys) == 0 {
+		return nil, &PatchError{Errors: map[string]string{
+			"_": "must set `all: true` or pass non-empty `keys`",
+		}}
+	}
+
+	var fileLayer map[string]any
+	if all {
+		fileLayer = map[string]any{}
+	} else {
+		current, err := m.store.Load()
+		if err != nil {
+			return nil, err
+		}
+		fileLayer = current
+		bad := map[string]string{}
+		for _, k := range keys {
+			if _, ok := m.schema.Fields[k]; !ok {
+				bad[k] = "unknown setting key"
+				continue
+			}
+			delete(fileLayer, k)
+		}
+		if len(bad) > 0 {
+			return nil, &PatchError{Errors: bad}
+		}
+	}
+
+	if err := m.validateAndPersist(fileLayer); err != nil {
+		return nil, err
+	}
+	return m.buildView()
+}
+
+// validateAndPersist rebuilds the candidate Config from the proposed
+// file layer to confirm it would parse cleanly on the next restart,
+// then strips entries that match defaults (diff-only) and writes the
+// result atomically. The startup snapshot is intentionally not updated.
+//
+// Caller MUST hold m.mu — the lock protects the read-modify-write of
+// the on-disk file (concurrent Patch/Reset would otherwise lose writes).
+func (m *Manager) validateAndPersist(fileLayer map[string]any) error {
+	k, err := buildKoanf(fileLayer)
+	if err != nil {
+		return err
+	}
+	cfg, err := unmarshalConfig(k)
+	if err != nil {
+		return &PatchError{Errors: map[string]string{"_": err.Error()}}
+	}
+	if err := m.runValidators(cfg); err != nil {
+		return err
+	}
+	return m.store.Save(pruneAgainstDefaults(fileLayer))
+}
+
+// runValidators runs every registered validator against cfg, returning
+// the first failure. *PatchError returns are passed through so per-field
+// attribution survives; bare errors are wrapped under the generic "_"
+// key.
+func (m *Manager) runValidators(cfg *Config) error {
+	for _, v := range m.validators {
+		err := v(cfg)
+		if err == nil {
+			continue
+		}
+		var pe *PatchError
+		if errors.As(err, &pe) {
+			return pe
+		}
+		return &PatchError{Errors: map[string]string{"_": err.Error()}}
+	}
+	return nil
+}
+
+// precheckPatch validates dotted keys, types, ranges and enums against
+// the schema. It returns nil when the patch can proceed to merge.
+func (m *Manager) precheckPatch(flat map[string]any) error {
+	bad := map[string]string{}
+	for k, v := range flat {
+		fm, ok := m.schema.Fields[k]
+		if !ok {
+			bad[k] = "unknown setting key"
+			continue
+		}
+		if fm.Sensitive && isMaskSentinel(v) {
+			continue // drop later
+		}
+		if err := validateValue(fm, v); err != nil {
+			bad[k] = err.Error()
+		}
+	}
+	if len(bad) > 0 {
+		return &PatchError{Errors: bad}
+	}
+	return nil
+}
+
+// buildView returns the view: effective + sources come from the
+// startup snapshot (what services actually use); file is read fresh
+// each call so a PATCH's persisted change is visible immediately.
+func (m *Manager) buildView() (*View, error) {
+	fileLayer, err := m.store.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	effMasked := make(map[string]any, len(m.effSnap))
+	for k, v := range m.effSnap {
+		if m.schema.IsSensitive(k) {
+			v = maskValue(v)
+		}
+		effMasked[k] = v
+	}
+
+	fileMasked := make(map[string]any, len(fileLayer))
+	for k, v := range fileLayer {
+		if m.schema.IsSensitive(k) {
+			v = maskValue(v)
+		}
+		fileMasked[k] = v
+	}
+
+	return &View{
+		Effective:     unflatten(effMasked),
+		File:          unflatten(fileMasked),
+		Sources:       m.srcSnap,
+		SchemaVersion: SchemaVersion,
+	}, nil
+}
+
+// snapshotEffective freezes the layered (defaults → file → env) view
+// at startup, with per-key source labels. The values are coerced into
+// their schema-declared types so env-string entries don't bleed into
+// the API response.
+func snapshotEffective(schema *Schema, fileLayer, envSnap map[string]any) (map[string]any, map[string]Source) {
+	eff := make(map[string]any, len(schema.Fields))
+	sources := make(map[string]Source, len(schema.Fields))
+	defs := defaults()
+	for k, fm := range schema.Fields {
+		val, src := defs[k], SourceDefaults
+		if v, ok := fileLayer[k]; ok {
+			val, src = v, SourceFile
+		}
+		if v, ok := envSnap[k]; ok {
+			val, src = v, SourceEnv
+		}
+		eff[k] = coerceForView(fm, val)
+		sources[k] = src
+	}
+	return eff, sources
+}
+
+// snapshotEnv enumerates PIXIVBIU_* env vars that resolve to known
+// schema keys. Mirrors koanf's env provider but yields a plain map so
+// we can label per-key sources without re-running the koanf pipeline.
+// Called once at NewManager time and treated as immutable thereafter.
+func snapshotEnv(schema *Schema) map[string]any {
+	known := make(map[string]struct{}, len(schema.Fields))
+	for k := range schema.Fields {
+		known[k] = struct{}{}
+	}
+	resolver := newEnvKeyResolver(known)
+	out := map[string]any{}
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, envPrefix) {
+			continue
+		}
+		name, val, _ := strings.Cut(kv, "=")
+		key := resolver(name)
+		if _, ok := known[key]; !ok {
+			continue
+		}
+		out[key] = val
+	}
+	return out
+}
+
+// pruneAgainstDefaults drops keys whose value matches the built-in
+// default. Comparison is done via JSON encoding to normalise the
+// int-vs-float64 mismatch produced by encoding/json.
+func pruneAgainstDefaults(flat map[string]any) map[string]any {
+	out := map[string]any{}
+	defs := defaults()
+	for k, v := range flat {
+		if def, ok := defs[k]; ok && sameJSON(v, def) {
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
+func sameJSON(a, b any) bool {
+	aj, errA := json.Marshal(a)
+	bj, errB := json.Marshal(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	return string(aj) == string(bj)
+}
+
+func isMaskSentinel(v any) bool {
+	s, ok := v.(string)
+	if !ok {
+		return false
+	}
+	return s == SensitiveMask || s == ""
+}
+
+func maskValue(v any) any {
+	if v == nil {
+		return ""
+	}
+	s, ok := v.(string)
+	if !ok {
+		return SensitiveMask
+	}
+	if s == "" {
+		return ""
+	}
+	return SensitiveMask
+}
+
+// validateValue checks type + range + enum constraints for a single
+// leaf. JSON unmarshal hands numbers in as float64, so int validation
+// accepts whole-valued floats and rejects fractional ones.
+func validateValue(fm *FieldMeta, v any) error {
+	switch fm.GoType {
+	case GoTypeString:
+		if _, ok := v.(string); !ok {
+			return fmt.Errorf("expected string, got %T", v)
+		}
+		if len(fm.Enum) > 0 {
+			if !slices.Contains(fm.Enum, v.(string)) {
+				return fmt.Errorf("must be one of %s", strings.Join(fm.Enum, "|"))
+			}
+		}
+	case GoTypeBool:
+		if _, ok := v.(bool); !ok {
+			return fmt.Errorf("expected boolean, got %T", v)
+		}
+	case GoTypeInt:
+		n, err := toInt64(v)
+		if err != nil {
+			return err
+		}
+		if fm.Min != nil && n < *fm.Min {
+			return fmt.Errorf("must be >= %d", *fm.Min)
+		}
+		if fm.Max != nil && n > *fm.Max {
+			return fmt.Errorf("must be <= %d", *fm.Max)
+		}
+	case GoTypeDuration:
+		s, ok := v.(string)
+		if !ok {
+			return fmt.Errorf("expected duration string, got %T", v)
+		}
+		if s == "" {
+			return nil
+		}
+		if _, err := time.ParseDuration(s); err != nil {
+			return fmt.Errorf("invalid duration: %w", err)
+		}
+	}
+	return nil
+}
+
+// coerceForView normalises a raw layered value to the schema's leaf type
+// so the GET response uses ints, bools, and the like — not the string
+// form env vars arrive in.
+func coerceForView(fm *FieldMeta, v any) any {
+	if v == nil {
+		return nil
+	}
+	switch fm.GoType {
+	case GoTypeInt:
+		if s, ok := v.(string); ok {
+			var n int64
+			if _, err := fmt.Sscanf(s, "%d", &n); err == nil {
+				return n
+			}
+			return v
+		}
+		if n, err := toInt64(v); err == nil {
+			return n
+		}
+	case GoTypeBool:
+		if s, ok := v.(string); ok {
+			switch strings.ToLower(s) {
+			case "true", "1", "yes", "on":
+				return true
+			case "false", "0", "no", "off":
+				return false
+			}
+		}
+	}
+	return v
+}
+
+func toInt64(v any) (int64, error) {
+	switch x := v.(type) {
+	case int:
+		return int64(x), nil
+	case int64:
+		return x, nil
+	case float64:
+		if x != float64(int64(x)) {
+			return 0, fmt.Errorf("expected integer, got fractional %v", x)
+		}
+		return int64(x), nil
+	case json.Number:
+		return x.Int64()
+	}
+	return 0, fmt.Errorf("expected integer, got %T", v)
+}
+
+

@@ -2,81 +2,87 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/providers/env"
-	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 )
 
 const envPrefix = "PIXIVBIU_"
 
+// SchemaVersion bumps when the shape of settings.json changes in a way
+// that older overrides can't be applied cleanly. The API surfaces it so
+// the frontend can warn / migrate.
+const SchemaVersion = "1"
+
 type Config struct {
-	Server   ServerConfig   `koanf:"server"`
-	Log      LogConfig      `koanf:"log"`
-	Pixiv    PixivConfig    `koanf:"pixiv"`
-	Download DownloadConfig `koanf:"download"`
-	Inbox    InboxConfig    `koanf:"inbox"`
+	Server   ServerConfig   `koanf:"server"   cfg:"category=server,desc=HTTP 服务器设置"`
+	Log      LogConfig      `koanf:"log"      cfg:"category=log,desc=日志输出设置"`
+	Pixiv    PixivConfig    `koanf:"pixiv"    cfg:"category=pixiv,desc=Pixiv 上游与认证设置"`
+	Download DownloadConfig `koanf:"download" cfg:"category=download,desc=下载行为与模板"`
+	Inbox    InboxConfig    `koanf:"inbox"    cfg:"category=inbox,desc=事件总线 / SSE"`
 }
 
 type ServerConfig struct {
-	Host     string         `koanf:"host"`
-	Port     int            `koanf:"port"`
-	Timeouts TimeoutsConfig `koanf:"timeouts"`
+	Host     string         `koanf:"host"     cfg:"desc=监听地址（0.0.0.0 接受所有）,restart=true"`
+	Port     int            `koanf:"port"     cfg:"desc=监听端口,min=1,max=65535,restart=true"`
+	Timeouts TimeoutsConfig `koanf:"timeouts" cfg:"desc=HTTP 超时"`
 }
 
 type TimeoutsConfig struct {
-	Read     time.Duration `koanf:"read"`
-	Write    time.Duration `koanf:"write"`
-	Shutdown time.Duration `koanf:"shutdown"`
+	Read     time.Duration `koanf:"read"     cfg:"desc=读超时,restart=true"`
+	Write    time.Duration `koanf:"write"    cfg:"desc=写超时,restart=true"`
+	Shutdown time.Duration `koanf:"shutdown" cfg:"desc=优雅关闭超时"`
 }
 
 type LogConfig struct {
-	Level  string `koanf:"level"`
-	Format string `koanf:"format"`
+	Level  string `koanf:"level"  cfg:"desc=日志级别,enum=debug|info|warn|error"`
+	Format string `koanf:"format" cfg:"desc=输出格式,enum=text|json,restart=true"`
 }
 
 type PixivConfig struct {
-	Proxy     string `koanf:"proxy"`
-	Language  string `koanf:"language"`
-	BypassSNI bool   `koanf:"bypass_sni"`
-	StateFile string `koanf:"state_file"`
+	Proxy     string `koanf:"proxy"      cfg:"desc=HTTP/SOCKS 代理 URL（空串 = 直连）,sensitive=true"`
+	Language  string `koanf:"language"   cfg:"desc=Accept-Language（标签翻译语言）"`
+	BypassSNI bool   `koanf:"bypass_sni" cfg:"desc=对 API 启用 DoH + 替代 SNI（仅对受限网络）,restart=true"`
+	StateFile string `koanf:"state_file" cfg:"desc=认证 token 持久化文件路径,restart=true,advanced=true"`
 }
 
 type DownloadConfig struct {
-	OutputDir         string        `koanf:"output_dir"`
-	FileTemplate      string        `koanf:"file_template"`
-	FileGroupTemplate string        `koanf:"file_group_template"`
-	MaxConcurrent     int           `koanf:"max_concurrent"`
-	HTTPTimeout       time.Duration `koanf:"http_timeout"`
-	Retry             RetryConfig   `koanf:"retry"`
-	Referer           string        `koanf:"referer"`
-	PximgBase         string        `koanf:"pximg_base"`
-	Ugoira            UgoiraConfig  `koanf:"ugoira"`
-	StoreFile         string        `koanf:"store_file"`
+	OutputDir         string        `koanf:"output_dir"          cfg:"desc=输出目录模板（Go text/template）"`
+	FileTemplate      string        `koanf:"file_template"       cfg:"desc=单文件名模板"`
+	FileGroupTemplate string        `koanf:"file_group_template" cfg:"desc=多页作品文件名模板"`
+	MaxConcurrent     int           `koanf:"max_concurrent"      cfg:"desc=最大并发任务数,min=1,max=64"`
+	HTTPTimeout       time.Duration `koanf:"http_timeout"        cfg:"desc=单次下载请求超时"`
+	Retry             RetryConfig   `koanf:"retry"               cfg:"desc=失败重试策略"`
+	Referer           string        `koanf:"referer"             cfg:"desc=下载请求的 Referer 头,advanced=true"`
+	PximgBase         string        `koanf:"pximg_base"          cfg:"desc=图片源 base URL（可指向反代）"`
+	Ugoira            UgoiraConfig  `koanf:"ugoira"              cfg:"desc=动图（Ugoira）输出"`
+	StoreFile         string        `koanf:"store_file"          cfg:"desc=下载索引持久化文件路径,restart=true,advanced=true"`
 }
 
 type RetryConfig struct {
-	Max            int           `koanf:"max"`
-	InitialBackoff time.Duration `koanf:"initial_backoff"`
+	Max            int           `koanf:"max"             cfg:"desc=最大重试次数,min=0,max=10"`
+	InitialBackoff time.Duration `koanf:"initial_backoff" cfg:"desc=首次重试退避时长"`
 }
 
 type UgoiraConfig struct {
-	Format string `koanf:"format"` // webp | gif | none
+	Format string `koanf:"format" cfg:"desc=输出格式（none 保留原 zip）,enum=webp|gif|none"`
 }
 
 type InboxConfig struct {
-	BufferSize       int           `koanf:"buffer_size"`
-	ProgressThrottle time.Duration `koanf:"progress_throttle"`
-	Heartbeat        time.Duration `koanf:"heartbeat"`
+	BufferSize       int           `koanf:"buffer_size"       cfg:"desc=事件环形缓冲（Last-Event-ID 重放窗口）,min=1,max=100000,restart=true"`
+	ProgressThrottle time.Duration `koanf:"progress_throttle" cfg:"desc=进度事件最小间隔"`
+	Heartbeat        time.Duration `koanf:"heartbeat"         cfg:"desc=SSE keep-alive 间隔"`
 }
 
-func defaults() map[string]any {
+// defaults is the single source of truth for built-in defaults.
+// Memoised because it's read several times per Patch/View and the map
+// is treated as read-only by every consumer.
+var defaults = sync.OnceValue(func() map[string]any {
 	return map[string]any{
 		"server.host":              "0.0.0.0",
 		"server.port":              8080,
@@ -106,35 +112,35 @@ func defaults() map[string]any {
 		"inbox.progress_throttle": "250ms",
 		"inbox.heartbeat":         "15s",
 	}
-}
+})
 
-func Load(path string) (*Config, error) {
+// buildKoanf assembles a koanf instance from the layered sources:
+// defaults → fileLayer (already a flat dotted-key map) → env(PIXIVBIU_*).
+// Used by Load/Manager.Patch to validate candidate configs.
+func buildKoanf(fileLayer map[string]any) (*koanf.Koanf, error) {
 	k := koanf.New(".")
 
 	if err := k.Load(confmap.Provider(defaults(), "."), nil); err != nil {
 		return nil, fmt.Errorf("load defaults: %w", err)
 	}
 
-	if path != "" {
-		if _, err := os.Stat(path); err == nil {
-			if err := k.Load(file.Provider(path), yaml.Parser()); err != nil {
-				return nil, fmt.Errorf("load config file %q: %w", path, err)
-			}
-		} else if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("stat config file %q: %w", path, err)
+	if len(fileLayer) > 0 {
+		if err := k.Load(confmap.Provider(fileLayer, "."), nil); err != nil {
+			return nil, fmt.Errorf("load file layer: %w", err)
 		}
 	}
 
-	// Schema snapshot feeds the env resolver's underscore disambiguation.
 	known := make(map[string]struct{}, len(k.Keys()))
 	for _, kk := range k.Keys() {
 		known[kk] = struct{}{}
 	}
-
 	if err := k.Load(env.Provider(envPrefix, ".", newEnvKeyResolver(known)), nil); err != nil {
 		return nil, fmt.Errorf("load env: %w", err)
 	}
+	return k, nil
+}
 
+func unmarshalConfig(k *koanf.Koanf) (*Config, error) {
 	var cfg Config
 	if err := k.UnmarshalWithConf("", &cfg, koanf.UnmarshalConf{
 		Tag: "koanf",
@@ -160,7 +166,7 @@ func Load(path string) (*Config, error) {
 // turns it into a loud startup error.
 func (c *Config) validate() error {
 	switch strings.ToLower(c.Download.Ugoira.Format) {
-	case "", "webp", "gif", "none":
+	case "webp", "gif", "none":
 	default:
 		return fmt.Errorf("download.ugoira.format: unsupported %q (want webp|gif|none)", c.Download.Ugoira.Format)
 	}

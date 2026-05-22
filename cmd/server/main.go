@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"runtime"
@@ -40,13 +41,39 @@ func main() {
 }
 
 func run() error {
-	configPath := flag.String("config", "config.yaml", "path to config file (optional)")
+	configPath := flag.String("config", "./usr/settings.json", "path to runtime settings file (managed via API)")
 	flag.Parse()
 
-	cfg, err := config.Load(*configPath)
+	cfgMgr, err := config.NewManager(*configPath,
+		// Templates only parse cleanly with the download funcmap, and a
+		// bad proxy URL would only surface inside pixiv.NewService. Both
+		// would fail the next boot if a PATCH let them through unchecked.
+		config.WithValidator(func(c *config.Config) error {
+			_, err := download.NewRenderer(c.Download, download.ExecRoot())
+			return err
+		}),
+		config.WithValidator(func(c *config.Config) error {
+			if c.Pixiv.Proxy == "" {
+				return nil
+			}
+			// url.Parse alone accepts bare "host:port" by treating the host
+			// as the scheme — and http.ProxyURL then silently no-ops at
+			// request time. Require a populated Host so a missing scheme is
+			// rejected at PATCH instead of breaking proxying after restart.
+			u, err := url.Parse(c.Pixiv.Proxy)
+			if err != nil {
+				return fmt.Errorf("pixiv.proxy: %w", err)
+			}
+			if u.Host == "" {
+				return fmt.Errorf("pixiv.proxy: missing scheme://host (got %q)", c.Pixiv.Proxy)
+			}
+			return nil
+		}),
+	)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
+	cfg := cfgMgr.Config()
 
 	logger, err := newLogger(cfg.Log)
 	if err != nil {
@@ -78,7 +105,7 @@ func run() error {
 	defer dlMgr.Shutdown()
 
 	pkceStore := auth.NewStore()
-	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, cfg.Inbox.Heartbeat)
+	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, cfg.Inbox.Heartbeat, cfgMgr)
 	httpHandler := server.New(cfg, logger, handler)
 
 	addr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
@@ -89,7 +116,7 @@ func run() error {
 		WriteTimeout: cfg.Server.Timeouts.Write,
 	}
 
-	printBanner(cfg, svc, addr)
+	printBanner(cfg, svc, addr, cfgMgr.StorePath())
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -121,7 +148,7 @@ func run() error {
 // printBanner writes a human-friendly boot summary to stderr: key URLs,
 // auth state, and the most-asked-about config fields. slog keeps writing to
 // stdout, so the banner stays out of the log stream.
-func printBanner(cfg *config.Config, svc *pixiv.Service, addr string) {
+func printBanner(cfg *config.Config, svc *pixiv.Service, addr, settingsPath string) {
 	displayHost := cfg.Server.Host
 	switch displayHost {
 	case "0.0.0.0", "::", "":
@@ -161,6 +188,7 @@ func printBanner(cfg *config.Config, svc *pixiv.Service, addr string) {
 
    Auth     %s
    State    %s
+   Settings %s
    Proxy    %s
 
    @Lang:%s @SNI-bypass:%s
@@ -172,7 +200,7 @@ func printBanner(cfg *config.Config, svc *pixiv.Service, addr string) {
 		version, runtime.Version(), runtime.GOOS, runtime.GOARCH,
 		addr,
 		base, base, base, base,
-		auth, cfg.Pixiv.StateFile, proxy, cfg.Pixiv.Language, sni,
+		auth, cfg.Pixiv.StateFile, settingsPath, proxy, cfg.Pixiv.Language, sni,
 	)
 }
 

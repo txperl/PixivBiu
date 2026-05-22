@@ -481,6 +481,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the effective config + per-key source layering
+         * @description Returns three views of the current config:
+         *     - `effective`: the values the running process is actually using
+         *     - `file`: the user overrides currently persisted in settings.json
+         *     - `sources`: per dotted-key origin (`defaults` | `file` | `env`)
+         *
+         *     Sensitive fields (e.g. `pixiv.proxy`) are masked in both `effective`
+         *     and `file` views. PATCH treats the mask sentinel as "do not modify",
+         *     so the frontend can safely round-trip a redacted view back as a PATCH.
+         */
+        get: operations["getConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Merge a partial update into the persisted overrides
+         * @description Applies a flat or nested map of dotted-key → value writes to the
+         *     file layer, revalidates the candidate config end-to-end, and
+         *     atomically writes the diff-against-defaults back to settings.json.
+         *     Empty bodies, unknown keys, type mismatches, range/enum violations
+         *     are all rejected with 400.
+         *
+         *     Note: writes only advance `file`. `effective` is frozen to what
+         *     the running services were started with; the change takes effect
+         *     on the next restart. Env-layer overrides also keep winning at
+         *     restart time until unset.
+         */
+        patch: operations["patchConfig"];
+        trace?: never;
+    };
+    "/config/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the JSON Schema describing all settings
+         * @description Returns a JSON Schema (Draft 2020-12) reflected from the server's
+         *     Config struct, with per-field metadata (`x-cfg-category`,
+         *     `x-cfg-sensitive`, `x-cfg-restart-required`, `x-cfg-advanced`,
+         *     `x-cfg-go-type`). Frontend renders forms from this; backend uses
+         *     the same source-of-truth for validation.
+         */
+        get: operations["getConfigSchema"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/config/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Drop overrides from the file layer (per key or wholesale)
+         * @description Removes selected keys from settings.json so they fall back to the
+         *     next layer's value (env or default). With `all: true` the entire
+         *     file layer is cleared. Exactly one of `all: true` or a non-empty
+         *     `keys` array must be present — empty bodies, both-at-once, and
+         *     mutually-exclusive conflicts are all rejected with 400.
+         */
+        post: operations["resetConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -885,6 +973,58 @@ export interface components {
         ClearDownloadsResponse: {
             /** @description Number of jobs deleted from history. */
             removed: number;
+        };
+        /**
+         * @description Which config layer supplied the effective value for a key.
+         *     `env` always wins; `file` overrides `defaults`.
+         * @enum {string}
+         */
+        ConfigSource: "defaults" | "file" | "env";
+        ConfigView: {
+            /**
+             * @description Nested map of the values the running process is actually using.
+             *     Frozen at startup — PATCH/RESET do NOT advance this view until
+             *     the next restart. Sensitive fields masked.
+             */
+            effective: {
+                [key: string]: unknown;
+            };
+            /**
+             * @description Nested map of overrides currently persisted in settings.json.
+             *     Advances on every successful PATCH/RESET. Frontend detects
+             *     "saved, awaiting restart" by comparing this against `effective`.
+             *     Sensitive fields masked.
+             */
+            file: {
+                [key: string]: unknown;
+            };
+            /** @description Per dotted-key origin label; each value is one of `defaults`, `file`, `env`. */
+            sources: {
+                [key: string]: components["schemas"]["ConfigSource"];
+            };
+            /**
+             * @description Bumps when the shape of settings.json changes incompatibly.
+             *     Frontend can refuse / migrate when its compiled schema doesn't match.
+             */
+            schema_version: string;
+        };
+        /**
+         * @description Free-form map of writes. Keys are either nested (matching the
+         *     struct shape) or flat dotted paths (e.g. `"download.max_concurrent": 8`);
+         *     both forms are accepted. Sending the sensitive mask sentinel
+         *     (`***`) or `""` for a sensitive field is a no-op.
+         */
+        ConfigPatch: {
+            [key: string]: unknown;
+        };
+        ConfigResetRequest: {
+            /** @description Dotted-path keys to drop from the file layer. */
+            keys?: string[];
+            /**
+             * @description When true, clear the entire file layer. Mutually exclusive
+             *     with `keys`; sending both is rejected with 400.
+             */
+            all?: boolean;
         };
     };
     responses: {
@@ -1791,6 +1931,102 @@ export interface operations {
                     "text/event-stream": string;
                 };
             };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    getConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current config view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    patchConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigPatch"];
+            };
+        };
+        responses: {
+            /** @description Patch applied. Returns the refreshed view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigView"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    getConfigSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JSON Schema document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    resetConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Reset applied. Returns the refreshed view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigView"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
         };
     };
