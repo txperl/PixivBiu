@@ -43,7 +43,7 @@ const BROWSE_GROUP: NavGroupDef = {
     ],
 };
 
-const SETTINGS_ITEM: NavItemDef = { id: "settings", label: "设置", icon: SettingsIcon };
+const SETTINGS_ITEM: NavItemDef = { id: "settings", label: "设置", icon: SettingsIcon, to: "/settings" };
 
 function ItemBody({ item, active }: { item: NavItemDef; active: boolean }) {
     return (

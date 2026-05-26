@@ -6,6 +6,7 @@ import LoginPage from "@/pages/login";
 import MeRedirect from "@/pages/me/me-redirect";
 import RankingPage from "@/pages/ranking";
 import SearchPage from "@/pages/search";
+import SettingsPage from "@/pages/settings";
 import UserPage from "@/pages/user";
 
 export const router = createBrowserRouter([
@@ -21,6 +22,7 @@ export const router = createBrowserRouter([
             { path: "user/:id", element: <UserPage /> },
             { path: "me/:tab?", element: <MeRedirect /> },
             { path: "downloads", element: <DownloadsPage /> },
+            { path: "settings", element: <SettingsPage /> },
         ],
     },
 ]);
