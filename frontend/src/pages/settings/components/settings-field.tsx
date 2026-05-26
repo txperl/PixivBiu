@@ -35,13 +35,22 @@ export function SettingsField({
     const id = fieldId(field.key);
     const errorId = `${id}-error`;
     const fromEnv = source === "env";
-    const canReset = overridden && !fromEnv;
+    // Internal (program-only) keys can only change by editing the config
+    // file, so they render read-only just like env-sourced ones.
+    const readOnly = fromEnv || field.internal;
+    const canReset = overridden && !fromEnv && !field.internal;
     const secretSet = field.sensitive && (overridden || fromEnv);
+    // Read-only fields explain where their value actually comes from.
+    const readOnlyNote = fromEnv
+        ? "由环境变量设置，无法在此修改"
+        : field.internal
+          ? "运维设置，仅可通过编辑配置文件修改"
+          : null;
 
     return (
-        // Advanced fields get a full-bleed muted band so they read as a
-        // distinct, lower-priority tier within the otherwise plain list.
-        <div className={cn("py-4", field.advanced && "-mx-[18px] bg-muted/50 px-[18px]")}>
+        // Advanced / internal fields get a full-bleed muted band so they read
+        // as a distinct, lower-priority tier within the otherwise plain list.
+        <div className={cn("py-4", (field.advanced || field.internal) && "-mx-[18px] bg-muted/50 px-[18px]")}>
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                     <label htmlFor={id} className="font-medium text-foreground text-sm">
@@ -49,7 +58,8 @@ export function SettingsField({
                     </label>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <code className="font-mono text-[11px] text-muted-foreground">{field.key}</code>
-                        {field.restartRequired && <Badge variant="outline">需重启</Badge>}
+                        {field.internal && <Badge variant="outline">仅配置文件</Badge>}
+                        {field.restartRequired && !field.internal && <Badge variant="outline">需重启</Badge>}
                         {pendingRestart && <Badge className="bg-accent text-accent-foreground">待重启生效</Badge>}
                         {secretSet && <Badge variant="secondary">已设置</Badge>}
                         {fromEnv && <Badge variant="outline">环境变量</Badge>}
@@ -69,7 +79,7 @@ export function SettingsField({
                     id={id}
                     value={value}
                     invalid={!!error}
-                    disabled={fromEnv}
+                    disabled={readOnly}
                     describedBy={error ? errorId : undefined}
                     onChange={onChange}
                 />
@@ -80,7 +90,7 @@ export function SettingsField({
                     {error}
                 </p>
             )}
-            {fromEnv && <p className="mt-1.5 text-muted-foreground text-xs">由环境变量设置，无法在此修改</p>}
+            {readOnlyNote && <p className="mt-1.5 text-muted-foreground text-xs">{readOnlyNote}</p>}
         </div>
     );
 }

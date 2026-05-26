@@ -28,15 +28,15 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Host     string         `koanf:"host"     cfg:"desc=监听地址（0.0.0.0 接受所有）,restart=true"`
-	Port     int            `koanf:"port"     cfg:"desc=监听端口,min=1,max=65535,restart=true"`
+	Host     string         `koanf:"host"     cfg:"desc=监听地址（0.0.0.0 接受所有）,restart=true,internal=true"`
+	Port     int            `koanf:"port"     cfg:"desc=监听端口,min=1,max=65535,restart=true,internal=true"`
 	Timeouts TimeoutsConfig `koanf:"timeouts" cfg:"desc=HTTP 超时"`
 }
 
 type TimeoutsConfig struct {
-	Read     time.Duration `koanf:"read"     cfg:"desc=读超时,restart=true"`
-	Write    time.Duration `koanf:"write"    cfg:"desc=写超时,restart=true"`
-	Shutdown time.Duration `koanf:"shutdown" cfg:"desc=优雅关闭超时,restart=true"`
+	Read     time.Duration `koanf:"read"     cfg:"desc=读超时,restart=true,internal=true"`
+	Write    time.Duration `koanf:"write"    cfg:"desc=写超时,restart=true,internal=true"`
+	Shutdown time.Duration `koanf:"shutdown" cfg:"desc=优雅关闭超时,restart=true,internal=true"`
 }
 
 type LogConfig struct {
@@ -48,7 +48,7 @@ type PixivConfig struct {
 	Proxy     string `koanf:"proxy"      cfg:"desc=HTTP/SOCKS 代理 URL（空串 = 直连）,sensitive=true"`
 	Language  string `koanf:"language"   cfg:"desc=Accept-Language（标签翻译语言）"`
 	BypassSNI bool   `koanf:"bypass_sni" cfg:"desc=对 API 启用 DoH + 替代 SNI（仅对受限网络）,restart=true"`
-	StateFile string `koanf:"state_file" cfg:"desc=认证 token 持久化文件路径,restart=true,advanced=true"`
+	StateFile string `koanf:"state_file" cfg:"desc=认证 token 持久化文件路径,restart=true,internal=true"`
 }
 
 type DownloadConfig struct {
@@ -58,10 +58,10 @@ type DownloadConfig struct {
 	MaxConcurrent     int           `koanf:"max_concurrent"      cfg:"desc=最大并发任务数,min=1,max=64,restart=true"`
 	HTTPTimeout       time.Duration `koanf:"http_timeout"        cfg:"desc=单次下载请求超时"`
 	Retry             RetryConfig   `koanf:"retry"               cfg:"desc=失败重试策略"`
-	Referer           string        `koanf:"referer"             cfg:"desc=下载请求的 Referer 头,advanced=true"`
+	Referer           string        `koanf:"referer"             cfg:"desc=下载请求的 Referer 头,internal=true"`
 	PximgBase         string        `koanf:"pximg_base"          cfg:"desc=图片源 base URL（可指向反代）"`
 	Ugoira            UgoiraConfig  `koanf:"ugoira"              cfg:"desc=动图（Ugoira）输出"`
-	StoreFile         string        `koanf:"store_file"          cfg:"desc=下载索引持久化文件路径,restart=true,advanced=true"`
+	StoreFile         string        `koanf:"store_file"          cfg:"desc=下载索引持久化文件路径,restart=true,internal=true"`
 }
 
 type RetryConfig struct {
@@ -74,9 +74,9 @@ type UgoiraConfig struct {
 }
 
 type InboxConfig struct {
-	BufferSize       int           `koanf:"buffer_size"       cfg:"desc=事件环形缓冲（Last-Event-ID 重放窗口）,min=1,max=100000,restart=true"`
-	ProgressThrottle time.Duration `koanf:"progress_throttle" cfg:"desc=进度事件最小间隔"`
-	Heartbeat        time.Duration `koanf:"heartbeat"         cfg:"desc=SSE keep-alive 间隔"`
+	BufferSize       int           `koanf:"buffer_size"       cfg:"desc=事件环形缓冲（Last-Event-ID 重放窗口）,min=1,max=100000,restart=true,internal=true"`
+	ProgressThrottle time.Duration `koanf:"progress_throttle" cfg:"desc=进度事件最小间隔,internal=true"`
+	Heartbeat        time.Duration `koanf:"heartbeat"         cfg:"desc=SSE keep-alive 间隔,internal=true"`
 }
 
 // defaults is the single source of truth for built-in defaults.

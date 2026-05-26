@@ -38,6 +38,11 @@ type FieldMeta struct {
 	Sensitive       bool
 	RestartRequired bool
 	Advanced        bool
+	// Internal marks a setting as program-only (ops/maintenance, not UX):
+	// it can only be changed by editing the config file. Manager.Patch and
+	// the keyed Reset reject it, Reset(all) preserves it, and the frontend
+	// renders it read-only.
+	Internal bool
 }
 
 // Schema is the cached, reflected view of Config.
@@ -53,6 +58,13 @@ type Schema struct {
 func (s *Schema) IsSensitive(key string) bool {
 	f, ok := s.Fields[key]
 	return ok && f.Sensitive
+}
+
+// IsInternal returns whether the leaf at key is program-only (file-edit
+// only). Unknown keys default to false.
+func (s *Schema) IsInternal(key string) bool {
+	f, ok := s.Fields[key]
+	return ok && f.Internal
 }
 
 // BuildSchema reflects Config and returns the schema document.
@@ -152,6 +164,7 @@ func (s *Schema) addLeaf(key, category string, goType GoType, meta cfgTag, def a
 		Sensitive:       meta.sensitive,
 		RestartRequired: meta.restart,
 		Advanced:        meta.advanced,
+		Internal:        meta.internal,
 	}
 	switch goType {
 	case GoTypeInt:
@@ -205,6 +218,9 @@ func (s *Schema) addLeaf(key, category string, goType GoType, meta cfgTag, def a
 	if fm.Advanced {
 		js["x-cfg-advanced"] = true
 	}
+	if fm.Internal {
+		js["x-cfg-internal"] = true
+	}
 	parentProps[propName] = js
 }
 
@@ -217,6 +233,7 @@ type cfgTag struct {
 	sensitive   bool
 	restart     bool
 	advanced    bool
+	internal    bool
 }
 
 func parseTag(raw string) cfgTag {
@@ -253,6 +270,8 @@ func parseTag(raw string) cfgTag {
 			t.restart = val == "" || strings.EqualFold(val, "true")
 		case "advanced":
 			t.advanced = val == "" || strings.EqualFold(val, "true")
+		case "internal":
+			t.internal = val == "" || strings.EqualFold(val, "true")
 		}
 	}
 	return t

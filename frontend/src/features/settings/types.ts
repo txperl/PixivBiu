@@ -27,6 +27,9 @@ export interface FieldSpec {
     sensitive: boolean;
     restartRequired: boolean;
     advanced: boolean;
+    // Program-only (ops/maintenance): editable only by hand in the config
+    // file. Rendered read-only and hidden behind the "advanced" toggle.
+    internal: boolean;
 }
 
 export interface SectionSpec {
@@ -52,6 +55,7 @@ export interface JsonSchemaNode {
     "x-cfg-sensitive"?: boolean;
     "x-cfg-restart-required"?: boolean;
     "x-cfg-advanced"?: boolean;
+    "x-cfg-internal"?: boolean;
 }
 
 export interface ConfigSchema extends JsonSchemaNode {

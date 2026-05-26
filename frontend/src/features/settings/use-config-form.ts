@@ -89,7 +89,10 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
         const set = new Set<string>();
         if (view) {
             for (const f of fields) {
-                if (nestedGet(view.file, f.key) !== undefined) set.add(f.key);
+                // Internal keys can only be reset by editing the file, so they
+                // never count as UI-resettable — this keeps the per-section and
+                // global reset controls from offering a no-op the backend rejects.
+                if (!f.internal && nestedGet(view.file, f.key) !== undefined) set.add(f.key);
             }
         }
         return set;

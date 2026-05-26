@@ -256,6 +256,55 @@ func TestReset_All(t *testing.T) {
 	}
 }
 
+// Internal keys are program-only: PATCH must reject them outright and
+// must not touch the file (the change can only happen by editing it).
+func TestPatch_RejectsInternalKey(t *testing.T) {
+	mgr := newMgr(t, "")
+	_, err := mgr.Patch(map[string]any{"server.port": 9090})
+	pe, ok := err.(*PatchError)
+	if !ok || pe.Errors["server.port"] == "" {
+		t.Fatalf("expected PatchError on internal key, got: %v", err)
+	}
+	if _, err := os.Stat(mgr.StorePath()); !os.IsNotExist(err) {
+		t.Errorf("settings.json should not be written when patching an internal key, stat err=%v", err)
+	}
+}
+
+// A keyed Reset of an internal key is rejected, and the existing file
+// override survives untouched.
+func TestReset_RejectsInternalKey(t *testing.T) {
+	mgr := newMgr(t, `{"server":{"port":9090}}`)
+	_, err := mgr.Reset([]string{"server.port"}, false)
+	pe, ok := err.(*PatchError)
+	if !ok || pe.Errors["server.port"] == "" {
+		t.Fatalf("expected PatchError on internal key reset, got: %v", err)
+	}
+	data, _ := os.ReadFile(mgr.StorePath())
+	var nested map[string]any
+	_ = json.Unmarshal(data, &nested)
+	if nestedGet(nested, "server", "port") == nil {
+		t.Errorf("internal override should survive a rejected reset, got: %s", data)
+	}
+}
+
+// Reset(all) clears ordinary overrides but preserves internal ones, since
+// they may only be changed by editing the config file.
+func TestReset_AllPreservesInternal(t *testing.T) {
+	mgr := newMgr(t, `{"server":{"port":9090},"pixiv":{"language":"ja"}}`)
+	if _, err := mgr.Reset(nil, true); err != nil {
+		t.Fatalf("Reset all: %v", err)
+	}
+	data, _ := os.ReadFile(mgr.StorePath())
+	var nested map[string]any
+	_ = json.Unmarshal(data, &nested)
+	if nestedGet(nested, "server", "port") != float64(9090) {
+		t.Errorf("internal server.port should survive reset-all, got: %s", data)
+	}
+	if nestedGet(nested, "pixiv", "language") != nil {
+		t.Errorf("ordinary pixiv.language should be cleared by reset-all, got: %s", data)
+	}
+}
+
 // EffectiveStaysFrozen pins down the contract: Patch/Reset persist
 // changes to the file layer but never mutate what the running process
 // uses. Frontend learns "restart needed" by comparing View.File to
@@ -298,24 +347,26 @@ func TestPatch_HotKeyAppliesLive(t *testing.T) {
 
 func TestPatch_RestartKeyPendingThenReset(t *testing.T) {
 	mgr := newMgr(t, "")
-	view, err := mgr.Patch(map[string]any{"server.port": 9090})
+	// pixiv.bypass_sni is restart-required AND patchable (server.port is now
+	// internal, so it can't drive this restart-required-key contract).
+	view, err := mgr.Patch(map[string]any{"pixiv.bypass_sni": true})
 	if err != nil {
 		t.Fatalf("Patch: %v", err)
 	}
-	// server.port is restart-required: effective stays at the startup
-	// value, file advances, and the key surfaces in pending_restart.
-	if got := nestedGet(view.Effective, "server", "port"); got != int64(8080) {
-		t.Errorf("view.Effective.server.port = %v, want frozen 8080", got)
+	// effective stays at the startup value, file advances, and the key
+	// surfaces in pending_restart.
+	if got := nestedGet(view.Effective, "pixiv", "bypass_sni"); got != false {
+		t.Errorf("view.Effective.pixiv.bypass_sni = %v, want frozen false", got)
 	}
-	if got := nestedGet(view.File, "server", "port"); got != float64(9090) {
-		t.Errorf("view.File.server.port = %v, want 9090", got)
+	if got := nestedGet(view.File, "pixiv", "bypass_sni"); got != true {
+		t.Errorf("view.File.pixiv.bypass_sni = %v, want true", got)
 	}
-	if !slices.Contains(view.PendingRestart, "server.port") {
-		t.Errorf("pending_restart = %v, want it to contain server.port", view.PendingRestart)
+	if !slices.Contains(view.PendingRestart, "pixiv.bypass_sni") {
+		t.Errorf("pending_restart = %v, want it to contain pixiv.bypass_sni", view.PendingRestart)
 	}
 
 	// Reverting the override clears the pending-restart marker.
-	view, err = mgr.Reset([]string{"server.port"}, false)
+	view, err = mgr.Reset([]string{"pixiv.bypass_sni"}, false)
 	if err != nil {
 		t.Fatalf("Reset: %v", err)
 	}
@@ -446,6 +497,37 @@ func TestSchema_HasExpectedShape(t *testing.T) {
 	mc := sc.Fields["download.max_concurrent"]
 	if mc == nil || mc.Min == nil || mc.Max == nil {
 		t.Errorf("max_concurrent min/max missing: %+v", mc)
+	}
+}
+
+func TestSchema_FlagsInternal(t *testing.T) {
+	sc := newMgr(t, "").Schema()
+
+	for _, key := range []string{
+		"server.host", "server.port",
+		"server.timeouts.read", "server.timeouts.write", "server.timeouts.shutdown",
+		"pixiv.state_file", "download.referer", "download.store_file",
+		"inbox.buffer_size", "inbox.progress_throttle", "inbox.heartbeat",
+	} {
+		if fm := sc.Fields[key]; fm == nil || !fm.Internal {
+			t.Errorf("%s should be flagged internal: %+v", key, fm)
+		}
+		if !sc.IsInternal(key) {
+			t.Errorf("IsInternal(%q) = false, want true", key)
+		}
+	}
+
+	// A user-facing key must stay non-internal.
+	if sc.IsInternal("download.max_concurrent") {
+		t.Error("download.max_concurrent should not be internal")
+	}
+
+	// The JSON Schema document surfaces the flag for the frontend.
+	props := sc.JSON["properties"].(map[string]any)
+	server := props["server"].(map[string]any)["properties"].(map[string]any)
+	port := server["port"].(map[string]any)
+	if port["x-cfg-internal"] != true {
+		t.Errorf("server.port JSON node missing x-cfg-internal: %+v", port)
 	}
 }
 

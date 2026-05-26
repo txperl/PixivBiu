@@ -7,7 +7,7 @@ import {
     Settings03Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
-import type { ControlKind } from "./types";
+import type { ControlKind, FieldSpec } from "./types";
 
 // Must match config.SchemaVersion in the Go backend. A mismatch surfaces a
 // non-blocking warning banner (the typed ConfigView still drives values).
@@ -42,3 +42,10 @@ export const CONTROL_OVERRIDE: Record<string, ControlKind> = {
     "download.file_template": "textarea",
     "download.file_group_template": "textarea",
 };
+
+// Advanced and internal (program-only) fields are a lower-priority tier kept
+// out of sight until the "advanced options" toggle is on. Shared by the
+// section list and the per-section field list so the two never drift apart.
+export function isFieldVisible(field: FieldSpec, showAdvanced: boolean): boolean {
+    return showAdvanced || (!field.advanced && !field.internal);
+}

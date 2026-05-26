@@ -41,6 +41,7 @@ function walk(props: Record<string, JsonSchemaNode>, prefix: string, category: s
             sensitive: !!node["x-cfg-sensitive"],
             restartRequired: !!node["x-cfg-restart-required"],
             advanced: !!node["x-cfg-advanced"],
+            internal: !!node["x-cfg-internal"],
         });
     }
 }

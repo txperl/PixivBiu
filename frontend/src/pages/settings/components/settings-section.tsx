@@ -1,7 +1,7 @@
 import { Sheet, SheetHead } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
 import ConfirmPopover from "@/features/downloads/components/confirm-popover";
-import type { ConfigSource, SectionSpec } from "@/features/settings";
+import { type ConfigSource, isFieldVisible, type SectionSpec } from "@/features/settings";
 import { SettingsField } from "./settings-field";
 
 interface SettingsSectionProps {
@@ -32,7 +32,7 @@ export function SettingsSection({
     onResetSection,
 }: SettingsSectionProps) {
     const hasOverride = section.fields.some((f) => overriddenKeys.has(f.key));
-    const visibleFields = section.fields.filter((f) => showAdvanced || !f.advanced);
+    const visibleFields = section.fields.filter((f) => isFieldVisible(f, showAdvanced));
 
     return (
         <section id={`section-${section.category}`} data-section-id={section.category} className="scroll-mt-6">

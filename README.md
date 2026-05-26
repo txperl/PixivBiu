@@ -87,15 +87,16 @@ PixivBiu 内置 Pixiv OAuth (PKCE) 流程，全程在浏览器里完成：
 | 操作 | 方式 |
 |---|---|
 | 读全部 effective + per-key source | `GET  /api/v1/config` |
-| 字段元信息（min/max/enum/sensitive/restart） | `GET  /api/v1/config/schema` |
+| 字段元信息（min/max/enum/sensitive/restart/internal） | `GET  /api/v1/config/schema` |
 | 部分更新（diff-only 写盘） | `PATCH /api/v1/config` body 形如 `{"download.max_concurrent": 8}` |
-| 单 key / 全部回退到默认 | `POST /api/v1/config/reset` body `{"keys":["..."]}` 或 `{"all":true}` |
+| 单 key / 全部回退到默认（运维设置除外） | `POST /api/v1/config/reset` body `{"keys":["..."]}` 或 `{"all":true}` |
 | 重启进程以应用 restart 字段 | `POST /api/v1/config/restart` |
 
 注意几个语义：
 
-- **选择性热重载**——非 `restart` 字段 PATCH 后**立即生效**：`effective` 随之推进，运行中的服务热应用（日志级别、代理、下载模板/超时、节流、心跳等）。
-- **重启字段**——标了 `restart=true` 的字段（`server.*`、`log.format`、`pixiv.bypass_sni`、`pixiv.state_file`、`download.max_concurrent`、`download.store_file`、`inbox.buffer_size`）写盘后仍冻结在启动值，并列入 `GET /config` 的 `pending_restart`；调 `POST /api/v1/config/restart` 优雅排空并 re-exec 进程后生效（下载任务重启后自动恢复、SSE 自动重连，无损）。
+- **选择性热重载**——非 `restart`、非运维设置的字段 PATCH 后**立即生效**：`effective` 随之推进，运行中的服务热应用（日志级别、代理、下载模板/超时等）。
+- **重启字段**——可 PATCH 的 `restart=true` 字段（`log.format`、`pixiv.bypass_sni`、`download.max_concurrent`）写盘后仍冻结在启动值，并列入 `GET /config` 的 `pending_restart`；调 `POST /api/v1/config/restart` 优雅排空并 re-exec 进程后生效（下载任务重启后自动恢复、SSE 自动重连，无损）。
+- **运维设置**（`internal=true`：`server.*`、`pixiv.state_file`、`download.{referer,store_file}`、`inbox.*`）——只关乎程序运维、与使用体验无关，**运行时 API/界面不可改**：PATCH 与指定 key 的 reset 一律拒绝（400），`{"all":true}` reset 也会保留它们；设置界面里只读展示。改它们只能手动编辑 `settings.json`（或用 `PIXIVBIU_*` 环境变量），且改完需手动重启进程生效。
 - **敏感字段**（如 `pixiv.proxy`）写盘是明文、`GET` 返回为 `***`；PATCH 收到 `"***"` 或 `""` 视为「保持原值」。
 - **env 仍胜出**——被 env 锁定的字段 `sources` 标为 `env`，PATCH 写入文件但 `effective` 不变（无论冷热字段），直到 env 撤销。
 - 文件路径用 `-config` 覆盖；默认 `./usr/settings.json`。

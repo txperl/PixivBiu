@@ -18,6 +18,11 @@ import (
 // so the frontend can safely round-trip a redacted GET back as a PATCH.
 const SensitiveMask = "***"
 
+// errInternalKey is the per-field message returned when a Patch or keyed
+// Reset targets a program-only setting — those may only be changed by
+// editing the config file directly.
+const errInternalKey = "internal setting: edit the config file to change it"
+
 // Source identifies which layer supplied a key's effective value.
 type Source string
 
@@ -248,6 +253,10 @@ func (m *Manager) Patch(patch map[string]any) (*View, error) {
 // a restart for restart-required ones. `all` and `keys` are mutually
 // exclusive: passing both is rejected as a 400 so a UI bug can't
 // accidentally wipe the entire override layer.
+//
+// Internal keys are program-only: a keyed Reset of one is rejected, and
+// Reset(all) preserves their existing file overrides — they may only be
+// changed by editing the config file directly.
 func (m *Manager) Reset(keys []string, all bool) (*View, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -265,7 +274,19 @@ func (m *Manager) Reset(keys []string, all bool) (*View, error) {
 
 	var fileLayer map[string]any
 	if all {
+		// `all` clears the override layer but preserves internal keys:
+		// those are program-only and may only be changed by editing the
+		// file, so a UI "reset all" must not silently wipe them.
+		current, err := m.store.Load()
+		if err != nil {
+			return nil, err
+		}
 		fileLayer = map[string]any{}
+		for k, v := range current {
+			if fm, ok := m.schema.Fields[k]; ok && fm.Internal {
+				fileLayer[k] = v
+			}
+		}
 	} else {
 		current, err := m.store.Load()
 		if err != nil {
@@ -274,8 +295,13 @@ func (m *Manager) Reset(keys []string, all bool) (*View, error) {
 		fileLayer = current
 		bad := map[string]string{}
 		for _, k := range keys {
-			if _, ok := m.schema.Fields[k]; !ok {
+			fm, ok := m.schema.Fields[k]
+			if !ok {
 				bad[k] = "unknown setting key"
+				continue
+			}
+			if fm.Internal {
+				bad[k] = errInternalKey
 				continue
 			}
 			delete(fileLayer, k)
@@ -363,6 +389,10 @@ func (m *Manager) precheckPatch(flat map[string]any) error {
 		fm, ok := m.schema.Fields[k]
 		if !ok {
 			bad[k] = "unknown setting key"
+			continue
+		}
+		if fm.Internal {
+			bad[k] = errInternalKey
 			continue
 		}
 		if fm.Sensitive && isMaskSentinel(v) {
