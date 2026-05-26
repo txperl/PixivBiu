@@ -90,12 +90,14 @@ PixivBiu 内置 Pixiv OAuth (PKCE) 流程，全程在浏览器里完成：
 | 字段元信息（min/max/enum/sensitive/restart） | `GET  /api/v1/config/schema` |
 | 部分更新（diff-only 写盘） | `PATCH /api/v1/config` body 形如 `{"download.max_concurrent": 8}` |
 | 单 key / 全部回退到默认 | `POST /api/v1/config/reset` body `{"keys":["..."]}` 或 `{"all":true}` |
+| 重启进程以应用 restart 字段 | `POST /api/v1/config/restart` |
 
 注意几个语义：
 
-- **`effective` 是冻结的启动快照**——服务在启动时拿到自己的 cfg 副本就不再回读，所以 PATCH 写入后 `file` 会推进、`effective` 不变；前端比 `file != effective` 就知道要重启。
+- **选择性热重载**——非 `restart` 字段 PATCH 后**立即生效**：`effective` 随之推进，运行中的服务热应用（日志级别、代理、下载模板/超时、节流、心跳等）。
+- **重启字段**——标了 `restart=true` 的字段（`server.*`、`log.format`、`pixiv.bypass_sni`、`pixiv.state_file`、`download.max_concurrent`、`download.store_file`、`inbox.buffer_size`）写盘后仍冻结在启动值，并列入 `GET /config` 的 `pending_restart`；调 `POST /api/v1/config/restart` 优雅排空并 re-exec 进程后生效（下载任务重启后自动恢复、SSE 自动重连，无损）。
 - **敏感字段**（如 `pixiv.proxy`）写盘是明文、`GET` 返回为 `***`；PATCH 收到 `"***"` 或 `""` 视为「保持原值」。
-- **env 仍胜出**——被 env 锁定的字段 `sources` 标为 `env`，PATCH 写入文件但 effective 不会变，直到 env 撤销。
+- **env 仍胜出**——被 env 锁定的字段 `sources` 标为 `env`，PATCH 写入文件但 `effective` 不变（无论冷热字段），直到 env 撤销。
 - 文件路径用 `-config` 覆盖；默认 `./usr/settings.json`。
 
 env 覆盖示例（开发期最常用的快捷开关）：

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -277,6 +278,111 @@ func TestPatch_EffectiveStaysFrozen(t *testing.T) {
 	}
 	if got := nestedGet(view.File, "download", "max_concurrent"); got != float64(32) {
 		t.Errorf("view.File.max_concurrent = %v, want 32 (the patched value)", got)
+	}
+}
+
+func TestPatch_HotKeyAppliesLive(t *testing.T) {
+	mgr := newMgr(t, "")
+	view, err := mgr.Patch(map[string]any{"log.level": "debug"})
+	if err != nil {
+		t.Fatalf("Patch: %v", err)
+	}
+	// log.level is hot-reloadable: effective must advance immediately.
+	if got := nestedGet(view.Effective, "log", "level"); got != "debug" {
+		t.Errorf("view.Effective.log.level = %v, want live-applied %q", got, "debug")
+	}
+	if len(view.PendingRestart) != 0 {
+		t.Errorf("hot key should not need a restart, got pending_restart=%v", view.PendingRestart)
+	}
+}
+
+func TestPatch_RestartKeyPendingThenReset(t *testing.T) {
+	mgr := newMgr(t, "")
+	view, err := mgr.Patch(map[string]any{"server.port": 9090})
+	if err != nil {
+		t.Fatalf("Patch: %v", err)
+	}
+	// server.port is restart-required: effective stays at the startup
+	// value, file advances, and the key surfaces in pending_restart.
+	if got := nestedGet(view.Effective, "server", "port"); got != int64(8080) {
+		t.Errorf("view.Effective.server.port = %v, want frozen 8080", got)
+	}
+	if got := nestedGet(view.File, "server", "port"); got != float64(9090) {
+		t.Errorf("view.File.server.port = %v, want 9090", got)
+	}
+	if !slices.Contains(view.PendingRestart, "server.port") {
+		t.Errorf("pending_restart = %v, want it to contain server.port", view.PendingRestart)
+	}
+
+	// Reverting the override clears the pending-restart marker.
+	view, err = mgr.Reset([]string{"server.port"}, false)
+	if err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	if len(view.PendingRestart) != 0 {
+		t.Errorf("after reset, pending_restart should be empty, got %v", view.PendingRestart)
+	}
+}
+
+// Patching a hot key back to its built-in default prunes it from the
+// file layer; the live view must then report source=defaults and drop
+// it from File, matching what's actually persisted.
+func TestPatch_HotKeyToDefaultPrunesSource(t *testing.T) {
+	mgr := newMgr(t, `{"log":{"level":"debug"}}`)
+	if got := mustView(t, mgr).Sources["log.level"]; got != SourceFile {
+		t.Fatalf("precondition: log.level source = %q, want file", got)
+	}
+
+	view, err := mgr.Patch(map[string]any{"log.level": "info"}) // "info" is the default
+	if err != nil {
+		t.Fatalf("Patch: %v", err)
+	}
+	if got := view.Sources["log.level"]; got != SourceDefaults {
+		t.Errorf("source = %q, want defaults after reset-to-default", got)
+	}
+	if v := nestedGet(view.File, "log", "level"); v != nil {
+		t.Errorf("File still carries pruned key: %v", v)
+	}
+	if v := nestedGet(view.Effective, "log", "level"); v != "info" {
+		t.Errorf("effective log.level = %v, want info", v)
+	}
+}
+
+func mustView(t *testing.T, mgr *Manager) *View {
+	t.Helper()
+	v, err := mgr.View()
+	if err != nil {
+		t.Fatalf("View: %v", err)
+	}
+	return v
+}
+
+func TestOnReload_FiresOnSuccessNotOnFailure(t *testing.T) {
+	mgr := newMgr(t, "")
+	var calls int
+	var lastNew *Config
+	mgr.OnReload(func(n *Config) {
+		calls++
+		lastNew = n
+	})
+
+	// A rejected patch (bad enum) must not fire the hook.
+	if _, err := mgr.Patch(map[string]any{"log.level": "nope"}); err == nil {
+		t.Fatal("expected validation error for bad log.level enum")
+	}
+	if calls != 0 {
+		t.Fatalf("hook fired on a rejected patch: calls=%d", calls)
+	}
+
+	// A successful patch fires the hook once with the new config.
+	if _, err := mgr.Patch(map[string]any{"log.level": "warn"}); err != nil {
+		t.Fatalf("Patch: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("hook calls = %d, want 1", calls)
+	}
+	if lastNew == nil || lastNew.Log.Level != "warn" {
+		t.Errorf("hook received wrong config: %+v", lastNew)
 	}
 }
 

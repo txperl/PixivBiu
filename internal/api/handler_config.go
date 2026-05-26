@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/txperl/PixivBiu/internal/config"
@@ -75,15 +76,36 @@ func (h *APIHandler) ResetConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, viewToWire(view))
 }
 
+// RestartConfig drains in-flight work and re-executes the process so
+// settings.json is reloaded — how restart-required keys take effect.
+// The 202 is flushed before the trigger fires so the client receives it
+// before its connection (and any SSE streams) drop.
+func (h *APIHandler) RestartConfig(w http.ResponseWriter, r *http.Request) {
+	if err := h.requireAuth(); err != nil {
+		h.writeError(w, r, err)
+		return
+	}
+	if h.restart == nil {
+		h.writeError(w, r, errors.New("restart trigger not configured"))
+		return
+	}
+	writeJSON(w, http.StatusAccepted, ConfigRestartAccepted{Status: "restarting"})
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	h.restart()
+}
+
 func viewToWire(v *config.View) ConfigView {
 	srcs := make(map[string]ConfigSource, len(v.Sources))
 	for k, s := range v.Sources {
 		srcs[k] = ConfigSource(s)
 	}
 	return ConfigView{
-		Effective:     v.Effective,
-		File:          v.File,
-		Sources:       srcs,
-		SchemaVersion: v.SchemaVersion,
+		Effective:      v.Effective,
+		File:           v.File,
+		Sources:        srcs,
+		PendingRestart: v.PendingRestart,
+		SchemaVersion:  v.SchemaVersion,
 	}
 }

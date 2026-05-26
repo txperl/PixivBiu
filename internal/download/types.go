@@ -91,6 +91,10 @@ type Job struct {
 	// Ugoira-only fields populated on Submit; used by the worker's
 	// post-download conversion step.
 	UgoiraFrames []UgoiraFrame `json:"ugoira_frames,omitempty"`
+	// UgoiraFormat pins the conversion format chosen at Submit time so a
+	// hot-reload of download.ugoira.format can't desync the conversion
+	// output from the path reserved when the job was created.
+	UgoiraFormat string `json:"ugoira_format,omitempty"`
 }
 
 // UgoiraFrame is the per-frame timing metadata from

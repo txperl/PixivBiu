@@ -112,7 +112,39 @@ func (s *Service) Snapshot() state.Token {
 // read-only API calls; write calls (bookmark/follow) also go through it.
 // The caller must check Authenticated() first — pixivgo itself returns
 // ErrAuthRequired on unauthenticated calls, which we translate in handlers.
-func (s *Service) Client() *pixivgo.Client { return s.client }
+//
+// Read under s.mu because Reload may swap s.client concurrently.
+func (s *Service) Client() *pixivgo.Client {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.client
+}
+
+// Reload rebuilds the client/httpc when the hot-reloadable proxy or
+// language settings change, preserving the current auth token and the
+// running refresh loop. bypass_sni and state_file are restart-only, so
+// their values are pinned to the running config. On a build failure the
+// existing client is left untouched and the error is returned.
+func (s *Service) Reload(cfg config.PixivConfig) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if cfg.Proxy == s.cfg.Proxy && cfg.Language == s.cfg.Language {
+		return nil
+	}
+	cfg.BypassSNI = s.cfg.BypassSNI
+	cfg.StateFile = s.cfg.StateFile
+
+	client, httpc, err := buildClient(cfg)
+	if err != nil {
+		return fmt.Errorf("rebuild pixiv client: %w", err)
+	}
+	if s.token.AccessToken != "" || s.token.RefreshToken != "" {
+		client.SetAuth(s.token.AccessToken, s.token.RefreshToken)
+	}
+	s.client, s.httpc, s.cfg = client, httpc, cfg
+	return nil
+}
 
 // Login exchanges a refresh token for a fresh access token and persists it.
 func (s *Service) Login(ctx context.Context, refreshToken string) (state.Token, error) {
@@ -134,7 +166,10 @@ func (s *Service) LoginWithAuthCode(ctx context.Context, code, verifier string) 
 	if verifier == "" {
 		return state.Token{}, ErrNoRefreshToken
 	}
-	rt, err := ExchangeAuthCode(ctx, s.httpc, code, verifier)
+	s.mu.RLock()
+	httpc := s.httpc
+	s.mu.RUnlock()
+	rt, err := ExchangeAuthCode(ctx, httpc, code, verifier)
 	if err != nil {
 		return state.Token{}, err
 	}
@@ -145,15 +180,21 @@ func (s *Service) LoginWithAuthCode(ctx context.Context, code, verifier string) 
 func (s *Service) Logout() error {
 	s.mu.Lock()
 	s.token = state.Token{}
+	client := s.client
 	s.mu.Unlock()
-	s.client.SetAuth("", "")
+	client.SetAuth("", "")
 	return s.store.Clear()
 }
 
 // refresh calls pixivgo.Auth, updates the in-memory + on-disk state.
 // The client's own accessToken/refreshToken are updated by pixivgo.Auth.
 func (s *Service) refresh(ctx context.Context, refreshToken string) (state.Token, error) {
-	resp, err := s.client.Auth(ctx, refreshToken)
+	// Snapshot the client under the lock: Reload may swap it concurrently.
+	s.mu.RLock()
+	client := s.client
+	s.mu.RUnlock()
+
+	resp, err := client.Auth(ctx, refreshToken)
 	if err != nil {
 		return state.Token{}, err
 	}
@@ -166,8 +207,14 @@ func (s *Service) refresh(ctx context.Context, refreshToken string) (state.Token
 		UserName:             resp.User.Name,
 	}
 
+	// Re-apply the fresh token to whatever client is current under the
+	// same lock that Reload uses to swap it. Without this, a Reload that
+	// installs a new client between Auth returning and this update would
+	// leave the active client carrying the stale token (Auth only updated
+	// the captured `client`, which Reload may have just replaced).
 	s.mu.Lock()
 	s.token = tok
+	s.client.SetAuth(tok.AccessToken, tok.RefreshToken)
 	s.mu.Unlock()
 
 	if err := s.store.Save(tok); err != nil {

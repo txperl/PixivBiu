@@ -36,7 +36,7 @@ type ServerConfig struct {
 type TimeoutsConfig struct {
 	Read     time.Duration `koanf:"read"     cfg:"desc=读超时,restart=true"`
 	Write    time.Duration `koanf:"write"    cfg:"desc=写超时,restart=true"`
-	Shutdown time.Duration `koanf:"shutdown" cfg:"desc=优雅关闭超时"`
+	Shutdown time.Duration `koanf:"shutdown" cfg:"desc=优雅关闭超时,restart=true"`
 }
 
 type LogConfig struct {
@@ -55,7 +55,7 @@ type DownloadConfig struct {
 	OutputDir         string        `koanf:"output_dir"          cfg:"desc=输出目录模板（Go text/template）"`
 	FileTemplate      string        `koanf:"file_template"       cfg:"desc=单文件名模板"`
 	FileGroupTemplate string        `koanf:"file_group_template" cfg:"desc=多页作品文件名模板"`
-	MaxConcurrent     int           `koanf:"max_concurrent"      cfg:"desc=最大并发任务数,min=1,max=64"`
+	MaxConcurrent     int           `koanf:"max_concurrent"      cfg:"desc=最大并发任务数,min=1,max=64,restart=true"`
 	HTTPTimeout       time.Duration `koanf:"http_timeout"        cfg:"desc=单次下载请求超时"`
 	Retry             RetryConfig   `koanf:"retry"               cfg:"desc=失败重试策略"`
 	Referer           string        `koanf:"referer"             cfg:"desc=下载请求的 Referer 头,advanced=true"`

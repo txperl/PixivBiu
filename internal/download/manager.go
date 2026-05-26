@@ -22,16 +22,28 @@ import (
 	"github.com/txperl/PixivBiu/internal/pixiv"
 )
 
+// dlState bundles the download config with the objects derived from it
+// (template renderer, HTTP client) behind a single atomic.Pointer. Hot
+// paths load it once for a consistent, lock-free snapshot; Reload swaps
+// in a freshly-built state. An in-flight download keeps using the state
+// it loaded when it started, so a config change never mutates a running
+// transfer's client or templates mid-flight.
+type dlState struct {
+	cfg      config.DownloadConfig
+	renderer *Renderer
+	client   *http.Client
+	proxyURL string // pixiv.proxy reused for image fetches; tracked to detect changes
+}
+
 // Manager owns the download queue, worker pool, job index, and
 // persistence. All public methods are safe for concurrent use.
 type Manager struct {
-	cfg      config.DownloadConfig
+	state atomic.Pointer[dlState]
+
 	logger   *slog.Logger
 	pixiv    *pixiv.Service
 	store    *Store
 	pub      *Publisher
-	renderer *Renderer
-	client   *http.Client
 	execRoot string
 	homeDir  string
 
@@ -83,19 +95,49 @@ func NewManager(
 	}
 
 	m := &Manager{
-		cfg:      cfg,
 		logger:   logger,
 		pixiv:    svc,
 		store:    store,
 		pub:      pub,
-		renderer: renderer,
-		client:   client,
 		execRoot: execRoot,
 		homeDir:  HomeDir(),
 		jobs:     jobs,
 		queue:    make(chan *Task, qSize),
 	}
+	m.state.Store(&dlState{cfg: cfg, renderer: renderer, client: client, proxyURL: proxyURL})
 	return m, nil
+}
+
+// conf returns the current download config snapshot. Lock-free; the
+// returned value is a copy safe to read without holding any lock.
+func (m *Manager) conf() config.DownloadConfig { return m.state.Load().cfg }
+
+// Reload swaps in download config that changed at runtime, rebuilding
+// the template renderer and HTTP client. proxyURL is pixiv.proxy, reused
+// for image fetches. Restart-only fields (max_concurrent, store_file)
+// are pinned to the running values — the worker pool and store path are
+// fixed for the process lifetime — so a change to only those is a no-op
+// here. Build-before-commit: on any build error the running state is
+// left untouched and the error returned, so the caller can log and keep
+// serving the previous good config.
+func (m *Manager) Reload(cfg config.DownloadConfig, proxyURL string) error {
+	cur := m.state.Load()
+	cfg.MaxConcurrent = cur.cfg.MaxConcurrent
+	cfg.StoreFile = cur.cfg.StoreFile
+	if cfg == cur.cfg && proxyURL == cur.proxyURL {
+		return nil
+	}
+
+	renderer, err := NewRenderer(cfg, m.execRoot)
+	if err != nil {
+		return fmt.Errorf("rebuild renderer: %w", err)
+	}
+	client, err := buildHTTPClient(cfg.HTTPTimeout, proxyURL)
+	if err != nil {
+		return fmt.Errorf("rebuild http client: %w", err)
+	}
+	m.state.Store(&dlState{cfg: cfg, renderer: renderer, client: client, proxyURL: proxyURL})
+	return nil
 }
 
 // Start spawns the worker pool and re-enqueues any tasks that were
@@ -106,7 +148,7 @@ func (m *Manager) Start(parent context.Context) {
 	m.ctx = ctx
 	m.stopFn = cancel
 
-	workers := m.cfg.MaxConcurrent
+	workers := m.conf().MaxConcurrent
 	if workers < 1 {
 		workers = 1
 	}
@@ -459,7 +501,7 @@ func (m *Manager) Submit(ctx context.Context, illustID int64) (*Job, error) {
 		IllustID:   illustID,
 		IllustType: illustType,
 		Title:      info.Title,
-		PreviewURL: rewritePximg(pickPreviewURL(info.ImageUrls), m.cfg.PximgBase),
+		PreviewURL: rewritePximg(pickPreviewURL(info.ImageUrls), m.conf().PximgBase),
 		Status:     StatusQueued,
 		CreatedAt:  now,
 		UpdatedAt:  now,
@@ -538,7 +580,8 @@ func (m *Manager) enqueueAsync(tasks []*Task) {
 // buildImageTasks populates `job.Tasks` for single- or multi-page
 // illusts / manga.
 func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseCtx NameContext) error {
-	outputDir, err := m.renderer.RenderRootPath(m.renderer.OutputDir, baseCtx)
+	st := m.state.Load()
+	outputDir, err := st.renderer.RenderRootPath(st.renderer.OutputDir, baseCtx)
 	if err != nil {
 		return err
 	}
@@ -558,7 +601,7 @@ func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseC
 		ctxCopy := baseCtx
 		ctxCopy.Index = 0
 		ctxCopy.Ext = ExtFromURL(url)
-		relPath, err := m.renderer.RenderRelativePath(m.renderer.FileName, ctxCopy)
+		relPath, err := st.renderer.RenderRelativePath(st.renderer.FileName, ctxCopy)
 		if err != nil {
 			return err
 		}
@@ -566,7 +609,7 @@ func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseC
 		job.Tasks = append(job.Tasks, &Task{
 			ID:        newID("tsk_"),
 			JobID:     job.ID,
-			URL:       rewritePximg(url, m.cfg.PximgBase),
+			URL:       rewritePximg(url, st.cfg.PximgBase),
 			FilePath:  full,
 			Status:    StatusQueued,
 			SizeBytes: -1,
@@ -588,7 +631,7 @@ func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseC
 		ctxCopy := baseCtx
 		ctxCopy.Index = i + 1
 		ctxCopy.Ext = ExtFromURL(url)
-		relPath, err := m.renderer.RenderRelativePath(m.renderer.FileGroup, ctxCopy)
+		relPath, err := st.renderer.RenderRelativePath(st.renderer.FileGroup, ctxCopy)
 		if err != nil {
 			return err
 		}
@@ -596,7 +639,7 @@ func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseC
 		job.Tasks = append(job.Tasks, &Task{
 			ID:        newID("tsk_"),
 			JobID:     job.ID,
-			URL:       rewritePximg(url, m.cfg.PximgBase),
+			URL:       rewritePximg(url, st.cfg.PximgBase),
 			FilePath:  full,
 			Status:    StatusQueued,
 			SizeBytes: -1,
@@ -609,6 +652,7 @@ func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseC
 // that downloads the frame zip. The conversion (zip → webp/gif) is
 // triggered by the worker post-download, not as a separate task.
 func (m *Manager) buildUgoiraTasks(ctx context.Context, job *Job, baseCtx NameContext) error {
+	st := m.state.Load()
 	client := m.pixiv.Client()
 	meta, err := client.UgoiraMetadata(ctx, pixivgo.UgoiraMetadataParams{IllustID: int(job.IllustID)})
 	if err != nil {
@@ -629,16 +673,19 @@ func (m *Manager) buildUgoiraTasks(ctx context.Context, job *Job, baseCtx NameCo
 			Delay: time.Duration(f.Delay) * time.Millisecond,
 		})
 	}
+	// Pin the format so a later hot-reload can't change the conversion
+	// output out from under the path reserved here.
+	job.UgoiraFormat = st.cfg.Ugoira.Format
 
-	outputDir, err := m.renderer.RenderRootPath(m.renderer.OutputDir, baseCtx)
+	outputDir, err := st.renderer.RenderRootPath(st.renderer.OutputDir, baseCtx)
 	if err != nil {
 		return err
 	}
 
 	ctxCopy := baseCtx
 	ctxCopy.Index = 0
-	ctxCopy.Ext = ugoiraFinalExt(m.cfg.Ugoira.Format)
-	relPath, err := m.renderer.RenderRelativePath(m.renderer.FileName, ctxCopy)
+	ctxCopy.Ext = ugoiraFinalExt(job.UgoiraFormat)
+	relPath, err := st.renderer.RenderRelativePath(st.renderer.FileName, ctxCopy)
 	if err != nil {
 		return err
 	}
@@ -650,7 +697,7 @@ func (m *Manager) buildUgoiraTasks(ctx context.Context, job *Job, baseCtx NameCo
 	job.Tasks = append(job.Tasks, &Task{
 		ID:        newID("tsk_"),
 		JobID:     job.ID,
-		URL:       rewritePximg(zipURL, m.cfg.PximgBase),
+		URL:       rewritePximg(zipURL, st.cfg.PximgBase),
 		FilePath:  zipPath,
 		Status:    StatusQueued,
 		SizeBytes: -1,
@@ -731,11 +778,15 @@ func (m *Manager) leaseTask(task *Task, cancel context.CancelFunc) (*Job, bool) 
 // On success, non-ugoira tasks move to completed; ugoira stays running
 // for post-processing. Failure/cancel set the terminal state here.
 func (m *Manager) runDownloadWithRetries(taskCtx, parent context.Context, task *Task, isUgoira bool) error {
-	maxRetries := m.cfg.Retry.Max
+	// Snapshot config + client once per task: an in-flight transfer keeps
+	// the retry policy, referer, and HTTP client it started with even if
+	// Reload swaps in new ones mid-download.
+	st := m.state.Load()
+	maxRetries := st.cfg.Retry.Max
 	if maxRetries < 0 {
 		maxRetries = 0
 	}
-	base := m.cfg.Retry.InitialBackoff
+	base := st.cfg.Retry.InitialBackoff
 	if base <= 0 {
 		base = time.Second
 	}
@@ -753,9 +804,9 @@ func (m *Manager) runDownloadWithRetries(taskCtx, parent context.Context, task *
 
 		_, written, err := httpDownload(
 			taskCtx,
-			m.client,
+			st.client,
 			task.URL,
-			m.cfg.Referer,
+			st.cfg.Referer,
 			task.FilePath,
 			task.ID,
 			func(total int64) {
@@ -982,7 +1033,7 @@ func (m *Manager) finalPathLocked(job *Job, task *Task) string {
 	if job == nil || job.IllustType != IllustTypeUgoira {
 		return task.FilePath
 	}
-	finalExt := ugoiraFinalExt(m.cfg.Ugoira.Format)
+	finalExt := ugoiraFinalExt(job.UgoiraFormat)
 	if finalExt == ".zip" || !isZipPath(task.FilePath) {
 		return task.FilePath
 	}
@@ -1077,7 +1128,7 @@ func (m *Manager) removeCleanupPaths(paths []string) {
 // empty format skips conversion — the zip stays on disk. ctx is the
 // per-task context, so Cancel() and Shutdown() interrupt encoding.
 func (m *Manager) convertUgoira(ctx context.Context, job *Job, task *Task) error {
-	format := UgoiraFormat(strings.ToLower(m.cfg.Ugoira.Format))
+	format := UgoiraFormat(strings.ToLower(job.UgoiraFormat))
 	if format == "" || format == UgoiraFormatNone {
 		return nil
 	}

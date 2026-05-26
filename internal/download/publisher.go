@@ -36,17 +36,26 @@ const (
 // a task is forgotten, and progress on a hot copy loop never contends
 // for a global lock.
 type Publisher struct {
-	hub      inbox.Publisher
-	interval time.Duration
+	hub inbox.Publisher
+	// interval is the minimum gap between task.progress events, stored
+	// as nanoseconds so SetThrottle can adjust it live (hot-reload of
+	// inbox.progress_throttle). <= 0 disables throttling.
+	interval atomic.Int64
 }
 
 // NewPublisher builds a publisher gated by `interval`. An interval
 // <= 0 disables throttling (every Progress call publishes).
 func NewPublisher(hub inbox.Publisher, interval time.Duration) *Publisher {
-	return &Publisher{
-		hub:      hub,
-		interval: interval,
-	}
+	p := &Publisher{hub: hub}
+	p.interval.Store(int64(interval))
+	return p
+}
+
+// SetThrottle updates the minimum interval between task.progress events.
+// Safe to call concurrently with TaskProgress; used by the config
+// reload hook for inbox.progress_throttle.
+func (p *Publisher) SetThrottle(d time.Duration) {
+	p.interval.Store(int64(d))
 }
 
 // progressPayload is the JSON body of a task.progress event.
@@ -90,10 +99,10 @@ func (p *Publisher) TaskProgress(task *Task) {
 	if task == nil {
 		return
 	}
-	if p.interval > 0 {
+	if interval := p.interval.Load(); interval > 0 {
 		now := time.Now().UnixNano()
 		last := atomic.LoadInt64(&task.lastProgressNs)
-		if now-last < int64(p.interval) {
+		if now-last < interval {
 			return
 		}
 		if !atomic.CompareAndSwapInt64(&task.lastProgressNs, last, now) {

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -39,6 +40,16 @@ func newTestManager(t *testing.T) *Manager {
 		t.Fatalf("NewManager: %v", err)
 	}
 	return m
+}
+
+// setUgoiraFormat swaps the live download state's ugoira format,
+// reusing the existing renderer/client. Mirrors how Reload installs a
+// new dlState; lets tests tweak one field without rebuilding by hand.
+func setUgoiraFormat(m *Manager, format string) {
+	st := m.state.Load()
+	cfg := st.cfg
+	cfg.Ugoira.Format = format
+	m.state.Store(&dlState{cfg: cfg, renderer: st.renderer, client: st.client, proxyURL: st.proxyURL})
 }
 
 func TestTransitionTaskTerminalLocked_RespectsExistingTerminal(t *testing.T) {
@@ -236,7 +247,7 @@ func TestNewManager_HonorsProxy(t *testing.T) {
 	}
 
 	req, _ := http.NewRequest(http.MethodGet, "http://example.invalid/somefile", nil)
-	resp, err := m.client.Do(req)
+	resp, err := m.state.Load().client.Do(req)
 	if err != nil {
 		t.Fatalf("client.Do: %v", err)
 	}
@@ -377,7 +388,7 @@ func TestRemove_NotFound(t *testing.T) {
 // touches disk, regardless of the job's terminal status.
 func TestRemove_KeepsFilesOnDisk(t *testing.T) {
 	m := newTestManager(t)
-	path := filepath.Join(m.cfg.OutputDir, "keep.bin")
+	path := filepath.Join(m.conf().OutputDir, "keep.bin")
 	if err := os.WriteFile(path, []byte("payload"), 0o644); err != nil {
 		t.Fatalf("seed file: %v", err)
 	}
@@ -551,7 +562,7 @@ func TestRemoveTerminal_PublishesEventsWithStableCounts(t *testing.T) {
 // FilePaths; a third must continue past " (1)" to " (2)".
 func TestResolveJobCollisionsLocked_BumpsAcrossJobs(t *testing.T) {
 	m := newTestManager(t)
-	base := filepath.Join(m.cfg.OutputDir, "shared.bin")
+	base := filepath.Join(m.conf().OutputDir, "shared.bin")
 
 	mkJob := func(id string) *Job {
 		return &Job{
@@ -577,8 +588,8 @@ func TestResolveJobCollisionsLocked_BumpsAcrossJobs(t *testing.T) {
 	m.mu.Unlock()
 
 	wantA := base
-	wantB := filepath.Join(m.cfg.OutputDir, "shared (1).bin")
-	wantC := filepath.Join(m.cfg.OutputDir, "shared (2).bin")
+	wantB := filepath.Join(m.conf().OutputDir, "shared (1).bin")
+	wantC := filepath.Join(m.conf().OutputDir, "shared (2).bin")
 	if jobA.Tasks[0].FilePath != wantA {
 		t.Errorf("jobA: want %q, got %q", wantA, jobA.Tasks[0].FilePath)
 	}
@@ -595,7 +606,7 @@ func TestResolveJobCollisionsLocked_BumpsAcrossJobs(t *testing.T) {
 // manually dropped a file in the way" case.
 func TestResolveJobCollisionsLocked_BumpsPastDiskFile(t *testing.T) {
 	m := newTestManager(t)
-	base := filepath.Join(m.cfg.OutputDir, "external.bin")
+	base := filepath.Join(m.conf().OutputDir, "external.bin")
 	if err := os.WriteFile(base, []byte("seed"), 0o644); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -614,7 +625,7 @@ func TestResolveJobCollisionsLocked_BumpsPastDiskFile(t *testing.T) {
 	m.resolveJobCollisionsLocked(job, m.reservedPathsLocked())
 	m.mu.Unlock()
 
-	want := filepath.Join(m.cfg.OutputDir, "external (1).bin")
+	want := filepath.Join(m.conf().OutputDir, "external (1).bin")
 	if job.Tasks[0].FilePath != want {
 		t.Errorf("want %q, got %q", want, job.Tasks[0].FilePath)
 	}
@@ -626,17 +637,17 @@ func TestResolveJobCollisionsLocked_BumpsPastDiskFile(t *testing.T) {
 // output don't collide on the final extension.
 func TestResolveJobCollisionsLocked_UgoiraFinalExtension(t *testing.T) {
 	m := newTestManager(t)
-	m.cfg.Ugoira.Format = "webp"
 
 	jobZip := func(id, stem string) *Job {
 		return &Job{
-			ID:         id,
-			IllustType: IllustTypeUgoira,
-			Status:     StatusQueued,
+			ID:           id,
+			IllustType:   IllustTypeUgoira,
+			UgoiraFormat: "webp", // pinned at Submit; drives the final extension
+			Status:       StatusQueued,
 			Tasks: []*Task{
 				{
 					ID: "tsk_" + id, JobID: id,
-					FilePath: filepath.Join(m.cfg.OutputDir, stem+".zip"),
+					FilePath: filepath.Join(m.conf().OutputDir, stem+".zip"),
 					Status:   StatusQueued,
 				},
 			},
@@ -656,10 +667,10 @@ func TestResolveJobCollisionsLocked_UgoiraFinalExtension(t *testing.T) {
 	// First job keeps "anim.zip" (intermediate). Second must shift its
 	// stem because "anim.webp" — its eventual final — would have
 	// collided with jobA's eventual final.
-	if a.Tasks[0].FilePath != filepath.Join(m.cfg.OutputDir, "anim.zip") {
+	if a.Tasks[0].FilePath != filepath.Join(m.conf().OutputDir, "anim.zip") {
 		t.Errorf("jobA zip path: got %q", a.Tasks[0].FilePath)
 	}
-	if b.Tasks[0].FilePath != filepath.Join(m.cfg.OutputDir, "anim (1).zip") {
+	if b.Tasks[0].FilePath != filepath.Join(m.conf().OutputDir, "anim (1).zip") {
 		t.Errorf("jobB should bump stem: got %q", b.Tasks[0].FilePath)
 	}
 }
@@ -671,17 +682,17 @@ func TestResolveJobCollisionsLocked_UgoiraFinalExtension(t *testing.T) {
 // final extension so a new submit can't take it.
 func TestResolveJobCollisionsLocked_PreservesOwnedZipOnRestart(t *testing.T) {
 	m := newTestManager(t)
-	m.cfg.Ugoira.Format = "webp"
 
-	zipPath := filepath.Join(m.cfg.OutputDir, "anim.zip")
+	zipPath := filepath.Join(m.conf().OutputDir, "anim.zip")
 	if err := os.WriteFile(zipPath, []byte("manager-owned zip"), 0o644); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
 	job := &Job{
-		ID:         "j",
-		IllustType: IllustTypeUgoira,
-		Status:     StatusQueued,
+		ID:           "j",
+		IllustType:   IllustTypeUgoira,
+		UgoiraFormat: "webp",
+		Status:       StatusQueued,
 		Tasks: []*Task{
 			{
 				ID: "tsk", JobID: "j",
@@ -701,7 +712,7 @@ func TestResolveJobCollisionsLocked_PreservesOwnedZipOnRestart(t *testing.T) {
 	if job.Tasks[0].FilePath != zipPath {
 		t.Errorf("FilePath must not bump for an owned task; got %q", job.Tasks[0].FilePath)
 	}
-	wantFinal := filepath.Join(m.cfg.OutputDir, "anim.webp")
+	wantFinal := filepath.Join(m.conf().OutputDir, "anim.webp")
 	if _, ok := reserved[zipPath]; !ok {
 		t.Errorf("zip path not reserved: %v", reserved)
 	}
@@ -716,17 +727,17 @@ func TestResolveJobCollisionsLocked_PreservesOwnedZipOnRestart(t *testing.T) {
 // Cancel cleanup) would delete it.
 func TestResolveJobCollisionsLocked_UgoiraExistingZipBumps(t *testing.T) {
 	m := newTestManager(t)
-	m.cfg.Ugoira.Format = "webp"
 
-	existingZip := filepath.Join(m.cfg.OutputDir, "anim.zip")
+	existingZip := filepath.Join(m.conf().OutputDir, "anim.zip")
 	if err := os.WriteFile(existingZip, []byte("user data"), 0o644); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
 	job := &Job{
-		ID:         "j",
-		IllustType: IllustTypeUgoira,
-		Status:     StatusQueued,
+		ID:           "j",
+		IllustType:   IllustTypeUgoira,
+		UgoiraFormat: "webp",
+		Status:       StatusQueued,
 		Tasks: []*Task{
 			{
 				ID: "tsk", JobID: "j",
@@ -741,7 +752,7 @@ func TestResolveJobCollisionsLocked_UgoiraExistingZipBumps(t *testing.T) {
 	m.jobs[job.ID] = job
 	m.mu.Unlock()
 
-	wantZip := filepath.Join(m.cfg.OutputDir, "anim (1).zip")
+	wantZip := filepath.Join(m.conf().OutputDir, "anim (1).zip")
 	if job.Tasks[0].FilePath != wantZip {
 		t.Errorf("zip path: want %q, got %q", wantZip, job.Tasks[0].FilePath)
 	}
@@ -761,8 +772,8 @@ func TestResolveJobCollisionsLocked_UgoiraExistingZipBumps(t *testing.T) {
 func TestCancel_PreservesUnownedFilesAtTaskPath(t *testing.T) {
 	m := newTestManager(t)
 
-	owned := filepath.Join(m.cfg.OutputDir, "owned.bin")
-	foreign := filepath.Join(m.cfg.OutputDir, "foreign.bin")
+	owned := filepath.Join(m.conf().OutputDir, "owned.bin")
+	foreign := filepath.Join(m.conf().OutputDir, "foreign.bin")
 	for _, p := range []string{owned, foreign} {
 		if err := os.WriteFile(p, []byte("seed"), 0o644); err != nil {
 			t.Fatalf("seed %s: %v", p, err)
@@ -1005,7 +1016,7 @@ func TestRunDownloadWithRetries_PersistsWroteFileBeforeUgoiraConvert(t *testing.
 		t.Fatalf("runDownloadWithRetries: %v", err)
 	}
 
-	loaded, err := NewStore(m.cfg.StoreFile).Load()
+	loaded, err := NewStore(m.conf().StoreFile).Load()
 	if err != nil {
 		t.Fatalf("reload store: %v", err)
 	}
@@ -1019,5 +1030,119 @@ func TestRunDownloadWithRetries_PersistsWroteFileBeforeUgoiraConvert(t *testing.
 	if got.Tasks[0].Status != StatusRunning {
 		t.Errorf("status: want %s (ugoira branch keeps task running through convert), got %s",
 			StatusRunning, got.Tasks[0].Status)
+	}
+}
+
+func TestReload_SwapsRendererAndConfig(t *testing.T) {
+	m := newTestManager(t)
+	before := m.state.Load().renderer
+	cfg := m.conf()
+	cfg.FileTemplate = `{{.IllustID}}_v2{{.Ext}}`
+	if err := m.Reload(cfg, ""); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if m.conf().FileTemplate != cfg.FileTemplate {
+		t.Errorf("config not updated: got %q", m.conf().FileTemplate)
+	}
+	if m.state.Load().renderer == before {
+		t.Error("renderer not rebuilt after template change")
+	}
+}
+
+func TestReload_BadTemplateKeepsOldState(t *testing.T) {
+	m := newTestManager(t)
+	before := m.state.Load()
+	cfg := m.conf()
+	cfg.FileTemplate = `{{.Nope` // unterminated action: parse error
+	if err := m.Reload(cfg, ""); err == nil {
+		t.Fatal("expected error for malformed template")
+	}
+	if m.state.Load() != before {
+		t.Error("state swapped despite a failed reload")
+	}
+}
+
+func TestReload_MaxConcurrentPinnedToStartup(t *testing.T) {
+	m := newTestManager(t)
+	startup := m.conf().MaxConcurrent
+	cfg := m.conf()
+	cfg.MaxConcurrent = startup + 8 // restart-required: must not apply live
+	if err := m.Reload(cfg, ""); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if got := m.conf().MaxConcurrent; got != startup {
+		t.Errorf("max_concurrent applied live: got %d, want pinned %d", got, startup)
+	}
+}
+
+// TestReload_ConcurrentWithReads stresses the atomic dlState swap against
+// the hot-path readers so the race detector catches any field read that
+// bypasses m.state.Load().
+func TestReload_ConcurrentWithReads(t *testing.T) {
+	m := newTestManager(t)
+	var wg sync.WaitGroup
+	stop := make(chan struct{})
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					st := m.state.Load()
+					_ = st.cfg.Referer
+					_ = st.cfg.Retry.Max
+					_ = st.renderer
+					_ = st.client
+				}
+			}
+		}()
+	}
+	for i := 0; i < 100; i++ {
+		cfg := m.conf()
+		cfg.Referer = "https://example.com/" + strconv.Itoa(i)
+		if err := m.Reload(cfg, ""); err != nil {
+			t.Fatalf("Reload: %v", err)
+		}
+	}
+	close(stop)
+	wg.Wait()
+}
+
+// Regression: hot-reloading download.ugoira.format must not change the
+// conversion output path of a job that pinned its format at Submit.
+func TestFinalPathLocked_UsesPinnedJobFormat(t *testing.T) {
+	m := newTestManager(t)
+	setUgoiraFormat(m, "gif") // live config differs from the job's pin
+	job := &Job{ID: "j", IllustType: IllustTypeUgoira, UgoiraFormat: "webp"}
+	task := &Task{ID: "t", JobID: "j", FilePath: filepath.Join(m.conf().OutputDir, "anim.zip"), Status: StatusQueued}
+
+	m.mu.Lock()
+	got := m.finalPathLocked(job, task)
+	m.mu.Unlock()
+
+	want := filepath.Join(m.conf().OutputDir, "anim.webp")
+	if got != want {
+		t.Errorf("finalPathLocked = %q, want pinned-format %q (must ignore live config)", got, want)
+	}
+}
+
+// A job with no pinned format is treated as "none" (zip kept) — the live
+// config must NOT leak in as a fallback.
+func TestFinalPathLocked_EmptyFormatLeavesZipPath(t *testing.T) {
+	m := newTestManager(t)
+	setUgoiraFormat(m, "gif")                          // live config must not influence the result
+	job := &Job{ID: "j", IllustType: IllustTypeUgoira} // no pinned format
+	zip := filepath.Join(m.conf().OutputDir, "anim.zip")
+	task := &Task{ID: "t", JobID: "j", FilePath: zip, Status: StatusQueued}
+
+	m.mu.Lock()
+	got := m.finalPathLocked(job, task)
+	m.mu.Unlock()
+
+	if got != zip {
+		t.Errorf("finalPathLocked = %q, want unchanged zip %q (no live-config fallback)", got, zip)
 	}
 }

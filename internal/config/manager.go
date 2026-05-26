@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -29,10 +30,16 @@ const (
 // View is the wire-shape consumed by GET /config.
 // Effective and File both have sensitive fields masked.
 type View struct {
-	Effective     map[string]any    `json:"effective"`
-	File          map[string]any    `json:"file"`
-	Sources       map[string]Source `json:"sources"`
-	SchemaVersion string            `json:"schema_version"`
+	Effective map[string]any    `json:"effective"`
+	File      map[string]any    `json:"file"`
+	Sources   map[string]Source `json:"sources"`
+	// PendingRestart lists the restart-required dotted keys whose
+	// persisted (file/env/default) value currently differs from the
+	// value the running process started with. These are the changes
+	// that won't take effect until the process restarts; hot-reloadable
+	// keys never appear here because Effective already reflects them.
+	PendingRestart []string `json:"pending_restart"`
+	SchemaVersion  string   `json:"schema_version"`
 }
 
 // PatchError carries per-key validation failures for PATCH/POST reset.
@@ -57,19 +64,33 @@ func (e *PatchError) Error() string {
 	return strings.Join(parts, "; ")
 }
 
-// Manager owns the on-disk settings file, the schema, and an immutable
-// snapshot of the config the running process was started with.
+// effSnapshot is the merged (defaults → file → env) layered view plus
+// per-key sources, swapped behind one atomic.Pointer so View() reads a
+// mutually consistent pair without locking. It holds the fresh value
+// for every key; buildView pins restart-required keys to the startup
+// value at presentation time.
+type effSnapshot struct {
+	eff map[string]any
+	src map[string]Source
+}
+
+// Manager owns the on-disk settings file, the schema, the startup
+// snapshot, and the live "effective" view that drives hot-reload.
 //
-// Because services (logger, pixiv, download) hold value-typed slices of
-// Config taken at startup, hot-reload would be a no-op for them. So we
-// deliberately freeze the "effective" view to that startup snapshot:
-// `Patch` and `Reset` validate + persist new values to settings.json
-// but do NOT mutate the snapshot. Callers see file != effective until
-// the process restarts, which is honest about runtime behaviour and
-// avoids the "saved, but didn't take effect" trap.
+// Services register reload hooks via OnReload. On a successful
+// Patch/Reset, Manager persists the new file layer, swaps the live
+// effective snapshot, and fires the hooks so each service re-derives
+// the config-dependent state it can change without a restart.
 //
-// envSnap / effSnap / srcSnap are frozen at NewManager time so View
-// can serve concurrent requests without locking or rescanning os.Environ.
+// The effective view is computed PER KEY in buildView: hot-reloadable
+// keys reflect the freshly-applied value immediately, while
+// restart-required keys stay pinned to the value the process started
+// with (effSnap/srcSnap) until the next restart and surface in
+// pending_restart. This keeps the file/effective/pending_restart triad
+// mutually consistent and honest about what is actually running.
+//
+// envSnap / effSnap / srcSnap are frozen at NewManager time. cfg is the
+// startup snapshot returned by Config().
 type Manager struct {
 	store      *Store
 	schema     *Schema
@@ -79,7 +100,12 @@ type Manager struct {
 	cfg        *Config
 	validators []func(*Config) error
 
-	mu sync.Mutex // serialises Patch/Reset writes against each other
+	// effView is swapped atomically on every successful Patch/Reset so
+	// View() (which takes no lock) always reads a consistent snapshot.
+	effView atomic.Pointer[effSnapshot]
+
+	mu    sync.Mutex      // serialises Patch/Reset writes AND hook firing
+	hooks []func(*Config) // reload subscribers; registered before serving
 }
 
 // Option configures a Manager at construction time.
@@ -130,6 +156,12 @@ func NewManager(path string, opts ...Option) (*Manager, error) {
 		srcSnap: sources,
 		cfg:     cfg,
 	}
+	// Seed the live view from the startup snapshot. effSnap/srcSnap are
+	// read-only and effView is only ever replaced wholesale, so sharing
+	// the maps is safe; a fresh process reports no pending restarts
+	// because the live snapshot equals the startup one.
+	m.effView.Store(&effSnapshot{eff: eff, src: sources})
+
 	for _, opt := range opts {
 		opt(m)
 	}
@@ -137,6 +169,18 @@ func NewManager(path string, opts ...Option) (*Manager, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+// OnReload registers a hook fired after a successful Patch/Reset with
+// the newly-applied config; each hook re-derives whatever
+// hot-reloadable state it owns.
+//
+// Must be called during startup, before the HTTP server begins serving
+// (registration is not synchronised). Hooks run synchronously under
+// m.mu in registration order. A hook MUST NOT call back into Patch/Reset
+// — that would deadlock on m.mu — and must not block.
+func (m *Manager) OnReload(fn func(*Config)) {
+	m.hooks = append(m.hooks, fn)
 }
 
 // Config returns the startup snapshot that services were initialised
@@ -149,8 +193,10 @@ func (m *Manager) Schema() *Schema   { return m.schema }
 func (m *Manager) StorePath() string { return m.store.Path() }
 
 // View returns the masked, layered view for GET /config.
-// `Effective` always reflects what the running services use; only
-// `File` advances on Patch/Reset until the process restarts.
+// `Effective` reflects what the running services use: it advances on
+// Patch/Reset for hot-reloadable keys and stays pinned to the startup
+// value for restart-required keys (which then surface in
+// `PendingRestart`). `File` always shows the persisted overrides.
 func (m *Manager) View() (*View, error) {
 	return m.buildView()
 }
@@ -160,8 +206,10 @@ func (m *Manager) View() (*View, error) {
 // writes the diff-against-defaults form to disk. Sensitive fields
 // receiving the mask sentinel or "" are skipped.
 //
-// The startup snapshot is NOT updated; callers see View.File diverge
-// from View.Effective until the process restarts.
+// On success it applies the new config live: hot-reloadable keys take
+// effect immediately (Effective advances and reload hooks fire), while
+// restart-required keys stay pinned to the startup value and appear in
+// View.PendingRestart until the process restarts.
 func (m *Manager) Patch(patch map[string]any) (*View, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -186,17 +234,20 @@ func (m *Manager) Patch(patch map[string]any) (*View, error) {
 		}
 		fileLayer[k] = v
 	}
-	if err := m.validateAndPersist(fileLayer); err != nil {
+	newCfg, persisted, err := m.validateAndPersist(fileLayer)
+	if err != nil {
 		return nil, err
 	}
+	m.applyLive(persisted, newCfg)
 	return m.buildView()
 }
 
 // Reset removes keys from the file layer (or clears it entirely with
-// all=true), reverting affected fields to the next layer's value on
-// the next restart. `all` and `keys` are mutually exclusive: passing
-// both is rejected as a 400 so a UI bug can't accidentally wipe the
-// entire override layer.
+// all=true), reverting affected fields to the next layer's value. Like
+// Patch, the revert applies live for hot-reloadable keys and waits for
+// a restart for restart-required ones. `all` and `keys` are mutually
+// exclusive: passing both is rejected as a 400 so a UI bug can't
+// accidentally wipe the entire override layer.
 func (m *Manager) Reset(keys []string, all bool) (*View, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -234,32 +285,55 @@ func (m *Manager) Reset(keys []string, all bool) (*View, error) {
 		}
 	}
 
-	if err := m.validateAndPersist(fileLayer); err != nil {
+	newCfg, persisted, err := m.validateAndPersist(fileLayer)
+	if err != nil {
 		return nil, err
 	}
+	m.applyLive(persisted, newCfg)
 	return m.buildView()
 }
 
 // validateAndPersist rebuilds the candidate Config from the proposed
-// file layer to confirm it would parse cleanly on the next restart,
-// then strips entries that match defaults (diff-only) and writes the
-// result atomically. The startup snapshot is intentionally not updated.
+// file layer to confirm it would parse cleanly, runs the registered
+// validators, then strips entries that match defaults (diff-only) and
+// writes the result atomically. It returns the parsed Config and the
+// pruned layer that was actually persisted, so applyLive snapshots the
+// same shape that lands on disk (otherwise a key reset to its default
+// would still be labelled source=file in the live view).
 //
 // Caller MUST hold m.mu — the lock protects the read-modify-write of
 // the on-disk file (concurrent Patch/Reset would otherwise lose writes).
-func (m *Manager) validateAndPersist(fileLayer map[string]any) error {
+func (m *Manager) validateAndPersist(fileLayer map[string]any) (*Config, map[string]any, error) {
 	k, err := buildKoanf(fileLayer)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	cfg, err := unmarshalConfig(k)
 	if err != nil {
-		return &PatchError{Errors: map[string]string{"_": err.Error()}}
+		return nil, nil, &PatchError{Errors: map[string]string{"_": err.Error()}}
 	}
 	if err := m.runValidators(cfg); err != nil {
-		return err
+		return nil, nil, err
 	}
-	return m.store.Save(pruneAgainstDefaults(fileLayer))
+	pruned := pruneAgainstDefaults(fileLayer)
+	if err := m.store.Save(pruned); err != nil {
+		return nil, nil, err
+	}
+	return cfg, pruned, nil
+}
+
+// applyLive recomputes the merged effective snapshot for the just-
+// persisted (pruned) file layer, swaps it in, and fires the reload
+// hooks. The snapshot holds fresh values for every key; buildView pins
+// restart-required keys back to the startup value at presentation time.
+// Caller MUST hold m.mu — hooks run under it, so a hook must never call
+// Patch/Reset.
+func (m *Manager) applyLive(persisted map[string]any, newCfg *Config) {
+	eff, src := snapshotEffective(m.schema, persisted, m.envSnap)
+	m.effView.Store(&effSnapshot{eff: eff, src: src})
+	for _, h := range m.hooks {
+		h(newCfg)
+	}
 }
 
 // runValidators runs every registered validator against cfg, returning
@@ -304,22 +378,38 @@ func (m *Manager) precheckPatch(flat map[string]any) error {
 	return nil
 }
 
-// buildView returns the view: effective + sources come from the
-// startup snapshot (what services actually use); file is read fresh
-// each call so a PATCH's persisted change is visible immediately.
+// buildView returns the masked, layered view in a single pass over the
+// schema. Effective + sources come from the live snapshot, but
+// restart-required keys are pinned to the startup value (the running
+// services still use it) and collected into PendingRestart when they've
+// drifted. File is read fresh each call so a PATCH's persisted change is
+// visible immediately. No lock: effView is atomic and the other reads
+// are of immutable state or the independent on-disk file.
 func (m *Manager) buildView() (*View, error) {
 	fileLayer, err := m.store.Load()
 	if err != nil {
 		return nil, err
 	}
 
-	effMasked := make(map[string]any, len(m.effSnap))
-	for k, v := range m.effSnap {
-		if m.schema.IsSensitive(k) {
+	live := m.effView.Load()
+	eff := make(map[string]any, len(live.eff))
+	srcs := make(map[string]Source, len(live.src))
+	pending := []string{} // non-nil so the JSON view is [] rather than null
+	for k, fm := range m.schema.Fields {
+		v, src := live.eff[k], live.src[k]
+		if fm.RestartRequired {
+			if !sameJSON(v, m.effSnap[k]) {
+				pending = append(pending, k)
+			}
+			v, src = m.effSnap[k], m.srcSnap[k]
+		}
+		if fm.Sensitive {
 			v = maskValue(v)
 		}
-		effMasked[k] = v
+		eff[k] = v
+		srcs[k] = src
 	}
+	sort.Strings(pending)
 
 	fileMasked := make(map[string]any, len(fileLayer))
 	for k, v := range fileLayer {
@@ -330,10 +420,11 @@ func (m *Manager) buildView() (*View, error) {
 	}
 
 	return &View{
-		Effective:     unflatten(effMasked),
-		File:          unflatten(fileMasked),
-		Sources:       m.srcSnap,
-		SchemaVersion: SchemaVersion,
+		Effective:      unflatten(eff),
+		File:           unflatten(fileMasked),
+		Sources:        srcs,
+		PendingRestart: pending,
+		SchemaVersion:  SchemaVersion,
 	}, nil
 }
 
@@ -522,5 +613,3 @@ func toInt64(v any) (int64, error) {
 	}
 	return 0, fmt.Errorf("expected integer, got %T", v)
 }
-
-

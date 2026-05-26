@@ -14,8 +14,9 @@ type Hub struct {
 	cap  int
 	// count is the total number of events ever published. The tail is
 	// at count-1; the oldest retained event is at max(0, count-cap).
-	count uint64
-	subs  map[*subscriber]struct{}
+	count  uint64
+	subs   map[*subscriber]struct{}
+	closed bool // set by Shutdown; Subscribe then hands back a closed channel
 }
 
 // subscriber holds one client's delivery channel and its topic filter.
@@ -130,11 +131,48 @@ func (h *Hub) Subscribe(topics []string, lastEventID string) (ch <-chan Envelope
 	}
 
 	h.mu.Lock()
+	if h.closed {
+		// Server is shutting down: hand back an already-closed channel so
+		// ServeSSE returns immediately instead of blocking the drain.
+		h.mu.Unlock()
+		closed := make(chan Envelope)
+		close(closed)
+		return closed, nil, false, func() {}
+	}
 	replay, evicted = h.snapshotSinceLocked(lastEventID, s.topics)
 	h.subs[s] = struct{}{}
 	h.mu.Unlock()
 
 	return s.ch, replay, evicted, func() { h.drop(s) }
+}
+
+// Shutdown closes every active subscriber channel so in-flight ServeSSE
+// handlers return, letting a graceful server shutdown drain without
+// waiting on long-lived SSE streams. It marks the hub closed so a
+// Subscribe racing the shutdown gets an already-closed channel rather
+// than becoming a new blocker. Idempotent.
+func (h *Hub) Shutdown() {
+	h.mu.Lock()
+	if h.closed {
+		h.mu.Unlock()
+		return
+	}
+	h.closed = true
+	subs := make([]*subscriber, 0, len(h.subs))
+	for s := range h.subs {
+		subs = append(subs, s)
+	}
+	h.subs = make(map[*subscriber]struct{})
+	h.mu.Unlock()
+
+	for _, s := range subs {
+		s.sendMu.Lock()
+		if !s.closed {
+			s.closed = true
+			close(s.ch)
+		}
+		s.sendMu.Unlock()
+	}
 }
 
 // snapshotSinceLocked scans the ring buffer for events newer than

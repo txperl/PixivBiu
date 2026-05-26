@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/txperl/PixivBiu/internal/inbox"
 )
@@ -13,5 +14,5 @@ func (h *APIHandler) GetEvents(w http.ResponseWriter, r *http.Request, _ GetEven
 		h.writeError(w, r, err)
 		return
 	}
-	inbox.ServeSSE(h.hub, h.heartbeat, w, r)
+	inbox.ServeSSE(h.hub, time.Duration(h.heartbeat.Load()), w, r)
 }

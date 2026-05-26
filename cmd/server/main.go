@@ -14,6 +14,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 
 	"github.com/go-chi/httplog/v3"
@@ -75,7 +77,7 @@ func run() error {
 	}
 	cfg := cfgMgr.Config()
 
-	logger, err := newLogger(cfg.Log)
+	logger, levelVar, err := newLogger(cfg.Log)
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
@@ -104,8 +106,46 @@ func run() error {
 	dlMgr.Start(ctx)
 	defer dlMgr.Shutdown()
 
+	// hbAtomic lets the reload hook adjust the SSE heartbeat live; the
+	// handler reads it per connection.
+	hbAtomic := new(atomic.Int64)
+	hbAtomic.Store(int64(cfg.Inbox.Heartbeat))
+
+	// restart triggers a graceful self-restart. Closing the channel is
+	// guarded by Once so repeated POST /config/restart calls are safe.
+	restartCh := make(chan struct{})
+	var restartOnce sync.Once
+	restart := func() { restartOnce.Do(func() { close(restartCh) }) }
+
 	pkceStore := auth.NewStore()
-	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, cfg.Inbox.Heartbeat, cfgMgr)
+	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, hbAtomic, cfgMgr, restart)
+
+	// Reload hooks each take the whole *Config because some keys cross
+	// service boundaries — pixiv.proxy is reused by the download client.
+	// Restart-required keys are pinned inside each Reload, so passing the
+	// full new config is safe.
+	cfgMgr.OnReload(func(n *config.Config) {
+		if lvl, err := parseLogLevel(n.Log.Level); err == nil {
+			levelVar.Set(lvl)
+		}
+	})
+	cfgMgr.OnReload(func(n *config.Config) {
+		if err := svc.Reload(n.Pixiv); err != nil {
+			logger.Error("pixiv config reload failed", slog.Any("error", err))
+		}
+	})
+	cfgMgr.OnReload(func(n *config.Config) {
+		if err := dlMgr.Reload(n.Download, n.Pixiv.Proxy); err != nil {
+			logger.Error("download config reload failed", slog.Any("error", err))
+		}
+	})
+	cfgMgr.OnReload(func(n *config.Config) {
+		dlPub.SetThrottle(n.Inbox.ProgressThrottle)
+	})
+	cfgMgr.OnReload(func(n *config.Config) {
+		hbAtomic.Store(int64(n.Inbox.Heartbeat))
+	})
+
 	httpHandler := server.New(cfg, logger, handler)
 
 	addr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
@@ -127,6 +167,7 @@ func run() error {
 		close(errCh)
 	}()
 
+	var restarting bool
 	select {
 	case err := <-errCh:
 		if err != nil {
@@ -134,12 +175,43 @@ func run() error {
 		}
 	case <-ctx.Done():
 		logger.Info("shutdown signal received")
+	case <-restartCh:
+		restarting = true
+		logger.Info("restart requested; draining for re-exec")
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.Timeouts.Shutdown)
 	defer cancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("shutdown: %w", err)
+	// Close SSE streams so they don't block the drain; other in-flight
+	// requests finish normally within the deadline.
+	hub.Shutdown()
+	shutdownErr := srv.Shutdown(shutdownCtx)
+
+	if restarting {
+		// A restart is the user's explicit intent (we already answered
+		// 202), so re-exec even if the graceful drain timed out — a slow
+		// non-SSE request must not strand us here. Force-close whatever
+		// the drain didn't finish before replacing the process image.
+		if shutdownErr != nil {
+			logger.Warn("graceful drain timed out before restart; forcing close",
+				slog.Any("error", shutdownErr))
+			_ = srv.Close()
+		}
+		// syscall.Exec replaces the image, so the deferred Shutdowns
+		// below would never run — flush their state explicitly here
+		// (dlMgr persists the job index; svc stops the refresh loop).
+		// In-flight downloads are reset to queued and re-enqueued on the
+		// next boot (Manager.Start), so the restart is non-destructive.
+		// stop() (signal cleanup) is intentionally omitted: exec resets
+		// signal dispositions, and the deferred stop() covers a failed reexec.
+		dlMgr.Shutdown()
+		svc.Shutdown()
+		logger.Info("re-executing to apply restart-required settings")
+		return reexec()
+	}
+
+	if shutdownErr != nil {
+		return fmt.Errorf("shutdown: %w", shutdownErr)
 	}
 	logger.Info("server stopped")
 	return nil
@@ -204,14 +276,30 @@ func printBanner(cfg *config.Config, svc *pixiv.Service, addr, settingsPath stri
 	)
 }
 
-func newLogger(cfg config.LogConfig) (*slog.Logger, error) {
+// parseLogLevel converts a config log level string into a slog.Level.
+// Shared by newLogger and the log.level reload hook.
+func parseLogLevel(s string) (slog.Level, error) {
 	var level slog.Level
-	if err := level.UnmarshalText([]byte(strings.ToUpper(cfg.Level))); err != nil {
-		return nil, fmt.Errorf("invalid log level %q: %w", cfg.Level, err)
+	if err := level.UnmarshalText([]byte(strings.ToUpper(s))); err != nil {
+		return 0, fmt.Errorf("invalid log level %q: %w", s, err)
 	}
+	return level, nil
+}
+
+// newLogger builds the slog logger and returns the *slog.LevelVar that
+// gates it, so the log.level reload hook can change the level live. The
+// handler type is fixed by log.format (restart-required), so only the
+// level is adjustable at runtime.
+func newLogger(cfg config.LogConfig) (*slog.Logger, *slog.LevelVar, error) {
+	level, err := parseLogLevel(cfg.Level)
+	if err != nil {
+		return nil, nil, err
+	}
+	levelVar := new(slog.LevelVar)
+	levelVar.Set(level)
 
 	opts := &slog.HandlerOptions{
-		Level:       level,
+		Level:       levelVar,
 		ReplaceAttr: httplog.SchemaECS.ReplaceAttr,
 	}
 	var handler slog.Handler
@@ -221,7 +309,7 @@ func newLogger(cfg config.LogConfig) (*slog.Logger, error) {
 	case "", "text":
 		handler = slog.NewTextHandler(os.Stdout, opts)
 	default:
-		return nil, fmt.Errorf("invalid log format %q (want text|json)", cfg.Format)
+		return nil, nil, fmt.Errorf("invalid log format %q (want text|json)", cfg.Format)
 	}
-	return slog.New(handler), nil
+	return slog.New(handler), levelVar, nil
 }

@@ -29,9 +29,11 @@ root:
       Empty bodies, unknown keys, type mismatches, range/enum violations
       are all rejected with 400.
 
-      Note: writes only advance `file`. `effective` is frozen to what
-      the running services were started with; the change takes effect
-      on the next restart. Env-layer overrides also keep winning at
+      On success the change is applied live for hot-reloadable keys:
+      `effective` advances immediately and the running services pick it
+      up. Restart-required keys still only advance `file`; they appear
+      in `pending_restart` until the process restarts (see
+      `POST /config/restart`). Env-layer overrides keep winning at
       restart time until unset.
     tags: [config]
     requestBody:
@@ -71,6 +73,30 @@ reset:
           application/json:
             schema: { $ref: '../openapi.yaml#/components/schemas/ConfigView' }
       '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+
+restart:
+  post:
+    operationId: restartConfig
+    summary: Gracefully restart the process to apply restart-required settings
+    description: |
+      Triggers a graceful self-restart: the server drains in-flight work
+      (HTTP requests, download workers, the pixiv refresh loop) and then
+      re-executes itself, reloading settings.json from disk. Use this to
+      apply changes to restart-required keys (those listed in
+      `pending_restart`); hot-reloadable keys already take effect on PATCH.
+
+      The 202 response is flushed before the drain begins, so the client
+      should expect the connection (and any SSE streams) to drop shortly
+      after. Downloads resume automatically on boot and SSE clients
+      reconnect with Last-Event-ID, so a restart is non-destructive.
+    tags: [config]
+    responses:
+      '202':
+        description: Restart accepted; the process will drain and re-exec.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/ConfigRestartAccepted' }
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
 
 schema:

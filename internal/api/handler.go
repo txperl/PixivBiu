@@ -6,7 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"time"
+	"sync/atomic"
 
 	"github.com/go-chi/httplog/v3"
 	"github.com/txperl/pixivgo"
@@ -19,16 +19,21 @@ import (
 )
 
 type APIHandler struct {
-	svc       *pixiv.Service
-	hub       *inbox.Hub
-	dl        *download.Manager
-	pkce      *auth.Store
-	heartbeat time.Duration
+	svc  *pixiv.Service
+	hub  *inbox.Hub
+	dl   *download.Manager
+	pkce *auth.Store
+	// heartbeat is the SSE keep-alive interval in nanoseconds, read per
+	// connection so a hot-reload of inbox.heartbeat affects new streams.
+	heartbeat *atomic.Int64
 	cfgMgr    *config.Manager
+	// restart triggers a graceful self-restart of the process; nil-safe
+	// (RestartConfig guards against a nil trigger).
+	restart func()
 }
 
-func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat time.Duration, cfgMgr *config.Manager) *APIHandler {
-	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, cfgMgr: cfgMgr}
+func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat *atomic.Int64, cfgMgr *config.Manager, restart func()) *APIHandler {
+	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, cfgMgr: cfgMgr, restart: restart}
 }
 
 var _ ServerInterface = (*APIHandler)(nil)

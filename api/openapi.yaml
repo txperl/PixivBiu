@@ -88,6 +88,8 @@ paths:
     $ref: './paths/config.yaml#/schema'
   /config/reset:
     $ref: './paths/config.yaml#/reset'
+  /config/restart:
+    $ref: './paths/config.yaml#/restart'
 
 components:
   parameters:
@@ -900,33 +902,50 @@ components:
 
     ConfigView:
       type: object
-      required: [effective, file, sources, schema_version]
+      required: [effective, file, sources, pending_restart, schema_version]
       properties:
         effective:
           type: object
           additionalProperties: true
           description: |
             Nested map of the values the running process is actually using.
-            Frozen at startup — PATCH/RESET do NOT advance this view until
-            the next restart. Sensitive fields masked.
+            Hot-reloadable keys advance immediately on PATCH/RESET;
+            restart-required keys stay pinned to the startup value until
+            the process restarts (and meanwhile appear in `pending_restart`).
+            Sensitive fields masked.
         file:
           type: object
           additionalProperties: true
           description: |
             Nested map of overrides currently persisted in settings.json.
-            Advances on every successful PATCH/RESET. Frontend detects
-            "saved, awaiting restart" by comparing this against `effective`.
-            Sensitive fields masked.
+            Advances on every successful PATCH/RESET. Sensitive fields masked.
         sources:
           type: object
           description: Per dotted-key origin label; each value is one of `defaults`, `file`, `env`.
           additionalProperties:
             $ref: '#/components/schemas/ConfigSource'
+        pending_restart:
+          type: array
+          items: { type: string }
+          description: |
+            Restart-required dotted keys whose persisted value differs from
+            the value the process started with — i.e. changes saved but not
+            yet in effect. Empty when nothing is awaiting a restart. Apply
+            them with `POST /config/restart`.
         schema_version:
           type: string
           description: |
             Bumps when the shape of settings.json changes incompatibly.
             Frontend can refuse / migrate when its compiled schema doesn't match.
+
+    ConfigRestartAccepted:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          description: Always `restarting`.
+          example: restarting
 
     ConfigPatch:
       type: object

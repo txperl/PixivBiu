@@ -165,3 +165,39 @@ func TestHub_ConcurrentPublishDropIsSafe(t *testing.T) {
 		t.Fatal("expected subscriber channel to be closed after concurrent overflow")
 	}
 }
+
+// Shutdown must close active subscribers (so ServeSSE returns and the
+// graceful drain can proceed) and hand a closed channel to any
+// Subscribe that races the shutdown.
+func TestHub_ShutdownClosesSubscribers(t *testing.T) {
+	h := NewHub(8)
+	ch, _, _, _ := h.Subscribe(nil, "")
+
+	h.Shutdown()
+
+	select {
+	case _, open := <-ch:
+		if open {
+			t.Error("active subscriber channel should be closed after Shutdown")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Shutdown did not close the active subscriber channel")
+	}
+
+	// A Subscribe that arrives after Shutdown gets an already-closed
+	// channel rather than blocking the drain forever.
+	ch2, _, _, cancel := h.Subscribe(nil, "")
+	defer cancel()
+	select {
+	case _, open := <-ch2:
+		if open {
+			t.Error("post-Shutdown Subscribe channel should be closed")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("post-Shutdown Subscribe channel not closed")
+	}
+
+	// Shutdown is idempotent and Publish after it must not panic.
+	h.Shutdown()
+	h.Publish("download", "noop", nil)
+}
