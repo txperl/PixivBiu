@@ -78,7 +78,7 @@ PixivBiu-go/
 │   │   ├── main.tsx              #   Entry — mounts <App />, imports global CSS
 │   │   ├── app/                  #   App shell: App.tsx + providers.tsx + router.tsx + layouts/{root-layout,root-sidebar}
 │   │   ├── pages/                #   Route-level shells (thin); folder-per-route — only compose features
-│   │   ├── features/             #   Domain modules: auth · illusts · users · search · ranking · downloads · events · activity-bar · filter
+│   │   ├── features/             #   Domain modules: auth · illusts · users · search · ranking · downloads · events · activity-bar · filter · settings
 │   │   │                         #     each owns api.ts (calls openapi-fetch) + components/ + (optional) hooks/store/types
 │   │   ├── components/           #   Cross-feature shared UI; ui/ for shadcn primitives (don't put business UI here)
 │   │   ├── i18n/                 #   See i18n bullet above
@@ -286,7 +286,7 @@ The canonical key list lives in `internal/config/config.go` (Go struct + `defaul
 - `download.store_file` — `usr/downloads.json`
 - `inbox.{buffer_size,progress_throttle,heartbeat}` — event ring buffer cap / progress throttle / SSE keep-alive
 
-Per-field `cfg:` tags also drive `x-cfg-restart-required` / `x-cfg-advanced` / `x-cfg-internal` / `x-cfg-sensitive` hints used by the settings UI. The **restart-required** set (changes only take effect after `POST /config/restart`) is: `server.host`, `server.port`, `server.timeouts.{read,write,shutdown}`, `log.format`, `pixiv.bypass_sni`, `pixiv.state_file`, `download.max_concurrent`, `download.store_file`, `inbox.buffer_size`. The **internal** (program-only — editable only by hand-editing `settings.json`; PATCH/keyed-reset rejected, `reset {all:true}` preserved, UI read-only) set is: `server.*`, `pixiv.state_file`, `download.{referer,store_file}`, `inbox.*`. Everything else hot-reloads and is PATCH-able.
+Per-field `cfg:` tags also drive `x-cfg-restart-required` / `x-cfg-advanced` / `x-cfg-internal` / `x-cfg-sensitive` hints used by the settings UI. The **restart-required** set (changes only take effect after `POST /config/restart`) is: `server.host`, `server.port`, `server.timeouts.{read,write,shutdown}`, `log.format`, `pixiv.bypass_sni`, `pixiv.state_file`, `download.max_concurrent`, `download.store_file`, `inbox.buffer_size`. The **advanced** set (de-prioritised in the settings UI — sorted below everyday fields within a section, and whole sections made up entirely of this tier sink to the bottom + hide behind the "advanced" toggle) is: `log.level`, `log.format`; `internal` fields are folded into this same tier (and additionally rendered read-only). The **internal** (program-only — editable only by hand-editing `settings.json`; PATCH/keyed-reset rejected, `reset {all:true}` preserved, UI read-only) set is: `server.*`, `pixiv.state_file`, `download.{referer,store_file}`, `inbox.*`. Everything else hot-reloads and is PATCH-able.
 
 ## Currently Implemented API
 
