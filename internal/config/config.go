@@ -46,7 +46,7 @@ type LogConfig struct {
 
 type PixivConfig struct {
 	Proxy     string `koanf:"proxy"      cfg:"desc=HTTP/SOCKS 代理 URL（空串 = 直连）,sensitive=true"`
-	Language  string `koanf:"language"   cfg:"desc=Accept-Language（标签翻译语言）"`
+	Language  string `koanf:"language"   cfg:"desc=Accept-Language 标签翻译语言（空 = 保留原文不翻译）"`
 	BypassSNI bool   `koanf:"bypass_sni" cfg:"desc=对 API 启用 DoH + 替代 SNI（仅对受限网络）,restart=true"`
 	StateFile string `koanf:"state_file" cfg:"desc=认证 token 持久化文件路径,restart=true,internal=true"`
 }
@@ -92,7 +92,7 @@ var defaults = sync.OnceValue(func() map[string]any {
 		"log.level":                "info",
 		"log.format":               "text",
 		"pixiv.proxy":              "",
-		"pixiv.language":           "zh-cn",
+		"pixiv.language":           "",
 		"pixiv.bypass_sni":         false,
 		"pixiv.state_file":         "./usr/state.json",
 
