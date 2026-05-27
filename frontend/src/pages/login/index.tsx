@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from "react-router";
 import type { AuthApiError } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/use-auth";
 import { detectPasteIssue } from "@/features/auth/utils";
+import { useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { LoginPanel } from "./components/login-panel";
 import { ReadyPanel } from "./components/ready-panel";
@@ -51,7 +52,7 @@ function LoginPage() {
     // ready panel.
     const interactedRef = useRef(false);
 
-    const pasteHint = useMemo(() => detectPasteIssue(pastedCode), [pastedCode]);
+    const pasteIssue = useMemo(() => detectPasteIssue(pastedCode), [pastedCode]);
 
     // Close the Pixiv popup when leaving the page (auth has completed by then;
     // the popup's only purpose was capturing the callback URL).
@@ -150,7 +151,7 @@ function LoginPage() {
                     <LoginPanel
                         pastedCode={pastedCode}
                         onPastedCodeChange={setPastedCode}
-                        pasteHint={pasteHint}
+                        pasteIssue={pasteIssue}
                         pending={pending}
                         error={error}
                         onPasteFromClipboard={onPasteFromClipboard}
@@ -169,6 +170,7 @@ function LoginPage() {
 }
 
 function StageIndicator({ stage }: { stage: Stage }) {
+    const m = useMessages();
     const current = STAGES.indexOf(stage);
     return (
         <div
@@ -177,7 +179,7 @@ function StageIndicator({ stage }: { stage: Stage }) {
             aria-valuemin={1}
             aria-valuemax={STAGES.length}
             aria-valuenow={current + 1}
-            aria-label="登录进度"
+            aria-label={m.login_progress()}
         >
             {STAGES.map((s, i) => (
                 <div

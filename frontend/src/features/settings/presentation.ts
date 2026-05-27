@@ -28,19 +28,20 @@ export const SCROLL_OFFSET = HEADER_HEIGHT + CONTENT_TOP_GAP;
 export const NAV_TOP = HEADER_HEIGHT + CONTENT_TOP_GAP;
 
 interface SectionMeta {
-    title: string;
     icon: IconSvgElement;
     order: number;
 }
 
-// Frontend presentation overlay: friendly section titles, icons, and order.
-// Everything else (fields, types, constraints) comes from GET /config/schema.
+// Frontend presentation overlay: section icons and order only. Titles and
+// descriptions are i18n keys resolved at render time via useSectionTitle() /
+// useSectionDescription() (keyed by the section id). Everything else (fields,
+// types, constraints) comes from GET /config/schema.
 export const SECTION_META: Record<string, SectionMeta> = {
-    server: { title: "服务器", icon: CloudServerIcon, order: 0 },
-    log: { title: "日志", icon: Note01Icon, order: 1 },
-    pixiv: { title: "Pixiv", icon: Image01Icon, order: 2 },
-    download: { title: "下载", icon: Download04Icon, order: 3 },
-    inbox: { title: "事件队列", icon: InboxIcon, order: 4 },
+    server: { icon: CloudServerIcon, order: 0 },
+    log: { icon: Note01Icon, order: 1 },
+    pixiv: { icon: Image01Icon, order: 2 },
+    download: { icon: Download04Icon, order: 3 },
+    inbox: { icon: InboxIcon, order: 4 },
 };
 
 export const FALLBACK_SECTION_ICON: IconSvgElement = Settings03Icon;

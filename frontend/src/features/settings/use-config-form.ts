@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { apiErrorMessage } from "@/lib/api";
+import { useMessages } from "@/i18n";
+import { useApiErrorMessage } from "@/lib/api";
 import { type ConfigView, patchConfig, resetConfig } from "./api";
 import { nestedGet } from "./flatten";
 import { parseConfigError } from "./parse-error";
 import type { SectionSpec } from "./types";
-import { baselineString, type FormValues, toPatchValue, validateClient } from "./values";
+import { baselineString, type ClientValidationError, type FormValues, toPatchValue, validateClient } from "./values";
 
 interface UseConfigFormParams {
     view: ConfigView | null;
@@ -38,6 +39,27 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
     const fields = useMemo(() => sections.flatMap((s) => s.fields), [sections]);
     const fieldByKey = useMemo(() => new Map(fields.map((f) => [f.key, f])), [fields]);
     const knownKeys = useMemo(() => new Set(fields.map((f) => f.key)), [fields]);
+
+    // Locale-aware resolvers. useMessages()/useApiErrorMessage() subscribe this
+    // hook (and so its consumer) to locale changes; client-validation results
+    // and API errors are stored as plain strings only after resolving here.
+    const m = useMessages();
+    const resolveApiError = useApiErrorMessage();
+    const resolveClientError = useCallback(
+        (e: ClientValidationError): string => {
+            switch (e.kind) {
+                case "required":
+                    return m.settings_validate_required();
+                case "integer":
+                    return m.settings_validate_integer();
+                case "min":
+                    return m.settings_validate_min({ min: e.param });
+                case "max":
+                    return m.settings_validate_max({ max: e.param });
+            }
+        },
+        [m],
+    );
 
     const [baseline, setBaseline] = useState<FormValues>({});
     const [values, setValues] = useState<FormValues>({});
@@ -119,7 +141,7 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
             if (!field) continue;
             const clientError = validateClient(field, values[key]);
             if (clientError) {
-                errs[key] = clientError;
+                errs[key] = resolveClientError(clientError);
                 continue;
             }
             body[key] = toPatchValue(field, values[key]);
@@ -135,7 +157,7 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
         setSaving(false);
 
         if (error) {
-            const parsed = parseConfigError(error, knownKeys);
+            const parsed = parseConfigError(error, knownKeys, resolveApiError);
             setFieldErrors(parsed.fields);
             setGeneralError(parsed.general);
             return;
@@ -145,7 +167,7 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
             setGeneralError(undefined);
             onView(data);
         }
-    }, [dirtyKeys, fieldByKey, knownKeys, values, onView]);
+    }, [dirtyKeys, fieldByKey, knownKeys, values, onView, resolveClientError, resolveApiError]);
 
     const discard = useCallback(() => {
         setValues({ ...baseline });
@@ -169,7 +191,7 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
                 return next;
             });
             if (error) {
-                setGeneralError(apiErrorMessage(error));
+                setGeneralError(resolveApiError(error));
                 return;
             }
             if (data) {
@@ -182,7 +204,7 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
                 onView(data);
             }
         },
-        [overriddenKeys, onView],
+        [overriddenKeys, onView, resolveApiError],
     );
 
     const resetField = useCallback((key: string) => runReset([key]), [runReset]);
@@ -200,7 +222,7 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
         const { data, error } = await resetConfig({ all: true });
         setBusyKeys(new Set());
         if (error) {
-            setGeneralError(apiErrorMessage(error));
+            setGeneralError(resolveApiError(error));
             return;
         }
         if (data) {
@@ -209,7 +231,7 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
             setGeneralError(undefined);
             onView(data);
         }
-    }, [fields, onView]);
+    }, [fields, onView, resolveApiError]);
 
     return {
         values,

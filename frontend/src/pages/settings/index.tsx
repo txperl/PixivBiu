@@ -15,7 +15,8 @@ import {
     useConfigForm,
     useScrollSpy,
 } from "@/features/settings";
-import { apiErrorMessage } from "@/lib/api";
+import { useMessages } from "@/i18n";
+import { useApiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { SettingsHeaderActions } from "./components/header-actions";
 import { SettingsNav } from "./components/settings-nav";
@@ -29,15 +30,18 @@ const HEADER_TINT: Record<SettingsSaveState, string> = {
 };
 
 function RestartOverlay() {
+    const m = useMessages();
     return (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur">
             <LeapyLoading size={20} />
-            <span className="text-muted-foreground text-sm">正在重启后端，稍候将自动恢复…</span>
+            <span className="text-muted-foreground text-sm">{m.settings_restart_overlay()}</span>
         </div>
     );
 }
 
 function SettingsPage() {
+    const m = useMessages();
+    const resolveApiError = useApiErrorMessage();
     const { loadState, sections, view, setView, awaitRestart, schemaMismatch } = useConfig();
     const form = useConfigForm({ view, sections, onView: setView });
 
@@ -93,15 +97,15 @@ function SettingsPage() {
                     HEADER_TINT[headerState],
                 )}
             >
-                <h1 className="font-semibold text-2xl text-foreground">设置</h1>
+                <h1 className="font-semibold text-2xl text-foreground">{m.settings_title()}</h1>
                 <div className="flex-1" />
                 {loadState.status === "success" && (
                     <>
                         <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                            <span>高级选项</span>
+                            <span>{m.settings_advanced_label()}</span>
                             <Switch
                                 checked={showAdvanced}
-                                aria-label="显示高级选项"
+                                aria-label={m.settings_advanced_aria()}
                                 onCheckedChange={(c) => setShowAdvanced(c)}
                             />
                         </div>
@@ -109,11 +113,11 @@ function SettingsPage() {
                             <ConfirmPopover
                                 trigger={
                                     <Button variant="ghost" size="sm">
-                                        全部重置
+                                        {m.settings_reset_all()}
                                     </Button>
                                 }
-                                body="将所有设置恢复为默认值（不影响环境变量与运维设置）。"
-                                confirmLabel="全部重置"
+                                body={m.settings_reset_all_body()}
+                                confirmLabel={m.settings_reset_all()}
                                 danger
                                 align="end"
                                 onConfirm={form.resetAll}
@@ -135,12 +139,12 @@ function SettingsPage() {
 
             <div className="px-7 pt-6 pb-7">
                 {loadState.status === "loading" && (
-                    <div className="py-24 text-center text-muted-foreground text-sm">加载中…</div>
+                    <div className="py-24 text-center text-muted-foreground text-sm">{m.settings_loading()}</div>
                 )}
 
                 {loadState.status === "error" && (
                     <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive text-sm">
-                        加载设置失败：{apiErrorMessage(loadState.error)}
+                        {m.settings_load_error({ message: resolveApiError(loadState.error) })}
                     </div>
                 )}
 
@@ -149,7 +153,7 @@ function SettingsPage() {
                         {schemaMismatch && (
                             <div className="flex items-center gap-2 rounded-2xl border border-border bg-accent px-4 py-3 text-accent-foreground text-sm">
                                 <HugeiconsIcon icon={Alert02Icon} size={18} />
-                                配置结构版本与前端不一致，部分项可能无法正确显示，建议更新后重试。
+                                {m.settings_schema_mismatch()}
                             </div>
                         )}
 

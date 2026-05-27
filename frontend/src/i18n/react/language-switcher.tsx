@@ -1,9 +1,10 @@
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { type Locale, locales } from "../generated/runtime";
 import { useLocale } from "./locale-provider";
 
-// 各语言用本族名展示，避免"X 在 Y 中怎么说"的翻译问题
+// language names shown as endonyms; intentionally not localized
 const NATIVE_NAMES: Record<Locale, string> = {
     en: "English",
     "zh-CN": "简体中文",
@@ -11,14 +12,15 @@ const NATIVE_NAMES: Record<Locale, string> = {
 };
 
 function LanguageSwitcher({ className }: { className?: string }) {
+    const m = useMessages();
     const { locale, setLocale } = useLocale();
 
     const items = locales.map((l) => ({ label: NATIVE_NAMES[l], value: l }));
 
     return (
         <Select items={items} value={locale} onValueChange={(v) => v && setLocale(v)}>
-            <SelectTrigger className={cn(className)}>
-                <SelectValue placeholder="Select Language" />
+            <SelectTrigger className={cn(className)} aria-label={m.common_language()}>
+                <SelectValue placeholder={m.common_select_language()} />
             </SelectTrigger>
             <SelectContent>
                 <SelectGroup>

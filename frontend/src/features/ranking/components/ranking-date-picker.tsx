@@ -2,6 +2,7 @@ import { format, parse, startOfToday } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useMessages } from "@/i18n";
 
 const DATE_FORMAT = "yyyy-MM-dd";
 
@@ -17,9 +18,10 @@ type RankingDatePickerProps = {
 };
 
 function RankingDatePicker({ date, onDateChange }: RankingDatePickerProps) {
+    const m = useMessages();
     const selectedDate = parseDate(date);
     const today = startOfToday();
-    const label = date ?? "今日";
+    const label = date ?? m.common_today();
 
     return (
         <Popover>
@@ -27,7 +29,7 @@ function RankingDatePicker({ date, onDateChange }: RankingDatePickerProps) {
                 render={
                     <button
                         type="button"
-                        aria-label={`选择排行榜日期，当前 ${label}`}
+                        aria-label={m.ranking_date_pick_aria({ date: label })}
                         className="-mx-1.5 cursor-pointer rounded px-1.5 py-0.5 text-foreground text-xl underline decoration-1 decoration-foreground/30 decoration-dashed underline-offset-[6px] transition-colors hover:bg-foreground/4 hover:text-foreground/90 hover:decoration-foreground/60 data-popup-open:bg-foreground/4 data-popup-open:text-foreground/90 data-popup-open:decoration-foreground/60"
                     >
                         {label}
@@ -51,7 +53,7 @@ function RankingDatePicker({ date, onDateChange }: RankingDatePickerProps) {
                         disabled={!date}
                         onClick={() => onDateChange(undefined)}
                     >
-                        今日
+                        {m.common_today()}
                     </Button>
                 </div>
             </PopoverContent>

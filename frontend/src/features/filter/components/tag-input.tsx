@@ -1,6 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type KeyboardEvent, useId, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { useMessages } from "@/i18n";
 import { CloseIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,7 @@ type TagInputProps = {
 };
 
 function TagInput({ label, placeholder, values, onChange, className, inactive = false }: TagInputProps) {
+    const m = useMessages();
     const [draft, setDraft] = useState("");
     const inputId = useId();
 
@@ -66,7 +68,7 @@ function TagInput({ label, placeholder, values, onChange, className, inactive = 
                                 {v}
                                 <button
                                     type="button"
-                                    aria-label={`移除 ${v}`}
+                                    aria-label={m.filter_tag_remove({ tag: v })}
                                     onClick={() => remove(v)}
                                     className="-mr-0.5 inline-flex size-4 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
                                 >

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { FieldSpec } from "@/features/settings";
+import { useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 export interface ControlProps {
@@ -21,6 +22,7 @@ export interface ControlProps {
 // Backs the text, number, and duration kinds — all single-line <Input>s that
 // differ only in type, width, and placeholder.
 function InputControl({ field, id, value, invalid, disabled, describedBy, onChange }: ControlProps) {
+    const m = useMessages();
     const isNumber = field.control === "number";
     const isDuration = field.control === "duration";
     return (
@@ -35,7 +37,11 @@ function InputControl({ field, id, value, invalid, disabled, describedBy, onChan
             aria-invalid={invalid || undefined}
             aria-describedby={describedBy}
             placeholder={
-                isDuration ? "如 15s、250ms、1m30s" : field.default != null ? String(field.default) : undefined
+                isDuration
+                    ? m.settings_placeholder_duration()
+                    : field.default != null
+                      ? String(field.default)
+                      : undefined
             }
             className={cn(isNumber || isDuration ? "max-w-[12rem]" : "max-w-md", isDuration && "font-mono")}
             onChange={(e) => onChange(e.target.value)}
@@ -76,6 +82,7 @@ function SelectControl({ field, id, value, invalid, disabled, onChange }: Contro
 }
 
 function SecretControl({ id, value, invalid, disabled, describedBy, onChange }: ControlProps) {
+    const m = useMessages();
     const [revealed, setRevealed] = useState(false);
     return (
         <div className="flex max-w-md items-center gap-1.5">
@@ -87,7 +94,7 @@ function SecretControl({ id, value, invalid, disabled, describedBy, onChange }: 
                 autoComplete="off"
                 aria-invalid={invalid || undefined}
                 aria-describedby={describedBy}
-                placeholder="留空表示不修改"
+                placeholder={m.settings_placeholder_secret()}
                 onChange={(e) => onChange(e.target.value)}
             />
             <Button
@@ -95,7 +102,7 @@ function SecretControl({ id, value, invalid, disabled, describedBy, onChange }: 
                 variant="ghost"
                 size="icon-sm"
                 disabled={disabled}
-                aria-label={revealed ? "隐藏" : "显示"}
+                aria-label={revealed ? m.settings_secret_hide() : m.settings_secret_reveal()}
                 onClick={() => setRevealed((r) => !r)}
             >
                 <HugeiconsIcon icon={revealed ? ViewOffSlashIcon : ViewIcon} />

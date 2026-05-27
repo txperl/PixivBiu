@@ -10,25 +10,28 @@ export const RANKING_PAGE_SIZE = 30;
 export const RANKING_PERIODS = ["day", "week", "month"] as const;
 export type RankingPeriod = (typeof RANKING_PERIODS)[number];
 
+// Variants carry a stable `key` only — the human-readable label is resolved in
+// the consuming component (ranking-filters.tsx) via useMessages(), so labels
+// stay locale-aware without baking UI text into this non-component module.
 export const RANKING_VARIANTS = {
     day: [
-        { key: "all", label: "综合", mode: "day" },
-        { key: "male", label: "男性向", mode: "day_male" },
-        { key: "female", label: "女性向", mode: "day_female" },
-        { key: "manga", label: "漫画", mode: "day_manga" },
-        { key: "r18", label: "R-18", mode: "day_r18" },
-        { key: "male_r18", label: "R-18 男性向", mode: "day_male_r18" },
-        { key: "female_r18", label: "R-18 女性向", mode: "day_female_r18" },
+        { key: "all", mode: "day" },
+        { key: "male", mode: "day_male" },
+        { key: "female", mode: "day_female" },
+        { key: "manga", mode: "day_manga" },
+        { key: "r18", mode: "day_r18" },
+        { key: "male_r18", mode: "day_male_r18" },
+        { key: "female_r18", mode: "day_female_r18" },
     ],
     week: [
-        { key: "all", label: "综合", mode: "week" },
-        { key: "original", label: "原创", mode: "week_original" },
-        { key: "rookie", label: "新人", mode: "week_rookie" },
-        { key: "r18", label: "R-18", mode: "week_r18" },
-        { key: "r18g", label: "R-18G", mode: "week_r18g" },
+        { key: "all", mode: "week" },
+        { key: "original", mode: "week_original" },
+        { key: "rookie", mode: "week_rookie" },
+        { key: "r18", mode: "week_r18" },
+        { key: "r18g", mode: "week_r18g" },
     ],
-    month: [{ key: "all", label: "综合", mode: "month" }],
-} as const satisfies Record<RankingPeriod, ReadonlyArray<{ key: string; label: string; mode: RankingMode }>>;
+    month: [{ key: "all", mode: "month" }],
+} as const satisfies Record<RankingPeriod, ReadonlyArray<{ key: string; mode: RankingMode }>>;
 
 export type RankingVariant = (typeof RANKING_VARIANTS)[RankingPeriod][number];
 export type RankingVariantKey = RankingVariant["key"];

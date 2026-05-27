@@ -28,6 +28,7 @@ import {
 import { SearchError, SearchNoResults } from "@/features/search/components/search-states";
 import UserList, { UserListSkeleton } from "@/features/search/components/user-list";
 import { useSearchHistory } from "@/features/search/hooks/use-search-history";
+import { useMessages } from "@/i18n";
 import type { FetchState } from "@/lib/fetch-state";
 import { patchParams, readPage } from "@/lib/url-params";
 
@@ -84,6 +85,7 @@ type SearchResultsProps = {
 };
 
 function SearchResults({ keyword }: SearchResultsProps) {
+    const m = useMessages();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const type = readType(searchParams);
@@ -241,13 +243,13 @@ function SearchResults({ keyword }: SearchResultsProps) {
                             value="illust"
                             className="h-full px-4 text-sm data-active:text-primary data-active:after:h-[3px] data-active:after:bg-primary"
                         >
-                            作品
+                            {m.search_results_tab_illust()}
                         </TabsTrigger>
                         <TabsTrigger
                             value="user"
                             className="h-full px-4 text-sm data-active:text-primary data-active:after:h-[3px] data-active:after:bg-primary"
                         >
-                            用户
+                            {m.search_results_tab_user()}
                         </TabsTrigger>
                     </TabsList>
                 </div>

@@ -1,7 +1,15 @@
 import { Sheet, SheetHead } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
 import ConfirmPopover from "@/features/downloads/components/confirm-popover";
-import { type ConfigSource, isFieldVisible, SCROLL_OFFSET, type SectionSpec } from "@/features/settings";
+import {
+    type ConfigSource,
+    isFieldVisible,
+    SCROLL_OFFSET,
+    type SectionSpec,
+    useSectionDescription,
+    useSectionTitle,
+} from "@/features/settings";
+import { useMessages } from "@/i18n";
 import { SettingsField } from "./settings-field";
 
 interface SettingsSectionProps {
@@ -31,8 +39,12 @@ export function SettingsSection({
     onResetField,
     onResetSection,
 }: SettingsSectionProps) {
+    const m = useMessages();
+    const sectionTitle = useSectionTitle();
+    const sectionDescription = useSectionDescription();
     const hasOverride = section.fields.some((f) => overriddenKeys.has(f.key));
     const visibleFields = section.fields.filter((f) => isFieldVisible(f, showAdvanced));
+    const description = sectionDescription(section.category);
 
     return (
         <section
@@ -43,17 +55,17 @@ export function SettingsSection({
             <Sheet>
                 <SheetHead
                     icon={section.icon}
-                    title={section.title}
+                    title={sectionTitle(section.category, section.title)}
                     actions={
                         hasOverride ? (
                             <ConfirmPopover
                                 trigger={
                                     <Button variant="ghost" size="sm">
-                                        重置本节
+                                        {m.settings_reset_section()}
                                     </Button>
                                 }
-                                body="将本节所有已修改项恢复为默认值。"
-                                confirmLabel="重置"
+                                body={m.settings_reset_section_body()}
+                                confirmLabel={m.common_reset()}
                                 danger
                                 align="end"
                                 onConfirm={() => onResetSection(section.category)}
@@ -61,6 +73,11 @@ export function SettingsSection({
                         ) : undefined
                     }
                 />
+                {description && (
+                    <p className="border-muted/40 border-b px-[18px] py-2.5 text-muted-foreground text-xs">
+                        {description}
+                    </p>
+                )}
                 <div className="divide-y divide-muted/40 px-[18px]">
                     {visibleFields.map((field) => (
                         <SettingsField

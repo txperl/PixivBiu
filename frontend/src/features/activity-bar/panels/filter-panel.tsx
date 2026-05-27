@@ -4,18 +4,25 @@ import { Button } from "@/components/ui/button";
 import { useDownloadMutations } from "@/features/downloads";
 import { GeneralFiltersSection, useGeneralFilters } from "@/features/filter";
 import { countActiveGeneralFilters } from "@/features/filter/types";
+import { useMessages } from "@/i18n";
 import { DownloadIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { type QuickActionData, useFilterPanelData } from "../items/filter";
 
 function SectionHeader({ title, count, onReset }: { title: string; count: number; onReset?: (() => void) | null }) {
+    const m = useMessages();
     const canReset = count > 0 && onReset != null;
     return (
         <div className="flex items-center justify-end font-medium text-foreground text-sm tracking-wider">
             {count > 0 && <span className="mr-1 font-semibold text-[10px] text-muted-foreground">({count})</span>}
             {canReset ? (
-                <button type="button" onClick={onReset} aria-label={`重置${title}`} className="hover:underline">
-                    重置
+                <button
+                    type="button"
+                    onClick={onReset}
+                    aria-label={m.filter_panel_reset_aria({ title })}
+                    className="hover:underline"
+                >
+                    {m.filter_panel_reset()}
                 </button>
             ) : (
                 <span>{title}</span>
@@ -25,17 +32,17 @@ function SectionHeader({ title, count, onReset }: { title: string; count: number
 }
 
 function EmptyState() {
+    const m = useMessages();
     return (
         <div className="flex h-full flex-col items-center justify-center gap-1.5 px-4 text-center">
-            <div className="font-medium text-foreground text-sm">当前页面不支持筛选</div>
-            <div className="text-muted-foreground text-xs leading-relaxed">
-                进入作品列表（首页、搜索、排行榜、用户）后即可使用。
-            </div>
+            <div className="font-medium text-foreground text-sm">{m.filter_panel_unsupported_title()}</div>
+            <div className="text-muted-foreground text-xs leading-relaxed">{m.filter_panel_unsupported_hint()}</div>
         </div>
     );
 }
 
 function FilterPanelActions({ quickAction }: { quickAction: QuickActionData }) {
+    const m = useMessages();
     const { submit } = useDownloadMutations();
     const [pending, setPending] = useState(false);
     const [errorTitle, setErrorTitle] = useState<string | null>(null);
@@ -52,7 +59,7 @@ function FilterPanelActions({ quickAction }: { quickAction: QuickActionData }) {
         const okCount = results.filter((r) => r !== null).length;
         const anyFailed = results.length !== okCount;
         setPending(false);
-        if (anyFailed) setErrorTitle("部分作品添加失败");
+        if (anyFailed) setErrorTitle(m.filter_panel_partial_failed());
         if (okCount > 0) quickAction.onClearSelection();
     };
 
@@ -70,7 +77,9 @@ function FilterPanelActions({ quickAction }: { quickAction: QuickActionData }) {
                     onClick={onToggleSelect}
                     disabled={pending || (!hasSelection && allCount === 0)}
                 >
-                    {hasSelection ? `取消选择 (${selectedCount})` : `全选 (${allCount})`}
+                    {hasSelection
+                        ? m.filter_panel_deselect({ count: selectedCount })
+                        : m.filter_panel_select_all({ count: allCount })}
                 </Button>
                 <Button
                     className={cn(errorTitle && "ring-2 ring-destructive/40")}
@@ -78,7 +87,7 @@ function FilterPanelActions({ quickAction }: { quickAction: QuickActionData }) {
                     disabled={pending || selectedCount === 0}
                 >
                     <HugeiconsIcon icon={DownloadIcon} />
-                    {pending ? "添加中…" : `下载 (${selectedCount})`}
+                    {pending ? m.filter_panel_adding() : m.filter_panel_download({ count: selectedCount })}
                 </Button>
             </div>
             {errorTitle && <div className="text-destructive text-xs leading-relaxed">{errorTitle}</div>}
@@ -95,10 +104,13 @@ function FilterPanelFooter({
     totalBefore: number;
     totalAfter: number;
 }) {
+    const m = useMessages();
     return (
         <div className="flex shrink-0 flex-col gap-2 border-border border-t bg-sidebar p-3">
             <div className="text-muted-foreground text-xs">
-                {totalBefore === 0 ? "当前页面暂无作品" : `显示 ${totalAfter} / ${totalBefore} 项`}
+                {totalBefore === 0
+                    ? m.filter_panel_no_works()
+                    : m.filter_panel_showing({ after: totalAfter, before: totalBefore })}
             </div>
             {quickAction && <FilterPanelActions quickAction={quickAction} />}
         </div>
@@ -106,6 +118,7 @@ function FilterPanelFooter({
 }
 
 function FilterPanel() {
+    const m = useMessages();
     const data = useFilterPanelData();
     const { filters, resetFilters } = useGeneralFilters();
 
@@ -119,13 +132,17 @@ function FilterPanel() {
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
                 {data.specialFilters && (
                     <section className="flex flex-col gap-2.5">
-                        <SectionHeader title="接口筛选" count={specialCount} onReset={data.onResetSpecialFilters} />
+                        <SectionHeader
+                            title={m.filter_section_special()}
+                            count={specialCount}
+                            onReset={data.onResetSpecialFilters}
+                        />
                         {data.specialFilters}
                     </section>
                 )}
 
                 <section className="flex flex-col gap-2.5">
-                    <SectionHeader title="页面筛选" count={generalCount} onReset={resetFilters} />
+                    <SectionHeader title={m.filter_section_general()} count={generalCount} onReset={resetFilters} />
                     <GeneralFiltersSection />
                 </section>
             </div>

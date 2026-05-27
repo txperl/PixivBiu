@@ -11,7 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { type Illust, type IllustApiError, listFollowingIllusts } from "@/features/illusts/api";
 import IllustPlaceholderArt from "@/features/search/components/illust-placeholder-art";
 import UserLink from "@/features/users/components/user-link";
-import { apiErrorMessage } from "@/lib/api/error-message";
+import { useMessages } from "@/i18n";
+import { useApiErrorMessage } from "@/lib/api/error-message";
 import type { components } from "@/lib/api/schema.gen";
 import { hueFromId } from "@/lib/format";
 import { FollowIcon } from "@/lib/icons";
@@ -49,6 +50,8 @@ type FollowedAuthorsProps = {
 };
 
 function FollowedAuthors({ onView }: FollowedAuthorsProps) {
+    const m = useMessages();
+    const resolveApiError = useApiErrorMessage();
     const [state, setState] = useState<State>({ status: "loading" });
 
     useEffect(() => {
@@ -64,17 +67,20 @@ function FollowedAuthors({ onView }: FollowedAuthorsProps) {
     }, []);
 
     const authors: AuthorGroup[] = state.status === "success" ? groupByAuthor(state.illusts) : [];
-    const meta = state.status === "success" ? `${authors.length} 位 · ${state.illusts.length} 篇新作` : undefined;
+    const meta =
+        state.status === "success"
+            ? m.user_followed_authors_meta({ authors: authors.length, works: state.illusts.length })
+            : undefined;
 
     return (
         <Sheet>
             <SheetHead
                 icon={FollowIcon}
-                title="关注作者"
+                title={m.user_followed_authors_title()}
                 meta={meta}
                 actions={
                     <Button variant="ghost" size="sm" onClick={onView}>
-                        查看
+                        {m.common_view()}
                     </Button>
                 }
             />
@@ -82,12 +88,14 @@ function FollowedAuthors({ onView }: FollowedAuthorsProps) {
                 {state.status === "loading" && <LoadingRows />}
                 {state.status === "error" && (
                     <div className="px-[18px] py-6 text-center text-muted-foreground text-sm">
-                        {apiErrorMessage(state.error)}
+                        {resolveApiError(state.error)}
                     </div>
                 )}
                 {state.status === "success" &&
                     (authors.length === 0 ? (
-                        <div className="px-[18px] py-6 text-center text-muted-foreground text-sm">暂无新作</div>
+                        <div className="px-[18px] py-6 text-center text-muted-foreground text-sm">
+                            {m.user_followed_authors_empty()}
+                        </div>
                     ) : (
                         authors.map((group, i) => <AuthorRow key={group.user.id} group={group} isFirst={i === 0} />)
                     ))}

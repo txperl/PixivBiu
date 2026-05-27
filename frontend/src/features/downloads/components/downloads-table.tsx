@@ -5,17 +5,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { DownloadApiError, DownloadJob, DownloadStatus, DownloadTask } from "@/features/downloads";
 import { isTerminalStatus, useDownloadMutations } from "@/features/downloads";
 import ActionIconButton from "@/features/downloads/components/action-icon-button";
+import { useMessages } from "@/i18n";
 import { formatBytes, hueFromId } from "@/lib/format";
 import { ChevronDownIcon, ChevronRightIcon, CloseIcon, DeleteIcon, RedoDotIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
-
-const STATUS_LABEL: Record<DownloadStatus, string> = {
-    queued: "排队中",
-    running: "下载中",
-    completed: "完成",
-    failed: "失败",
-    cancelled: "取消",
-};
 
 const STATUS_TONE: Record<DownloadStatus, string> = {
     queued: "bg-muted text-muted-foreground",
@@ -23,12 +16,6 @@ const STATUS_TONE: Record<DownloadStatus, string> = {
     completed: "bg-chart-3/15 text-chart-3",
     failed: "bg-destructive/15 text-destructive",
     cancelled: "bg-destructive/15 text-destructive",
-};
-
-const TYPE_LABEL: Record<DownloadJob["illust_type"], string> = {
-    illust: "插画",
-    manga: "漫画",
-    ugoira: "动图",
 };
 
 // Per-page byte sizes aren't known until each page's download starts (Pixiv's
@@ -58,11 +45,18 @@ function jobProgress(job: DownloadJob) {
 }
 
 function StatusBadge({ status, className }: { status: DownloadStatus; className?: string }) {
-    return (
-        <span className={cn("rounded-full p-2 py-1 text-[10px]", STATUS_TONE[status], className)}>
-            {STATUS_LABEL[status]}
-        </span>
-    );
+    const m = useMessages();
+    const label =
+        status === "queued"
+            ? m.status_queued()
+            : status === "running"
+              ? m.status_running()
+              : status === "completed"
+                ? m.status_completed()
+                : status === "failed"
+                  ? m.status_failed()
+                  : m.status_cancelled();
+    return <span className={cn("rounded-full p-2 py-1 text-[10px]", STATUS_TONE[status], className)}>{label}</span>;
 }
 
 function TaskRow({ task, compact }: { task: DownloadTask; compact: boolean }) {
@@ -124,10 +118,17 @@ type JobRowProps = {
 };
 
 function JobRowInner({ job, compact, isFirst, error, submitError, cancel, submit, remove }: JobRowProps) {
+    const m = useMessages();
     const [expanded, setExpanded] = useState(false);
     const { downloaded, total, pct } = jobProgress(job);
     const hue = hueFromId(job.illust_id);
     const terminal = isTerminalStatus(job.status);
+    const typeLabel =
+        job.illust_type === "manga"
+            ? m.downloads_type_manga()
+            : job.illust_type === "ugoira"
+              ? m.downloads_type_ugoira()
+              : m.downloads_type_illust();
 
     return (
         <>
@@ -143,7 +144,7 @@ function JobRowInner({ job, compact, isFirst, error, submitError, cancel, submit
                         <button
                             type="button"
                             onClick={() => setExpanded((v) => !v)}
-                            aria-label={expanded ? "收起任务" : "展开任务"}
+                            aria-label={expanded ? m.downloads_collapse_tasks() : m.downloads_expand_tasks()}
                             aria-expanded={expanded}
                             className="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-muted/60"
                         >
@@ -165,13 +166,15 @@ function JobRowInner({ job, compact, isFirst, error, submitError, cancel, submit
                             className="size-8 shrink-0 rounded-lg object-cover"
                         />
                         <div className="min-w-0">
-                            <div className="truncate font-medium text-foreground text-sm">{job.title || "未命名"}</div>
+                            <div className="truncate font-medium text-foreground text-sm">
+                                {job.title || m.downloads_untitled()}
+                            </div>
                             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                                 <span>#{job.illust_id}</span>
                                 <span>·</span>
-                                <span>{TYPE_LABEL[job.illust_type]}</span>
+                                <span>{typeLabel}</span>
                                 <span>·</span>
-                                <span>{job.tasks.length} 任务</span>
+                                <span>{m.downloads_task_count({ count: job.tasks.length })}</span>
                             </div>
                         </div>
                     </div>
@@ -200,11 +203,11 @@ function JobRowInner({ job, compact, isFirst, error, submitError, cancel, submit
                                 {!terminal && (
                                     <ActionIconButton
                                         icon={CloseIcon}
-                                        title="取消下载"
+                                        title={m.downloads_action_cancel()}
                                         onAction={() => cancel(job.id)}
                                         confirm={{
-                                            body: "将取消并删除已下载的部分文件，确定吗？",
-                                            confirmLabel: "确认",
+                                            body: m.downloads_action_cancel_confirm(),
+                                            confirmLabel: m.common_confirm(),
                                             danger: true,
                                         }}
                                         error={error}
@@ -213,13 +216,13 @@ function JobRowInner({ job, compact, isFirst, error, submitError, cancel, submit
                                 {job.status === "completed" && (
                                     <ActionIconButton
                                         icon={RedoDotIcon}
-                                        title="重新下载"
+                                        title={m.downloads_action_redownload()}
                                         onAction={async () => {
                                             await submit(job.illust_id);
                                         }}
                                         confirm={{
-                                            body: "将创建新的下载副本，确定重新下载？",
-                                            confirmLabel: "重新下载",
+                                            body: m.downloads_action_redownload_confirm(),
+                                            confirmLabel: m.downloads_action_redownload(),
                                         }}
                                         error={submitError}
                                     />
@@ -227,7 +230,7 @@ function JobRowInner({ job, compact, isFirst, error, submitError, cancel, submit
                                 {(job.status === "failed" || job.status === "cancelled") && (
                                     <ActionIconButton
                                         icon={RedoDotIcon}
-                                        title="重试"
+                                        title={m.downloads_action_retry()}
                                         onAction={async () => {
                                             await submit(job.illust_id);
                                         }}
@@ -237,11 +240,11 @@ function JobRowInner({ job, compact, isFirst, error, submitError, cancel, submit
                                 {terminal && (
                                     <ActionIconButton
                                         icon={DeleteIcon}
-                                        title="移除"
+                                        title={m.downloads_action_remove()}
                                         onAction={() => remove(job.id)}
                                         confirm={{
-                                            body: "将移除此下载记录，已下载的文件会被保留。",
-                                            confirmLabel: "移除",
+                                            body: m.downloads_action_remove_confirm(),
+                                            confirmLabel: m.downloads_action_remove(),
                                         }}
                                         error={error}
                                     />
@@ -261,15 +264,22 @@ const JobRow = memo(JobRowInner);
 type DownloadsTableProps = {
     jobs: DownloadJob[];
     empty?: ReactNode;
-    // Hides "大小" and "操作" columns; used on the home page where width is tight.
+    // Hides the "Size" and "Actions" columns; used on the home page where width is tight.
     compact?: boolean;
 };
 
 function DownloadsTable({ jobs, empty, compact = false }: DownloadsTableProps) {
+    const m = useMessages();
     const { cancel, remove, submit, lastError } = useDownloadMutations();
 
     if (jobs.length === 0) {
-        return empty ?? <div className="px-[18px] py-8 text-center text-muted-foreground text-sm">暂无下载</div>;
+        return (
+            empty ?? (
+                <div className="px-[18px] py-8 text-center text-muted-foreground text-sm">
+                    {m.downloads_empty_all()}
+                </div>
+            )
+        );
     }
     return (
         <table className="w-full table-fixed border-collapse text-sm">
@@ -286,10 +296,10 @@ function DownloadsTable({ jobs, empty, compact = false }: DownloadsTableProps) {
             {!compact && (
                 <thead>
                     <tr className="bg-muted/40 text-[11px] text-muted-foreground">
-                        <th className="px-[18px] py-2.5 text-left font-medium">作品</th>
-                        <th className="px-[18px] py-2.5 text-left font-medium">进度</th>
-                        <th className="px-[18px] py-2.5 text-right font-medium">大小</th>
-                        <th className="px-[18px] py-2.5 text-right font-medium">操作</th>
+                        <th className="px-[18px] py-2.5 text-left font-medium">{m.downloads_col_work()}</th>
+                        <th className="px-[18px] py-2.5 text-left font-medium">{m.downloads_col_progress()}</th>
+                        <th className="px-[18px] py-2.5 text-right font-medium">{m.downloads_col_size()}</th>
+                        <th className="px-[18px] py-2.5 text-right font-medium">{m.downloads_col_action()}</th>
                     </tr>
                 </thead>
             )}

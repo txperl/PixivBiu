@@ -1,8 +1,10 @@
 import type { SearchApiError } from "@/features/search/api";
-import { apiErrorMessage } from "@/lib/api";
+import { useMessages } from "@/i18n";
+import { useApiErrorMessage } from "@/lib/api";
 
 export function SearchError({ error }: { error: SearchApiError }) {
-    const msg = apiErrorMessage(error);
+    const resolveApiError = useApiErrorMessage();
+    const msg = resolveApiError(error);
     return (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive text-sm">
             <div className="font-medium">{error.code}</div>
@@ -13,10 +15,11 @@ export function SearchError({ error }: { error: SearchApiError }) {
 }
 
 export function SearchNoResults({ word }: { word: string }) {
+    const m = useMessages();
     return (
         <div className="flex flex-col items-center gap-2 py-20 text-center">
-            <div className="font-medium text-foreground text-lg">没有匹配「{word}」的结果</div>
-            <div className="text-muted-foreground text-sm">换个关键词或调整筛选条件试试</div>
+            <div className="font-medium text-foreground text-lg">{m.search_no_results_title({ word })}</div>
+            <div className="text-muted-foreground text-sm">{m.search_no_results_hint()}</div>
         </div>
     );
 }

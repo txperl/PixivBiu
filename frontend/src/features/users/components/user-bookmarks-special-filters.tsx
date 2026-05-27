@@ -1,6 +1,7 @@
 import { type KeyboardEvent, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import FilterRow from "@/features/filter/components/filter-row";
+import { useMessages } from "@/i18n";
 
 type Props = {
     tag: string;
@@ -8,6 +9,7 @@ type Props = {
 };
 
 function UserBookmarksSpecialFilters({ tag, onTagChange }: Props) {
+    const m = useMessages();
     const [draft, setDraft] = useState(tag);
     useEffect(() => setDraft(tag), [tag]);
 
@@ -27,18 +29,16 @@ function UserBookmarksSpecialFilters({ tag, onTagChange }: Props) {
     };
 
     return (
-        <FilterRow label="收藏标签" inactive={tag === ""}>
+        <FilterRow label={m.filter_user_bookmarks_tag_label()} inactive={tag === ""}>
             <Input
                 value={draft}
-                placeholder="留空 = 所有标签"
+                placeholder={m.filter_user_bookmarks_tag_placeholder()}
                 onChange={(e) => setDraft(e.currentTarget.value)}
                 onBlur={commit}
                 onKeyDown={onKeyDown}
                 className="h-8 text-xs"
             />
-            <div className="text-muted-foreground text-xs leading-relaxed">
-                仅显示带有该收藏标签的作品。按 Enter 应用。
-            </div>
+            <div className="text-muted-foreground text-xs leading-relaxed">{m.filter_user_bookmarks_tag_hint()}</div>
         </FilterRow>
     );
 }

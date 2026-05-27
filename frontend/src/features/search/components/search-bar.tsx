@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SEARCH_PARAM_KEYS } from "@/features/search/api";
+import { useMessages } from "@/i18n";
 import { FilterIcon, GridIcon, SearchIcon } from "@/lib/icons";
 
 type SearchBarProps = {
@@ -12,6 +13,7 @@ type SearchBarProps = {
 };
 
 function SearchBar({ defaultValue = "", autoFocus = false }: SearchBarProps) {
+    const m = useMessages();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [value, setValue] = useState(defaultValue);
@@ -54,7 +56,7 @@ function SearchBar({ defaultValue = "", autoFocus = false }: SearchBarProps) {
             <div className="flex h-12 max-w-[560px] flex-1 items-center gap-3 rounded-[28px] bg-muted/60 px-4 transition-colors focus-within:bg-muted hover:bg-muted">
                 <button
                     type="submit"
-                    aria-label="搜索"
+                    aria-label={m.search_bar_search()}
                     className="flex shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
                 >
                     <HugeiconsIcon icon={SearchIcon} size={20} strokeWidth={1.5} />
@@ -65,7 +67,7 @@ function SearchBar({ defaultValue = "", autoFocus = false }: SearchBarProps) {
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     onKeyDown={onKeyDown}
-                    placeholder="搜索作品、作者、#标签…"
+                    placeholder={m.search_bar_placeholder()}
                     className="h-auto w-full appearance-none bg-transparent outline-none"
                 />
                 <kbd className="rounded-md bg-card px-2 py-[3px] font-mono text-[11px] text-muted-foreground">⌘K</kbd>
@@ -80,14 +82,14 @@ function SearchBar({ defaultValue = "", autoFocus = false }: SearchBarProps) {
                             type="button"
                             variant="ghost"
                             size="icon"
-                            aria-label="筛选"
+                            aria-label={m.search_bar_filter()}
                             className="size-10 rounded-full"
                         >
                             <HugeiconsIcon icon={FilterIcon} size={18} strokeWidth={1.5} />
                         </Button>
                     }
                 />
-                <TooltipContent>筛选</TooltipContent>
+                <TooltipContent>{m.search_bar_filter()}</TooltipContent>
             </Tooltip>
             <Tooltip>
                 <TooltipTrigger
@@ -96,14 +98,14 @@ function SearchBar({ defaultValue = "", autoFocus = false }: SearchBarProps) {
                             type="button"
                             variant="ghost"
                             size="icon"
-                            aria-label="布局"
+                            aria-label={m.search_bar_layout()}
                             className="size-10 rounded-full"
                         >
                             <HugeiconsIcon icon={GridIcon} size={18} strokeWidth={1.5} />
                         </Button>
                     }
                 />
-                <TooltipContent>布局</TooltipContent>
+                <TooltipContent>{m.search_bar_layout()}</TooltipContent>
             </Tooltip>
         </form>
     );

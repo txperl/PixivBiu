@@ -8,11 +8,13 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/features/auth/use-auth";
+import { useMessages } from "@/i18n";
 import { MoreIcon } from "@/lib/icons";
 
 const AVATAR_GRADIENT = "linear-gradient(135deg, oklch(0.78 0.10 45), oklch(0.68 0.13 45))";
 
 function AccountButton() {
+    const m = useMessages();
     const { status, pending, refresh, logout } = useAuth();
 
     // The sidebar is only ever rendered when authenticated (RootLayout guards
@@ -50,7 +52,14 @@ function AccountButton() {
             </div>
             <DropdownMenu>
                 <DropdownMenuTrigger
-                    render={<Button variant="ghost" size="icon" className="rounded-full" aria-label="账户菜单" />}
+                    render={
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-full"
+                            aria-label={m.auth_account_menu()}
+                        />
+                    }
                 >
                     <HugeiconsIcon icon={MoreIcon} size={16} strokeWidth={1.5} className="text-muted-foreground" />
                 </DropdownMenuTrigger>
@@ -61,7 +70,7 @@ function AccountButton() {
                         }}
                         disabled={pending}
                     >
-                        刷新状态
+                        {m.auth_refresh_status()}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -71,7 +80,7 @@ function AccountButton() {
                         }}
                         disabled={pending}
                     >
-                        退出登录
+                        {m.auth_logout()}
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

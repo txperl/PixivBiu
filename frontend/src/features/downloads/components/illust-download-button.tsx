@@ -2,6 +2,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDownloadMutations, useIllustDownloadStatus } from "@/features/downloads";
+import { useMessages } from "@/i18n";
 import { CheckIcon, DownloadIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ const RING_CIRCUM = 2 * Math.PI * RING_RADIUS;
 const INDETERMINATE_OFFSET = RING_CIRCUM * 0.75;
 
 function IllustDownloadButton({ illustId, className }: IllustDownloadButtonProps) {
+    const m = useMessages();
     const { submit } = useDownloadMutations();
     const { job, active, percent } = useIllustDownloadStatus(illustId);
     const jobRef = useRef(job);
@@ -36,6 +38,7 @@ function IllustDownloadButton({ illustId, className }: IllustDownloadButtonProps
 
     // useLayoutEffect: react to the active→inactive transition in the same paint,
     // otherwise the button briefly renders in idle state and flashes.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: m.downloads_btn_failed is read at call time
     useLayoutEffect(() => {
         if (wasActiveRef.current && !active) {
             const terminal = jobRef.current;
@@ -45,7 +48,7 @@ function IllustDownloadButton({ illustId, className }: IllustDownloadButtonProps
                 sentTimerRef.current = setTimeout(() => setJustSent(false), 1400);
             } else if (terminal?.status === "failed") {
                 const taskError = terminal.tasks.find((t) => t.error)?.error;
-                setErrorTitle(taskError ?? "下载失败");
+                setErrorTitle(taskError ?? m.downloads_btn_failed());
             }
             // cancelled: revert silently to idle
         }
@@ -60,7 +63,7 @@ function IllustDownloadButton({ illustId, className }: IllustDownloadButtonProps
         const job = await submit(illustId);
         setPending(false);
         if (!job) {
-            setErrorTitle("添加到下载队列失败");
+            setErrorTitle(m.downloads_btn_enqueue_failed());
             return;
         }
     };
@@ -82,7 +85,7 @@ function IllustDownloadButton({ illustId, className }: IllustDownloadButtonProps
             type="button"
             onClick={onClick}
             disabled={pending || active}
-            aria-label={downloading ? "下载中" : "下载该作品"}
+            aria-label={downloading ? m.downloads_btn_downloading() : m.downloads_btn_download()}
             className={cn(
                 "absolute right-3.5 bottom-3.5 flex size-10 scale-90 items-center justify-center opacity-0 shadow-md transition-all duration-300 disabled:cursor-wait group-hover:scale-100 group-hover:opacity-100",
                 colorClasses,
@@ -103,9 +106,9 @@ function IllustDownloadButton({ illustId, className }: IllustDownloadButtonProps
                         viewBox="0 0 40 40"
                         className={cn("size-full", !indeterminate && "-rotate-90")}
                         role="img"
-                        aria-label="下载进度"
+                        aria-label={m.downloads_btn_progress()}
                     >
-                        <title>下载进度</title>
+                        <title>{m.downloads_btn_progress()}</title>
                         <circle
                             cx="20"
                             cy="20"

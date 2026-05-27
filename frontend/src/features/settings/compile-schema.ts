@@ -67,7 +67,9 @@ export function compileSchema(schema: ConfigSchema): SectionSpec[] {
         const fields = [...sectionFields.filter((f) => !isAdvanced(f)), ...sectionFields.filter((f) => isAdvanced(f))];
         sections.push({
             category,
-            title: meta?.title ?? category,
+            // Stable section id; the human-readable title is resolved at render
+            // time via useSectionTitle(section.category).
+            title: category,
             icon: meta?.icon ?? FALLBACK_SECTION_ICON,
             fields,
         });

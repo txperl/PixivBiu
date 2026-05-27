@@ -28,23 +28,31 @@ import {
 } from "@/features/users/api";
 import FollowButton from "@/features/users/components/follow-button";
 import UserBookmarksSpecialFilters from "@/features/users/components/user-bookmarks-special-filters";
+import { useMessages } from "@/i18n";
 import type { FetchState } from "@/lib/fetch-state";
 import { formatCount, hueFromId } from "@/lib/format";
 import { patchParams, readPage } from "@/lib/url-params";
 import { cn } from "@/lib/utils";
-import {
-    isBookmarkTab,
-    isOwnerOnlyTab,
-    isTab,
-    readTab,
-    TAB_ICONS,
-    TAB_LABELS,
-    TABS,
-    type Tab,
-    tabToParam,
-} from "./tabs";
+import { isBookmarkTab, isOwnerOnlyTab, isTab, readTab, TAB_ICONS, TABS, type Tab, tabToParam } from "./tabs";
 
 type TabData = UserIllustsPage | IllustPage | UserPreviewPage;
+
+type Messages = ReturnType<typeof useMessages>;
+
+function tabLabel(m: Messages, tab: Tab): string {
+    switch (tab) {
+        case "illust":
+            return m.user_tab_illust();
+        case "manga":
+            return m.user_tab_manga();
+        case "following":
+            return m.user_tab_following();
+        case "bookmarks":
+            return m.user_tab_bookmarks();
+        case "bookmarks_private":
+            return m.user_tab_bookmarks_private();
+    }
+}
 
 function ProfileHeader({
     data,
@@ -55,6 +63,7 @@ function ProfileHeader({
     isMe: boolean;
     onSelectTab: (tab: Tab) => void;
 }) {
+    const m = useMessages();
     const { user, profile } = data;
     return (
         <header className="relative overflow-hidden rounded-2xl bg-card p-5 px-6">
@@ -83,18 +92,30 @@ function ProfileHeader({
                                 !user.comment && "text-muted-foreground/30",
                             )}
                         >
-                            {user.comment || "介绍里没有什么哦"}
+                            {user.comment || m.user_profile_no_comment()}
                         </p>
                     </div>
                     {!isMe && <FollowButton key={user.id} userId={user.id} initialIsFollowed={user.is_followed} />}
                 </div>
 
                 <div className="flex flex-wrap gap-x-2 gap-y-1.5 border-muted/50 border-t pt-3 text-xs">
-                    <Stat label="插画" value={profile.total_illusts} onClick={() => onSelectTab("illust")} />
-                    <Stat label="漫画" value={profile.total_manga} onClick={() => onSelectTab("manga")} />
-                    <Stat label="关注" value={profile.total_follow_users} onClick={() => onSelectTab("following")} />
                     <Stat
-                        label="收藏"
+                        label={m.user_stat_illust()}
+                        value={profile.total_illusts}
+                        onClick={() => onSelectTab("illust")}
+                    />
+                    <Stat
+                        label={m.user_stat_manga()}
+                        value={profile.total_manga}
+                        onClick={() => onSelectTab("manga")}
+                    />
+                    <Stat
+                        label={m.user_stat_following()}
+                        value={profile.total_follow_users}
+                        onClick={() => onSelectTab("following")}
+                    />
+                    <Stat
+                        label={m.user_stat_bookmarks()}
                         value={profile.total_illust_bookmarks_public}
                         onClick={() => onSelectTab("bookmarks")}
                     />
@@ -105,9 +126,12 @@ function ProfileHeader({
 }
 
 function PersonalSeal() {
+    const m = useMessages();
     return (
         <div aria-hidden className="pointer-events-none absolute top-8 right-4 z-0 rotate-12 select-none">
-            <div className="font-semibold text-6xl text-primary/15 tracking-wider">个人</div>
+            <div className="font-semibold text-6xl text-primary/15 tracking-wider">
+                {m.user_profile_personal_seal()}
+            </div>
         </div>
     );
 }
@@ -147,9 +171,10 @@ function ProfileHeaderSkeleton() {
 }
 
 function NoResults({ tab }: { tab: Tab }) {
+    const m = useMessages();
     return (
         <div className="flex flex-col items-center gap-2 py-20 text-center">
-            <div className="font-medium text-foreground text-lg">该用户还没有{TAB_LABELS[tab]}内容</div>
+            <div className="font-medium text-foreground text-lg">{m.user_no_content({ tab: tabLabel(m, tab) })}</div>
         </div>
     );
 }
@@ -206,6 +231,7 @@ function TabBody({
 }
 
 function UserPage() {
+    const m = useMessages();
     const { id: rawId } = useParams<{ id: string }>();
     const userId = Number(rawId);
     const validId = Number.isFinite(userId) && userId > 0;
@@ -354,7 +380,7 @@ function UserPage() {
     if (!validId) {
         return (
             <div className="px-7 pt-7 pb-7">
-                <SearchError error={{ code: "bad_request", message: "用户 ID 无效" }} />
+                <SearchError error={{ code: "bad_request", message: m.user_invalid_id() }} />
             </div>
         );
     }
@@ -379,7 +405,7 @@ function UserPage() {
                                 className="flex h-full items-center gap-1.5 px-2.5 text-sm data-active:text-primary data-active:after:h-[3px] data-active:after:bg-primary"
                             >
                                 <HugeiconsIcon icon={TAB_ICONS[t]} size={16} strokeWidth={2} />
-                                {TAB_LABELS[t]}
+                                {tabLabel(m, t)}
                             </TabsTrigger>
                         ))}
                     </TabsList>

@@ -375,6 +375,27 @@ func TestPatch_RestartKeyPendingThenReset(t *testing.T) {
 	}
 }
 
+// log.language is consumed only by the boot-time translator (startup banner
+// + lifecycle log lines), so it must behave like a restart-required key:
+// patching it advances File but freezes Effective and surfaces in
+// pending_restart, rather than silently reporting as live-applied.
+func TestPatch_LogLanguageRestartRequired(t *testing.T) {
+	mgr := newMgr(t, "")
+	view, err := mgr.Patch(map[string]any{"log.language": "ja"})
+	if err != nil {
+		t.Fatalf("Patch: %v", err)
+	}
+	if got := nestedGet(view.Effective, "log", "language"); got != "auto" {
+		t.Errorf("view.Effective.log.language = %v, want frozen %q", got, "auto")
+	}
+	if got := nestedGet(view.File, "log", "language"); got != "ja" {
+		t.Errorf("view.File.log.language = %v, want %q", got, "ja")
+	}
+	if !slices.Contains(view.PendingRestart, "log.language") {
+		t.Errorf("pending_restart = %v, want it to contain log.language", view.PendingRestart)
+	}
+}
+
 // Patching a hot key back to its built-in default prunes it from the
 // file layer; the live view must then report source=defaults and drop
 // it from File, matching what's actually persisted.

@@ -4,6 +4,7 @@ import { NavLink, useLocation, useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/features/auth";
 import { useDownloadCounts } from "@/features/downloads";
+import { useMessages } from "@/i18n";
 import {
     DownloadIcon,
     FollowIcon,
@@ -30,20 +31,10 @@ type NavItemDef = {
 };
 
 type NavGroupDef = {
+    id: string;
     label: string;
     items: NavItemDef[];
 };
-
-const BROWSE_GROUP: NavGroupDef = {
-    label: "浏览",
-    items: [
-        { id: "home", label: "首页", icon: HomeIcon, to: "/" },
-        { id: "search", label: "搜索", icon: SearchIcon, to: "/search" },
-        { id: "rank", label: "排行榜", icon: RankIcon, to: "/ranking" },
-    ],
-};
-
-const SETTINGS_ITEM: NavItemDef = { id: "settings", label: "设置", icon: SettingsIcon, to: "/settings" };
 
 function ItemBody({ item, active }: { item: NavItemDef; active: boolean }) {
     return (
@@ -87,6 +78,7 @@ function NavItem({ item, pathname, search }: { item: NavItemDef; pathname: strin
 }
 
 function Nav() {
+    const m = useMessages();
     const { status } = useAuth();
     const { activeCount } = useDownloadCounts();
     const { pathname } = useLocation();
@@ -102,24 +94,36 @@ function Nav() {
             return tabs.includes(readTab(sp));
         };
 
+    const browseGroup: NavGroupDef = {
+        id: "browse",
+        label: m.nav_group_browse(),
+        items: [
+            { id: "home", label: m.nav_home(), icon: HomeIcon, to: "/" },
+            { id: "search", label: m.nav_search(), icon: SearchIcon, to: "/search" },
+            { id: "rank", label: m.nav_ranking(), icon: RankIcon, to: "/ranking" },
+        ],
+    };
+
+    const settingsItem: NavItemDef = { id: "settings", label: m.nav_settings(), icon: SettingsIcon, to: "/settings" };
+
     const personalItems: NavItemDef[] = [
         {
             id: "bookmark",
-            label: "收藏",
+            label: m.nav_bookmarks(),
             icon: HeartIcon,
             to: isLoggedIn ? "/me/bookmarks" : undefined,
             activeMatch: matchMyUserTab(["bookmarks"]),
         },
         {
             id: "follow",
-            label: "关注的作者",
+            label: m.nav_following(),
             icon: FollowIcon,
             to: isLoggedIn ? "/me/following" : undefined,
             activeMatch: matchMyUserTab(["following"]),
         },
         {
             id: "self",
-            label: "我的作品",
+            label: m.nav_my_works(),
             icon: ImageIcon,
             to: isLoggedIn ? "/me" : undefined,
             activeMatch: matchMyUserTab(["illust", "manga"]),
@@ -128,22 +132,22 @@ function Nav() {
 
     const downloadsItem: NavItemDef = {
         id: "dl",
-        label: "下载管理",
+        label: m.nav_downloads(),
         icon: DownloadIcon,
         to: "/downloads",
         badge: activeCount > 0 ? activeCount : undefined,
     };
 
     const groups: NavGroupDef[] = [
-        BROWSE_GROUP,
-        { label: "个人", items: personalItems },
-        { label: "工具", items: [downloadsItem, SETTINGS_ITEM] },
+        browseGroup,
+        { id: "personal", label: m.nav_group_personal(), items: personalItems },
+        { id: "tools", label: m.nav_group_tools(), items: [downloadsItem, settingsItem] },
     ];
 
     return (
         <nav className="flex flex-col gap-4">
             {groups.map((g) => (
-                <div key={g.label}>
+                <div key={g.id}>
                     <div className="px-4 pb-2 font-medium text-[11px] text-muted-foreground tracking-wider">
                         {g.label}
                     </div>

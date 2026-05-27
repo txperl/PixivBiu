@@ -21,6 +21,7 @@ import RankingFilters from "@/features/ranking/components/ranking-filters";
 import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/illust-grid";
 import SearchPager from "@/features/search/components/search-pager";
 import { SearchError } from "@/features/search/components/search-states";
+import { useMessages } from "@/i18n";
 import type { FetchState } from "@/lib/fetch-state";
 import { patchParams, readPage } from "@/lib/url-params";
 
@@ -35,17 +36,19 @@ function readDate(sp: URLSearchParams): string | undefined {
 }
 
 function RankingEmpty({ date }: { date?: string }) {
+    const m = useMessages();
     return (
         <div className="flex flex-col items-center gap-2 py-20 text-center">
             <div className="font-medium text-foreground text-lg">
-                {date ? `「${date}」暂无排行榜数据` : "暂无排行榜数据"}
+                {date ? m.ranking_empty_dated({ date }) : m.ranking_empty()}
             </div>
-            <div className="text-muted-foreground text-sm">换个日期或类型试试</div>
+            <div className="text-muted-foreground text-sm">{m.ranking_empty_hint()}</div>
         </div>
     );
 }
 
 function RankingPage() {
+    const m = useMessages();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const mode = readMode(searchParams);
@@ -114,7 +117,7 @@ function RankingPage() {
     return (
         <div className="relative flex flex-col gap-4 px-7 pt-7 pb-7">
             <header className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                <h1 className="font-semibold text-5xl text-foreground">排行榜</h1>
+                <h1 className="font-semibold text-5xl text-foreground">{m.ranking_title()}</h1>
                 <RankingDatePicker date={date} onDateChange={onDateChange} />
             </header>
 

@@ -40,8 +40,9 @@ type TimeoutsConfig struct {
 }
 
 type LogConfig struct {
-	Level  string `koanf:"level"  cfg:"desc=日志级别,enum=debug|info|warn|error,advanced=true"`
-	Format string `koanf:"format" cfg:"desc=输出格式,enum=text|json,restart=true,advanced=true"`
+	Level    string `koanf:"level"    cfg:"desc=日志级别,enum=debug|info|warn|error,advanced=true"`
+	Format   string `koanf:"format"   cfg:"desc=输出格式,enum=text|json,restart=true,advanced=true"`
+	Language string `koanf:"language" cfg:"desc=启动横幅与生命周期日志语言（auto = 跟随系统）,enum=auto|en|zh-CN|ja,restart=true,advanced=true"`
 }
 
 type PixivConfig struct {
@@ -91,6 +92,7 @@ var defaults = sync.OnceValue(func() map[string]any {
 		"server.timeouts.shutdown": "10s",
 		"log.level":                "info",
 		"log.format":               "text",
+		"log.language":             "auto",
 		"pixiv.proxy":              "",
 		"pixiv.language":           "",
 		"pixiv.bypass_sni":         false,

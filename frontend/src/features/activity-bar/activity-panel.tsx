@@ -1,10 +1,12 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@/components/ui/button";
+import { useMessages } from "@/i18n";
 import { CloseIcon } from "@/lib/icons";
 import { ITEM_DEFS } from "./items";
 import { useActivityBar } from "./use-activity-bar";
 
 function ActivityPanel() {
+    const m = useMessages();
     const { activeItemId, close } = useActivityBar();
     if (!activeItemId) return null;
     const def = ITEM_DEFS.find((d) => d.id === activeItemId);
@@ -16,7 +18,7 @@ function ActivityPanel() {
                 <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
                     {def.label}
                 </span>
-                <Button variant="ghost" size="icon-xs" onClick={close} aria-label="收起">
+                <Button variant="ghost" size="icon-xs" onClick={close} aria-label={m.common_collapse()}>
                     <HugeiconsIcon icon={CloseIcon} strokeWidth={2} />
                 </Button>
             </header>

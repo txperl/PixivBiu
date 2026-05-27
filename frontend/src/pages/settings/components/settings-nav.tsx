@@ -1,5 +1,5 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import type { SectionSpec } from "@/features/settings";
+import { type SectionSpec, useSectionTitle } from "@/features/settings";
 import { cn } from "@/lib/utils";
 
 interface SettingsNavProps {
@@ -14,6 +14,7 @@ const activeClass = "bg-secondary font-semibold text-secondary-foreground";
 const inactiveClass = "font-medium text-muted-foreground hover:bg-muted";
 
 export function SettingsNav({ sections, activeId, onSelect }: SettingsNavProps) {
+    const sectionTitle = useSectionTitle();
     return (
         <nav className="flex flex-col gap-1">
             {sections.map((section) => {
@@ -26,7 +27,7 @@ export function SettingsNav({ sections, activeId, onSelect }: SettingsNavProps) 
                         className={cn(baseClass, active ? activeClass : inactiveClass)}
                     >
                         <HugeiconsIcon icon={section.icon} size={18} strokeWidth={active ? 2 : 1.5} />
-                        <span className="flex-1">{section.title}</span>
+                        <span className="flex-1">{sectionTitle(section.category, section.title)}</span>
                     </button>
                 );
             })}

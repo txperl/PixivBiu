@@ -4,15 +4,16 @@ import { Popover, PopoverContent } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { addBookmark, deleteBookmark, getBookmarkDetail, type Restrict } from "@/features/illusts/api";
-import { apiErrorMessage } from "@/lib/api";
+import { useMessages } from "@/i18n";
+import { useApiErrorMessage } from "@/lib/api";
 import { formatCount } from "@/lib/format";
 import { HeartIcon, MagnetIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
-const RESTRICT_OPTIONS = [
-    { value: "private", icon: MagnetIcon, label: "私密" },
-    { value: "public", icon: HeartIcon, label: "公开" },
-] as const satisfies ReadonlyArray<{ value: Restrict; icon: unknown; label: string }>;
+const RESTRICT_ICONS: Record<Restrict, typeof MagnetIcon> = {
+    private: MagnetIcon,
+    public: HeartIcon,
+};
 
 type IllustBookmarkButtonProps = {
     illustId: number;
@@ -27,6 +28,12 @@ function IllustBookmarkButton({
     initialBookmarkCount,
     className,
 }: IllustBookmarkButtonProps) {
+    const m = useMessages();
+    const resolveApiError = useApiErrorMessage();
+    const restrictOptions = [
+        { value: "private", icon: RESTRICT_ICONS.private, label: m.search_bookmark_private() },
+        { value: "public", icon: RESTRICT_ICONS.public, label: m.search_bookmark_public() },
+    ] as const satisfies ReadonlyArray<{ value: Restrict; icon: unknown; label: string }>;
     const [bookmarked, setBookmarked] = useState(initialIsBookmarked);
     const [count, setCount] = useState(initialBookmarkCount);
     const [pending, setPending] = useState(false);
@@ -91,7 +98,7 @@ function IllustBookmarkButton({
             setBookmarked(wasBookmarked);
             setCount(wasCount);
             setCurrentRestrict(wasRestrict);
-            setErrorTitle(apiErrorMessage(error));
+            setErrorTitle(resolveApiError(error));
         }
         setPending(false);
     };
@@ -112,7 +119,7 @@ function IllustBookmarkButton({
             setBookmarked(wasBookmarked);
             setCount(wasCount);
             setCurrentRestrict(wasRestrict);
-            setErrorTitle(apiErrorMessage(error));
+            setErrorTitle(resolveApiError(error));
         }
         setPending(false);
     };
@@ -186,7 +193,7 @@ function IllustBookmarkButton({
                     onMouseLeave={scheduleClose}
                 >
                     <div className="flex flex-col gap-1">
-                        {RESTRICT_OPTIONS.map(({ value, icon, label }) =>
+                        {restrictOptions.map(({ value, icon, label }) =>
                             restrictLoading ? (
                                 <Skeleton key={value} className="h-7 min-w-15 rounded-md" />
                             ) : (

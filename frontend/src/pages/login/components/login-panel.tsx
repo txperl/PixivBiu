@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AuthApiError } from "@/features/auth/api";
+import type { PasteIssue } from "@/features/auth/utils";
+import { useMessages } from "@/i18n";
 import { PasteIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { ErrorBlock } from "./error-block";
@@ -12,7 +14,7 @@ import { useReveal } from "./use-reveal";
 export function LoginPanel({
     pastedCode,
     onPastedCodeChange,
-    pasteHint,
+    pasteIssue,
     pending,
     error,
     onPasteFromClipboard,
@@ -24,7 +26,7 @@ export function LoginPanel({
 }: {
     pastedCode: string;
     onPastedCodeChange: (v: string) => void;
-    pasteHint: string | null;
+    pasteIssue: PasteIssue | null;
     pending: boolean;
     error: AuthApiError | null;
     onPasteFromClipboard: () => void;
@@ -34,18 +36,28 @@ export function LoginPanel({
     onRefreshTokenChange: (v: string) => void;
     onSubmitRefreshToken: (e: SyntheticEvent<HTMLFormElement, SubmitEvent>) => void;
 }) {
+    const m = useMessages();
     const titleRef = useReveal<HTMLHeadingElement>(200);
     const subtitleRef = useReveal<HTMLParagraphElement>(300);
     const formRef = useReveal<HTMLFormElement>(450);
+
+    const pasteHint =
+        pasteIssue === "intermediate"
+            ? m.login_paste_hint_intermediate()
+            : pasteIssue === "pixiv"
+              ? m.login_paste_hint_pixiv()
+              : pasteIssue === "generic"
+                ? m.login_paste_hint_generic()
+                : null;
 
     return (
         <>
             <div className="space-y-1">
                 <h1 ref={titleRef} className="font-heading font-normal text-2xl text-foreground leading-tight">
-                    首先，请登录你的 Pixiv 账号
+                    {m.login_title()}
                 </h1>
                 <p ref={subtitleRef} className="max-w-lg text-muted-foreground">
-                    请按下面几步操作，注意要在弹出的 Pixiv 登录弹窗中完成
+                    {m.login_subtitle()}
                 </p>
             </div>
 
@@ -54,7 +66,7 @@ export function LoginPanel({
 
                 <div>
                     <label htmlFor="login-callback-url" className="mb-1 block text-muted-foreground text-xs">
-                        输入复制的链接
+                        {m.login_callback_label()}
                     </label>
                     <div className="relative">
                         <Input
@@ -76,14 +88,14 @@ export function LoginPanel({
                                         type="button"
                                         onClick={onPasteFromClipboard}
                                         disabled={pending}
-                                        aria-label="从剪贴板粘贴"
+                                        aria-label={m.common_copy_from_clipboard()}
                                         className="absolute inset-y-1 right-1 flex items-center justify-center rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
                                     >
                                         <HugeiconsIcon icon={PasteIcon} size={14} strokeWidth={2} />
                                     </button>
                                 }
                             />
-                            <TooltipContent>从剪贴板粘贴</TooltipContent>
+                            <TooltipContent>{m.common_copy_from_clipboard()}</TooltipContent>
                         </Tooltip>
                     </div>
                     {pasteHint && (
@@ -97,7 +109,7 @@ export function LoginPanel({
 
                 <div className="flex flex-wrap items-center justify-end gap-3">
                     <Button type="submit" disabled={pending || !pastedCode.trim()}>
-                        {pending ? "登录中…" : "完成登录"}
+                        {pending ? m.login_submitting() : m.login_submit()}
                     </Button>
                 </div>
             </form>
@@ -110,7 +122,7 @@ export function LoginPanel({
                         onClick={onReopenPopup}
                         disabled={pending}
                     >
-                        重新打开弹窗
+                        {m.login_reopen_popup()}
                     </button>
                 </div>
                 <RefreshTokenFooter
@@ -125,13 +137,16 @@ export function LoginPanel({
 }
 
 function PopupSteps() {
+    const m = useMessages();
     return (
         <ol className="space-y-2.5 text-muted-foreground text-sm">
             <li className="flex items-start gap-2.5">
                 <StepBadge n={1} />
                 <div className="flex items-center gap-1">
                     <span>
-                        在<Strong>弹窗</Strong>里打开 Dev Tools，按
+                        {m.login_step1_prefix()}
+                        <Strong>{m.login_step1_popup()}</Strong>
+                        {m.login_step1_suffix()}
                     </span>
                     <Kbd>F12</Kbd>
                     <span>/</span>
@@ -141,27 +156,29 @@ function PopupSteps() {
             <li className="flex items-start gap-2.5">
                 <StepBadge n={2} />
                 <span>
-                    切到 <Strong>Network</Strong> 面板，勾上 <Strong>Preserve log / 持续记录</Strong>
+                    {m.login_step2_prefix()} <Strong>{m.login_step2_network()}</Strong> {m.login_step2_mid()}{" "}
+                    <Strong>{m.login_step2_preserve()}</Strong>
                 </span>
             </li>
             <li className="flex items-start gap-2.5">
                 <StepBadge n={3} />
                 <div className="flex items-center gap-1">
                     <span>
-                        在 Network 顶部的 <Strong>Filter 输入框</Strong> 输入
+                        {m.login_step3_prefix()} <Strong>{m.login_step3_filter_box()}</Strong> {m.login_step3_suffix()}
                     </span>
                     <Code copyable>callback?</Code>
                 </div>
             </li>
             <li className="flex items-start gap-2.5">
                 <StepBadge n={4} />
-                <span>登录你的 Pixiv 账号</span>
+                <span>{m.login_step4()}</span>
             </li>
             <li className="flex items-start gap-2.5">
                 <StepBadge n={5} />
                 <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex items-center gap-1">
-                        找到下面的请求，点击 <Kbd>右键</Kbd> → <Kbd>Copy / 复制</Kbd> → <Kbd>Copy URL / 复制链接</Kbd>
+                        {m.login_step5_prefix()} <Kbd>{m.login_step5_right_click()}</Kbd> →{" "}
+                        <Kbd>{m.login_step5_copy()}</Kbd> → <Kbd>{m.login_step5_copy_url()}</Kbd>
                     </div>
                     <div className="flex items-center gap-2.5 rounded-md bg-background px-2.5 py-2 font-mono text-xs ring-1 ring-border">
                         <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-semibold text-amber-700 dark:text-amber-400">
@@ -189,6 +206,7 @@ function RefreshTokenFooter({
     onSubmit: (e: SyntheticEvent<HTMLFormElement, SubmitEvent>) => void;
     pending: boolean;
 }) {
+    const m = useMessages();
     const [open, setOpen] = useState(false);
     return (
         <div className="space-y-2">
@@ -197,7 +215,7 @@ function RefreshTokenFooter({
                 onClick={() => setOpen((v) => !v)}
                 className="select-none text-muted-foreground/70 text-xs hover:underline"
             >
-                {open ? "已经有 Refresh Token 了！" : "已经有 Refresh Token 了？"}
+                {open ? m.login_have_token_open() : m.login_have_token_closed()}
             </button>
             {open && (
                 <form onSubmit={onSubmit} className="max-w-sm space-y-2">
@@ -208,11 +226,11 @@ function RefreshTokenFooter({
                         spellCheck={false}
                         value={value}
                         onChange={(e) => onChange(e.target.value)}
-                        placeholder="Paste your long-lived OAuth refresh token"
+                        placeholder={m.login_token_placeholder()}
                     />
                     <div className="flex">
                         <Button type="submit" size="sm" disabled={pending || !value.trim()}>
-                            {pending ? "登录中…" : "用 Token 登录"}
+                            {pending ? m.login_submitting() : m.login_token_submit()}
                         </Button>
                     </div>
                 </form>
@@ -242,6 +260,7 @@ function Strong({ children }: { children: ReactNode }) {
 }
 
 function Code({ className, children, copyable }: { className?: string; children: ReactNode; copyable?: boolean }) {
+    const m = useMessages();
     const [copied, setCopied] = useState(false);
 
     if (!copyable) {
@@ -281,7 +300,7 @@ function Code({ className, children, copyable }: { className?: string; children:
                     </button>
                 }
             />
-            <TooltipContent side="right">{copied ? "已复制" : "点击复制"}</TooltipContent>
+            <TooltipContent side="right">{copied ? m.common_copied() : m.common_copy()}</TooltipContent>
         </Tooltip>
     );
 }

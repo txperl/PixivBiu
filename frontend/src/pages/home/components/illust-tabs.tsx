@@ -20,6 +20,7 @@ import RecommendedSpecialFilters from "@/features/illusts/components/recommended
 import { listRanking } from "@/features/ranking/api";
 import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/illust-grid";
 import { SearchError } from "@/features/search/components/search-states";
+import { useMessages } from "@/i18n";
 import { RefreshIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -40,11 +41,7 @@ type TabState =
 type ForYouParams = { type: IllustType | undefined; includeRankingIllusts: boolean };
 type FollowParams = { restrict: Restrict };
 
-const TABS: ReadonlyArray<{ id: TabId; label: string }> = [
-    { id: "for-you", label: "为你推荐" },
-    { id: "week", label: "本周热门" },
-    { id: "follow", label: "关注作者新作" },
-];
+const TAB_IDS: ReadonlyArray<TabId> = ["for-you", "week", "follow"];
 
 const INITIAL: Record<TabId, TabState> = {
     "for-you": { status: "idle" },
@@ -92,12 +89,26 @@ function toFreshSuccess(data: IllustPage): TabState {
     };
 }
 
+type Messages = ReturnType<typeof useMessages>;
+
+function tabLabel(m: Messages, id: TabId): string {
+    switch (id) {
+        case "for-you":
+            return m.home_tab_for_you();
+        case "week":
+            return m.home_tab_week();
+        case "follow":
+            return m.home_tab_follow();
+    }
+}
+
 type HomeIllustTabsProps = {
     activeTab: TabId;
     onActiveTabChange: (id: TabId) => void;
 };
 
 function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
+    const m = useMessages();
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
     const [forYou, setForYou] = useState<ForYouParams>(DEFAULT_FOR_YOU);
     const [follow, setFollow] = useState<FollowParams>(DEFAULT_FOLLOW);
@@ -248,13 +259,13 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
             <div className="mb-4 flex items-center border-muted/60 border-b">
                 <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1">
                     <TabsList variant="line" className="h-12 gap-0">
-                        {TABS.map((t) => (
+                        {TAB_IDS.map((id) => (
                             <TabsTrigger
-                                key={t.id}
-                                value={t.id}
+                                key={id}
+                                value={id}
                                 className="h-full px-4 text-sm data-active:text-primary data-active:after:h-[3px] data-active:after:bg-primary"
                             >
-                                {t.label}
+                                {tabLabel(m, id)}
                             </TabsTrigger>
                         ))}
                     </TabsList>
@@ -265,7 +276,7 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
                         size="icon-xs"
                         onClick={handleRefresh}
                         disabled={refreshDisabled}
-                        aria-label="刷新"
+                        aria-label={m.common_refresh()}
                     >
                         <HugeiconsIcon
                             icon={RefreshIcon}
@@ -281,7 +292,7 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
             {state.status === "success" &&
                 (state.illusts.length === 0 ? (
                     <div className="flex flex-col items-center gap-2 py-20 text-center">
-                        <div className="font-medium text-foreground text-lg">暂无数据</div>
+                        <div className="font-medium text-foreground text-lg">{m.common_no_data()}</div>
                     </div>
                 ) : filtered.length === 0 ? (
                     <FilteredEmpty totalBefore={totalBefore} />
@@ -296,7 +307,11 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
                                     onClick={handleLoadMore}
                                     disabled={state.loadingMore || state.refreshing}
                                 >
-                                    {state.loadingMore ? <LeapyLoading className="px-3" size={16} /> : "查看更多"}
+                                    {state.loadingMore ? (
+                                        <LeapyLoading className="px-3" size={16} />
+                                    ) : (
+                                        m.common_load_more()
+                                    )}
                                 </button>
                             </div>
                         )}

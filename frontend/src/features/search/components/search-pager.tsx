@@ -1,5 +1,6 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@/components/ui/button";
+import { useMessages } from "@/i18n";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,7 @@ type SearchPagerProps = {
 const WINDOW = 2;
 
 function SearchPager({ currentPage, hasNext, onJump }: SearchPagerProps) {
+    const m = useMessages();
     const start = Math.max(1, currentPage - WINDOW);
     const end = currentPage + WINDOW;
     const pages: number[] = [];
@@ -28,7 +30,7 @@ function SearchPager({ currentPage, hasNext, onJump }: SearchPagerProps) {
                 size="icon"
                 disabled={currentPage <= 1}
                 onClick={() => onJump(currentPage - 1)}
-                aria-label="上一页"
+                aria-label={m.common_prev_page()}
             >
                 <HugeiconsIcon icon={ChevronLeftIcon} size={16} strokeWidth={1.5} />
             </Button>
@@ -58,7 +60,7 @@ function SearchPager({ currentPage, hasNext, onJump }: SearchPagerProps) {
                 size="icon"
                 disabled={!hasNext}
                 onClick={() => onJump(currentPage + 1)}
-                aria-label="下一页"
+                aria-label={m.common_next_page()}
             >
                 <HugeiconsIcon icon={ChevronRightIcon} size={16} strokeWidth={1.5} />
             </Button>

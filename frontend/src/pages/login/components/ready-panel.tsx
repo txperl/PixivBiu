@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
+import { useMessages } from "@/i18n";
 import { useReveal } from "./use-reveal";
 
 export function ReadyPanel({ onContinue }: { onContinue: () => void }) {
+    const m = useMessages();
     const sparkleRef = useReveal<HTMLSpanElement>(100);
     const titleRef = useReveal<HTMLHeadingElement>(200);
     const ctaRef = useReveal<HTMLDivElement>(450);
@@ -12,14 +14,14 @@ export function ReadyPanel({ onContinue }: { onContinue: () => void }) {
                 ✦
             </div>
             <h1 ref={titleRef} className="font-heading font-normal text-3xl text-foreground leading-tight">
-                哇哦
+                {m.login_ready_wow()}
             </h1>
             <h1 ref={titleRef} className="font-heading font-normal text-3xl text-foreground leading-tight">
-                一切就绪，让我们开始吧！
+                {m.login_ready_title()}
             </h1>
             <div ref={ctaRef} className="mt-2">
                 <Button type="button" size="lg" onClick={onContinue}>
-                    进入 PixivBiu →
+                    {m.login_ready_cta()}
                 </Button>
             </div>
         </div>

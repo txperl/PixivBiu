@@ -47,16 +47,25 @@ export function toPatchValue(field: FieldSpec, value: string): unknown {
     return value;
 }
 
+// A locale-independent client validation result. The hook resolves it to a
+// message at render time (validateClient is a pure function, so it cannot call
+// hooks itself); param carries the bound (min/max) for the ranged variants.
+export type ClientValidationError =
+    | { kind: "required" }
+    | { kind: "integer" }
+    | { kind: "min"; param: number }
+    | { kind: "max"; param: number };
+
 // Light client-side guard, mainly to avoid sending NaN for integer fields
 // and to give instant range feedback. The backend remains authoritative.
-export function validateClient(field: FieldSpec, value: string): string | null {
+export function validateClient(field: FieldSpec, value: string): ClientValidationError | null {
     if (field.type === "integer") {
         const trimmed = value.trim();
-        if (trimmed === "") return "请输入数值";
+        if (trimmed === "") return { kind: "required" };
         const n = Number(trimmed);
-        if (!Number.isFinite(n) || !Number.isInteger(n)) return "请输入整数";
-        if (field.minimum != null && n < field.minimum) return `不能小于 ${field.minimum}`;
-        if (field.maximum != null && n > field.maximum) return `不能大于 ${field.maximum}`;
+        if (!Number.isFinite(n) || !Number.isInteger(n)) return { kind: "integer" };
+        if (field.minimum != null && n < field.minimum) return { kind: "min", param: field.minimum };
+        if (field.maximum != null && n > field.maximum) return { kind: "max", param: field.maximum };
     }
     return null;
 }

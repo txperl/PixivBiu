@@ -15,25 +15,44 @@ import {
     type SearchSort,
     type SearchTarget,
 } from "@/features/search/api";
+import { useMessages } from "@/i18n";
 
-const TARGET_LABELS: Record<SearchTarget, string> = {
-    partial_match_for_tags: "标签部分匹配",
-    exact_match_for_tags: "标签完全匹配",
-    title_and_caption: "标题与描述",
-    keyword: "关键词",
-};
+type Messages = ReturnType<typeof useMessages>;
 
-const SORT_LABELS: Record<SearchSort, string> = {
-    date_desc: "最新发布",
-    date_asc: "最早发布",
-    popular_desc: "人气降序（仅 Premium）",
-};
+function targetLabel(m: Messages, target: SearchTarget): string {
+    switch (target) {
+        case "partial_match_for_tags":
+            return m.search_target_partial_match_for_tags();
+        case "exact_match_for_tags":
+            return m.search_target_exact_match_for_tags();
+        case "title_and_caption":
+            return m.search_target_title_and_caption();
+        case "keyword":
+            return m.search_target_keyword();
+    }
+}
 
-const DURATION_LABELS: Record<SearchDuration, string> = {
-    within_last_day: "近一天",
-    within_last_week: "近一周",
-    within_last_month: "近一月",
-};
+function sortLabel(m: Messages, sort: SearchSort): string {
+    switch (sort) {
+        case "date_desc":
+            return m.search_sort_date_desc();
+        case "date_asc":
+            return m.search_sort_date_asc();
+        case "popular_desc":
+            return m.search_sort_popular_desc();
+    }
+}
+
+function durationLabel(m: Messages, duration: SearchDuration): string {
+    switch (duration) {
+        case "within_last_day":
+            return m.search_duration_within_last_day();
+        case "within_last_week":
+            return m.search_duration_within_last_week();
+        case "within_last_month":
+            return m.search_duration_within_last_month();
+    }
+}
 
 const DATE_FORMAT = "yyyy-MM-dd";
 
@@ -60,6 +79,7 @@ function DatePickerField({
     maxDate?: Date;
     inactive?: boolean;
 }) {
+    const m = useMessages();
     const selected = parseDate(value);
     return (
         <FilterRow label={label} inactive={inactive}>
@@ -98,7 +118,7 @@ function DatePickerField({
                         type="button"
                         variant="ghost"
                         size="icon-xs"
-                        aria-label="清除"
+                        aria-label={m.search_filter_date_clear()}
                         onClick={() => onChange(undefined)}
                     >
                         ×
@@ -164,11 +184,12 @@ export type SearchIllustSpecialFiltersProps = {
 };
 
 export function SearchIllustSpecialFilters(props: SearchIllustSpecialFiltersProps) {
-    const targetItems = SEARCH_TARGETS.map((t) => ({ value: t, label: TARGET_LABELS[t] }));
-    const sortItems = SEARCH_SORTS.map((s) => ({ value: s, label: SORT_LABELS[s] }));
+    const m = useMessages();
+    const targetItems = SEARCH_TARGETS.map((t) => ({ value: t, label: targetLabel(m, t) }));
+    const sortItems = SEARCH_SORTS.map((s) => ({ value: s, label: sortLabel(m, s) }));
     const durationItems = [
-        { value: "__any__", label: "全部时间" },
-        ...SEARCH_DURATIONS.map((d) => ({ value: d, label: DURATION_LABELS[d] })),
+        { value: "__any__", label: m.search_duration_any() },
+        ...SEARCH_DURATIONS.map((d) => ({ value: d, label: durationLabel(m, d) })),
     ] as const;
     const endMin = props.startDate ? parseDate(props.startDate) : undefined;
     const startMax = props.endDate ? parseDate(props.endDate) : undefined;
@@ -176,48 +197,48 @@ export function SearchIllustSpecialFilters(props: SearchIllustSpecialFiltersProp
     return (
         <div className="flex flex-col gap-3">
             <LabeledSelect
-                label="匹配方式"
+                label={m.search_filter_match()}
                 value={props.target}
                 options={targetItems}
                 onChange={props.onTargetChange}
                 inactive={props.target === DEFAULT_SEARCH_TARGET}
             />
             <LabeledSelect
-                label="排序"
+                label={m.search_filter_sort()}
                 value={props.sort}
                 options={sortItems}
                 onChange={props.onSortChange}
                 inactive={props.sort === DEFAULT_SEARCH_SORT}
             />
             <LabeledSelect
-                label="时间窗"
+                label={m.search_filter_time_window()}
                 value={props.duration ?? "__any__"}
                 options={durationItems}
                 onChange={(v) => props.onDurationChange(v === "__any__" ? undefined : (v as SearchDuration))}
                 inactive={props.duration === undefined}
             />
             <DatePickerField
-                label="发布起"
+                label={m.search_filter_start_date()}
                 value={props.startDate}
                 onChange={props.onStartDateChange}
-                placeholder="不限"
+                placeholder={m.search_filter_date_any()}
                 maxDate={startMax}
                 inactive={props.startDate === undefined}
             />
             <DatePickerField
-                label="发布止"
+                label={m.search_filter_end_date()}
                 value={props.endDate}
                 onChange={props.onEndDateChange}
-                placeholder="不限"
+                placeholder={m.search_filter_date_any()}
                 minDate={endMin}
                 inactive={props.endDate === undefined}
             />
-            <FilterRow label="AI 作品" inactive={!props.excludeAi}>
+            <FilterRow label={m.search_filter_ai()} inactive={!props.excludeAi}>
                 <Segmented
                     value={props.excludeAi ? "exclude" : "any"}
                     options={[
-                        { value: "any", label: "包含" },
-                        { value: "exclude", label: "排除 AI" },
+                        { value: "any", label: m.search_ai_include() },
+                        { value: "exclude", label: m.search_ai_exclude() },
                     ]}
                     onChange={(v) => props.onExcludeAiChange(v === "exclude")}
                 />
@@ -234,22 +255,23 @@ export type SearchUserSpecialFiltersProps = {
 };
 
 export function SearchUserSpecialFilters(props: SearchUserSpecialFiltersProps) {
-    const sortItems = SEARCH_SORTS.map((s) => ({ value: s, label: SORT_LABELS[s] }));
+    const m = useMessages();
+    const sortItems = SEARCH_SORTS.map((s) => ({ value: s, label: sortLabel(m, s) }));
     const durationItems = [
-        { value: "__any__", label: "全部时间" },
-        ...SEARCH_DURATIONS.map((d) => ({ value: d, label: DURATION_LABELS[d] })),
+        { value: "__any__", label: m.search_duration_any() },
+        ...SEARCH_DURATIONS.map((d) => ({ value: d, label: durationLabel(m, d) })),
     ] as const;
     return (
         <div className="flex flex-col gap-3">
             <LabeledSelect
-                label="排序"
+                label={m.search_filter_sort()}
                 value={props.sort}
                 options={sortItems}
                 onChange={props.onSortChange}
                 inactive={props.sort === DEFAULT_SEARCH_SORT}
             />
             <LabeledSelect
-                label="时间窗"
+                label={m.search_filter_time_window()}
                 value={props.duration ?? "__any__"}
                 options={durationItems}
                 onChange={(v) => props.onDurationChange(v === "__any__" ? undefined : (v as SearchDuration))}

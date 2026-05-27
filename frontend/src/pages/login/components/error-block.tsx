@@ -1,9 +1,11 @@
 import type { AuthApiError } from "@/features/auth/api";
 import { humanizeAuthError } from "@/features/auth/utils";
+import { useApiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export function ErrorBlock({ error, className }: { error: AuthApiError; className?: string }) {
-    const message = humanizeAuthError(error.message) ?? error.message;
+    const resolveApiError = useApiErrorMessage();
+    const message = resolveApiError(error);
     const detail = humanizeAuthError(error.detail);
     return (
         <div

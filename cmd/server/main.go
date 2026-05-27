@@ -24,6 +24,7 @@ import (
 	"github.com/txperl/PixivBiu/internal/auth"
 	"github.com/txperl/PixivBiu/internal/config"
 	"github.com/txperl/PixivBiu/internal/download"
+	"github.com/txperl/PixivBiu/internal/i18n"
 	"github.com/txperl/PixivBiu/internal/inbox"
 	"github.com/txperl/PixivBiu/internal/pixiv"
 	"github.com/txperl/PixivBiu/internal/server"
@@ -82,6 +83,11 @@ func run() error {
 		return fmt.Errorf("init logger: %w", err)
 	}
 	slog.SetDefault(logger)
+
+	// tr localises the boot banner and lifecycle log messages only;
+	// structured slog fields and access logs stay English. The locale is
+	// fixed at startup (log.language is not a reloadable concern).
+	tr := i18n.New(i18n.Resolve(cfg.Log.Language))
 
 	store := state.NewStore(cfg.Pixiv.StateFile)
 	svc, err := pixiv.NewService(cfg.Pixiv, logger, store)
@@ -156,11 +162,11 @@ func run() error {
 		WriteTimeout: cfg.Server.Timeouts.Write,
 	}
 
-	printBanner(cfg, svc, addr, cfgMgr.StorePath())
+	printBanner(cfg, svc, tr, addr, cfgMgr.StorePath())
 
 	errCh := make(chan error, 1)
 	go func() {
-		logger.Info("server starting", slog.String("server.address", addr))
+		logger.Info(tr.T("lifecycle.starting"), slog.String("server.address", addr))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -174,10 +180,10 @@ func run() error {
 			return fmt.Errorf("listen: %w", err)
 		}
 	case <-ctx.Done():
-		logger.Info("shutdown signal received")
+		logger.Info(tr.T("lifecycle.shutdown_signal"))
 	case <-restartCh:
 		restarting = true
-		logger.Info("restart requested; draining for re-exec")
+		logger.Info(tr.T("lifecycle.restart_draining"))
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.Timeouts.Shutdown)
@@ -193,7 +199,7 @@ func run() error {
 		// non-SSE request must not strand us here. Force-close whatever
 		// the drain didn't finish before replacing the process image.
 		if shutdownErr != nil {
-			logger.Warn("graceful drain timed out before restart; forcing close",
+			logger.Warn(tr.T("lifecycle.drain_timeout"),
 				slog.Any("error", shutdownErr))
 			_ = srv.Close()
 		}
@@ -206,21 +212,23 @@ func run() error {
 		// signal dispositions, and the deferred stop() covers a failed reexec.
 		dlMgr.Shutdown()
 		svc.Shutdown()
-		logger.Info("re-executing to apply restart-required settings")
+		logger.Info(tr.T("lifecycle.reexec"))
 		return reexec()
 	}
 
 	if shutdownErr != nil {
 		return fmt.Errorf("shutdown: %w", shutdownErr)
 	}
-	logger.Info("server stopped")
+	logger.Info(tr.T("lifecycle.stopped"))
 	return nil
 }
 
 // printBanner writes a human-friendly boot summary to stderr: key URLs,
 // auth state, and the most-asked-about config fields. slog keeps writing to
-// stdout, so the banner stays out of the log stream.
-func printBanner(cfg *config.Config, svc *pixiv.Service, addr, settingsPath string) {
+// stdout, so the banner stays out of the log stream. The descriptive prose
+// (tagline, "Listening" label, ready line) is localised via tr; the technical
+// field labels (API/Docs/…) and literal addresses are left as-is.
+func printBanner(cfg *config.Config, svc *pixiv.Service, tr *i18n.Translator, addr, settingsPath string) {
 	displayHost := cfg.Server.Host
 	switch displayHost {
 	case "0.0.0.0", "::", "":
@@ -251,7 +259,9 @@ func printBanner(cfg *config.Config, svc *pixiv.Service, addr, settingsPath stri
 	const banner = `
 ───────────────────────────────────────────────────────────────
  PixivBiu     %s (%s %s/%s)
- Listening    %s
+ %s
+
+ %s  %s
 
    API      %s/api/v1
    Docs     %s/docs
@@ -265,14 +275,16 @@ func printBanner(cfg *config.Config, svc *pixiv.Service, addr, settingsPath stri
 
    @Lang:%s @SNI-bypass:%s
 
- Go!
+ %s
 ───────────────────────────────────────────────────────────────
 `
 	fmt.Fprintf(os.Stderr, strings.TrimSpace(banner)+"\n",
 		version, runtime.Version(), runtime.GOOS, runtime.GOARCH,
-		addr,
+		tr.T("banner.tagline"),
+		tr.T("banner.listening"), addr,
 		base, base, base, base,
 		auth, cfg.Pixiv.StateFile, settingsPath, proxy, cfg.Pixiv.Language, sni,
+		tr.T("banner.ready"),
 	)
 }
 

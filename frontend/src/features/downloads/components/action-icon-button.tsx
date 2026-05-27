@@ -2,7 +2,7 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { DownloadApiError } from "@/features/downloads";
-import { apiErrorMessage } from "@/lib/api";
+import { useApiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import ConfirmPopover from "./confirm-popover";
 
@@ -23,8 +23,9 @@ export type ActionIconButtonProps = {
 };
 
 function ActionIconButton({ icon, title, ariaLabel, onAction, confirm, error, className }: ActionIconButtonProps) {
+    const resolveApiError = useApiErrorMessage();
     const [pending, setPending] = useState(false);
-    const titleAttr = error ? apiErrorMessage(error) : title;
+    const titleAttr = error ? resolveApiError(error) : title;
     const label = ariaLabel ?? title;
     const triggerClass = cn(
         "flex size-8 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-muted/60 disabled:cursor-wait disabled:opacity-60",

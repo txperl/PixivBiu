@@ -11,14 +11,6 @@ export const TABS = [
     "bookmarks_private",
 ] as const satisfies readonly Tab[];
 
-export const TAB_LABELS: Record<Tab, string> = {
-    illust: "插画",
-    manga: "漫画",
-    following: "关注",
-    bookmarks: "收藏",
-    bookmarks_private: "私密",
-};
-
 export const TAB_ICONS: Record<Tab, IconSvgElement> = {
     illust: ImageIcon,
     manga: MangaIcon,

@@ -1,7 +1,8 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { type ConfigSource, type FieldSpec, isAdvanced } from "@/features/settings";
+import { type ConfigSource, type FieldSpec, isAdvanced, useFieldText } from "@/features/settings";
+import { useMessages } from "@/i18n";
 import { RefreshIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { fieldId } from "../field-id";
@@ -32,6 +33,8 @@ export function SettingsField({
     onChange,
     onReset,
 }: SettingsFieldProps) {
+    const m = useMessages();
+    const fieldText = useFieldText();
     const id = fieldId(field.key);
     const errorId = `${id}-error`;
     const fromEnv = source === "env";
@@ -41,11 +44,7 @@ export function SettingsField({
     const canReset = overridden && !fromEnv && !field.internal;
     const secretSet = field.sensitive && (overridden || fromEnv);
     // Read-only fields explain where their value actually comes from.
-    const readOnlyNote = fromEnv
-        ? "由环境变量设置，无法在此修改"
-        : field.internal
-          ? "运维设置，仅可通过编辑配置文件修改"
-          : null;
+    const readOnlyNote = fromEnv ? m.settings_note_env() : field.internal ? m.settings_note_internal() : null;
 
     return (
         // Advanced / internal fields get a full-bleed muted band so they read
@@ -54,21 +53,27 @@ export function SettingsField({
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                     <label htmlFor={id} className="font-medium text-foreground text-sm">
-                        {field.description || field.key}
+                        {fieldText(field)}
                     </label>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <code className="font-mono text-[11px] text-muted-foreground">{field.key}</code>
-                        {field.internal && <Badge variant="outline">仅配置文件</Badge>}
-                        {field.restartRequired && !field.internal && <Badge variant="outline">需重启</Badge>}
-                        {pendingRestart && <Badge className="bg-accent text-accent-foreground">待重启生效</Badge>}
-                        {secretSet && <Badge variant="secondary">已设置</Badge>}
-                        {fromEnv && <Badge variant="outline">环境变量</Badge>}
+                        {field.internal && <Badge variant="outline">{m.settings_badge_config_file_only()}</Badge>}
+                        {field.restartRequired && !field.internal && (
+                            <Badge variant="outline">{m.settings_badge_restart_required()}</Badge>
+                        )}
+                        {pendingRestart && (
+                            <Badge className="bg-accent text-accent-foreground">
+                                {m.settings_badge_pending_restart()}
+                            </Badge>
+                        )}
+                        {secretSet && <Badge variant="secondary">{m.settings_badge_secret_set()}</Badge>}
+                        {fromEnv && <Badge variant="outline">{m.settings_badge_env()}</Badge>}
                     </div>
                 </div>
                 {canReset && (
                     <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={onReset}>
                         <HugeiconsIcon icon={RefreshIcon} />
-                        重置
+                        {m.common_reset()}
                     </Button>
                 )}
             </div>

@@ -1,5 +1,6 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@/components/ui/button";
+import { useMessages } from "@/i18n";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ function buildPageList(currentPage: number, totalPages: number): PageItem[] {
 }
 
 function DownloadsPager({ currentPage, totalPages, onJump }: DownloadsPagerProps) {
+    const m = useMessages();
     const items = buildPageList(currentPage, totalPages);
 
     return (
@@ -35,7 +37,7 @@ function DownloadsPager({ currentPage, totalPages, onJump }: DownloadsPagerProps
                 size="icon"
                 disabled={currentPage <= 1}
                 onClick={() => onJump(currentPage - 1)}
-                aria-label="上一页"
+                aria-label={m.common_prev_page()}
             >
                 <HugeiconsIcon icon={ChevronLeftIcon} size={16} strokeWidth={1.5} />
             </Button>
@@ -61,7 +63,7 @@ function DownloadsPager({ currentPage, totalPages, onJump }: DownloadsPagerProps
                         onClick={() => onJump(item.page)}
                         className={cn("min-w-8 font-mono", !isCurrent && "text-muted-foreground")}
                         aria-current={isCurrent ? "page" : undefined}
-                        aria-label={`第 ${item.page} 页`}
+                        aria-label={m.downloads_page_label({ page: item.page })}
                     >
                         {item.page}
                     </Button>
@@ -74,7 +76,7 @@ function DownloadsPager({ currentPage, totalPages, onJump }: DownloadsPagerProps
                 size="icon"
                 disabled={currentPage >= totalPages}
                 onClick={() => onJump(currentPage + 1)}
-                aria-label="下一页"
+                aria-label={m.common_next_page()}
             >
                 <HugeiconsIcon icon={ChevronRightIcon} size={16} strokeWidth={1.5} />
             </Button>

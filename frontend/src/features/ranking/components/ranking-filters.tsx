@@ -1,12 +1,45 @@
 import { Button } from "@/components/ui/button";
 import { RANKING_PERIODS, RANKING_VARIANTS, type RankingPeriod, type RankingVariantKey } from "@/features/ranking/api";
+import { useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-const PERIOD_LABELS: Record<RankingPeriod, string> = {
-    day: "日榜",
-    week: "周榜",
-    month: "月榜",
-};
+type Messages = ReturnType<typeof useMessages>;
+
+function periodLabel(m: Messages, period: RankingPeriod): string {
+    switch (period) {
+        case "day":
+            return m.ranking_period_day();
+        case "week":
+            return m.ranking_period_week();
+        case "month":
+            return m.ranking_period_month();
+    }
+}
+
+function variantLabel(m: Messages, key: RankingVariantKey): string {
+    switch (key) {
+        case "all":
+            return m.ranking_variant_all();
+        case "male":
+            return m.ranking_variant_male();
+        case "female":
+            return m.ranking_variant_female();
+        case "manga":
+            return m.common_manga();
+        case "r18":
+            return "R-18";
+        case "male_r18":
+            return m.ranking_variant_male_r18();
+        case "female_r18":
+            return m.ranking_variant_female_r18();
+        case "original":
+            return m.ranking_variant_original();
+        case "rookie":
+            return m.ranking_variant_rookie();
+        case "r18g":
+            return "R-18G";
+    }
+}
 
 type RankingFiltersProps = {
     period: RankingPeriod;
@@ -16,6 +49,7 @@ type RankingFiltersProps = {
 };
 
 function RankingFilters({ period, variantKey, onPeriodChange, onVariantChange }: RankingFiltersProps) {
+    const m = useMessages();
     const variants = RANKING_VARIANTS[period];
 
     return (
@@ -33,7 +67,7 @@ function RankingFilters({ period, variantKey, onPeriodChange, onVariantChange }:
                             className={cn(!active && "text-muted-foreground")}
                             aria-pressed={active}
                         >
-                            {PERIOD_LABELS[p]}
+                            {periodLabel(m, p)}
                         </Button>
                     );
                 })}
@@ -53,7 +87,7 @@ function RankingFilters({ period, variantKey, onPeriodChange, onVariantChange }:
                                 className={cn(!active && "text-muted-foreground")}
                                 aria-pressed={active}
                             >
-                                {v.label}
+                                {variantLabel(m, v.key)}
                             </Button>
                         );
                     })}

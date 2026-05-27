@@ -2,6 +2,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import FilterRow from "@/features/filter/components/filter-row";
 import Segmented from "@/features/filter/components/segmented";
 import type { IllustType } from "@/features/illusts/api";
+import { useMessages } from "@/i18n";
 
 type Props = {
     type: IllustType | undefined;
@@ -10,18 +11,19 @@ type Props = {
     onIncludeRankingChange: (v: boolean) => void;
 };
 
-const TYPE_ITEMS = [
-    { value: "__any__", label: "全部" },
-    { value: "illust", label: "插画" },
-    { value: "manga", label: "漫画" },
-] as const;
-
 function RecommendedSpecialFilters({ type, includeRankingIllusts, onTypeChange, onIncludeRankingChange }: Props) {
+    const m = useMessages();
+    const typeItems = [
+        { value: "__any__", label: m.common_all() },
+        { value: "illust", label: m.common_illust() },
+        { value: "manga", label: m.common_manga() },
+    ] as const;
+
     return (
         <div className="flex flex-col gap-3">
-            <FilterRow label="作品类型" inactive={type === undefined}>
+            <FilterRow label={m.filter_illust_type_label()} inactive={type === undefined}>
                 <Select
-                    items={TYPE_ITEMS}
+                    items={typeItems}
                     value={type ?? "__any__"}
                     onValueChange={(v) => {
                         if (typeof v !== "string") return;
@@ -33,7 +35,7 @@ function RecommendedSpecialFilters({ type, includeRankingIllusts, onTypeChange, 
                     </SelectTrigger>
                     <SelectContent>
                         <SelectGroup>
-                            {TYPE_ITEMS.map((opt) => (
+                            {typeItems.map((opt) => (
                                 <SelectItem key={opt.value} value={opt.value} className="text-xs">
                                     {opt.label}
                                 </SelectItem>
@@ -42,12 +44,12 @@ function RecommendedSpecialFilters({ type, includeRankingIllusts, onTypeChange, 
                     </SelectContent>
                 </Select>
             </FilterRow>
-            <FilterRow label="每日排行注入" inactive={includeRankingIllusts}>
+            <FilterRow label={m.filter_recommended_ranking_label()} inactive={includeRankingIllusts}>
                 <Segmented
                     value={includeRankingIllusts ? "on" : "off"}
                     options={[
-                        { value: "on", label: "保留" },
-                        { value: "off", label: "排除" },
+                        { value: "on", label: m.filter_recommended_ranking_keep() },
+                        { value: "off", label: m.filter_recommended_ranking_exclude() },
                     ]}
                     onChange={(v) => onIncludeRankingChange(v === "on")}
                 />

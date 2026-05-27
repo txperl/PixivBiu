@@ -1,8 +1,13 @@
-// detectPasteIssue returns a friendly hint for inputs that look like they're
-// going to fail before we even round-trip the server — e.g. the user pasted
-// the Pixiv intermediate page URL (which has no `code=`) instead of the
+// A paste-issue kind the caller resolves to a localized hint string. This
+// helper is not a React component, so it can't call useMessages(); it returns
+// a stable key instead and lets the component pick the message.
+export type PasteIssue = "intermediate" | "pixiv" | "generic";
+
+// detectPasteIssue returns the kind of friendly hint for inputs that look like
+// they're going to fail before we even round-trip the server — e.g. the user
+// pasted the Pixiv intermediate page URL (which has no `code=`) instead of the
 // callback URL. Returns null when the value looks plausible.
-export function detectPasteIssue(raw: string): string | null {
+export function detectPasteIssue(raw: string): PasteIssue | null {
     const trimmed = raw.trim();
     if (!trimmed) return null;
     if (/[?&]code=/.test(trimmed)) return null;
@@ -13,12 +18,12 @@ export function detectPasteIssue(raw: string): string | null {
         return null;
     }
     if (url.hostname === "accounts.pixiv.net") {
-        return "这是 Pixiv 登录中转页的链接，里面没有 code。要找的是浏览器 DevTools › Network 里那条 “…/auth/pixiv/callback?code=…”。";
+        return "intermediate";
     }
     if (url.hostname.endsWith("pixiv.net")) {
-        return "这个 pixiv 链接里没有 code= 参数。要复制的是 Network 面板里 “callback?code=…” 那一行。";
+        return "pixiv";
     }
-    return "这个链接里没有 code= 参数。请确认从 DevTools › Network 复制的是 “callback?code=…” 那条请求的 URL。";
+    return "generic";
 }
 
 // Upstream (Pixiv) errors sometimes come through as a JSON blob serialized

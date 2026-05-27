@@ -8,12 +8,14 @@ import {
     type TrendingTag,
     writeTrendingCache,
 } from "@/features/search/trending-tags";
+import { useMessages } from "@/i18n";
 
 const TRENDING_LIMIT = 18;
 
 type State = { status: "loading" } | { status: "ready"; tags: TrendingTag[] } | { status: "error" };
 
 function DiscoveryTrending() {
+    const m = useMessages();
     const navigate = useNavigate();
     const [state, setState] = useState<State>(() => {
         const cached = readTrendingCache();
@@ -45,8 +47,8 @@ function DiscoveryTrending() {
     return (
         <section className="flex flex-col gap-3">
             <div className="flex items-baseline gap-2">
-                <h2 className="m-0 font-medium text-2xl text-foreground leading-tight">今日热门标签</h2>
-                <span className="font-mono text-muted-foreground text-xs">日榜</span>
+                <h2 className="m-0 font-medium text-2xl text-foreground leading-tight">{m.search_trending_title()}</h2>
+                <span className="font-mono text-muted-foreground text-xs">{m.search_trending_daily()}</span>
             </div>
             {state.status === "loading" && (
                 <div className="flex flex-wrap gap-2">
@@ -57,11 +59,11 @@ function DiscoveryTrending() {
                 </div>
             )}
             {state.status === "error" && (
-                <div className="text-muted-foreground text-sm">推荐获取失败，刷新页面再试</div>
+                <div className="text-muted-foreground text-sm">{m.search_trending_error()}</div>
             )}
             {state.status === "ready" &&
                 (state.tags.length === 0 ? (
-                    <div className="text-lg text-muted-foreground">空空的</div>
+                    <div className="text-lg text-muted-foreground">{m.common_empty()}</div>
                 ) : (
                     <div className="flex flex-wrap gap-2">
                         {state.tags.map((t) => (

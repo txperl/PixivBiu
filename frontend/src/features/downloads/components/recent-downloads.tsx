@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useDownloadCounts, useDownloadsPage } from "@/features/downloads";
 import DownloadsTable from "@/features/downloads/components/downloads-table";
+import { useMessages } from "@/i18n";
 import { DownloadIcon } from "@/lib/icons";
 
 const RECENT_LIMIT = 10;
 
 function RecentDownloads() {
+    const m = useMessages();
     const { items } = useDownloadsPage({ page: 1, perPage: RECENT_LIMIT });
     const { activeCount, doneCount } = useDownloadCounts();
 
@@ -16,12 +18,12 @@ function RecentDownloads() {
         <Sheet>
             <SheetHead
                 icon={DownloadIcon}
-                title="下载管理"
-                meta={`${activeCount} 进行 / ${doneCount} 完成`}
+                title={m.downloads_title()}
+                meta={m.downloads_recent_done_count({ active: activeCount, done: doneCount })}
                 actions={
                     <NavLink to="/downloads">
                         <Button variant="ghost" size="sm">
-                            查看全部
+                            {m.common_view_all()}
                         </Button>
                     </NavLink>
                 }

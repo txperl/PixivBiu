@@ -1,6 +1,7 @@
 import { type ReactElement, type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 export type ConfirmPopoverProps = {
@@ -26,6 +27,7 @@ function ConfirmPopover({
     wrapTrigger,
     onConfirm,
 }: ConfirmPopoverProps) {
+    const m = useMessages();
     const [open, setOpen] = useState(false);
     const [pending, setPending] = useState(false);
 
@@ -48,10 +50,10 @@ function ConfirmPopover({
                 <div className="text-foreground text-sm">{body}</div>
                 <div className="mt-1 flex justify-end gap-2">
                     <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={pending}>
-                        取消
+                        {m.common_cancel()}
                     </Button>
                     <Button variant={danger ? "destructive" : "default"} size="sm" onClick={run} disabled={pending}>
-                        {pending ? "处理中…" : confirmLabel}
+                        {pending ? m.common_processing() : confirmLabel}
                     </Button>
                 </div>
             </PopoverContent>

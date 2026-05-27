@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { addFollow, deleteFollow } from "@/features/users/api";
-import { apiErrorMessage } from "@/lib/api";
+import { useMessages } from "@/i18n";
+import { useApiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type FollowButtonProps = {
@@ -11,6 +12,8 @@ type FollowButtonProps = {
 };
 
 function FollowButton({ userId, initialIsFollowed, className }: FollowButtonProps) {
+    const m = useMessages();
+    const resolveApiError = useApiErrorMessage();
     const [followed, setFollowed] = useState(initialIsFollowed);
     const [pending, setPending] = useState(false);
     const [errorTitle, setErrorTitle] = useState<string | null>(null);
@@ -39,7 +42,7 @@ function FollowButton({ userId, initialIsFollowed, className }: FollowButtonProp
         const { error } = next ? await addFollow(userId) : await deleteFollow(userId);
         if (error) {
             setFollowed(!next);
-            setErrorTitle(apiErrorMessage(error));
+            setErrorTitle(resolveApiError(error));
         }
         setPending(false);
     };
@@ -61,11 +64,11 @@ function FollowButton({ userId, initialIsFollowed, className }: FollowButtonProp
         >
             {followed ? (
                 <>
-                    <span className="group-hover/follow:hidden">已关注</span>
-                    <span className="hidden group-hover/follow:inline">取消关注</span>
+                    <span className="group-hover/follow:hidden">{m.user_follow_followed()}</span>
+                    <span className="hidden group-hover/follow:inline">{m.user_follow_unfollow()}</span>
                 </>
             ) : (
-                "+ 关注"
+                m.user_follow_action()
             )}
         </button>
     );

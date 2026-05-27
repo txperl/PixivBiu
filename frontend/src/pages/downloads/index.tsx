@@ -14,20 +14,16 @@ import {
 import ConfirmPopover from "@/features/downloads/components/confirm-popover";
 import DownloadsPager from "@/features/downloads/components/downloads-pager";
 import DownloadsTable from "@/features/downloads/components/downloads-table";
+import { useMessages } from "@/i18n";
 import { DeleteIcon, RefreshIcon } from "@/lib/icons";
 import { patchParams, readPage } from "@/lib/url-params";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "active" | "done" | "failed";
 
-const FILTERS: { key: Filter; label: string }[] = [
-    { key: "all", label: "全部" },
-    { key: "active", label: "进行中" },
-    { key: "done", label: "已完成" },
-    { key: "failed", label: "失败/取消" },
-];
+const FILTER_KEYS: Filter[] = ["all", "active", "done", "failed"];
 
-const VALID_FILTERS = new Set<Filter>(FILTERS.map((f) => f.key));
+const VALID_FILTERS = new Set<Filter>(FILTER_KEYS);
 
 // Maps the UI's filter buckets to the backend's status enum. "all" is
 // undefined: no status query → server returns every job.
@@ -38,37 +34,44 @@ const FILTER_STATUSES: Record<Filter, DownloadStatus[] | undefined> = {
     failed: ["failed", "cancelled"],
 };
 
-const EMPTY_MESSAGE: Record<Filter, string> = {
-    all: "暂无下载",
-    active: "当前没有进行中的下载",
-    done: "还没有完成的下载",
-    failed: "没有失败或取消的下载",
-};
-
 const CLEAR_STATUSES: Record<Exclude<Filter, "active">, DownloadStatus[]> = {
     all: [...TERMINAL_STATUSES],
     done: ["completed"],
     failed: ["failed", "cancelled"],
 };
 
-const CLEAR_LABEL: Record<Exclude<Filter, "active">, string> = {
-    all: "已结束的",
-    done: "已完成的",
-    failed: "失败/取消的",
-};
-
 function DownloadsEmpty({ filter }: { filter: Filter }) {
+    const m = useMessages();
+    const messages: Record<Filter, string> = {
+        all: m.downloads_empty_all(),
+        active: m.downloads_empty_active(),
+        done: m.downloads_empty_done(),
+        failed: m.downloads_empty_failed(),
+    };
     return (
         <div className="px-[18px] py-16 text-center">
-            <div className="font-medium text-foreground text-sm">{EMPTY_MESSAGE[filter]}</div>
-            <div className="mt-1 text-muted-foreground text-xs">从作品卡片右下角的下载按钮开始</div>
+            <div className="font-medium text-foreground text-sm">{messages[filter]}</div>
+            <div className="mt-1 text-muted-foreground text-xs">{m.downloads_empty_hint()}</div>
         </div>
     );
 }
 
 function DownloadsPage() {
+    const m = useMessages();
     const [searchParams, setSearchParams] = useSearchParams();
     const [refreshing, setRefreshing] = useState(false);
+
+    const filterLabels: Record<Filter, string> = {
+        all: m.downloads_filter_all(),
+        active: m.downloads_filter_active(),
+        done: m.downloads_filter_done(),
+        failed: m.downloads_filter_failed(),
+    };
+    const clearLabels: Record<Exclude<Filter, "active">, string> = {
+        all: m.downloads_clear_label_all(),
+        done: m.downloads_clear_label_done(),
+        failed: m.downloads_clear_label_failed(),
+    };
 
     const filterParam = searchParams.get("filter") as Filter | null;
     const filter: Filter = filterParam && VALID_FILTERS.has(filterParam) ? filterParam : "all";
@@ -82,8 +85,8 @@ function DownloadsPage() {
     const { clear } = useDownloadMutations();
     const [clearing, setClearing] = useState(false);
 
-    // "all" tab 的 total 含 active；终态数 = total - activeCount。
-    // 其余非 active tab 的 total 本身即终态数。
+    // The "all" tab's total includes active jobs; terminal count = total - activeCount.
+    // For other (non-active) tabs the total itself is already the terminal count.
     const clearableCount = filter === "active" ? 0 : filter === "all" ? Math.max(0, total - activeCount) : total;
 
     const totalPages = Math.max(1, Math.ceil(total / DOWNLOADS_PAGE_SIZE));
@@ -137,26 +140,26 @@ function DownloadsPage() {
     return (
         <div className="relative flex flex-col gap-4 px-7 pt-7 pb-7">
             <header className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-                <h1 className="font-semibold text-5xl text-foreground">下载管理</h1>
+                <h1 className="font-semibold text-5xl text-foreground">{m.downloads_title()}</h1>
                 <span className="font-mono text-muted-foreground text-xs">
-                    {activeCount} 进行 / {total} 全部
+                    {m.downloads_counts({ active: activeCount, total })}
                 </span>
             </header>
 
             <div className="flex flex-wrap items-center gap-2">
-                {FILTERS.map((f) => (
+                {FILTER_KEYS.map((key) => (
                     <button
-                        key={f.key}
+                        key={key}
                         type="button"
-                        onClick={() => handleFilterChange(f.key)}
+                        onClick={() => handleFilterChange(key)}
                         className={cn(
                             "inline-flex h-8 cursor-pointer items-center rounded-full px-3 text-xs transition-colors",
-                            filter === f.key
+                            filter === key
                                 ? "bg-secondary font-medium text-secondary-foreground"
                                 : "bg-card text-muted-foreground hover:bg-muted",
                         )}
                     >
-                        {f.label}
+                        {filterLabels[key]}
                     </button>
                 ))}
                 <div className="flex-1" />
@@ -167,8 +170,11 @@ function DownloadsPage() {
                                 <HugeiconsIcon icon={DeleteIcon} />
                             </Button>
                         }
-                        body={`将清空 ${clearableCount} 条${CLEAR_LABEL[filter]}下载记录，已下载的文件会被保留。`}
-                        confirmLabel="清空"
+                        body={m.downloads_clear_confirm({
+                            count: clearableCount,
+                            label: clearLabels[filter as Exclude<Filter, "active">],
+                        })}
+                        confirmLabel={m.common_clear()}
                         danger
                         onConfirm={onClear}
                     />
@@ -180,7 +186,9 @@ function DownloadsPage() {
 
             <Sheet>
                 {isLoading ? (
-                    <div className="px-[18px] py-16 text-center text-muted-foreground text-sm">加载中…</div>
+                    <div className="px-[18px] py-16 text-center text-muted-foreground text-sm">
+                        {m.common_loading()}
+                    </div>
                 ) : (
                     <DownloadsTable jobs={items} empty={<DownloadsEmpty filter={filter} />} />
                 )}
