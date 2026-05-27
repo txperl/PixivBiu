@@ -40,8 +40,8 @@ type TimeoutsConfig struct {
 }
 
 type LogConfig struct {
-	Level  string `koanf:"level"  cfg:"desc=日志级别,enum=debug|info|warn|error"`
-	Format string `koanf:"format" cfg:"desc=输出格式,enum=text|json,restart=true"`
+	Level  string `koanf:"level"  cfg:"desc=日志级别,enum=debug|info|warn|error,advanced=true"`
+	Format string `koanf:"format" cfg:"desc=输出格式,enum=text|json,restart=true,advanced=true"`
 }
 
 type PixivConfig struct {

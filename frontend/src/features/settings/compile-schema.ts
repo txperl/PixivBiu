@@ -1,4 +1,4 @@
-import { CONTROL_OVERRIDE, FALLBACK_SECTION_ICON, SECTION_META } from "./presentation";
+import { CONTROL_OVERRIDE, FALLBACK_SECTION_ICON, isAdvanced, SECTION_META } from "./presentation";
 import type { CfgType, ConfigSchema, ControlKind, FieldSpec, JsonSchemaNode, SectionSpec } from "./types";
 
 function deriveControl(node: JsonSchemaNode, key: string, type: CfgType, isDuration: boolean): ControlKind {
@@ -61,14 +61,26 @@ export function compileSchema(schema: ConfigSchema): SectionSpec[] {
     const sections: SectionSpec[] = [];
     for (const [category, sectionFields] of byCategory) {
         const meta = SECTION_META[category];
+        // Within a section, the advanced/internal tier sinks below the everyday
+        // fields. Two filters = a stable partition that keeps each group in its
+        // original declaration order.
+        const fields = [...sectionFields.filter((f) => !isAdvanced(f)), ...sectionFields.filter((f) => isAdvanced(f))];
         sections.push({
             category,
             title: meta?.title ?? category,
             icon: meta?.icon ?? FALLBACK_SECTION_ICON,
-            fields: sectionFields,
+            fields,
         });
     }
 
-    sections.sort((a, b) => (SECTION_META[a.category]?.order ?? 99) - (SECTION_META[b.category]?.order ?? 99));
+    // A wholly advanced/internal section sinks below the rest; same-tier ties
+    // keep the presentation `order`.
+    const order = (c: string) => SECTION_META[c]?.order ?? 99;
+    sections.sort((a, b) => {
+        const advA = a.fields.every(isAdvanced);
+        const advB = b.fields.every(isAdvanced);
+        if (advA !== advB) return advA ? 1 : -1;
+        return order(a.category) - order(b.category);
+    });
     return sections;
 }

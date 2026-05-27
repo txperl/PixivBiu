@@ -1,7 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { ConfigSource, FieldSpec } from "@/features/settings";
+import { type ConfigSource, type FieldSpec, isAdvanced } from "@/features/settings";
 import { RefreshIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { fieldId } from "../field-id";
@@ -50,7 +50,7 @@ export function SettingsField({
     return (
         // Advanced / internal fields get a full-bleed muted band so they read
         // as a distinct, lower-priority tier within the otherwise plain list.
-        <div className={cn("py-4", (field.advanced || field.internal) && "-mx-[18px] bg-muted/50 px-[18px]")}>
+        <div className={cn("py-4", isAdvanced(field) && "-mx-[18px] bg-muted/50 px-[18px]")}>
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                     <label htmlFor={id} className="font-medium text-foreground text-sm">

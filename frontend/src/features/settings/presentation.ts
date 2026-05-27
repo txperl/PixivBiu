@@ -43,9 +43,14 @@ export const CONTROL_OVERRIDE: Record<string, ControlKind> = {
     "download.file_group_template": "textarea",
 };
 
-// Advanced and internal (program-only) fields are a lower-priority tier kept
-// out of sight until the "advanced options" toggle is on. Shared by the
-// section list and the per-section field list so the two never drift apart.
+// Advanced and internal (program-only) fields form one lower-priority tier:
+// hidden behind the "advanced options" toggle, visually banded, and sorted to
+// the bottom. The visibility check, the banding, and the ordering all share
+// this single predicate so the three never drift apart.
+export function isAdvanced(field: FieldSpec): boolean {
+    return field.advanced || field.internal;
+}
+
 export function isFieldVisible(field: FieldSpec, showAdvanced: boolean): boolean {
-    return showAdvanced || (!field.advanced && !field.internal);
+    return showAdvanced || !isAdvanced(field);
 }
