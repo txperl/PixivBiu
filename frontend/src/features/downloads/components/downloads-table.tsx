@@ -31,14 +31,30 @@ const TYPE_LABEL: Record<DownloadJob["illust_type"], string> = {
     ugoira: "动图",
 };
 
-function aggregateBytes(tasks: DownloadTask[]) {
+// Per-page byte sizes aren't known until each page's download starts (Pixiv's
+// metadata omits them), so a byte-ratio progress would only reflect the started
+// subset and snap backward as new sizes land. Weight each page equally instead —
+// the task count is known up front — with partial credit for the page in flight.
+// Single-image works and ugoira have one task, so this reduces to byte progress.
+function jobProgress(job: DownloadJob) {
+    const tasks = job.tasks;
     let downloaded = 0;
     let total = 0;
+    let fraction = 0;
     for (const t of tasks) {
         downloaded += t.downloaded_bytes;
         if (t.size_bytes > 0) total += t.size_bytes;
+        if (isTerminalStatus(t.status)) {
+            fraction += 1;
+        } else if (t.status === "running" && t.size_bytes > 0) {
+            fraction += Math.min(1, t.downloaded_bytes / t.size_bytes);
+        }
     }
-    return { downloaded, total };
+    if (tasks.length === 0) {
+        return { downloaded, total, pct: job.status === "completed" ? 100 : 0 };
+    }
+    const pct = Math.min(100, (fraction / tasks.length) * 100);
+    return { downloaded, total, pct };
 }
 
 function StatusBadge({ status, className }: { status: DownloadStatus; className?: string }) {
@@ -109,8 +125,7 @@ type JobRowProps = {
 
 function JobRowInner({ job, compact, isFirst, error, submitError, cancel, submit, remove }: JobRowProps) {
     const [expanded, setExpanded] = useState(false);
-    const { downloaded, total } = aggregateBytes(job.tasks);
-    const pct = total > 0 ? Math.min(100, (downloaded / total) * 100) : job.status === "completed" ? 100 : 0;
+    const { downloaded, total, pct } = jobProgress(job);
     const hue = hueFromId(job.illust_id);
     const terminal = isTerminalStatus(job.status);
 
@@ -178,18 +193,7 @@ function JobRowInner({ job, compact, isFirst, error, submitError, cancel, submit
                 {!compact && (
                     <>
                         <td className="px-[18px] py-3 text-right font-mono text-muted-foreground text-xs">
-                            {terminal ? (
-                                total > 0 ? (
-                                    formatBytes(total)
-                                ) : (
-                                    "-"
-                                )
-                            ) : (
-                                <>
-                                    {`${formatBytes(downloaded)} / `}
-                                    {total > 0 ? formatBytes(total) : "-"}
-                                </>
-                            )}
+                            {terminal ? (total > 0 ? formatBytes(total) : "-") : formatBytes(downloaded)}
                         </td>
                         <td className="px-[18px] py-3 text-right">
                             <div className="inline-flex gap-1">
