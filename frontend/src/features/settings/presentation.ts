@@ -13,9 +13,19 @@ import type { ControlKind, FieldSpec } from "./types";
 // non-blocking warning banner (the typed ConfigView still drives values).
 export const EXPECTED_SCHEMA_VERSION = "1";
 
-// Top offset (px) used when scroll-spy jumps to a section, so the heading
-// isn't flush against the scroll container's edge.
-export const SCROLL_OFFSET = 24;
+// The settings page is framed by one fixed top bar; everything that needs to
+// clear it derives from this single height so the bar, the sticky nav, the
+// scroll-spy landing point, and the observer's occluded strip never drift.
+export const HEADER_HEIGHT = 64; // matches the bar's h-16
+// Must equal the content wrapper's top padding (pt-6 = 24px). The sticky nav
+// then pins exactly where it already sits in normal flow, so it locks from the
+// first pixel of scroll instead of drifting up to a lower sticky line first.
+export const CONTENT_TOP_GAP = 24;
+
+// Where scroll-spy lands a section and where the sticky nav pins: just below
+// the fixed bar, so headings aren't hidden behind it.
+export const SCROLL_OFFSET = HEADER_HEIGHT + CONTENT_TOP_GAP;
+export const NAV_TOP = HEADER_HEIGHT + CONTENT_TOP_GAP;
 
 interface SectionMeta {
     title: string;

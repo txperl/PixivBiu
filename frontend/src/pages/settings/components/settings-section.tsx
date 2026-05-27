@@ -1,7 +1,7 @@
 import { Sheet, SheetHead } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
 import ConfirmPopover from "@/features/downloads/components/confirm-popover";
-import { type ConfigSource, isFieldVisible, type SectionSpec } from "@/features/settings";
+import { type ConfigSource, isFieldVisible, SCROLL_OFFSET, type SectionSpec } from "@/features/settings";
 import { SettingsField } from "./settings-field";
 
 interface SettingsSectionProps {
@@ -35,7 +35,11 @@ export function SettingsSection({
     const visibleFields = section.fields.filter((f) => isFieldVisible(f, showAdvanced));
 
     return (
-        <section id={`section-${section.category}`} data-section-id={section.category} className="scroll-mt-6">
+        <section
+            id={`section-${section.category}`}
+            data-section-id={section.category}
+            style={{ scrollMarginTop: SCROLL_OFFSET }}
+        >
             <Sheet>
                 <SheetHead
                     icon={section.icon}

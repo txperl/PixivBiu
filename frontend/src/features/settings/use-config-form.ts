@@ -106,6 +106,9 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
             delete next[key];
             return next;
         });
+        // A prior save error belongs to the previously submitted state; editing
+        // makes it stale, so drop it (same-ref no-op when already clear).
+        setGeneralError((prev) => (prev === undefined ? prev : undefined));
     }, []);
 
     const save = useCallback(async () => {

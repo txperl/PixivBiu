@@ -1,5 +1,5 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
-import { SCROLL_OFFSET } from "./presentation";
+import { HEADER_HEIGHT, SCROLL_OFFSET } from "./presentation";
 
 // Sections are tagged with `data-section-id`; this finds them inside the
 // scroll container so the hook stays decoupled from the markup.
@@ -50,7 +50,9 @@ export function useScrollSpy(scrollerRef: RefObject<HTMLElement | null>, ids: st
                 }
                 if (best) setActiveId(best);
             },
-            { root: scroller, rootMargin: "0px 0px -65% 0px", threshold: 0 },
+            // Inset the top by the fixed bar's height so the strip it occludes
+            // doesn't count as "in view" and the wrong section never wins.
+            { root: scroller, rootMargin: `-${HEADER_HEIGHT}px 0px -65% 0px`, threshold: 0 },
         );
 
         for (const id of sectionIds) {

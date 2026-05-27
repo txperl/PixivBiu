@@ -5,11 +5,28 @@ import LeapyLoading from "@/components/series-leapy/leapy-loading";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import ConfirmPopover from "@/features/downloads/components/confirm-popover";
-import { isFieldVisible, restartConfig, useConfig, useConfigForm, useScrollSpy } from "@/features/settings";
+import {
+    isFieldVisible,
+    NAV_TOP,
+    restartConfig,
+    type SettingsSaveState,
+    settingsSaveState,
+    useConfig,
+    useConfigForm,
+    useScrollSpy,
+} from "@/features/settings";
 import { apiErrorMessage } from "@/lib/api";
-import { ActionBar } from "./components/action-bar";
+import { cn } from "@/lib/utils";
+import { SettingsHeaderActions } from "./components/header-actions";
 import { SettingsNav } from "./components/settings-nav";
 import { SettingsSection } from "./components/settings-section";
+
+// Tints the whole fixed bar by state, so the frame signals unsaved / needs-restart at a glance.
+const HEADER_TINT: Record<SettingsSaveState, string> = {
+    save: "bg-secondary/85",
+    restart: "bg-accent/85",
+    none: "bg-background/85",
+};
 
 function RestartOverlay() {
     return (
@@ -48,6 +65,7 @@ function SettingsPage() {
     const pendingKeys = view?.pending_restart ?? [];
     const pendingSet = useMemo(() => new Set(pendingKeys), [pendingKeys]);
     const hasOverrides = form.overriddenKeys.size > 0;
+    const headerState = settingsSaveState(form.dirtyKeys.length, pendingKeys.length);
 
     const [restarting, setRestarting] = useState(false);
     const onRestart = useCallback(async () => {
@@ -66,62 +84,81 @@ function SettingsPage() {
     }, [view, awaitRestart]);
 
     return (
-        <div ref={rootRef} className="px-7 pt-7 pb-7">
-            <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <h1 className="font-semibold text-5xl text-foreground">设置</h1>
+        <div ref={rootRef} className="flex flex-col">
+            {/* The page's single fixed frame: title, advanced toggle, reset-all,
+                and the save/restart state all live here, so nothing floats. */}
+            <header
+                className={cn(
+                    "sticky top-0 z-20 flex h-16 items-center gap-3 border-border border-b px-7 backdrop-blur transition-colors",
+                    HEADER_TINT[headerState],
+                )}
+            >
+                <h1 className="font-semibold text-2xl text-foreground">设置</h1>
                 <div className="flex-1" />
                 {loadState.status === "success" && (
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                        <span>高级选项</span>
-                        <Switch
-                            checked={showAdvanced}
-                            aria-label="显示高级选项"
-                            onCheckedChange={(c) => setShowAdvanced(c)}
+                    <>
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                            <span>高级选项</span>
+                            <Switch
+                                checked={showAdvanced}
+                                aria-label="显示高级选项"
+                                onCheckedChange={(c) => setShowAdvanced(c)}
+                            />
+                        </div>
+                        {hasOverrides && (
+                            <ConfirmPopover
+                                trigger={
+                                    <Button variant="ghost" size="sm">
+                                        全部重置
+                                    </Button>
+                                }
+                                body="将所有设置恢复为默认值（不影响环境变量与运维设置）。"
+                                confirmLabel="全部重置"
+                                danger
+                                align="end"
+                                onConfirm={form.resetAll}
+                            />
+                        )}
+                        <SettingsHeaderActions
+                            dirtyCount={form.dirtyKeys.length}
+                            saving={form.saving}
+                            error={form.generalError}
+                            onSave={form.save}
+                            onDiscard={form.discard}
+                            pendingKeys={pendingKeys}
+                            restarting={restarting}
+                            onRestart={onRestart}
                         />
-                    </div>
-                )}
-                {hasOverrides && (
-                    <ConfirmPopover
-                        trigger={
-                            <Button variant="ghost" size="sm">
-                                全部重置
-                            </Button>
-                        }
-                        body="将所有设置恢复为默认值（不影响环境变量与运维设置）。"
-                        confirmLabel="全部重置"
-                        danger
-                        align="end"
-                        onConfirm={form.resetAll}
-                    />
+                    </>
                 )}
             </header>
 
-            {loadState.status === "loading" && (
-                <div className="py-24 text-center text-muted-foreground text-sm">加载中…</div>
-            )}
+            <div className="px-7 pt-6 pb-7">
+                {loadState.status === "loading" && (
+                    <div className="py-24 text-center text-muted-foreground text-sm">加载中…</div>
+                )}
 
-            {loadState.status === "error" && (
-                <div className="mt-6 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive text-sm">
-                    加载设置失败：{apiErrorMessage(loadState.error)}
-                </div>
-            )}
+                {loadState.status === "error" && (
+                    <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive text-sm">
+                        加载设置失败：{apiErrorMessage(loadState.error)}
+                    </div>
+                )}
 
-            {loadState.status === "success" && view && (
-                <>
-                    {schemaMismatch && (
-                        <div className="mt-6 flex items-center gap-2 rounded-2xl border border-border bg-accent px-4 py-3 text-accent-foreground text-sm">
-                            <HugeiconsIcon icon={Alert02Icon} size={18} />
-                            配置结构版本与前端不一致，部分项可能无法正确显示，建议更新后重试。
-                        </div>
-                    )}
+                {loadState.status === "success" && view && (
+                    <div className="space-y-6">
+                        {schemaMismatch && (
+                            <div className="flex items-center gap-2 rounded-2xl border border-border bg-accent px-4 py-3 text-accent-foreground text-sm">
+                                <HugeiconsIcon icon={Alert02Icon} size={18} />
+                                配置结构版本与前端不一致，部分项可能无法正确显示，建议更新后重试。
+                            </div>
+                        )}
 
-                    <div className="mt-6 grid grid-cols-[200px_minmax(0,1fr)] gap-8">
-                        <aside className="sticky top-6 self-start">
-                            <SettingsNav sections={visibleSections} activeId={currentActive} onSelect={scrollTo} />
-                        </aside>
+                        <div className="grid grid-cols-[200px_minmax(0,1fr)] gap-8">
+                            <aside className="sticky self-start" style={{ top: NAV_TOP }}>
+                                <SettingsNav sections={visibleSections} activeId={currentActive} onSelect={scrollTo} />
+                            </aside>
 
-                        <div className="min-w-0">
-                            <div className="space-y-5">
+                            <div className="min-w-0 space-y-5">
                                 {visibleSections.map((section) => (
                                     <SettingsSection
                                         key={section.category}
@@ -139,21 +176,10 @@ function SettingsPage() {
                                     />
                                 ))}
                             </div>
-
-                            <ActionBar
-                                dirtyCount={form.dirtyKeys.length}
-                                saving={form.saving}
-                                error={form.generalError}
-                                onSave={form.save}
-                                onDiscard={form.discard}
-                                pendingKeys={pendingKeys}
-                                restarting={restarting}
-                                onRestart={onRestart}
-                            />
                         </div>
                     </div>
-                </>
-            )}
+                )}
+            </div>
 
             {restarting && <RestartOverlay />}
         </div>
