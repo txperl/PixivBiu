@@ -1,11 +1,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
-import { type ConfigView, patchConfig, resetConfig } from "./api";
+import { type ConfigApiError, type ConfigView, patchConfig, resetConfig } from "./api";
 import { nestedGet } from "./flatten";
-import { parseConfigError } from "./parse-error";
 import type { SectionSpec } from "./types";
 import { baselineString, type ClientValidationError, type FormValues, toPatchValue, validateClient } from "./values";
+
+// Split a validation error's `fields` map into field-keyed and general
+// parts. The reserved `"_"` key is always general; any field key the
+// UI doesn't render falls back to general so a new backend validator
+// can't silently disappear before the frontend ships its row.
+function splitValidationError(
+    error: ConfigApiError,
+    knownKeys: Set<string>,
+    resolveError: (error: ConfigApiError) => string,
+): { fields: Record<string, string>; general?: string } {
+    const fields: Record<string, string> = {};
+    const leftovers: string[] = [];
+    const entries = error.fields ?? {};
+    for (const [key, msg] of Object.entries(entries)) {
+        if (key !== "_" && knownKeys.has(key)) fields[key] = msg;
+        else leftovers.push(msg);
+    }
+    const general = leftovers.length > 0 ? leftovers.join("；") : undefined;
+    if (Object.keys(fields).length === 0 && !general) {
+        return { fields, general: resolveError(error) };
+    }
+    return { fields, general };
+}
 
 interface UseConfigFormParams {
     view: ConfigView | null;
@@ -160,7 +182,7 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
         setSaving(false);
 
         if (error) {
-            const parsed = parseConfigError(error, knownKeys, resolveApiError);
+            const parsed = splitValidationError(error, knownKeys, resolveApiError);
             setFieldErrors(parsed.fields);
             setGeneralError(parsed.general);
             return;

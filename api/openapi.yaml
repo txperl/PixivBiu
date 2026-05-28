@@ -237,18 +237,73 @@ components:
 
     Error:
       type: object
-      required: [code, message]
+      required: [code, kind, message]
       properties:
         code:
           type: string
           description: Machine-readable error code.
+          enum:
+            - unauthenticated
+            - bad_request
+            - not_found
+            - conflict
+            - forbidden
+            - rate_limited
+            - upstream_error
+            - internal_error
           example: unauthenticated
+        kind:
+          type: string
+          description: |
+            Rendering discriminator. Tells the client what's in `message`
+            and which optional fields are populated:
+              - `validation`: client supplied bad input; `message` is a
+                generic summary, `fields` carries per-key validation
+                messages.
+              - `app`: backend-authored, safe to show verbatim.
+              - `upstream`: Pixiv rejected the request; `message` is a
+                generic phrase and `upstream.reason` carries a stable
+                token for i18n. The raw upstream body is never on the
+                wire.
+              - `internal`: unexpected server failure; `message` is a
+                fixed generic string and `request_id` should be surfaced
+                so the user can quote it.
+          enum: [validation, app, upstream, internal]
         message:
           type: string
-          description: Human-readable error message.
-        detail:
+          description: |
+            Always safe to display verbatim. Authored by the backend's
+            `classify` function only; never contains `err.Error()` text
+            or upstream response body.
+        fields:
+          type: object
+          additionalProperties: { type: string }
+          description: |
+            Populated only when `kind=validation`. Per-key validation
+            messages keyed by dotted config path. The reserved key `_`
+            carries a non-field general message.
+        upstream:
+          type: object
+          required: [status, reason]
+          properties:
+            status:
+              type: integer
+              description: HTTP status returned by Pixiv.
+            reason:
+              type: string
+              enum: [invalid_grant, rate_limit, generic]
+              description: |
+                Backend-classified stable token for the upstream failure.
+                `generic` is the fallback for any Pixiv error we don't
+                yet distinguish; the raw body is logged server-side and
+                never forwarded.
+          description: Populated only when `kind=upstream`.
+        request_id:
           type: string
-          description: Optional additional context (e.g., upstream body).
+          description: |
+            Per-request identifier from the chi RequestID middleware.
+            Set on every backend-produced error so users can quote it
+            for log lookup. Absent for client-side synthetic errors.
 
     Restrict:
       type: string

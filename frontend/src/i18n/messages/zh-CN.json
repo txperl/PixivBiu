@@ -8,6 +8,8 @@
     "error_rate_limited": "请求过于频繁，请稍后再试",
     "error_forbidden": "没有权限执行此操作",
     "error_upstream_error": "Pixiv 服务暂时不可用，请稍后再试",
+    "error_upstream_invalid_grant": "Pixiv 会话已失效，请重新登录",
+    "error_upstream_rate_limit": "Pixiv 限流中，请稍后再试",
     "error_internal_error": "服务器内部错误",
     "status_queued": "排队中",
     "status_running": "下载中",

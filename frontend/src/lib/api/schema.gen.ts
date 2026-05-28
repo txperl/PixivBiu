@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check service health */
+        get: operations["getHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -19,7 +36,7 @@ export interface paths {
          *     token and persists it server-side; subsequent authenticated
          *     endpoints reuse that stored session.
          */
-        post: operations["Login"];
+        post: operations["login"];
         delete?: never;
         options?: never;
         head?: never;
@@ -39,31 +56,24 @@ export interface paths {
          * Log out the current session
          * @description Clears the persisted tokens and removes the on-disk state file. Idempotent.
          */
-        post: operations["Logout"];
+        post: operations["logout"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/auth/oauth/exchange": {
+    "/auth/status": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get current auth status */
+        get: operations["getAuthStatus"];
         put?: never;
-        /**
-         * Complete a browser-driven Pixiv OAuth login
-         * @description Trades the Pixiv authorisation code (returned in the callback URL of
-         *     the hosted login page) for a refresh + access token using the PKCE
-         *     verifier the server stored under `state`. `code` may be the bare
-         *     code, or the full callback URL — the server extracts `?code=…`.
-         *     Persists the resulting tokens just like `/auth/login`.
-         */
-        post: operations["ExchangeOAuth"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -87,73 +97,14 @@ export interface paths {
          *     authorisation `code` back to `/auth/oauth/exchange` to complete login.
          *     Issued states expire after ~10 minutes and are single-use.
          */
-        post: operations["StartOAuth"];
+        post: operations["startOAuth"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/auth/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get current auth status */
-        get: operations["GetAuthStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get the effective config + per-key source layering
-         * @description Returns three views of the current config:
-         *     - `effective`: the values the running process is actually using
-         *     - `file`: the user overrides currently persisted in settings.json
-         *     - `sources`: per dotted-key origin (`defaults` | `file` | `env`)
-         *
-         *     Sensitive fields (e.g. `pixiv.proxy`) are masked in both `effective`
-         *     and `file` views. PATCH treats the mask sentinel as "do not modify",
-         *     so the frontend can safely round-trip a redacted view back as a PATCH.
-         */
-        get: operations["GetConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Merge a partial update into the persisted overrides
-         * @description Applies a flat or nested map of dotted-key → value writes to the
-         *     file layer, revalidates the candidate config end-to-end, and
-         *     atomically writes the diff-against-defaults back to settings.json.
-         *     Empty bodies, unknown keys, type mismatches, range/enum violations
-         *     are all rejected with 400.
-         *
-         *     On success the change is applied live for hot-reloadable keys:
-         *     `effective` advances immediately and the running services pick it
-         *     up. Restart-required keys still only advance `file`; they appear
-         *     in `pending_restart` until the process restarts (see
-         *     `POST /config/restart`). Env-layer overrides keep winning at
-         *     restart time until unset.
-         */
-        patch: operations["PatchConfig"];
-        trace?: never;
-    };
-    "/config/reset": {
+    "/auth/oauth/exchange": {
         parameters: {
             query?: never;
             header?: never;
@@ -163,21 +114,203 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Drop overrides from the file layer (per key or wholesale)
-         * @description Removes selected keys from settings.json so they fall back to the
-         *     next layer's value (env or default). With `all: true` the entire
-         *     file layer is cleared. Exactly one of `all: true` or a non-empty
-         *     `keys` array must be present — empty bodies, both-at-once, and
-         *     mutually-exclusive conflicts are all rejected with 400.
+         * Complete a browser-driven Pixiv OAuth login
+         * @description Trades the Pixiv authorisation code (returned in the callback URL of
+         *     the hosted login page) for a refresh + access token using the PKCE
+         *     verifier the server stored under `state`. `code` may be the bare
+         *     code, or the full callback URL — the server extracts `?code=…`.
+         *     Persists the resulting tokens just like `/auth/login`.
          */
-        post: operations["ResetConfig"];
+        post: operations["exchangeOAuth"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/config/restart": {
+    "/illusts/ranking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List ranked illusts */
+        get: operations["listRanking"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/illusts/recommended": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List recommended illusts */
+        get: operations["listRecommended"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/illusts/following": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List illusts from followed users */
+        get: operations["listFollowingIllusts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/illusts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get illust detail */
+        get: operations["getIllust"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/illusts/{id}/ugoira": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get ugoira metadata
+         * @description Returns the frame-timing manifest and the zip URL packaging
+         *     each frame. Used by clients to render Pixiv's animated
+         *     illustrations.
+         */
+        get: operations["getUgoiraMetadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/illusts/{id}/bookmark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get current user's bookmark detail for an illust */
+        get: operations["getBookmarkDetail"];
+        /** Bookmark an illust */
+        put: operations["addBookmark"];
+        post?: never;
+        /** Remove an illust bookmark */
+        delete: operations["deleteBookmark"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a user's profile detail */
+        get: operations["getUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/illusts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List illusts by a user */
+        get: operations["listUserIllusts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/bookmarks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a user's bookmarks
+         * @description Cursor-paginated by `max_bookmark_id`. Pass
+         *     `next_max_bookmark_id` from the previous response as the next
+         *     cursor.
+         */
+        get: operations["listUserBookmarks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/following": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List users followed by a user */
+        get: operations["listUserFollowing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/follow": {
         parameters: {
             query?: never;
             header?: never;
@@ -185,28 +318,17 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
-        /**
-         * Gracefully restart the process to apply restart-required settings
-         * @description Triggers a graceful self-restart: the server drains in-flight work
-         *     (HTTP requests, download workers, the pixiv refresh loop) and then
-         *     re-executes itself, reloading settings.json from disk. Use this to
-         *     apply changes to restart-required keys (those listed in
-         *     `pending_restart`); hot-reloadable keys already take effect on PATCH.
-         *
-         *     The 202 response is flushed before the drain begins, so the client
-         *     should expect the connection (and any SSE streams) to drop shortly
-         *     after. Downloads resume automatically on boot and SSE clients
-         *     reconnect with Last-Event-ID, so a restart is non-destructive.
-         */
-        post: operations["RestartConfig"];
-        delete?: never;
+        /** Follow a user */
+        put: operations["addFollow"];
+        post?: never;
+        /** Unfollow a user */
+        delete: operations["deleteFollow"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/config/schema": {
+    "/search/illusts": {
         parameters: {
             query?: never;
             header?: never;
@@ -214,14 +336,30 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get the JSON Schema describing all settings
-         * @description Returns a JSON Schema (Draft 2020-12) reflected from the server's
-         *     Config struct, with per-field metadata (`x-cfg-category`,
-         *     `x-cfg-sensitive`, `x-cfg-restart-required`, `x-cfg-advanced`,
-         *     `x-cfg-go-type`). Frontend renders forms from this; backend uses
-         *     the same source-of-truth for validation.
+         * Search illusts
+         * @description Matches by keyword or tag; see `search_target` for matching mode and `sort` for ordering.
          */
-        get: operations["GetConfigSchema"];
+        get: operations["searchIllusts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search users
+         * @description Matches Pixiv display name or account.
+         */
+        get: operations["searchUsers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -244,7 +382,7 @@ export interface paths {
          *     Response carries the total count plus global `active_count` /
          *     `done_count` so clients don't need a separate counts endpoint.
          */
-        get: operations["ListDownloads"];
+        get: operations["listDownloads"];
         put?: never;
         /**
          * Submit a download job
@@ -253,14 +391,14 @@ export interface paths {
          *     response is `202 Accepted`; the client follows progress via
          *     the `download` topic on `GET /events`.
          */
-        post: operations["SubmitDownload"];
+        post: operations["submitDownload"];
         /**
          * Bulk-remove terminal download jobs from history
          * @description Deletes every job whose status is terminal and matches the optional
          *     `status` filter. Empty filter defaults to all terminal statuses.
          *     Non-terminal statuses return `400`. Files on disk are not touched.
          */
-        delete: operations["ClearDownloads"];
+        delete: operations["clearDownloads"];
         options?: never;
         head?: never;
         patch?: never;
@@ -274,7 +412,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get a download job */
-        get: operations["GetDownload"];
+        get: operations["getDownload"];
         put?: never;
         post?: never;
         /**
@@ -286,7 +424,7 @@ export interface paths {
          *     `POST /downloads/{id}/cancel` first. To delete files, use a file
          *     manager.
          */
-        delete: operations["RemoveDownload"];
+        delete: operations["removeDownload"];
         options?: never;
         head?: never;
         patch?: never;
@@ -305,7 +443,7 @@ export interface paths {
          * Cancel a running download job
          * @description Cancels every non-terminal task in the job. Returns `409` if the job is already in a terminal state.
          */
-        post: operations["CancelDownload"];
+        post: operations["cancelDownload"];
         delete?: never;
         options?: never;
         head?: never;
@@ -334,7 +472,7 @@ export interface paths {
          *     first sends a single `system.resync` event so the client
          *     knows to re-fetch authoritative state via the REST endpoints.
          */
-        get: operations["GetEvents"];
+        get: operations["getEvents"];
         put?: never;
         post?: never;
         delete?: never;
@@ -343,111 +481,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Check service health */
-        get: operations["GetHealth"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/illusts/following": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List illusts from followed users */
-        get: operations["ListFollowingIllusts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/illusts/ranking": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List ranked illusts */
-        get: operations["ListRanking"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/illusts/recommended": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List recommended illusts */
-        get: operations["ListRecommended"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/illusts/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get illust detail */
-        get: operations["GetIllust"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/illusts/{id}/bookmark": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get current user's bookmark detail for an illust */
-        get: operations["GetBookmarkDetail"];
-        /** Bookmark an illust */
-        put: operations["AddBookmark"];
-        post?: never;
-        /** Remove an illust bookmark */
-        delete: operations["DeleteBookmark"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/illusts/{id}/ugoira": {
+    "/config": {
         parameters: {
             query?: never;
             header?: never;
@@ -455,21 +489,41 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get ugoira metadata
-         * @description Returns the frame-timing manifest and the zip URL packaging
-         *     each frame. Used by clients to render Pixiv's animated
-         *     illustrations.
+         * Get the effective config + per-key source layering
+         * @description Returns three views of the current config:
+         *     - `effective`: the values the running process is actually using
+         *     - `file`: the user overrides currently persisted in settings.json
+         *     - `sources`: per dotted-key origin (`defaults` | `file` | `env`)
+         *
+         *     Sensitive fields (e.g. `pixiv.proxy`) are masked in both `effective`
+         *     and `file` views. PATCH treats the mask sentinel as "do not modify",
+         *     so the frontend can safely round-trip a redacted view back as a PATCH.
          */
-        get: operations["GetUgoiraMetadata"];
+        get: operations["getConfig"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Merge a partial update into the persisted overrides
+         * @description Applies a flat or nested map of dotted-key → value writes to the
+         *     file layer, revalidates the candidate config end-to-end, and
+         *     atomically writes the diff-against-defaults back to settings.json.
+         *     Empty bodies, unknown keys, type mismatches, range/enum violations
+         *     are all rejected with 400.
+         *
+         *     On success the change is applied live for hot-reloadable keys:
+         *     `effective` advances immediately and the running services pick it
+         *     up. Restart-required keys still only advance `file`; they appear
+         *     in `pending_restart` until the process restarts (see
+         *     `POST /config/restart`). Env-layer overrides keep winning at
+         *     restart time until unset.
+         */
+        patch: operations["patchConfig"];
         trace?: never;
     };
-    "/search/illusts": {
+    "/config/schema": {
         parameters: {
             query?: never;
             header?: never;
@@ -477,10 +531,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Search illusts
-         * @description Matches by keyword or tag; see `search_target` for matching mode and `sort` for ordering.
+         * Get the JSON Schema describing all settings
+         * @description Returns a JSON Schema (Draft 2020-12) reflected from the server's
+         *     Config struct, with per-field metadata (`x-cfg-category`,
+         *     `x-cfg-sensitive`, `x-cfg-restart-required`, `x-cfg-advanced`,
+         *     `x-cfg-go-type`). Frontend renders forms from this; backend uses
+         *     the same source-of-truth for validation.
          */
-        get: operations["SearchIllusts"];
+        get: operations["getConfigSchema"];
         put?: never;
         post?: never;
         delete?: never;
@@ -489,66 +547,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/search/users": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search users
-         * @description Matches Pixiv display name or account.
-         */
-        get: operations["SearchUsers"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/users/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a user's profile detail */
-        get: operations["GetUser"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/users/{id}/bookmarks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List a user's bookmarks
-         * @description Cursor-paginated by `max_bookmark_id`. Pass
-         *     `next_max_bookmark_id` from the previous response as the next
-         *     cursor.
-         */
-        get: operations["ListUserBookmarks"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/users/{id}/follow": {
+    "/config/reset": {
         parameters: {
             query?: never;
             header?: never;
@@ -556,44 +555,45 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Follow a user */
-        put: operations["AddFollow"];
-        post?: never;
-        /** Unfollow a user */
-        delete: operations["DeleteFollow"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/users/{id}/following": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List users followed by a user */
-        get: operations["ListUserFollowing"];
         put?: never;
-        post?: never;
+        /**
+         * Drop overrides from the file layer (per key or wholesale)
+         * @description Removes selected keys from settings.json so they fall back to the
+         *     next layer's value (env or default). With `all: true` the entire
+         *     file layer is cleared. Exactly one of `all: true` or a non-empty
+         *     `keys` array must be present — empty bodies, both-at-once, and
+         *     mutually-exclusive conflicts are all rejected with 400.
+         */
+        post: operations["resetConfig"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/users/{id}/illusts": {
+    "/config/restart": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List illusts by a user */
-        get: operations["ListUserIllusts"];
+        get?: never;
         put?: never;
-        post?: never;
+        /**
+         * Gracefully restart the process to apply restart-required settings
+         * @description Triggers a graceful self-restart: the server drains in-flight work
+         *     (HTTP requests, download workers, the pixiv refresh loop) and then
+         *     re-executes itself, reloading settings.json from disk. Use this to
+         *     apply changes to restart-required keys (those listed in
+         *     `pending_restart`); hot-reloadable keys already take effect on PATCH.
+         *
+         *     The 202 response is flushed before the drain begins, so the client
+         *     should expect the connection (and any SSE streams) to drop shortly
+         *     after. Downloads resume automatically on boot and SSE clients
+         *     reconnect with Last-Event-ID, so a restart is non-destructive.
+         */
+        post: operations["restartConfig"];
         delete?: never;
         options?: never;
         head?: never;
@@ -604,25 +604,75 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        AuthStatus: {
-            authenticated: boolean;
-            /** Format: date-time */
-            expires_at?: string | null;
-            /** Format: int64 */
-            user_id?: number | null;
-            user_name?: string | null;
+        HealthStatus: {
+            /** @example ok */
+            status: string;
         };
-        BookmarkDetail: {
-            is_bookmarked: boolean;
-            restrict: components["schemas"]["Restrict"];
+        Error: {
+            /**
+             * @description Machine-readable error code.
+             * @example unauthenticated
+             * @enum {string}
+             */
+            code: "unauthenticated" | "bad_request" | "not_found" | "conflict" | "forbidden" | "rate_limited" | "upstream_error" | "internal_error";
+            /**
+             * @description Rendering discriminator. Tells the client what's in `message`
+             *     and which optional fields are populated:
+             *       - `validation`: client supplied bad input; `message` is a
+             *         generic summary, `fields` carries per-key validation
+             *         messages.
+             *       - `app`: backend-authored, safe to show verbatim.
+             *       - `upstream`: Pixiv rejected the request; `message` is a
+             *         generic phrase and `upstream.reason` carries a stable
+             *         token for i18n. The raw upstream body is never on the
+             *         wire.
+             *       - `internal`: unexpected server failure; `message` is a
+             *         fixed generic string and `request_id` should be surfaced
+             *         so the user can quote it.
+             * @enum {string}
+             */
+            kind: "validation" | "app" | "upstream" | "internal";
+            /**
+             * @description Always safe to display verbatim. Authored by the backend's
+             *     `classify` function only; never contains `err.Error()` text
+             *     or upstream response body.
+             */
+            message: string;
+            /**
+             * @description Populated only when `kind=validation`. Per-key validation
+             *     messages keyed by dotted config path. The reserved key `_`
+             *     carries a non-field general message.
+             */
+            fields?: {
+                [key: string]: string;
+            };
+            /** @description Populated only when `kind=upstream`. */
+            upstream?: {
+                /** @description HTTP status returned by Pixiv. */
+                status: number;
+                /**
+                 * @description Backend-classified stable token for the upstream failure.
+                 *     `generic` is the fallback for any Pixiv error we don't
+                 *     yet distinguish; the raw body is logged server-side and
+                 *     never forwarded.
+                 * @enum {string}
+                 */
+                reason: "invalid_grant" | "rate_limit" | "generic";
+            };
+            /**
+             * @description Per-request identifier from the chi RequestID middleware.
+             *     Set on every backend-produced error so users can quote it
+             *     for log lookup. Absent for client-side synthetic errors.
+             */
+            request_id?: string;
         };
-        BookmarkRequest: {
-            restrict?: components["schemas"]["Restrict"];
-        };
-        ClearDownloadsResponse: {
-            /** @description Number of jobs deleted from history. */
-            removed: number;
-        };
+        /**
+         * @default public
+         * @enum {string}
+         */
+        Restrict: "public" | "private";
+        /** @enum {string} */
+        IllustType: "illust" | "manga";
         /**
          * @description Pixiv `filter` knob — controls iOS-app-style content gating.
          *     `for_ios` applies Pixiv's iOS-client policy filter; `none` disables
@@ -631,30 +681,376 @@ export interface components {
          * @enum {string}
          */
         ClientMode: "for_ios" | "none";
+        /** @enum {string} */
+        SearchDuration: "within_last_day" | "within_last_week" | "within_last_month";
+        /** @enum {string} */
+        RankingMode: "day" | "week" | "month" | "day_male" | "day_female" | "week_original" | "week_rookie" | "day_manga" | "day_r18" | "day_male_r18" | "day_female_r18" | "week_r18" | "week_r18g";
         /**
-         * @description Free-form map of writes. Keys are either nested (matching the
-         *     struct shape) or flat dotted paths (e.g. `"download.max_concurrent": 8`);
-         *     both forms are accepted. Sending the sensitive mask sentinel
-         *     (`***`) or `""` for a sensitive field is a no-op.
+         * @default partial_match_for_tags
+         * @enum {string}
          */
-        ConfigPatch: {
-            [key: string]: unknown;
+        SearchTarget: "partial_match_for_tags" | "exact_match_for_tags" | "title_and_caption" | "keyword";
+        /**
+         * @default date_desc
+         * @enum {string}
+         */
+        SearchSort: "date_desc" | "date_asc" | "popular_desc";
+        LoginRequest: {
+            /** @description Long-lived Pixiv OAuth refresh token. See README for how to obtain. */
+            refresh_token: string;
         };
-        ConfigResetRequest: {
+        OAuthStartResponse: {
             /**
-             * @description When true, clear the entire file layer. Mutually exclusive
-             *     with `keys`; sending both is rejected with 400.
+             * @description Opaque handle the client must echo back to `/auth/oauth/exchange`.
+             *     The server uses it to look up the matching PKCE verifier.
              */
-            all?: boolean;
-            /** @description Dotted-path keys to drop from the file layer. */
-            keys?: string[];
+            state: string;
+            /**
+             * @description Pixiv-hosted login URL the client should open in a popup. After
+             *     the user authenticates Pixiv redirects to a fixed callback URL
+             *     that carries `?code=…`; the user pastes that URL (or just the
+             *     code) back into the client.
+             */
+            login_url: string;
         };
-        ConfigRestartAccepted: {
+        OAuthExchangeRequest: {
+            /** @description The `state` returned by `/auth/oauth/start`. */
+            state: string;
             /**
-             * @description Always `restarting`.
-             * @example restarting
+             * @description Either the bare authorisation `code` Pixiv emitted, or the full
+             *     callback URL the user pasted (the server extracts `?code=…`).
              */
-            status: string;
+            code: string;
+        };
+        AuthStatus: {
+            authenticated: boolean;
+            /** Format: int64 */
+            user_id?: number | null;
+            user_name?: string | null;
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
+        BookmarkRequest: {
+            restrict?: components["schemas"]["Restrict"];
+        };
+        BookmarkDetail: {
+            is_bookmarked: boolean;
+            restrict: components["schemas"]["Restrict"];
+        };
+        FollowRequest: {
+            restrict?: components["schemas"]["Restrict"];
+        };
+        /** @description Pixiv illustration metadata. Shape mirrors pixivgo.IllustrationInfo. */
+        Illust: {
+            /** Format: int64 */
+            id: number;
+            title: string;
+            type: string;
+            image_urls: components["schemas"]["ImageUrls"];
+            caption: string;
+            /** Format: int64 */
+            restrict: number;
+            user: components["schemas"]["User"];
+            tags: components["schemas"]["IllustrationTag"][];
+            tools: string[];
+            create_date: string;
+            /** Format: int64 */
+            page_count: number;
+            /** Format: int64 */
+            width: number;
+            /** Format: int64 */
+            height: number;
+            /** Format: int64 */
+            sanity_level: number;
+            /** Format: int64 */
+            x_restrict: number;
+            series: components["schemas"]["Series"] | null;
+            meta_single_page: components["schemas"]["MetaSinglePage"];
+            meta_pages: components["schemas"]["MetaPage"][];
+            /** Format: int64 */
+            total_view: number;
+            /** Format: int64 */
+            total_bookmarks: number;
+            is_bookmarked: boolean;
+            visible: boolean;
+            is_muted: boolean;
+            /** Format: int64 */
+            illust_ai_type: number;
+            /** Format: int64 */
+            illust_book_style: number;
+            /** Format: int64 */
+            total_comments?: number;
+            restriction_attributes: string[];
+        };
+        /** @description Pixiv user summary. Shape mirrors pixivgo.UserInfo. */
+        User: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            account: string;
+            profile_image_urls: components["schemas"]["ProfileImageUrls"];
+            comment?: string;
+            is_followed: boolean | null;
+            is_access_blocking_user?: boolean;
+            is_accept_request?: boolean;
+        };
+        /** @description User + a few sample illusts. Shape mirrors pixivgo.UserPreview. */
+        UserPreview: {
+            user: components["schemas"]["User"];
+            illusts: components["schemas"]["Illust"][];
+            novels: components["schemas"]["Novel"][];
+            is_muted: boolean;
+        };
+        IllustPage: {
+            illusts: components["schemas"]["Illust"][];
+            /**
+             * Format: int64
+             * @description Next offset to pass back, or null if no further page.
+             */
+            next_offset?: number | null;
+            /**
+             * Format: int64
+             * @description Set only by `/users/{id}/bookmarks`; pass back as `max_bookmark_id`.
+             */
+            next_max_bookmark_id?: number | null;
+        };
+        UserIllustsPage: {
+            user: components["schemas"]["User"];
+            illusts: components["schemas"]["Illust"][];
+            /** Format: int64 */
+            next_offset?: number | null;
+        };
+        UserDetailPage: {
+            user: components["schemas"]["User"];
+            profile: components["schemas"]["Profile"];
+            profile_publicity: components["schemas"]["ProfilePublicity"];
+            workspace: components["schemas"]["Workspace"];
+        };
+        /** @description Pixiv user profile. Shape mirrors pixivgo.Profile. */
+        Profile: {
+            webpage: string | null;
+            gender: string;
+            birth: string;
+            birth_day: string;
+            /** Format: int64 */
+            birth_year: number;
+            region: string;
+            /** Format: int64 */
+            address_id: number;
+            country_code: string;
+            job: string;
+            /** Format: int64 */
+            job_id: number;
+            /** Format: int64 */
+            total_follow_users: number;
+            /** Format: int64 */
+            total_mypixiv_users: number;
+            /** Format: int64 */
+            total_illusts: number;
+            /** Format: int64 */
+            total_manga: number;
+            /** Format: int64 */
+            total_novels: number;
+            /** Format: int64 */
+            total_illust_bookmarks_public: number;
+            /** Format: int64 */
+            total_illust_series: number;
+            /** Format: int64 */
+            total_novel_series: number;
+            background_image_url: string;
+            twitter_account: string;
+            twitter_url: string | null;
+            pawoo_url: string | null;
+            is_premium: boolean;
+            is_using_custom_profile_image: boolean;
+        };
+        /** @description Pixiv profile publicity flags. Shape mirrors pixivgo.ProfilePublicity. */
+        ProfilePublicity: {
+            gender: string;
+            region: string;
+            birth_day: string;
+            birth_year: string;
+            job: string;
+            pawoo: boolean;
+        };
+        /** @description Pixiv workspace info. Shape mirrors pixivgo.Workspace. */
+        Workspace: {
+            pc: string;
+            monitor: string;
+            tool: string;
+            scanner: string;
+            tablet: string;
+            mouse: string;
+            printer: string;
+            desktop: string;
+            music: string;
+            desk: string;
+            chair: string;
+            comment: string;
+            workspace_image_url: string | null;
+        };
+        UserPreviewPage: {
+            user_previews: components["schemas"]["UserPreview"][];
+            /** Format: int64 */
+            next_offset?: number | null;
+        };
+        /** @description Wrapper for a single illust detail. Mirrors pixivgo.IllustDetailResponse. */
+        IllustDetailResponse: {
+            illust: components["schemas"]["Illust"];
+        };
+        /** @description Ugoira (animated illust) metadata. Mirrors pixivgo.UgoiraMetadataResponse. */
+        UgoiraMetadataResponse: {
+            ugoira_metadata: components["schemas"]["UgoiraMetadata"];
+        };
+        ProfileImageUrls: {
+            medium: string;
+        };
+        ImageUrls: {
+            square_medium: string;
+            medium: string;
+            large: string;
+        };
+        IllustrationTag: {
+            name: string;
+            translated_name: string | null;
+        };
+        /** @description Pixiv returns `{}` instead of `null` for empty series; in that case `id` is 0. */
+        Series: {
+            /** Format: int64 */
+            id: number;
+            title: string;
+        };
+        MetaSinglePage: {
+            original_image_url?: string;
+        };
+        MetaPage: {
+            image_urls: components["schemas"]["ImageUrls"];
+        };
+        /** @description Pixiv novel metadata. Shape mirrors pixivgo.NovelInfo. */
+        Novel: {
+            /** Format: int64 */
+            id: number;
+            title: string;
+            caption: string;
+            /** Format: int64 */
+            restrict: number;
+            /** Format: int64 */
+            x_restrict: number;
+            is_original: boolean;
+            image_urls: components["schemas"]["ImageUrls"];
+            create_date: string;
+            tags: components["schemas"]["NovelTag"][];
+            /** Format: int64 */
+            page_count: number;
+            /** Format: int64 */
+            text_length: number;
+            user: components["schemas"]["User"];
+            series: components["schemas"]["Series"] | null;
+            is_bookmarked: boolean;
+            /** Format: int64 */
+            total_bookmarks: number;
+            /** Format: int64 */
+            total_view: number;
+            visible: boolean;
+            /** Format: int64 */
+            total_comments: number;
+            is_muted: boolean;
+            is_mypixiv_only: boolean;
+            is_x_restricted: boolean;
+            /** Format: int64 */
+            novel_ai_type: number;
+            /** Format: int64 */
+            comment_access_control?: number;
+        };
+        NovelTag: {
+            name: string;
+            translated_name: string | null;
+            added_by_uploaded_user: boolean;
+        };
+        UgoiraMetadata: {
+            zip_urls: components["schemas"]["UgoiraZipUrls"];
+            frames: components["schemas"]["UgoiraFrame"][];
+        };
+        UgoiraZipUrls: {
+            medium: string;
+        };
+        UgoiraFrame: {
+            file: string;
+            /** Format: int64 */
+            delay: number;
+        };
+        /**
+         * @description Lifecycle state of a download job or task.
+         * @enum {string}
+         */
+        DownloadStatus: "queued" | "running" | "completed" | "failed" | "cancelled";
+        /**
+         * @description Pixiv artwork type the job was created for.
+         * @enum {string}
+         */
+        DownloadIllustType: "illust" | "manga" | "ugoira";
+        DownloadTask: {
+            id: string;
+            job_id: string;
+            /** @description Final request URL (after pximg mirror rewrite). */
+            url: string;
+            /** @description Target path on disk. */
+            file_path: string;
+            status: components["schemas"]["DownloadStatus"];
+            /**
+             * Format: int64
+             * @description Content-Length, or -1 if unknown.
+             */
+            size_bytes: number;
+            /** Format: int64 */
+            downloaded_bytes: number;
+            error?: string | null;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+        };
+        DownloadJob: {
+            id: string;
+            /** Format: int64 */
+            illust_id: number;
+            illust_type: components["schemas"]["DownloadIllustType"];
+            title?: string;
+            /** @description Thumbnail (square_medium → medium → large). Absent on jobs persisted before this field existed. */
+            preview_url?: string;
+            status: components["schemas"]["DownloadStatus"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            tasks: components["schemas"]["DownloadTask"][];
+        };
+        DownloadJobList: {
+            jobs: components["schemas"]["DownloadJob"][];
+            /** @description Total jobs matching the filter (status + updated_since). */
+            total: number;
+            /** @description Echo of the requested 1-based page index after clamping. */
+            page: number;
+            /** @description Echo of the effective page size after clamping. */
+            per_page: number;
+            /**
+             * @description Global count of `queued` + `running` jobs (independent of filter).
+             *     Drives the sidebar badge.
+             */
+            active_count: number;
+            /** @description Global count of `completed` jobs (independent of filter). */
+            done_count: number;
+        };
+        SubmitDownloadRequest: {
+            /**
+             * Format: int64
+             * @description Pixiv illustration ID.
+             */
+            illust_id: number;
+        };
+        ClearDownloadsResponse: {
+            /** @description Number of jobs deleted from history. */
+            removed: number;
         };
         /**
          * @description Which config layer supplied the effective value for a key.
@@ -680,6 +1076,10 @@ export interface components {
             file: {
                 [key: string]: unknown;
             };
+            /** @description Per dotted-key origin label; each value is one of `defaults`, `file`, `env`. */
+            sources: {
+                [key: string]: components["schemas"]["ConfigSource"];
+            };
             /**
              * @description Restart-required dotted keys whose persisted value differs from
              *     the value the process started with — i.e. changes saved but not
@@ -692,402 +1092,49 @@ export interface components {
              *     Frontend can refuse / migrate when its compiled schema doesn't match.
              */
             schema_version: string;
-            /** @description Per dotted-key origin label; each value is one of `defaults`, `file`, `env`. */
-            sources: {
-                [key: string]: components["schemas"]["ConfigSource"];
-            };
         };
-        /**
-         * @description Pixiv artwork type the job was created for.
-         * @enum {string}
-         */
-        DownloadIllustType: "illust" | "manga" | "ugoira";
-        DownloadJob: {
-            /** Format: date-time */
-            created_at: string;
-            id: string;
-            /** Format: int64 */
-            illust_id: number;
-            illust_type: components["schemas"]["DownloadIllustType"];
-            /** @description Thumbnail (square_medium → medium → large). Absent on jobs persisted before this field existed. */
-            preview_url?: string;
-            status: components["schemas"]["DownloadStatus"];
-            tasks: components["schemas"]["DownloadTask"][];
-            title?: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        DownloadJobList: {
+        ConfigRestartAccepted: {
             /**
-             * @description Global count of `queued` + `running` jobs (independent of filter).
-             *     Drives the sidebar badge.
+             * @description Always `restarting`.
+             * @example restarting
              */
-            active_count: number;
-            /** @description Global count of `completed` jobs (independent of filter). */
-            done_count: number;
-            jobs: components["schemas"]["DownloadJob"][];
-            /** @description Echo of the requested 1-based page index after clamping. */
-            page: number;
-            /** @description Echo of the effective page size after clamping. */
-            per_page: number;
-            /** @description Total jobs matching the filter (status + updated_since). */
-            total: number;
-        };
-        /**
-         * @description Lifecycle state of a download job or task.
-         * @enum {string}
-         */
-        DownloadStatus: "queued" | "running" | "completed" | "failed" | "cancelled";
-        DownloadTask: {
-            /** Format: int64 */
-            downloaded_bytes: number;
-            error?: string | null;
-            /** @description Target path on disk. */
-            file_path: string;
-            /** Format: date-time */
-            finished_at?: string | null;
-            id: string;
-            job_id: string;
-            /**
-             * Format: int64
-             * @description Content-Length, or -1 if unknown.
-             */
-            size_bytes: number;
-            /** Format: date-time */
-            started_at?: string | null;
-            status: components["schemas"]["DownloadStatus"];
-            /** @description Final request URL (after pximg mirror rewrite). */
-            url: string;
-        };
-        Error: {
-            /**
-             * @description Machine-readable error code.
-             * @example unauthenticated
-             */
-            code: string;
-            /** @description Optional additional context (e.g., upstream body). */
-            detail?: string;
-            /** @description Human-readable error message. */
-            message: string;
-        };
-        FollowRequest: {
-            restrict?: components["schemas"]["Restrict"];
-        };
-        HealthStatus: {
-            /** @example ok */
             status: string;
         };
-        /** @description Pixiv illustration metadata. Shape mirrors pixivgo.IllustrationInfo. */
-        Illust: {
-            caption: string;
-            create_date: string;
-            /** Format: int64 */
-            height: number;
-            /** Format: int64 */
-            id: number;
-            /** Format: int64 */
-            illust_ai_type: number;
-            /** Format: int64 */
-            illust_book_style: number;
-            image_urls: components["schemas"]["ImageUrls"];
-            is_bookmarked: boolean;
-            is_muted: boolean;
-            meta_pages: components["schemas"]["MetaPage"][];
-            meta_single_page: components["schemas"]["MetaSinglePage"];
-            /** Format: int64 */
-            page_count: number;
-            /** Format: int64 */
-            restrict: number;
-            restriction_attributes: string[];
-            /** Format: int64 */
-            sanity_level: number;
-            series: components["schemas"]["Series"] | null;
-            tags: components["schemas"]["IllustrationTag"][];
-            title: string;
-            tools: string[];
-            /** Format: int64 */
-            total_bookmarks: number;
-            /** Format: int64 */
-            total_comments?: number;
-            /** Format: int64 */
-            total_view: number;
-            type: string;
-            user: components["schemas"]["User"];
-            visible: boolean;
-            /** Format: int64 */
-            width: number;
-            /** Format: int64 */
-            x_restrict: number;
-        };
-        /** @description Wrapper for a single illust detail. Mirrors pixivgo.IllustDetailResponse. */
-        IllustDetailResponse: {
-            illust: components["schemas"]["Illust"];
-        };
-        IllustPage: {
-            illusts: components["schemas"]["Illust"][];
-            /**
-             * Format: int64
-             * @description Set only by `/users/{id}/bookmarks`; pass back as `max_bookmark_id`.
-             */
-            next_max_bookmark_id?: number | null;
-            /**
-             * Format: int64
-             * @description Next offset to pass back, or null if no further page.
-             */
-            next_offset?: number | null;
-        };
-        /** @enum {string} */
-        IllustType: "illust" | "manga";
-        IllustrationTag: {
-            name: string;
-            translated_name: string | null;
-        };
-        ImageUrls: {
-            large: string;
-            medium: string;
-            square_medium: string;
-        };
-        LoginRequest: {
-            /** @description Long-lived Pixiv OAuth refresh token. See README for how to obtain. */
-            refresh_token: string;
-        };
-        MetaPage: {
-            image_urls: components["schemas"]["ImageUrls"];
-        };
-        MetaSinglePage: {
-            original_image_url?: string;
-        };
-        /** @description Pixiv novel metadata. Shape mirrors pixivgo.NovelInfo. */
-        Novel: {
-            caption: string;
-            /** Format: int64 */
-            comment_access_control?: number;
-            create_date: string;
-            /** Format: int64 */
-            id: number;
-            image_urls: components["schemas"]["ImageUrls"];
-            is_bookmarked: boolean;
-            is_muted: boolean;
-            is_mypixiv_only: boolean;
-            is_original: boolean;
-            is_x_restricted: boolean;
-            /** Format: int64 */
-            novel_ai_type: number;
-            /** Format: int64 */
-            page_count: number;
-            /** Format: int64 */
-            restrict: number;
-            series: components["schemas"]["Series"] | null;
-            tags: components["schemas"]["NovelTag"][];
-            /** Format: int64 */
-            text_length: number;
-            title: string;
-            /** Format: int64 */
-            total_bookmarks: number;
-            /** Format: int64 */
-            total_comments: number;
-            /** Format: int64 */
-            total_view: number;
-            user: components["schemas"]["User"];
-            visible: boolean;
-            /** Format: int64 */
-            x_restrict: number;
-        };
-        NovelTag: {
-            added_by_uploaded_user: boolean;
-            name: string;
-            translated_name: string | null;
-        };
-        OAuthExchangeRequest: {
-            /**
-             * @description Either the bare authorisation `code` Pixiv emitted, or the full
-             *     callback URL the user pasted (the server extracts `?code=…`).
-             */
-            code: string;
-            /** @description The `state` returned by `/auth/oauth/start`. */
-            state: string;
-        };
-        OAuthStartResponse: {
-            /**
-             * @description Pixiv-hosted login URL the client should open in a popup. After
-             *     the user authenticates Pixiv redirects to a fixed callback URL
-             *     that carries `?code=…`; the user pastes that URL (or just the
-             *     code) back into the client.
-             */
-            login_url: string;
-            /**
-             * @description Opaque handle the client must echo back to `/auth/oauth/exchange`.
-             *     The server uses it to look up the matching PKCE verifier.
-             */
-            state: string;
-        };
-        /** @description Pixiv user profile. Shape mirrors pixivgo.Profile. */
-        Profile: {
-            /** Format: int64 */
-            address_id: number;
-            background_image_url: string;
-            birth: string;
-            birth_day: string;
-            /** Format: int64 */
-            birth_year: number;
-            country_code: string;
-            gender: string;
-            is_premium: boolean;
-            is_using_custom_profile_image: boolean;
-            job: string;
-            /** Format: int64 */
-            job_id: number;
-            pawoo_url: string | null;
-            region: string;
-            /** Format: int64 */
-            total_follow_users: number;
-            /** Format: int64 */
-            total_illust_bookmarks_public: number;
-            /** Format: int64 */
-            total_illust_series: number;
-            /** Format: int64 */
-            total_illusts: number;
-            /** Format: int64 */
-            total_manga: number;
-            /** Format: int64 */
-            total_mypixiv_users: number;
-            /** Format: int64 */
-            total_novel_series: number;
-            /** Format: int64 */
-            total_novels: number;
-            twitter_account: string;
-            twitter_url: string | null;
-            webpage: string | null;
-        };
-        ProfileImageUrls: {
-            medium: string;
-        };
-        /** @description Pixiv profile publicity flags. Shape mirrors pixivgo.ProfilePublicity. */
-        ProfilePublicity: {
-            birth_day: string;
-            birth_year: string;
-            gender: string;
-            job: string;
-            pawoo: boolean;
-            region: string;
-        };
-        /** @enum {string} */
-        RankingMode: "day" | "week" | "month" | "day_male" | "day_female" | "week_original" | "week_rookie" | "day_manga" | "day_r18" | "day_male_r18" | "day_female_r18" | "week_r18" | "week_r18g";
         /**
-         * @default public
-         * @enum {string}
+         * @description Free-form map of writes. Keys are either nested (matching the
+         *     struct shape) or flat dotted paths (e.g. `"download.max_concurrent": 8`);
+         *     both forms are accepted. Sending the sensitive mask sentinel
+         *     (`***`) or `""` for a sensitive field is a no-op.
          */
-        Restrict: "public" | "private";
-        /** @enum {string} */
-        SearchDuration: "within_last_day" | "within_last_week" | "within_last_month";
-        /**
-         * @default date_desc
-         * @enum {string}
-         */
-        SearchSort: "date_desc" | "date_asc" | "popular_desc";
-        /**
-         * @default partial_match_for_tags
-         * @enum {string}
-         */
-        SearchTarget: "partial_match_for_tags" | "exact_match_for_tags" | "title_and_caption" | "keyword";
-        /** @description Pixiv returns `{}` instead of `null` for empty series; in that case `id` is 0. */
-        Series: {
-            /** Format: int64 */
-            id: number;
-            title: string;
+        ConfigPatch: {
+            [key: string]: unknown;
         };
-        SubmitDownloadRequest: {
+        ConfigResetRequest: {
+            /** @description Dotted-path keys to drop from the file layer. */
+            keys?: string[];
             /**
-             * Format: int64
-             * @description Pixiv illustration ID.
+             * @description When true, clear the entire file layer. Mutually exclusive
+             *     with `keys`; sending both is rejected with 400.
              */
-            illust_id: number;
-        };
-        UgoiraFrame: {
-            /** Format: int64 */
-            delay: number;
-            file: string;
-        };
-        UgoiraMetadata: {
-            frames: components["schemas"]["UgoiraFrame"][];
-            zip_urls: components["schemas"]["UgoiraZipUrls"];
-        };
-        /** @description Ugoira (animated illust) metadata. Mirrors pixivgo.UgoiraMetadataResponse. */
-        UgoiraMetadataResponse: {
-            ugoira_metadata: components["schemas"]["UgoiraMetadata"];
-        };
-        UgoiraZipUrls: {
-            medium: string;
-        };
-        /** @description Pixiv user summary. Shape mirrors pixivgo.UserInfo. */
-        User: {
-            account: string;
-            comment?: string;
-            /** Format: int64 */
-            id: number;
-            is_accept_request?: boolean;
-            is_access_blocking_user?: boolean;
-            is_followed: boolean | null;
-            name: string;
-            profile_image_urls: components["schemas"]["ProfileImageUrls"];
-        };
-        UserDetailPage: {
-            profile: components["schemas"]["Profile"];
-            profile_publicity: components["schemas"]["ProfilePublicity"];
-            user: components["schemas"]["User"];
-            workspace: components["schemas"]["Workspace"];
-        };
-        UserIllustsPage: {
-            illusts: components["schemas"]["Illust"][];
-            /** Format: int64 */
-            next_offset?: number | null;
-            user: components["schemas"]["User"];
-        };
-        /** @description User + a few sample illusts. Shape mirrors pixivgo.UserPreview. */
-        UserPreview: {
-            illusts: components["schemas"]["Illust"][];
-            is_muted: boolean;
-            novels: components["schemas"]["Novel"][];
-            user: components["schemas"]["User"];
-        };
-        UserPreviewPage: {
-            /** Format: int64 */
-            next_offset?: number | null;
-            user_previews: components["schemas"]["UserPreview"][];
-        };
-        /** @description Pixiv workspace info. Shape mirrors pixivgo.Workspace. */
-        Workspace: {
-            chair: string;
-            comment: string;
-            desk: string;
-            desktop: string;
-            monitor: string;
-            mouse: string;
-            music: string;
-            pc: string;
-            printer: string;
-            scanner: string;
-            tablet: string;
-            tool: string;
-            workspace_image_url: string | null;
+            all?: boolean;
         };
     };
     responses: {
-        /** @description Invalid parameters. */
-        BadRequest: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
         /** @description Action succeeded; no body. */
         NoContent: {
             headers: {
                 [name: string]: unknown;
             };
             content?: never;
+        };
+        /** @description No valid Pixiv session. Call `POST /auth/login` first. */
+        Unauthenticated: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
         };
         /** @description Resource not found on Pixiv. */
         NotFound: {
@@ -1098,8 +1145,8 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description No valid Pixiv session. Call `POST /auth/login` first. */
-        Unauthenticated: {
+        /** @description Invalid parameters. */
+        BadRequest: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1118,32 +1165,24 @@ export interface components {
         };
     };
     parameters: {
-        /** @description Restrict bookmarks to those tagged with this exact tag name. */
-        BookmarkTagQuery: string;
+        /** @description Pixiv illustration ID. */
+        IllustIdPath: number;
+        /** @description Pixiv user ID. */
+        UserIdPath: number;
+        /** @description Offset for offset-paginated list endpoints. */
+        OffsetQuery: number;
+        /** @description Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response. */
+        MaxBookmarkIdQuery: number;
+        /** @description Visibility scope (public or private). */
+        RestrictQuery: components["schemas"]["Restrict"];
+        /** @description Illust type filter; both are returned when omitted (where supported). */
+        IllustTypeQuery: components["schemas"]["IllustType"];
         /**
          * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
          *     to apply the same policy filter as the official iOS client;
          *     pass `none` to disable.
          */
         ClientModeQuery: components["schemas"]["ClientMode"];
-        /** @description Download job identifier returned by `POST /downloads`. */
-        DownloadIdPath: string;
-        /** @description 1-based page index. */
-        DownloadPageQuery: number;
-        /** @description Items per page; clamped to `[1, 100]`. */
-        DownloadPerPageQuery: number;
-        /**
-         * @description Comma-separated subset of `DownloadStatus` to include. Omit for no
-         *     filter. Example: `queued,running`.
-         * @example queued,running
-         */
-        DownloadStatusListQuery: string;
-        /**
-         * @description RFC3339 timestamp. Only jobs with `updated_at >= updated_since`
-         *     are returned. Used by the frontend to load the recent-tracked
-         *     window without scanning the whole history.
-         */
-        DownloadUpdatedSinceQuery: string;
         /** @description Time-window filter for search results. */
         DurationQuery: components["schemas"]["SearchDuration"];
         /**
@@ -1151,23 +1190,31 @@ export interface components {
          *     (Pixiv `search_ai_type=1`). Omit or set false to include them.
          */
         ExcludeAiQuery: boolean;
-        /** @description Pixiv illustration ID. */
-        IllustIdPath: number;
-        /** @description Illust type filter; both are returned when omitted (where supported). */
-        IllustTypeQuery: components["schemas"]["IllustType"];
+        /** @description Restrict bookmarks to those tagged with this exact tag name. */
+        BookmarkTagQuery: string;
         /**
          * @description When false, omit the daily-ranking section Pixiv injects into the
          *     recommended feed. Omit to keep Pixiv's default behaviour.
          */
         IncludeRankingIllustsQuery: boolean;
-        /** @description Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response. */
-        MaxBookmarkIdQuery: number;
-        /** @description Offset for offset-paginated list endpoints. */
-        OffsetQuery: number;
-        /** @description Visibility scope (public or private). */
-        RestrictQuery: components["schemas"]["Restrict"];
-        /** @description Pixiv user ID. */
-        UserIdPath: number;
+        /** @description Download job identifier returned by `POST /downloads`. */
+        DownloadIdPath: string;
+        /**
+         * @description Comma-separated subset of `DownloadStatus` to include. Omit for no
+         *     filter. Example: `queued,running`.
+         * @example queued,running
+         */
+        DownloadStatusListQuery: string;
+        /** @description 1-based page index. */
+        DownloadPageQuery: number;
+        /** @description Items per page; clamped to `[1, 100]`. */
+        DownloadPerPageQuery: number;
+        /**
+         * @description RFC3339 timestamp. Only jobs with `updated_at >= updated_since`
+         *     are returned. Used by the frontend to load the recent-tracked
+         *     window without scanning the whole history.
+         */
+        DownloadUpdatedSinceQuery: string;
     };
     requestBodies: never;
     headers: never;
@@ -1175,7 +1222,27 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    Login: {
+    getHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Service is healthy. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthStatus"];
+                };
+            };
+        };
+    };
+    login: {
         parameters: {
             query?: never;
             header?: never;
@@ -1202,7 +1269,7 @@ export interface operations {
             502: components["responses"]["Upstream"];
         };
     };
-    Logout: {
+    logout: {
         parameters: {
             query?: never;
             header?: never;
@@ -1214,7 +1281,47 @@ export interface operations {
             204: components["responses"]["NoContent"];
         };
     };
-    ExchangeOAuth: {
+    getAuthStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current auth status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthStatus"];
+                };
+            };
+        };
+    };
+    startOAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Login flow started. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthStartResponse"];
+                };
+            };
+        };
+    };
+    exchangeOAuth: {
         parameters: {
             query?: never;
             header?: never;
@@ -1240,411 +1347,7 @@ export interface operations {
             502: components["responses"]["Upstream"];
         };
     };
-    StartOAuth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Login flow started. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OAuthStartResponse"];
-                };
-            };
-        };
-    };
-    GetAuthStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current auth status. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthStatus"];
-                };
-            };
-        };
-    };
-    GetConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current config view. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfigView"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-        };
-    };
-    PatchConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConfigPatch"];
-            };
-        };
-        responses: {
-            /** @description Patch applied. Returns the refreshed view. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfigView"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthenticated"];
-        };
-    };
-    ResetConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConfigResetRequest"];
-            };
-        };
-        responses: {
-            /** @description Reset applied. Returns the refreshed view. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfigView"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthenticated"];
-        };
-    };
-    RestartConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Restart accepted; the process will drain and re-exec. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfigRestartAccepted"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-        };
-    };
-    GetConfigSchema: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description JSON Schema document. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-        };
-    };
-    ListDownloads: {
-        parameters: {
-            query?: {
-                /**
-                 * @description Comma-separated subset of `DownloadStatus` to include. Omit for no
-                 *     filter. Example: `queued,running`.
-                 * @example queued,running
-                 */
-                status?: components["parameters"]["DownloadStatusListQuery"];
-                /** @description 1-based page index. */
-                page?: components["parameters"]["DownloadPageQuery"];
-                /** @description Items per page; clamped to `[1, 100]`. */
-                per_page?: components["parameters"]["DownloadPerPageQuery"];
-                /**
-                 * @description RFC3339 timestamp. Only jobs with `updated_at >= updated_since`
-                 *     are returned. Used by the frontend to load the recent-tracked
-                 *     window without scanning the whole history.
-                 */
-                updated_since?: components["parameters"]["DownloadUpdatedSinceQuery"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Jobs list page. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DownloadJobList"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthenticated"];
-        };
-    };
-    SubmitDownload: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SubmitDownloadRequest"];
-            };
-        };
-        responses: {
-            /** @description Job accepted. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DownloadJob"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    ClearDownloads: {
-        parameters: {
-            query?: {
-                /**
-                 * @description Comma-separated subset of `DownloadStatus` to include. Omit for no
-                 *     filter. Example: `queued,running`.
-                 * @example queued,running
-                 */
-                status?: components["parameters"]["DownloadStatusListQuery"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Removal summary. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClearDownloadsResponse"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthenticated"];
-        };
-    };
-    GetDownload: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Download job identifier returned by `POST /downloads`. */
-                id: components["parameters"]["DownloadIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The job. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DownloadJob"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-        };
-    };
-    RemoveDownload: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Download job identifier returned by `POST /downloads`. */
-                id: components["parameters"]["DownloadIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: components["responses"]["NoContent"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            /** @description Job is still running — cancel it before removing. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    CancelDownload: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Download job identifier returned by `POST /downloads`. */
-                id: components["parameters"]["DownloadIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: components["responses"]["NoContent"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            /** @description Job is already in a terminal state. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    GetEvents: {
-        parameters: {
-            query?: {
-                /**
-                 * @description Comma-separated topic filter (e.g. `download,system`).
-                 *     Omit for all topics.
-                 */
-                topics?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Open event stream. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/event-stream": string;
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-        };
-    };
-    GetHealth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Service is healthy. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthStatus"];
-                };
-            };
-        };
-    };
-    ListFollowingIllusts: {
-        parameters: {
-            query?: {
-                /** @description Visibility scope (public or private). */
-                restrict?: components["parameters"]["RestrictQuery"];
-                /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["OffsetQuery"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Following feed page. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IllustPage"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    ListRanking: {
+    listRanking: {
         parameters: {
             query?: {
                 mode?: components["schemas"]["RankingMode"];
@@ -1678,7 +1381,7 @@ export interface operations {
             502: components["responses"]["Upstream"];
         };
     };
-    ListRecommended: {
+    listRecommended: {
         parameters: {
             query?: {
                 /** @description Illust type filter; both are returned when omitted (where supported). */
@@ -1716,7 +1419,34 @@ export interface operations {
             502: components["responses"]["Upstream"];
         };
     };
-    GetIllust: {
+    listFollowingIllusts: {
+        parameters: {
+            query?: {
+                /** @description Visibility scope (public or private). */
+                restrict?: components["parameters"]["RestrictQuery"];
+                /** @description Offset for offset-paginated list endpoints. */
+                offset?: components["parameters"]["OffsetQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Following feed page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IllustPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    getIllust: {
         parameters: {
             query?: never;
             header?: never;
@@ -1742,73 +1472,7 @@ export interface operations {
             502: components["responses"]["Upstream"];
         };
     };
-    GetBookmarkDetail: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Pixiv illustration ID. */
-                id: components["parameters"]["IllustIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Bookmark detail. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BookmarkDetail"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    AddBookmark: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Pixiv illustration ID. */
-                id: components["parameters"]["IllustIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["BookmarkRequest"];
-            };
-        };
-        responses: {
-            204: components["responses"]["NoContent"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    DeleteBookmark: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Pixiv illustration ID. */
-                id: components["parameters"]["IllustIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            204: components["responses"]["NoContent"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    GetUgoiraMetadata: {
+    getUgoiraMetadata: {
         parameters: {
             query?: never;
             header?: never;
@@ -1834,7 +1498,253 @@ export interface operations {
             502: components["responses"]["Upstream"];
         };
     };
-    SearchIllusts: {
+    getBookmarkDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv illustration ID. */
+                id: components["parameters"]["IllustIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bookmark detail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookmarkDetail"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    addBookmark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv illustration ID. */
+                id: components["parameters"]["IllustIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BookmarkRequest"];
+            };
+        };
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    deleteBookmark: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv illustration ID. */
+                id: components["parameters"]["IllustIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    getUser: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
+                 *     to apply the same policy filter as the official iOS client;
+                 *     pass `none` to disable.
+                 */
+                client_mode?: components["parameters"]["ClientModeQuery"];
+            };
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User detail. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetailPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    listUserIllusts: {
+        parameters: {
+            query?: {
+                /** @description Illust type filter; both are returned when omitted (where supported). */
+                type?: components["parameters"]["IllustTypeQuery"];
+                /** @description Offset for offset-paginated list endpoints. */
+                offset?: components["parameters"]["OffsetQuery"];
+                /**
+                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
+                 *     to apply the same policy filter as the official iOS client;
+                 *     pass `none` to disable.
+                 */
+                client_mode?: components["parameters"]["ClientModeQuery"];
+            };
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User illusts page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserIllustsPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    listUserBookmarks: {
+        parameters: {
+            query?: {
+                /** @description Visibility scope (public or private). */
+                restrict?: components["parameters"]["RestrictQuery"];
+                /** @description Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response. */
+                max_bookmark_id?: components["parameters"]["MaxBookmarkIdQuery"];
+                /** @description Restrict bookmarks to those tagged with this exact tag name. */
+                tag?: components["parameters"]["BookmarkTagQuery"];
+                /**
+                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
+                 *     to apply the same policy filter as the official iOS client;
+                 *     pass `none` to disable.
+                 */
+                client_mode?: components["parameters"]["ClientModeQuery"];
+            };
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bookmarks page. `next_max_bookmark_id` is set when another page exists. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IllustPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    listUserFollowing: {
+        parameters: {
+            query?: {
+                /** @description Visibility scope (public or private). */
+                restrict?: components["parameters"]["RestrictQuery"];
+                /** @description Offset for offset-paginated list endpoints. */
+                offset?: components["parameters"]["OffsetQuery"];
+            };
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Following page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreviewPage"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    addFollow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["FollowRequest"];
+            };
+        };
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    deleteFollow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    searchIllusts: {
         parameters: {
             query: {
                 word: string;
@@ -1880,7 +1790,7 @@ export interface operations {
             502: components["responses"]["Upstream"];
         };
     };
-    SearchUsers: {
+    searchUsers: {
         parameters: {
             query: {
                 word: string;
@@ -1916,107 +1826,134 @@ export interface operations {
             502: components["responses"]["Upstream"];
         };
     };
-    GetUser: {
+    listDownloads: {
         parameters: {
             query?: {
                 /**
-                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
-                 *     to apply the same policy filter as the official iOS client;
-                 *     pass `none` to disable.
+                 * @description Comma-separated subset of `DownloadStatus` to include. Omit for no
+                 *     filter. Example: `queued,running`.
+                 * @example queued,running
                  */
-                client_mode?: components["parameters"]["ClientModeQuery"];
+                status?: components["parameters"]["DownloadStatusListQuery"];
+                /** @description 1-based page index. */
+                page?: components["parameters"]["DownloadPageQuery"];
+                /** @description Items per page; clamped to `[1, 100]`. */
+                per_page?: components["parameters"]["DownloadPerPageQuery"];
+                /**
+                 * @description RFC3339 timestamp. Only jobs with `updated_at >= updated_since`
+                 *     are returned. Used by the frontend to load the recent-tracked
+                 *     window without scanning the whole history.
+                 */
+                updated_since?: components["parameters"]["DownloadUpdatedSinceQuery"];
             };
             header?: never;
-            path: {
-                /** @description Pixiv user ID. */
-                id: components["parameters"]["UserIdPath"];
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description User detail. */
+            /** @description Jobs list page. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserDetailPage"];
+                    "application/json": components["schemas"]["DownloadJobList"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
         };
     };
-    ListUserBookmarks: {
-        parameters: {
-            query?: {
-                /** @description Visibility scope (public or private). */
-                restrict?: components["parameters"]["RestrictQuery"];
-                /** @description Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response. */
-                max_bookmark_id?: components["parameters"]["MaxBookmarkIdQuery"];
-                /** @description Restrict bookmarks to those tagged with this exact tag name. */
-                tag?: components["parameters"]["BookmarkTagQuery"];
-                /**
-                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
-                 *     to apply the same policy filter as the official iOS client;
-                 *     pass `none` to disable.
-                 */
-                client_mode?: components["parameters"]["ClientModeQuery"];
-            };
-            header?: never;
-            path: {
-                /** @description Pixiv user ID. */
-                id: components["parameters"]["UserIdPath"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Bookmarks page. `next_max_bookmark_id` is set when another page exists. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IllustPage"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
-        };
-    };
-    AddFollow: {
+    submitDownload: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                /** @description Pixiv user ID. */
-                id: components["parameters"]["UserIdPath"];
-            };
+            path?: never;
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
-                "application/json": components["schemas"]["FollowRequest"];
+                "application/json": components["schemas"]["SubmitDownloadRequest"];
             };
         };
         responses: {
-            204: components["responses"]["NoContent"];
+            /** @description Job accepted. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadJob"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             502: components["responses"]["Upstream"];
         };
     };
-    DeleteFollow: {
+    clearDownloads: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Comma-separated subset of `DownloadStatus` to include. Omit for no
+                 *     filter. Example: `queued,running`.
+                 * @example queued,running
+                 */
+                status?: components["parameters"]["DownloadStatusListQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removal summary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClearDownloadsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    getDownload: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                /** @description Pixiv user ID. */
-                id: components["parameters"]["UserIdPath"];
+                /** @description Download job identifier returned by `POST /downloads`. */
+                id: components["parameters"]["DownloadIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadJob"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    removeDownload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Download job identifier returned by `POST /downloads`. */
+                id: components["parameters"]["DownloadIdPath"];
             };
             cookie?: never;
         };
@@ -2025,75 +1962,185 @@ export interface operations {
             204: components["responses"]["NoContent"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
+            /** @description Job is still running — cancel it before removing. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
-    ListUserFollowing: {
+    cancelDownload: {
         parameters: {
-            query?: {
-                /** @description Visibility scope (public or private). */
-                restrict?: components["parameters"]["RestrictQuery"];
-                /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["OffsetQuery"];
-            };
+            query?: never;
             header?: never;
             path: {
-                /** @description Pixiv user ID. */
-                id: components["parameters"]["UserIdPath"];
+                /** @description Download job identifier returned by `POST /downloads`. */
+                id: components["parameters"]["DownloadIdPath"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Following page. */
-            200: {
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            /** @description Job is already in a terminal state. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserPreviewPage"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
         };
     };
-    ListUserIllusts: {
+    getEvents: {
         parameters: {
             query?: {
-                /** @description Illust type filter; both are returned when omitted (where supported). */
-                type?: components["parameters"]["IllustTypeQuery"];
-                /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["OffsetQuery"];
                 /**
-                 * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
-                 *     to apply the same policy filter as the official iOS client;
-                 *     pass `none` to disable.
+                 * @description Comma-separated topic filter (e.g. `download,system`).
+                 *     Omit for all topics.
                  */
-                client_mode?: components["parameters"]["ClientModeQuery"];
+                topics?: string;
             };
             header?: never;
-            path: {
-                /** @description Pixiv user ID. */
-                id: components["parameters"]["UserIdPath"];
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description User illusts page. */
+            /** @description Open event stream. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserIllustsPage"];
+                    "text/event-stream": string;
                 };
             };
             401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-            502: components["responses"]["Upstream"];
+        };
+    };
+    getConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current config view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigView"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    patchConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigPatch"];
+            };
+        };
+        responses: {
+            /** @description Patch applied. Returns the refreshed view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigView"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    getConfigSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JSON Schema document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    resetConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Reset applied. Returns the refreshed view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigView"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    restartConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restart accepted; the process will drain and re-exec. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigRestartAccepted"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
         };
     };
 }

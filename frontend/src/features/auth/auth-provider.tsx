@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const login = useCallback(async (refreshToken: string) => {
         const trimmed = refreshToken.trim();
         if (!trimmed) {
-            return { code: "invalid_argument", message: "Refresh token is required" } satisfies AuthApiError;
+            return { code: "bad_request", kind: "app", message: "Refresh token is required" } satisfies AuthApiError;
         }
         setPending(true);
         const { data, error } = await authApi.login(trimmed);
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const trimmedState = state.trim();
         const trimmedCode = code.trim();
         if (!trimmedState || !trimmedCode) {
-            return { code: "invalid_argument", message: "State and code are required" } satisfies AuthApiError;
+            return { code: "bad_request", kind: "app", message: "State and code are required" } satisfies AuthApiError;
         }
         setPending(true);
         const { data, error } = await authApi.exchangeOAuth(trimmedState, trimmedCode);

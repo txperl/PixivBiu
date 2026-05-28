@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -36,7 +35,7 @@ func parseStatusList(raw *string) ([]download.Status, error) {
 		}
 		s := download.Status(p)
 		if _, ok := allDownloadStatuses[s]; !ok {
-			return nil, fmt.Errorf("unknown status %q", p)
+			return nil, &UnknownStatusError{Value: p}
 		}
 		out = append(out, s)
 	}
@@ -48,21 +47,21 @@ func parseStatusList(raw *string) ([]download.Status, error) {
 
 func (h *APIHandler) SubmitDownload(w http.ResponseWriter, r *http.Request) {
 	if err := h.requireAuth(); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	var body SubmitDownloadRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	if body.IllustId <= 0 {
-		h.writeError(w, r, download.ErrInvalidIllust)
+		WriteError(w, r, download.ErrInvalidIllust)
 		return
 	}
 	job, err := h.dl.Submit(r.Context(), body.IllustId)
 	if err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, projectJob(job))
@@ -70,13 +69,13 @@ func (h *APIHandler) SubmitDownload(w http.ResponseWriter, r *http.Request) {
 
 func (h *APIHandler) ListDownloads(w http.ResponseWriter, r *http.Request, params ListDownloadsParams) {
 	if err := h.requireAuth(); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 
 	statuses, err := parseStatusList(params.Status)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, Error{Code: "bad_request", Message: err.Error()})
+		WriteError(w, r, err)
 		return
 	}
 
@@ -109,12 +108,12 @@ func (h *APIHandler) ListDownloads(w http.ResponseWriter, r *http.Request, param
 
 func (h *APIHandler) GetDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath) {
 	if err := h.requireAuth(); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	job, err := h.dl.Get(id)
 	if err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, projectJob(job))
@@ -122,11 +121,11 @@ func (h *APIHandler) GetDownload(w http.ResponseWriter, r *http.Request, id Down
 
 func (h *APIHandler) CancelDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath) {
 	if err := h.requireAuth(); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	if err := h.dl.Cancel(id); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -134,11 +133,11 @@ func (h *APIHandler) CancelDownload(w http.ResponseWriter, r *http.Request, id D
 
 func (h *APIHandler) RemoveDownload(w http.ResponseWriter, r *http.Request, id DownloadIdPath) {
 	if err := h.requireAuth(); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	if err := h.dl.Remove(id); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -146,17 +145,17 @@ func (h *APIHandler) RemoveDownload(w http.ResponseWriter, r *http.Request, id D
 
 func (h *APIHandler) ClearDownloads(w http.ResponseWriter, r *http.Request, params ClearDownloadsParams) {
 	if err := h.requireAuth(); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	statuses, err := parseStatusList(params.Status)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, Error{Code: "bad_request", Message: err.Error()})
+		WriteError(w, r, err)
 		return
 	}
 	removed, err := h.dl.RemoveTerminal(statuses)
 	if err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, ClearDownloadsResponse{Removed: removed})

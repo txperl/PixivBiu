@@ -81,7 +81,7 @@ function LoginPage() {
         if (err || !data) {
             popup?.close();
             popupRef.current = null;
-            setError(err ?? { code: "internal_error", message: "Failed to start OAuth" });
+            setError(err ?? { code: "internal_error", kind: "app", message: "Failed to start OAuth" });
             return;
         }
         setOauthSession({ state: data.state, loginUrl: data.login_url });

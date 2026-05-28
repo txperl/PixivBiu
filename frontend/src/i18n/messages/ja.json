@@ -8,6 +8,8 @@
     "error_rate_limited": "リクエストが多すぎます。しばらくしてから再試行してください",
     "error_forbidden": "この操作を実行する権限がありません",
     "error_upstream_error": "Pixiv サービスが一時的に利用できません。しばらくしてから再試行してください",
+    "error_upstream_invalid_grant": "Pixiv のセッションが無効になりました。再度ログインしてください",
+    "error_upstream_rate_limit": "Pixiv へのリクエストが多すぎます。しばらくしてから再試行してください",
     "error_internal_error": "サーバー内部エラー",
     "status_queued": "待機中",
     "status_running": "ダウンロード中",

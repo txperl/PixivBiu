@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -34,18 +33,6 @@ func New(cfg *config.Config, logger *slog.Logger, h *api.APIHandler) http.Handle
 	return api.HandlerWithOptions(h, api.ChiServerOptions{
 		BaseURL:          apiBase,
 		BaseRouter:       r,
-		ErrorHandlerFunc: paramErrorHandler,
-	})
-}
-
-// paramErrorHandler serialises oapi-codegen's param-validation errors
-// (missing required query, bad enum value, bad int parse, ...) into the
-// same JSON envelope that our own business handlers produce.
-func paramErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusBadRequest)
-	_ = json.NewEncoder(w).Encode(api.Error{
-		Code:    "bad_request",
-		Message: err.Error(),
+		ErrorHandlerFunc: api.WriteError,
 	})
 }

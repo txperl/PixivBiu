@@ -11,12 +11,12 @@ import (
 // and the per-key source labels. Sensitive fields are masked in both views.
 func (h *APIHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	if err := h.requireAuth(); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	view, err := h.cfgMgr.View()
 	if err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewToWire(view))
@@ -26,7 +26,7 @@ func (h *APIHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 // through as-is; the openapi spec types it as a free-form object.
 func (h *APIHandler) GetConfigSchema(w http.ResponseWriter, r *http.Request) {
 	if err := h.requireAuth(); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, h.cfgMgr.Schema().JSON)
@@ -36,17 +36,17 @@ func (h *APIHandler) GetConfigSchema(w http.ResponseWriter, r *http.Request) {
 // On validation failure it returns 400 with per-key messages.
 func (h *APIHandler) PatchConfig(w http.ResponseWriter, r *http.Request) {
 	if err := h.requireAuth(); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	var body PatchConfigJSONRequestBody
 	if err := decodeJSON(r, &body); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	view, err := h.cfgMgr.Patch(map[string]any(body))
 	if err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewToWire(view))
@@ -55,12 +55,12 @@ func (h *APIHandler) PatchConfig(w http.ResponseWriter, r *http.Request) {
 // ResetConfig drops keys (or the entire file layer) and returns the refreshed view.
 func (h *APIHandler) ResetConfig(w http.ResponseWriter, r *http.Request) {
 	if err := h.requireAuth(); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	var body ResetConfigJSONRequestBody
 	if err := decodeJSON(r, &body); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	var keys []string
@@ -70,7 +70,7 @@ func (h *APIHandler) ResetConfig(w http.ResponseWriter, r *http.Request) {
 	all := body.All != nil && *body.All
 	view, err := h.cfgMgr.Reset(keys, all)
 	if err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, viewToWire(view))
@@ -82,11 +82,11 @@ func (h *APIHandler) ResetConfig(w http.ResponseWriter, r *http.Request) {
 // before its connection (and any SSE streams) drop.
 func (h *APIHandler) RestartConfig(w http.ResponseWriter, r *http.Request) {
 	if err := h.requireAuth(); err != nil {
-		h.writeError(w, r, err)
+		WriteError(w, r, err)
 		return
 	}
 	if h.restart == nil {
-		h.writeError(w, r, errors.New("restart trigger not configured"))
+		WriteError(w, r, errors.New("restart trigger not configured"))
 		return
 	}
 	writeJSON(w, http.StatusAccepted, ConfigRestartAccepted{Status: "restarting"})

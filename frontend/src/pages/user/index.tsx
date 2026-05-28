@@ -380,7 +380,7 @@ function UserPage() {
     if (!validId) {
         return (
             <div className="px-7 pt-7 pb-7">
-                <SearchError error={{ code: "bad_request", message: m.user_invalid_id() }} />
+                <SearchError error={{ code: "bad_request", kind: "app", message: m.user_invalid_id() }} />
             </div>
         );
     }

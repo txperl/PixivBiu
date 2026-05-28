@@ -3,15 +3,15 @@ import type { components } from "./schema.gen";
 
 type ApiError = components["schemas"]["Error"];
 
-// Locale-aware replacement. useMessages() subscribes the calling component to
-// locale changes, so the returned resolver re-renders into the active locale.
-// The map is rebuilt on each call (after const m = useMessages()) and uses an
-// explicit static map of the 8 backend codes (internal/api/handler.go::classify)
-// to m.error_* functions — never m[dynamicKey]() — so tree-shaking and types
-// stay intact. Unknown codes fall back to the raw error.message.
+// The backend's `kind` field carries the safety contract for `message`.
+// When `kind === "app"`, a non-empty `message` is authored text
+// (UserError opt-in / frontend synthetic) and is rendered as-is.
+// Otherwise — including for sentinel app errors that send an empty
+// message — we localize via `upstream.reason` (when relevant) then by
+// `code`, falling back to `error.message` only if no key is registered.
 export function useApiErrorMessage(): (error: ApiError) => string {
     const m = useMessages();
-    const map: Record<string, () => string> = {
+    const byCode: Record<string, () => string> = {
         unauthenticated: () => m.error_unauthenticated(),
         bad_request: () => m.error_bad_request(),
         not_found: () => m.error_not_found(),
@@ -21,5 +21,13 @@ export function useApiErrorMessage(): (error: ApiError) => string {
         upstream_error: () => m.error_upstream_error(),
         internal_error: () => m.error_internal_error(),
     };
-    return (error: ApiError) => map[error.code]?.() ?? error.message;
+    const byUpstreamReason: Record<string, () => string> = {
+        invalid_grant: () => m.error_upstream_invalid_grant(),
+        rate_limit: () => m.error_upstream_rate_limit(),
+    };
+    return (error) => {
+        if (error.kind === "app" && error.message) return error.message;
+        const reason = error.kind === "upstream" ? error.upstream?.reason : undefined;
+        return byUpstreamReason[reason ?? ""]?.() ?? byCode[error.code]?.() ?? error.message;
+    };
 }

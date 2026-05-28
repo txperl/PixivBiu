@@ -8,6 +8,8 @@
     "error_rate_limited": "Too many requests, please try again later",
     "error_forbidden": "You don't have permission to perform this action",
     "error_upstream_error": "Pixiv is temporarily unavailable, please try again later",
+    "error_upstream_invalid_grant": "Your Pixiv session is no longer valid. Please sign in again.",
+    "error_upstream_rate_limit": "Pixiv is rate-limiting requests. Please wait a moment and try again.",
     "error_internal_error": "Internal server error",
     "status_queued": "Queued",
     "status_running": "Downloading",
