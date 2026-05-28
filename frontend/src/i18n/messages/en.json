@@ -273,7 +273,6 @@
     "cfg_log_format": "Output format",
     "cfg_log_language": "Language for the startup banner and lifecycle logs (auto = follow system)",
     "cfg_pixiv_proxy": "HTTP/SOCKS proxy URL (empty = direct connection)",
-    "cfg_pixiv_language": "Accept-Language tag translation language (empty = keep original text, no translation)",
     "cfg_pixiv_bypass_sni": "Enable DoH + alternate SNI for the API (only for restricted networks)",
     "cfg_pixiv_state_file": "File path for persisting the auth token",
     "cfg_download_output_dir": "Output directory template (Go text/template)",

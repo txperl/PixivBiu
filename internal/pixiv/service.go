@@ -120,16 +120,16 @@ func (s *Service) Client() *pixivgo.Client {
 	return s.client
 }
 
-// Reload rebuilds the client/httpc when the hot-reloadable proxy or
-// language settings change, preserving the current auth token and the
-// running refresh loop. bypass_sni and state_file are restart-only, so
-// their values are pinned to the running config. On a build failure the
-// existing client is left untouched and the error is returned.
+// Reload rebuilds the client/httpc when the hot-reloadable proxy setting
+// changes, preserving the current auth token and the running refresh loop.
+// bypass_sni and state_file are restart-only, so their values are pinned to
+// the running config. On a build failure the existing client is left
+// untouched and the error is returned.
 func (s *Service) Reload(cfg config.PixivConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if cfg.Proxy == s.cfg.Proxy && cfg.Language == s.cfg.Language {
+	if cfg.Proxy == s.cfg.Proxy {
 		return nil
 	}
 	cfg.BypassSNI = s.cfg.BypassSNI
@@ -264,16 +264,13 @@ func (s *Service) loop(ctx context.Context) {
 	}
 }
 
-// buildClient constructs a pixivgo client with proxy / bypass / language
-// settings applied. It does NOT authenticate. The second return is the raw
+// buildClient constructs a pixivgo client with proxy / bypass settings
+// applied. It does NOT authenticate. The second return is the raw
 // *http.Client backing the pixivgo client (or http.DefaultClient when neither
 // proxy nor SNI-bypass is configured) so callers can reuse the same network
 // path for OAuth flows pixivgo doesn't cover.
 func buildClient(cfg config.PixivConfig) (*pixivgo.Client, *http.Client, error) {
 	opts := []pixivgo.Option{}
-	if cfg.Language != "" {
-		opts = append(opts, pixivgo.WithAcceptLanguage(cfg.Language))
-	}
 
 	if cfg.BypassSNI {
 		hc, base, err := bypass.NewHTTPClient(context.Background())

@@ -273,7 +273,6 @@
     "cfg_log_format": "输出格式",
     "cfg_log_language": "启动横幅与生命周期日志语言（auto = 跟随系统）",
     "cfg_pixiv_proxy": "HTTP/SOCKS 代理 URL（空串 = 直连）",
-    "cfg_pixiv_language": "Accept-Language 标签翻译语言（空 = 保留原文不翻译）",
     "cfg_pixiv_bypass_sni": "对 API 启用 DoH + 替代 SNI（仅对受限网络）",
     "cfg_pixiv_state_file": "认证 token 持久化文件路径",
     "cfg_download_output_dir": "输出目录模板（Go text/template）",

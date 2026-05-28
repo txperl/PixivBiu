@@ -279,7 +279,7 @@ The canonical key list lives in `internal/config/config.go` (Go struct + `defaul
 - `log.format` — `text` | `json` (default `text`)
 - `log.language` — startup banner + lifecycle-log language: `auto` (follow `LANG`/`LC_*`) | `en` | `zh-CN` | `ja` (default `auto`). Only localizes the banner + lifecycle lines; structured slog fields stay English. **advanced**, **restart-required** (the translator is built once at boot, so a PATCH surfaces in `pending_restart`).
 - `pixiv.proxy` — HTTP/SOCKS proxy URL, **sensitive** (masked in API). Must include `scheme://host` — bare `host:port` is rejected at PATCH.
-- `pixiv.{language,bypass_sni,state_file}` — Pixiv client + token persistence
+- `pixiv.{bypass_sni,state_file}` — Pixiv client + token persistence
 - `download.{output_dir,file_template,file_group_template}` — text/template paths (see "Download module" below)
 - `download.max_concurrent` — worker pool size (default `4`, min `1`, max `64`). **restart-required** (the pool is sized once at boot).
 - `download.http_timeout` — per-request timeout (default `60s`)

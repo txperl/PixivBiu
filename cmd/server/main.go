@@ -273,7 +273,7 @@ func printBanner(cfg *config.Config, svc *pixiv.Service, tr *i18n.Translator, ad
    Settings %s
    Proxy    %s
 
-   @Lang:%s @SNI-bypass:%s
+   @SNI-bypass:%s
 
  %s
 ───────────────────────────────────────────────────────────────
@@ -283,7 +283,7 @@ func printBanner(cfg *config.Config, svc *pixiv.Service, tr *i18n.Translator, ad
 		tr.T("banner.tagline"),
 		tr.T("banner.listening"), addr,
 		base, base, base, base,
-		auth, cfg.Pixiv.StateFile, settingsPath, proxy, cfg.Pixiv.Language, sni,
+		auth, cfg.Pixiv.StateFile, settingsPath, proxy, sni,
 		tr.T("banner.ready"),
 	)
 }

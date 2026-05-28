@@ -17,7 +17,7 @@ import type { FieldSpec } from "./types";
 
 export function useFieldText(): (field: FieldSpec) => string {
     const m = useMessages();
-    // Keyed by `cfg_` + field.key.replaceAll(".", "_"). Covers all 26 leaf
+    // Keyed by `cfg_` + field.key.replaceAll(".", "_"). Covers all 25 leaf
     // fields; anything else falls through to field.description / field.key.
     const map: Record<string, () => string> = {
         cfg_server_host: () => m.cfg_server_host(),
@@ -29,7 +29,6 @@ export function useFieldText(): (field: FieldSpec) => string {
         cfg_log_format: () => m.cfg_log_format(),
         cfg_log_language: () => m.cfg_log_language(),
         cfg_pixiv_proxy: () => m.cfg_pixiv_proxy(),
-        cfg_pixiv_language: () => m.cfg_pixiv_language(),
         cfg_pixiv_bypass_sni: () => m.cfg_pixiv_bypass_sni(),
         cfg_pixiv_state_file: () => m.cfg_pixiv_state_file(),
         cfg_download_output_dir: () => m.cfg_download_output_dir(),

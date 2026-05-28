@@ -273,7 +273,6 @@
     "cfg_log_format": "出力フォーマット",
     "cfg_log_language": "起動バナーとライフサイクルログの言語（auto = システムに従う）",
     "cfg_pixiv_proxy": "HTTP/SOCKS プロキシ URL（空 = 直接接続）",
-    "cfg_pixiv_language": "Accept-Language タグの翻訳言語（空 = 原文を翻訳せず保持）",
     "cfg_pixiv_bypass_sni": "API に DoH + 代替 SNI を有効化（制限されたネットワークのみ）",
     "cfg_pixiv_state_file": "認証トークンを永続化するファイルパス",
     "cfg_download_output_dir": "出力ディレクトリのテンプレート（Go text/template）",

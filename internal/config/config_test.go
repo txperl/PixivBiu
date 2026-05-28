@@ -186,7 +186,7 @@ func TestPatch_SensitiveRealValueOverwrites(t *testing.T) {
 }
 
 func TestReset_Keys(t *testing.T) {
-	mgr := newMgr(t, `{"download":{"max_concurrent": 16},"pixiv":{"language":"ja"}}`)
+	mgr := newMgr(t, `{"download":{"max_concurrent": 16},"pixiv":{"proxy":"http://x:1"}}`)
 	if _, err := mgr.Reset([]string{"download.max_concurrent"}, false); err != nil {
 		t.Fatalf("Reset: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestReset_Keys(t *testing.T) {
 	if nestedGet(nested, "download", "max_concurrent") != nil {
 		t.Errorf("reset should have dropped max_concurrent from file, got: %s", data)
 	}
-	if nestedGet(nested, "pixiv", "language") != "ja" {
+	if nestedGet(nested, "pixiv", "proxy") != "http://x:1" {
 		t.Errorf("unrelated key was reset from file: %s", data)
 	}
 }
@@ -246,7 +246,7 @@ func TestReset_AllAndKeysRejected(t *testing.T) {
 }
 
 func TestReset_All(t *testing.T) {
-	mgr := newMgr(t, `{"download":{"max_concurrent": 16},"pixiv":{"language":"ja"}}`)
+	mgr := newMgr(t, `{"download":{"max_concurrent": 16},"pixiv":{"proxy":"http://x:1"}}`)
 	if _, err := mgr.Reset(nil, true); err != nil {
 		t.Fatalf("Reset all: %v", err)
 	}
@@ -290,7 +290,7 @@ func TestReset_RejectsInternalKey(t *testing.T) {
 // Reset(all) clears ordinary overrides but preserves internal ones, since
 // they may only be changed by editing the config file.
 func TestReset_AllPreservesInternal(t *testing.T) {
-	mgr := newMgr(t, `{"server":{"port":9090},"pixiv":{"language":"ja"}}`)
+	mgr := newMgr(t, `{"server":{"port":9090},"pixiv":{"proxy":"http://x:1"}}`)
 	if _, err := mgr.Reset(nil, true); err != nil {
 		t.Fatalf("Reset all: %v", err)
 	}
@@ -300,8 +300,8 @@ func TestReset_AllPreservesInternal(t *testing.T) {
 	if nestedGet(nested, "server", "port") != float64(9090) {
 		t.Errorf("internal server.port should survive reset-all, got: %s", data)
 	}
-	if nestedGet(nested, "pixiv", "language") != nil {
-		t.Errorf("ordinary pixiv.language should be cleared by reset-all, got: %s", data)
+	if nestedGet(nested, "pixiv", "proxy") != nil {
+		t.Errorf("ordinary pixiv.proxy should be cleared by reset-all, got: %s", data)
 	}
 }
 
@@ -460,7 +460,7 @@ func TestOnReload_FiresOnSuccessNotOnFailure(t *testing.T) {
 
 func TestView_SourcesAndMasking(t *testing.T) {
 	t.Setenv("PIXIVBIU_DOWNLOAD_MAX_CONCURRENT", "99")
-	mgr := newMgr(t, `{"pixiv":{"proxy":"http://u:p@h:1","language":"ja"}}`)
+	mgr := newMgr(t, `{"pixiv":{"proxy":"http://u:p@h:1"}}`)
 	view, err := mgr.View()
 	if err != nil {
 		t.Fatalf("View: %v", err)
@@ -468,8 +468,8 @@ func TestView_SourcesAndMasking(t *testing.T) {
 	if view.Sources["download.max_concurrent"] != SourceEnv {
 		t.Errorf("env source not labeled, sources=%v", view.Sources)
 	}
-	if view.Sources["pixiv.language"] != SourceFile {
-		t.Errorf("file source not labeled, got %v", view.Sources["pixiv.language"])
+	if view.Sources["pixiv.proxy"] != SourceFile {
+		t.Errorf("file source not labeled, got %v", view.Sources["pixiv.proxy"])
 	}
 	if view.Sources["server.port"] != SourceDefaults {
 		t.Errorf("defaults source not labeled, got %v", view.Sources["server.port"])
