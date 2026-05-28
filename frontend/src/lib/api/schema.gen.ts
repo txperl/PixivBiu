@@ -360,35 +360,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/i18n": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get the application's configured + resolved language
-         * @description Returns both the value of `app.language` from the config (which may
-         *     be `auto`) and the concrete locale the running process bound at
-         *     startup. The frontend uses this as the single source of truth for
-         *     its UI language — it never sniffs `navigator.language` itself, so
-         *     `auto` always resolves on the backend (from `LANG`/`LC_ALL`).
-         *
-         *     `app.language` is restart-required, so `configured` and `locale`
-         *     stay consistent with the running process between restarts. After a
-         *     `PATCH /config` that changes `app.language` and the corresponding
-         *     `POST /config/restart`, this endpoint reflects the new pair.
-         */
-        get: operations["GetI18n"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/illusts/following": {
         parameters: {
             query?: never;
@@ -805,27 +776,6 @@ export interface components {
         HealthStatus: {
             /** @example ok */
             status: string;
-        };
-        /**
-         * @description Snapshot of the application's language settings. `configured` is
-         *     the raw value the user picked (`auto` is allowed and means "follow
-         *     system"). `locale` is the concrete language the running process
-         *     actually bound — `auto` is resolved via env (`LANG` / `LC_ALL` /
-         *     `LC_MESSAGES`) at startup, falling back to `en` when no match.
-         */
-        I18nStatus: {
-            /**
-             * @description Value of `app.language` as stored in config.
-             * @example auto
-             * @enum {string}
-             */
-            configured: "auto" | "en" | "zh-CN" | "ja";
-            /**
-             * @description Concrete locale bound by the running process.
-             * @example zh-CN
-             * @enum {string}
-             */
-            locale: "en" | "zh-CN" | "ja";
         };
         /** @description Pixiv illustration metadata. Shape mirrors pixivgo.IllustrationInfo. */
         Illust: {
@@ -1663,26 +1613,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthStatus"];
-                };
-            };
-        };
-    };
-    GetI18n: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The configured and resolved application language. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["I18nStatus"];
                 };
             };
         };

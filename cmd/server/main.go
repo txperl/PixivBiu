@@ -24,7 +24,6 @@ import (
 	"github.com/txperl/PixivBiu/internal/auth"
 	"github.com/txperl/PixivBiu/internal/config"
 	"github.com/txperl/PixivBiu/internal/download"
-	"github.com/txperl/PixivBiu/internal/i18n"
 	"github.com/txperl/PixivBiu/internal/inbox"
 	"github.com/txperl/PixivBiu/internal/pixiv"
 	"github.com/txperl/PixivBiu/internal/server"
@@ -84,11 +83,6 @@ func run() error {
 	}
 	slog.SetDefault(logger)
 
-	// Resolve app.language once at boot (it's restart-required). Backend
-	// logs/banner are English; the resolved locale is exposed via GET /i18n
-	// so the frontend UI can mirror it without sniffing navigator.language.
-	locale := i18n.Resolve(cfg.App.Language)
-
 	store := state.NewStore(cfg.Pixiv.StateFile)
 	svc, err := pixiv.NewService(cfg.Pixiv, logger, store)
 	if err != nil {
@@ -124,7 +118,7 @@ func run() error {
 	restart := func() { restartOnce.Do(func() { close(restartCh) }) }
 
 	pkceStore := auth.NewStore()
-	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, hbAtomic, cfgMgr, locale, restart)
+	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, hbAtomic, cfgMgr, restart)
 
 	// Reload hooks each take the whole *Config because some keys cross
 	// service boundaries — pixiv.proxy is reused by the download client.
@@ -226,8 +220,8 @@ func run() error {
 // printBanner writes a human-friendly boot summary to stderr: key URLs,
 // auth state, and the most-asked-about config fields. slog keeps writing to
 // stdout, so the banner stays out of the log stream. All banner text is
-// fixed English; the frontend's UI locale is surfaced separately via
-// GET /i18n so the banner doesn't have to mirror app.language.
+// fixed English; the frontend owns the UI locale (it reads `app.language`
+// from GET /config and resolves `auto` against navigator.language).
 func printBanner(cfg *config.Config, svc *pixiv.Service, addr, settingsPath string) {
 	displayHost := cfg.Server.Host
 	switch displayHost {

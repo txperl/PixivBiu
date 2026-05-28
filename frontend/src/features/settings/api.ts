@@ -4,22 +4,11 @@ import type { ConfigSchema } from "./types";
 export type ConfigView = components["schemas"]["ConfigView"];
 export type ConfigSource = components["schemas"]["ConfigSource"];
 export type ConfigApiError = components["schemas"]["Error"];
-export type I18nStatus = components["schemas"]["I18nStatus"];
 
 type Result<T> = { data: T | null; error: ConfigApiError | null };
 
 export async function getConfig(): Promise<Result<ConfigView>> {
     const { data, error } = await api.GET("/config");
-    return { data: data ?? null, error: error ?? null };
-}
-
-// getI18n returns the backend's currently-bound language pair:
-// `configured` mirrors `app.language` (may be "auto"); `locale` is the
-// concrete locale the running process resolved. The frontend's
-// LocaleProvider uses this to mirror the backend — it never sniffs
-// navigator.language on its own.
-export async function getI18n(): Promise<Result<I18nStatus>> {
-    const { data, error } = await api.GET("/i18n");
     return { data: data ?? null, error: error ?? null };
 }
 

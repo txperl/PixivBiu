@@ -375,24 +375,23 @@ func TestPatch_RestartKeyPendingThenReset(t *testing.T) {
 	}
 }
 
-// app.language is consumed by the frontend via GET /i18n (pinned at boot,
-// since the field is restart-required). Patching it must advance File but
-// freeze Effective and surface in pending_restart, rather than silently
-// reporting as live-applied.
-func TestPatch_AppLanguageRestartRequired(t *testing.T) {
+// app.language is consumed by the frontend directly (via GET /config), so
+// the backend only persists it — there's no restart gate. Patching must
+// advance both File and Effective immediately, with nothing pending.
+func TestPatch_AppLanguageLiveApplied(t *testing.T) {
 	mgr := newMgr(t, "")
 	view, err := mgr.Patch(map[string]any{"app.language": "ja"})
 	if err != nil {
 		t.Fatalf("Patch: %v", err)
 	}
-	if got := nestedGet(view.Effective, "app", "language"); got != "auto" {
-		t.Errorf("view.Effective.app.language = %v, want frozen %q", got, "auto")
+	if got := nestedGet(view.Effective, "app", "language"); got != "ja" {
+		t.Errorf("view.Effective.app.language = %v, want %q", got, "ja")
 	}
 	if got := nestedGet(view.File, "app", "language"); got != "ja" {
 		t.Errorf("view.File.app.language = %v, want %q", got, "ja")
 	}
-	if !slices.Contains(view.PendingRestart, "app.language") {
-		t.Errorf("pending_restart = %v, want it to contain app.language", view.PendingRestart)
+	if len(view.PendingRestart) != 0 {
+		t.Errorf("pending_restart = %v, want empty", view.PendingRestart)
 	}
 }
 

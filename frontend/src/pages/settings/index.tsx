@@ -15,7 +15,7 @@ import {
     useConfigForm,
     useScrollSpy,
 } from "@/features/settings";
-import { useLocale, useMessages } from "@/i18n";
+import { useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { SettingsHeaderActions } from "./components/header-actions";
@@ -42,7 +42,6 @@ function RestartOverlay() {
 function SettingsPage() {
     const m = useMessages();
     const resolveApiError = useApiErrorMessage();
-    const { refresh: refreshLocale } = useLocale();
     const { loadState, sections, view, setView, awaitRestart, schemaMismatch } = useConfig();
     const form = useConfigForm({ view, sections, onView: setView });
 
@@ -85,14 +84,8 @@ function SettingsPage() {
         // covers the drain/reconnect while we poll in the background and drop it
         // once the new process answers. server.host/port are internal now, so a
         // restart never moves the backend to a different origin.
-        void awaitRestart(keys)
-            // After the new process is up, re-sync the UI locale with
-            // whatever the backend resolved — refreshLocale is a no-op
-            // when nothing actually changed, so we don't need to gate it
-            // on app.language being in `keys`.
-            .then(refreshLocale)
-            .finally(() => setRestarting(false));
-    }, [view, awaitRestart, refreshLocale]);
+        void awaitRestart(keys).finally(() => setRestarting(false));
+    }, [view, awaitRestart]);
 
     return (
         <div ref={rootRef} className="flex flex-col">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMessages } from "@/i18n";
+import { useLocale, useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
 import { type ConfigView, patchConfig, resetConfig } from "./api";
 import { nestedGet } from "./flatten";
@@ -45,6 +45,9 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
     // and API errors are stored as plain strings only after resolving here.
     const m = useMessages();
     const resolveApiError = useApiErrorMessage();
+    // Switch the UI locale immediately if the patch/reset moved app.language;
+    // applyLanguageFromView short-circuits when the resolved locale matches.
+    const { applyLanguageFromView } = useLocale();
     const resolveClientError = useCallback(
         (e: ClientValidationError): string => {
             switch (e.kind) {
@@ -165,9 +168,10 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
         if (data) {
             setFieldErrors({});
             setGeneralError(undefined);
+            applyLanguageFromView(data);
             onView(data);
         }
-    }, [dirtyKeys, fieldByKey, knownKeys, values, onView, resolveClientError, resolveApiError]);
+    }, [dirtyKeys, fieldByKey, knownKeys, values, onView, resolveClientError, resolveApiError, applyLanguageFromView]);
 
     const discard = useCallback(() => {
         setValues({ ...baseline });
@@ -201,10 +205,11 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
                     for (const k of targets) delete next[k];
                     return next;
                 });
+                applyLanguageFromView(data);
                 onView(data);
             }
         },
-        [overriddenKeys, onView, resolveApiError],
+        [overriddenKeys, onView, resolveApiError, applyLanguageFromView],
     );
 
     const resetField = useCallback((key: string) => runReset([key]), [runReset]);
@@ -229,9 +234,10 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
             for (const f of fields) pendingDiscardRef.current.add(f.key);
             setFieldErrors({});
             setGeneralError(undefined);
+            applyLanguageFromView(data);
             onView(data);
         }
-    }, [fields, onView, resolveApiError]);
+    }, [fields, onView, resolveApiError, applyLanguageFromView]);
 
     return {
         values,
