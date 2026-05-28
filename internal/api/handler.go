@@ -14,6 +14,7 @@ import (
 	"github.com/txperl/PixivBiu/internal/auth"
 	"github.com/txperl/PixivBiu/internal/config"
 	"github.com/txperl/PixivBiu/internal/download"
+	"github.com/txperl/PixivBiu/internal/i18n"
 	"github.com/txperl/PixivBiu/internal/inbox"
 	"github.com/txperl/PixivBiu/internal/pixiv"
 )
@@ -27,13 +28,17 @@ type APIHandler struct {
 	// connection so a hot-reload of inbox.heartbeat affects new streams.
 	heartbeat *atomic.Int64
 	cfgMgr    *config.Manager
+	// tr is bound to the boot-resolved app.language; GET /i18n surfaces
+	// its Locale() so the frontend can mirror the backend's choice
+	// without sniffing navigator.language itself.
+	tr *i18n.Translator
 	// restart triggers a graceful self-restart of the process; nil-safe
 	// (RestartConfig guards against a nil trigger).
 	restart func()
 }
 
-func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat *atomic.Int64, cfgMgr *config.Manager, restart func()) *APIHandler {
-	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, cfgMgr: cfgMgr, restart: restart}
+func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat *atomic.Int64, cfgMgr *config.Manager, tr *i18n.Translator, restart func()) *APIHandler {
+	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, cfgMgr: cfgMgr, tr: tr, restart: restart}
 }
 
 var _ ServerInterface = (*APIHandler)(nil)

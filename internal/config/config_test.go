@@ -375,24 +375,25 @@ func TestPatch_RestartKeyPendingThenReset(t *testing.T) {
 	}
 }
 
-// log.language is consumed only by the boot-time translator (startup banner
-// + lifecycle log lines), so it must behave like a restart-required key:
-// patching it advances File but freezes Effective and surfaces in
-// pending_restart, rather than silently reporting as live-applied.
-func TestPatch_LogLanguageRestartRequired(t *testing.T) {
+// app.language is consumed by both the boot-time translator (startup
+// banner + lifecycle log lines) and — via GET /i18n — the frontend UI,
+// so it must behave like a restart-required key: patching it advances
+// File but freezes Effective and surfaces in pending_restart, rather
+// than silently reporting as live-applied.
+func TestPatch_AppLanguageRestartRequired(t *testing.T) {
 	mgr := newMgr(t, "")
-	view, err := mgr.Patch(map[string]any{"log.language": "ja"})
+	view, err := mgr.Patch(map[string]any{"app.language": "ja"})
 	if err != nil {
 		t.Fatalf("Patch: %v", err)
 	}
-	if got := nestedGet(view.Effective, "log", "language"); got != "auto" {
-		t.Errorf("view.Effective.log.language = %v, want frozen %q", got, "auto")
+	if got := nestedGet(view.Effective, "app", "language"); got != "auto" {
+		t.Errorf("view.Effective.app.language = %v, want frozen %q", got, "auto")
 	}
-	if got := nestedGet(view.File, "log", "language"); got != "ja" {
-		t.Errorf("view.File.log.language = %v, want %q", got, "ja")
+	if got := nestedGet(view.File, "app", "language"); got != "ja" {
+		t.Errorf("view.File.app.language = %v, want %q", got, "ja")
 	}
-	if !slices.Contains(view.PendingRestart, "log.language") {
-		t.Errorf("pending_restart = %v, want it to contain log.language", view.PendingRestart)
+	if !slices.Contains(view.PendingRestart, "app.language") {
+		t.Errorf("pending_restart = %v, want it to contain app.language", view.PendingRestart)
 	}
 }
 

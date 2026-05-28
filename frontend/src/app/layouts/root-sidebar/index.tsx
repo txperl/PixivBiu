@@ -1,5 +1,4 @@
 import { AccountButton } from "@/features/auth";
-import { LanguageSwitcher } from "@/i18n";
 import Logo from "./logo";
 import Nav from "./nav";
 
@@ -20,7 +19,6 @@ function RootSidebar() {
 
             <div className="flex flex-col gap-3">
                 <AccountButton />
-                <LanguageSwitcher className="w-full" />
             </div>
         </aside>
     );

@@ -20,6 +20,7 @@ export function useFieldText(): (field: FieldSpec) => string {
     // Keyed by `cfg_` + field.key.replaceAll(".", "_"). Covers all 25 leaf
     // fields; anything else falls through to field.description / field.key.
     const map: Record<string, () => string> = {
+        cfg_app_language: () => m.cfg_app_language(),
         cfg_server_host: () => m.cfg_server_host(),
         cfg_server_port: () => m.cfg_server_port(),
         cfg_server_timeouts_read: () => m.cfg_server_timeouts_read(),
@@ -27,7 +28,6 @@ export function useFieldText(): (field: FieldSpec) => string {
         cfg_server_timeouts_shutdown: () => m.cfg_server_timeouts_shutdown(),
         cfg_log_level: () => m.cfg_log_level(),
         cfg_log_format: () => m.cfg_log_format(),
-        cfg_log_language: () => m.cfg_log_language(),
         cfg_pixiv_proxy: () => m.cfg_pixiv_proxy(),
         cfg_pixiv_bypass_sni: () => m.cfg_pixiv_bypass_sni(),
         cfg_pixiv_state_file: () => m.cfg_pixiv_state_file(),
@@ -55,6 +55,7 @@ export function useFieldText(): (field: FieldSpec) => string {
 export function useSectionTitle(): (sectionId: string, fallback?: string) => string {
     const m = useMessages();
     const map: Record<string, () => string> = {
+        app: () => m.settings_section_app(),
         server: () => m.settings_section_server(),
         log: () => m.settings_section_log(),
         pixiv: () => m.settings_section_pixiv(),
@@ -64,9 +65,35 @@ export function useSectionTitle(): (sectionId: string, fallback?: string) => str
     return (sectionId: string, fallback?: string) => map[sectionId]?.() ?? fallback ?? sectionId;
 }
 
+// useFieldEnumLabel renders a friendlier label for select-control enum
+// values where the raw code reads poorly (e.g. `app.language`'s
+// `en`/`zh-CN`/`ja`/`auto`). Endonyms aren't localized — picking the
+// language you read should never depend on the current UI language;
+// only "auto" is translated. Most enums (log.level, log.format,
+// download.ugoira.format, …) are technical strings and pass through.
+export function useFieldEnumLabel(): (field: FieldSpec, value: string) => string {
+    const m = useMessages();
+    return (field, value) => {
+        if (field.key === "app.language") {
+            switch (value) {
+                case "auto":
+                    return m.cfg_app_language_auto();
+                case "en":
+                    return "English";
+                case "zh-CN":
+                    return "简体中文";
+                case "ja":
+                    return "日本語";
+            }
+        }
+        return value;
+    };
+}
+
 export function useSectionDescription(): (sectionId: string) => string | undefined {
     const m = useMessages();
     const map: Record<string, () => string> = {
+        app: () => m.settings_section_app_desc(),
         server: () => m.settings_section_server_desc(),
         log: () => m.settings_section_log_desc(),
         pixiv: () => m.settings_section_pixiv_desc(),

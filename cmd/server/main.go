@@ -86,8 +86,9 @@ func run() error {
 
 	// tr localises the boot banner and lifecycle log messages only;
 	// structured slog fields and access logs stay English. The locale is
-	// fixed at startup (log.language is not a reloadable concern).
-	tr := i18n.New(i18n.Resolve(cfg.Log.Language))
+	// fixed at startup (app.language is restart-required); the frontend
+	// later reads the resolved value via GET /i18n so its UI mirrors it.
+	tr := i18n.New(i18n.Resolve(cfg.App.Language))
 
 	store := state.NewStore(cfg.Pixiv.StateFile)
 	svc, err := pixiv.NewService(cfg.Pixiv, logger, store)
@@ -124,7 +125,7 @@ func run() error {
 	restart := func() { restartOnce.Do(func() { close(restartCh) }) }
 
 	pkceStore := auth.NewStore()
-	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, hbAtomic, cfgMgr, restart)
+	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, hbAtomic, cfgMgr, tr, restart)
 
 	// Reload hooks each take the whole *Config because some keys cross
 	// service boundaries — pixiv.proxy is reused by the download client.

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import type { FieldSpec } from "@/features/settings";
+import { type FieldSpec, useFieldEnumLabel } from "@/features/settings";
 import { useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -62,7 +62,8 @@ function SwitchControl({ id, value, disabled, describedBy, onChange }: ControlPr
 }
 
 function SelectControl({ field, id, value, invalid, disabled, onChange }: ControlProps) {
-    const items = (field.enum ?? []).map((v) => ({ value: v, label: v }));
+    const labelOf = useFieldEnumLabel();
+    const items = (field.enum ?? []).map((v) => ({ value: v, label: labelOf(field, v) }));
     return (
         <Select items={items} value={value} disabled={disabled} onValueChange={(v) => onChange(String(v))}>
             <SelectTrigger id={id} aria-invalid={invalid || undefined} className="w-[12rem]">

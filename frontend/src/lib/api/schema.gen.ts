@@ -360,6 +360,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/i18n": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the application's configured + resolved language
+         * @description Returns both the value of `app.language` from the config (which may
+         *     be `auto`) and the concrete locale the running process bound at
+         *     startup. The frontend uses this as the single source of truth for
+         *     its UI language — it never sniffs `navigator.language` itself, so
+         *     `auto` always resolves on the backend (from `LANG`/`LC_ALL`).
+         *
+         *     `app.language` is restart-required, so `configured` and `locale`
+         *     stay consistent with the running process between restarts. After a
+         *     `PATCH /config` that changes `app.language` and the corresponding
+         *     `POST /config/restart`, this endpoint reflects the new pair.
+         */
+        get: operations["GetI18n"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/illusts/following": {
         parameters: {
             query?: never;
@@ -777,6 +806,27 @@ export interface components {
             /** @example ok */
             status: string;
         };
+        /**
+         * @description Snapshot of the application's language settings. `configured` is
+         *     the raw value the user picked (`auto` is allowed and means "follow
+         *     system"). `locale` is the concrete language the running process
+         *     actually bound — `auto` is resolved via env (`LANG` / `LC_ALL` /
+         *     `LC_MESSAGES`) at startup, falling back to `en` when no match.
+         */
+        I18nStatus: {
+            /**
+             * @description Value of `app.language` as stored in config.
+             * @example auto
+             * @enum {string}
+             */
+            configured: "auto" | "en" | "zh-CN" | "ja";
+            /**
+             * @description Concrete locale bound by the running process.
+             * @example zh-CN
+             * @enum {string}
+             */
+            locale: "en" | "zh-CN" | "ja";
+        };
         /** @description Pixiv illustration metadata. Shape mirrors pixivgo.IllustrationInfo. */
         Illust: {
             caption: string;
@@ -1071,469 +1121,6 @@ export interface components {
             tool: string;
             workspace_image_url: string | null;
         };
-        openapi_AuthStatus: {
-            authenticated: boolean;
-            /** Format: date-time */
-            expires_at?: string | null;
-            /** Format: int64 */
-            user_id?: number | null;
-            user_name?: string | null;
-        };
-        openapi_BookmarkDetail: {
-            is_bookmarked: boolean;
-            restrict: components["schemas"]["openapi_Restrict"];
-        };
-        openapi_BookmarkRequest: {
-            restrict?: components["schemas"]["openapi_Restrict"];
-        };
-        openapi_ClearDownloadsResponse: {
-            /** @description Number of jobs deleted from history. */
-            removed: number;
-        };
-        /**
-         * @description Pixiv `filter` knob — controls iOS-app-style content gating.
-         *     `for_ios` applies Pixiv's iOS-client policy filter; `none` disables
-         *     it. Named `client_mode` here to avoid collision with the generic
-         *     notion of "filtering".
-         * @enum {string}
-         */
-        openapi_ClientMode: "for_ios" | "none";
-        /**
-         * @description Free-form map of writes. Keys are either nested (matching the
-         *     struct shape) or flat dotted paths (e.g. `"download.max_concurrent": 8`);
-         *     both forms are accepted. Sending the sensitive mask sentinel
-         *     (`***`) or `""` for a sensitive field is a no-op.
-         */
-        openapi_ConfigPatch: {
-            [key: string]: unknown;
-        };
-        openapi_ConfigResetRequest: {
-            /**
-             * @description When true, clear the entire file layer. Mutually exclusive
-             *     with `keys`; sending both is rejected with 400.
-             */
-            all?: boolean;
-            /** @description Dotted-path keys to drop from the file layer. */
-            keys?: string[];
-        };
-        openapi_ConfigRestartAccepted: {
-            /**
-             * @description Always `restarting`.
-             * @example restarting
-             */
-            status: string;
-        };
-        /**
-         * @description Which config layer supplied the effective value for a key.
-         *     `env` always wins; `file` overrides `defaults`.
-         * @enum {string}
-         */
-        openapi_ConfigSource: "defaults" | "file" | "env";
-        openapi_ConfigView: {
-            /**
-             * @description Nested map of the values the running process is actually using.
-             *     Hot-reloadable keys advance immediately on PATCH/RESET;
-             *     restart-required keys stay pinned to the startup value until
-             *     the process restarts (and meanwhile appear in `pending_restart`).
-             *     Sensitive fields masked.
-             */
-            effective: {
-                [key: string]: unknown;
-            };
-            /**
-             * @description Nested map of overrides currently persisted in settings.json.
-             *     Advances on every successful PATCH/RESET. Sensitive fields masked.
-             */
-            file: {
-                [key: string]: unknown;
-            };
-            /**
-             * @description Restart-required dotted keys whose persisted value differs from
-             *     the value the process started with — i.e. changes saved but not
-             *     yet in effect. Empty when nothing is awaiting a restart. Apply
-             *     them with `POST /config/restart`.
-             */
-            pending_restart: string[];
-            /**
-             * @description Bumps when the shape of settings.json changes incompatibly.
-             *     Frontend can refuse / migrate when its compiled schema doesn't match.
-             */
-            schema_version: string;
-            /** @description Per dotted-key origin label; each value is one of `defaults`, `file`, `env`. */
-            sources: {
-                [key: string]: components["schemas"]["openapi_ConfigSource"];
-            };
-        };
-        /**
-         * @description Pixiv artwork type the job was created for.
-         * @enum {string}
-         */
-        openapi_DownloadIllustType: "illust" | "manga" | "ugoira";
-        openapi_DownloadJob: {
-            /** Format: date-time */
-            created_at: string;
-            id: string;
-            /** Format: int64 */
-            illust_id: number;
-            illust_type: components["schemas"]["openapi_DownloadIllustType"];
-            /** @description Thumbnail (square_medium → medium → large). Absent on jobs persisted before this field existed. */
-            preview_url?: string;
-            status: components["schemas"]["openapi_DownloadStatus"];
-            tasks: components["schemas"]["openapi_DownloadTask"][];
-            title?: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        openapi_DownloadJobList: {
-            /**
-             * @description Global count of `queued` + `running` jobs (independent of filter).
-             *     Drives the sidebar badge.
-             */
-            active_count: number;
-            /** @description Global count of `completed` jobs (independent of filter). */
-            done_count: number;
-            jobs: components["schemas"]["openapi_DownloadJob"][];
-            /** @description Echo of the requested 1-based page index after clamping. */
-            page: number;
-            /** @description Echo of the effective page size after clamping. */
-            per_page: number;
-            /** @description Total jobs matching the filter (status + updated_since). */
-            total: number;
-        };
-        /**
-         * @description Lifecycle state of a download job or task.
-         * @enum {string}
-         */
-        openapi_DownloadStatus: "queued" | "running" | "completed" | "failed" | "cancelled";
-        openapi_DownloadTask: {
-            /** Format: int64 */
-            downloaded_bytes: number;
-            error?: string | null;
-            /** @description Target path on disk. */
-            file_path: string;
-            /** Format: date-time */
-            finished_at?: string | null;
-            id: string;
-            job_id: string;
-            /**
-             * Format: int64
-             * @description Content-Length, or -1 if unknown.
-             */
-            size_bytes: number;
-            /** Format: date-time */
-            started_at?: string | null;
-            status: components["schemas"]["openapi_DownloadStatus"];
-            /** @description Final request URL (after pximg mirror rewrite). */
-            url: string;
-        };
-        openapi_Error: {
-            /**
-             * @description Machine-readable error code.
-             * @example unauthenticated
-             */
-            code: string;
-            /** @description Optional additional context (e.g., upstream body). */
-            detail?: string;
-            /** @description Human-readable error message. */
-            message: string;
-        };
-        openapi_FollowRequest: {
-            restrict?: components["schemas"]["openapi_Restrict"];
-        };
-        /** @description Pixiv illustration metadata. Shape mirrors pixivgo.IllustrationInfo. */
-        openapi_Illust: {
-            caption: string;
-            create_date: string;
-            /** Format: int64 */
-            height: number;
-            /** Format: int64 */
-            id: number;
-            /** Format: int64 */
-            illust_ai_type: number;
-            /** Format: int64 */
-            illust_book_style: number;
-            image_urls: components["schemas"]["openapi_ImageUrls"];
-            is_bookmarked: boolean;
-            is_muted: boolean;
-            meta_pages: components["schemas"]["openapi_MetaPage"][];
-            meta_single_page: components["schemas"]["openapi_MetaSinglePage"];
-            /** Format: int64 */
-            page_count: number;
-            /** Format: int64 */
-            restrict: number;
-            restriction_attributes: string[];
-            /** Format: int64 */
-            sanity_level: number;
-            series: components["schemas"]["openapi_Series"] | null;
-            tags: components["schemas"]["openapi_IllustrationTag"][];
-            title: string;
-            tools: string[];
-            /** Format: int64 */
-            total_bookmarks: number;
-            /** Format: int64 */
-            total_comments?: number;
-            /** Format: int64 */
-            total_view: number;
-            type: string;
-            user: components["schemas"]["openapi_User"];
-            visible: boolean;
-            /** Format: int64 */
-            width: number;
-            /** Format: int64 */
-            x_restrict: number;
-        };
-        /** @description Wrapper for a single illust detail. Mirrors pixivgo.IllustDetailResponse. */
-        openapi_IllustDetailResponse: {
-            illust: components["schemas"]["openapi_Illust"];
-        };
-        openapi_IllustPage: {
-            illusts: components["schemas"]["openapi_Illust"][];
-            /**
-             * Format: int64
-             * @description Set only by `/users/{id}/bookmarks`; pass back as `max_bookmark_id`.
-             */
-            next_max_bookmark_id?: number | null;
-            /**
-             * Format: int64
-             * @description Next offset to pass back, or null if no further page.
-             */
-            next_offset?: number | null;
-        };
-        /** @enum {string} */
-        openapi_IllustType: "illust" | "manga";
-        openapi_IllustrationTag: {
-            name: string;
-            translated_name: string | null;
-        };
-        openapi_ImageUrls: {
-            large: string;
-            medium: string;
-            square_medium: string;
-        };
-        openapi_LoginRequest: {
-            /** @description Long-lived Pixiv OAuth refresh token. See README for how to obtain. */
-            refresh_token: string;
-        };
-        openapi_MetaPage: {
-            image_urls: components["schemas"]["openapi_ImageUrls"];
-        };
-        openapi_MetaSinglePage: {
-            original_image_url?: string;
-        };
-        /** @description Pixiv novel metadata. Shape mirrors pixivgo.NovelInfo. */
-        openapi_Novel: {
-            caption: string;
-            /** Format: int64 */
-            comment_access_control?: number;
-            create_date: string;
-            /** Format: int64 */
-            id: number;
-            image_urls: components["schemas"]["openapi_ImageUrls"];
-            is_bookmarked: boolean;
-            is_muted: boolean;
-            is_mypixiv_only: boolean;
-            is_original: boolean;
-            is_x_restricted: boolean;
-            /** Format: int64 */
-            novel_ai_type: number;
-            /** Format: int64 */
-            page_count: number;
-            /** Format: int64 */
-            restrict: number;
-            series: components["schemas"]["openapi_Series"] | null;
-            tags: components["schemas"]["openapi_NovelTag"][];
-            /** Format: int64 */
-            text_length: number;
-            title: string;
-            /** Format: int64 */
-            total_bookmarks: number;
-            /** Format: int64 */
-            total_comments: number;
-            /** Format: int64 */
-            total_view: number;
-            user: components["schemas"]["openapi_User"];
-            visible: boolean;
-            /** Format: int64 */
-            x_restrict: number;
-        };
-        openapi_NovelTag: {
-            added_by_uploaded_user: boolean;
-            name: string;
-            translated_name: string | null;
-        };
-        openapi_OAuthExchangeRequest: {
-            /**
-             * @description Either the bare authorisation `code` Pixiv emitted, or the full
-             *     callback URL the user pasted (the server extracts `?code=…`).
-             */
-            code: string;
-            /** @description The `state` returned by `/auth/oauth/start`. */
-            state: string;
-        };
-        openapi_OAuthStartResponse: {
-            /**
-             * @description Pixiv-hosted login URL the client should open in a popup. After
-             *     the user authenticates Pixiv redirects to a fixed callback URL
-             *     that carries `?code=…`; the user pastes that URL (or just the
-             *     code) back into the client.
-             */
-            login_url: string;
-            /**
-             * @description Opaque handle the client must echo back to `/auth/oauth/exchange`.
-             *     The server uses it to look up the matching PKCE verifier.
-             */
-            state: string;
-        };
-        /** @description Pixiv user profile. Shape mirrors pixivgo.Profile. */
-        openapi_Profile: {
-            /** Format: int64 */
-            address_id: number;
-            background_image_url: string;
-            birth: string;
-            birth_day: string;
-            /** Format: int64 */
-            birth_year: number;
-            country_code: string;
-            gender: string;
-            is_premium: boolean;
-            is_using_custom_profile_image: boolean;
-            job: string;
-            /** Format: int64 */
-            job_id: number;
-            pawoo_url: string | null;
-            region: string;
-            /** Format: int64 */
-            total_follow_users: number;
-            /** Format: int64 */
-            total_illust_bookmarks_public: number;
-            /** Format: int64 */
-            total_illust_series: number;
-            /** Format: int64 */
-            total_illusts: number;
-            /** Format: int64 */
-            total_manga: number;
-            /** Format: int64 */
-            total_mypixiv_users: number;
-            /** Format: int64 */
-            total_novel_series: number;
-            /** Format: int64 */
-            total_novels: number;
-            twitter_account: string;
-            twitter_url: string | null;
-            webpage: string | null;
-        };
-        openapi_ProfileImageUrls: {
-            medium: string;
-        };
-        /** @description Pixiv profile publicity flags. Shape mirrors pixivgo.ProfilePublicity. */
-        openapi_ProfilePublicity: {
-            birth_day: string;
-            birth_year: string;
-            gender: string;
-            job: string;
-            pawoo: boolean;
-            region: string;
-        };
-        /** @enum {string} */
-        openapi_RankingMode: "day" | "week" | "month" | "day_male" | "day_female" | "week_original" | "week_rookie" | "day_manga" | "day_r18" | "day_male_r18" | "day_female_r18" | "week_r18" | "week_r18g";
-        /**
-         * @default public
-         * @enum {string}
-         */
-        openapi_Restrict: "public" | "private";
-        /** @enum {string} */
-        openapi_SearchDuration: "within_last_day" | "within_last_week" | "within_last_month";
-        /**
-         * @default date_desc
-         * @enum {string}
-         */
-        openapi_SearchSort: "date_desc" | "date_asc" | "popular_desc";
-        /**
-         * @default partial_match_for_tags
-         * @enum {string}
-         */
-        openapi_SearchTarget: "partial_match_for_tags" | "exact_match_for_tags" | "title_and_caption" | "keyword";
-        /** @description Pixiv returns `{}` instead of `null` for empty series; in that case `id` is 0. */
-        openapi_Series: {
-            /** Format: int64 */
-            id: number;
-            title: string;
-        };
-        openapi_SubmitDownloadRequest: {
-            /**
-             * Format: int64
-             * @description Pixiv illustration ID.
-             */
-            illust_id: number;
-        };
-        openapi_UgoiraFrame: {
-            /** Format: int64 */
-            delay: number;
-            file: string;
-        };
-        openapi_UgoiraMetadata: {
-            frames: components["schemas"]["openapi_UgoiraFrame"][];
-            zip_urls: components["schemas"]["openapi_UgoiraZipUrls"];
-        };
-        /** @description Ugoira (animated illust) metadata. Mirrors pixivgo.UgoiraMetadataResponse. */
-        openapi_UgoiraMetadataResponse: {
-            ugoira_metadata: components["schemas"]["openapi_UgoiraMetadata"];
-        };
-        openapi_UgoiraZipUrls: {
-            medium: string;
-        };
-        /** @description Pixiv user summary. Shape mirrors pixivgo.UserInfo. */
-        openapi_User: {
-            account: string;
-            comment?: string;
-            /** Format: int64 */
-            id: number;
-            is_accept_request?: boolean;
-            is_access_blocking_user?: boolean;
-            is_followed: boolean | null;
-            name: string;
-            profile_image_urls: components["schemas"]["openapi_ProfileImageUrls"];
-        };
-        openapi_UserDetailPage: {
-            profile: components["schemas"]["openapi_Profile"];
-            profile_publicity: components["schemas"]["openapi_ProfilePublicity"];
-            user: components["schemas"]["openapi_User"];
-            workspace: components["schemas"]["openapi_Workspace"];
-        };
-        openapi_UserIllustsPage: {
-            illusts: components["schemas"]["openapi_Illust"][];
-            /** Format: int64 */
-            next_offset?: number | null;
-            user: components["schemas"]["openapi_User"];
-        };
-        /** @description User + a few sample illusts. Shape mirrors pixivgo.UserPreview. */
-        openapi_UserPreview: {
-            illusts: components["schemas"]["openapi_Illust"][];
-            is_muted: boolean;
-            novels: components["schemas"]["openapi_Novel"][];
-            user: components["schemas"]["openapi_User"];
-        };
-        openapi_UserPreviewPage: {
-            /** Format: int64 */
-            next_offset?: number | null;
-            user_previews: components["schemas"]["openapi_UserPreview"][];
-        };
-        /** @description Pixiv workspace info. Shape mirrors pixivgo.Workspace. */
-        openapi_Workspace: {
-            chair: string;
-            comment: string;
-            desk: string;
-            desktop: string;
-            monitor: string;
-            mouse: string;
-            music: string;
-            pc: string;
-            printer: string;
-            scanner: string;
-            tablet: string;
-            tool: string;
-            workspace_image_url: string | null;
-        };
     };
     responses: {
         /** @description Invalid parameters. */
@@ -1577,49 +1164,6 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description Invalid parameters. */
-        openapi_BadRequest: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["openapi_Error"];
-            };
-        };
-        /** @description Action succeeded; no body. */
-        openapi_NoContent: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content?: never;
-        };
-        /** @description Resource not found on Pixiv. */
-        openapi_NotFound: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["openapi_Error"];
-            };
-        };
-        /** @description No valid Pixiv session. Call `POST /auth/login` first. */
-        openapi_Unauthenticated: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["openapi_Error"];
-            };
-        };
-        /** @description Pixiv upstream returned an unexpected error. */
-        openapi_Upstream: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["openapi_Error"];
             };
         };
     };
@@ -1674,56 +1218,6 @@ export interface components {
         RestrictQuery: components["schemas"]["Restrict"];
         /** @description Pixiv user ID. */
         UserIdPath: number;
-        /** @description Restrict bookmarks to those tagged with this exact tag name. */
-        openapi_BookmarkTagQuery: string;
-        /**
-         * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
-         *     to apply the same policy filter as the official iOS client;
-         *     pass `none` to disable.
-         */
-        openapi_ClientModeQuery: components["schemas"]["openapi_ClientMode"];
-        /** @description Download job identifier returned by `POST /downloads`. */
-        openapi_DownloadIdPath: string;
-        /** @description 1-based page index. */
-        openapi_DownloadPageQuery: number;
-        /** @description Items per page; clamped to `[1, 100]`. */
-        openapi_DownloadPerPageQuery: number;
-        /**
-         * @description Comma-separated subset of `DownloadStatus` to include. Omit for no
-         *     filter. Example: `queued,running`.
-         * @example queued,running
-         */
-        openapi_DownloadStatusListQuery: string;
-        /**
-         * @description RFC3339 timestamp. Only jobs with `updated_at >= updated_since`
-         *     are returned. Used by the frontend to load the recent-tracked
-         *     window without scanning the whole history.
-         */
-        openapi_DownloadUpdatedSinceQuery: string;
-        /** @description Time-window filter for search results. */
-        openapi_DurationQuery: components["schemas"]["openapi_SearchDuration"];
-        /**
-         * @description When true, exclude AI-generated works from search results
-         *     (Pixiv `search_ai_type=1`). Omit or set false to include them.
-         */
-        openapi_ExcludeAiQuery: boolean;
-        /** @description Pixiv illustration ID. */
-        openapi_IllustIdPath: number;
-        /** @description Illust type filter; both are returned when omitted (where supported). */
-        openapi_IllustTypeQuery: components["schemas"]["openapi_IllustType"];
-        /**
-         * @description When false, omit the daily-ranking section Pixiv injects into the
-         *     recommended feed. Omit to keep Pixiv's default behaviour.
-         */
-        openapi_IncludeRankingIllustsQuery: boolean;
-        /** @description Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response. */
-        openapi_MaxBookmarkIdQuery: number;
-        /** @description Offset for offset-paginated list endpoints. */
-        openapi_OffsetQuery: number;
-        /** @description Visibility scope (public or private). */
-        openapi_RestrictQuery: components["schemas"]["openapi_Restrict"];
-        /** @description Pixiv user ID. */
-        openapi_UserIdPath: number;
     };
     requestBodies: never;
     headers: never;
@@ -1740,7 +1234,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["openapi_LoginRequest"];
+                "application/json": components["schemas"]["LoginRequest"];
             };
         };
         responses: {
@@ -1750,12 +1244,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_AuthStatus"];
+                    "application/json": components["schemas"]["AuthStatus"];
                 };
             };
-            400: components["responses"]["openapi_BadRequest"];
-            401: components["responses"]["openapi_Unauthenticated"];
-            502: components["responses"]["openapi_Upstream"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
         };
     };
     Logout: {
@@ -1767,7 +1261,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            204: components["responses"]["openapi_NoContent"];
+            204: components["responses"]["NoContent"];
         };
     };
     ExchangeOAuth: {
@@ -1779,7 +1273,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["openapi_OAuthExchangeRequest"];
+                "application/json": components["schemas"]["OAuthExchangeRequest"];
             };
         };
         responses: {
@@ -1789,11 +1283,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_AuthStatus"];
+                    "application/json": components["schemas"]["AuthStatus"];
                 };
             };
-            400: components["responses"]["openapi_BadRequest"];
-            502: components["responses"]["openapi_Upstream"];
+            400: components["responses"]["BadRequest"];
+            502: components["responses"]["Upstream"];
         };
     };
     StartOAuth: {
@@ -1811,7 +1305,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_OAuthStartResponse"];
+                    "application/json": components["schemas"]["OAuthStartResponse"];
                 };
             };
         };
@@ -1831,7 +1325,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_AuthStatus"];
+                    "application/json": components["schemas"]["AuthStatus"];
                 };
             };
         };
@@ -1851,10 +1345,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_ConfigView"];
+                    "application/json": components["schemas"]["ConfigView"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
+            401: components["responses"]["Unauthenticated"];
         };
     };
     PatchConfig: {
@@ -1866,7 +1360,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["openapi_ConfigPatch"];
+                "application/json": components["schemas"]["ConfigPatch"];
             };
         };
         responses: {
@@ -1876,11 +1370,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_ConfigView"];
+                    "application/json": components["schemas"]["ConfigView"];
                 };
             };
-            400: components["responses"]["openapi_BadRequest"];
-            401: components["responses"]["openapi_Unauthenticated"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
         };
     };
     ResetConfig: {
@@ -1892,7 +1386,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["openapi_ConfigResetRequest"];
+                "application/json": components["schemas"]["ConfigResetRequest"];
             };
         };
         responses: {
@@ -1902,11 +1396,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_ConfigView"];
+                    "application/json": components["schemas"]["ConfigView"];
                 };
             };
-            400: components["responses"]["openapi_BadRequest"];
-            401: components["responses"]["openapi_Unauthenticated"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
         };
     };
     RestartConfig: {
@@ -1924,10 +1418,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_ConfigRestartAccepted"];
+                    "application/json": components["schemas"]["ConfigRestartAccepted"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
+            401: components["responses"]["Unauthenticated"];
         };
     };
     GetConfigSchema: {
@@ -1950,7 +1444,7 @@ export interface operations {
                     };
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
+            401: components["responses"]["Unauthenticated"];
         };
     };
     ListDownloads: {
@@ -1961,17 +1455,17 @@ export interface operations {
                  *     filter. Example: `queued,running`.
                  * @example queued,running
                  */
-                status?: components["parameters"]["openapi_DownloadStatusListQuery"];
+                status?: components["parameters"]["DownloadStatusListQuery"];
                 /** @description 1-based page index. */
-                page?: components["parameters"]["openapi_DownloadPageQuery"];
+                page?: components["parameters"]["DownloadPageQuery"];
                 /** @description Items per page; clamped to `[1, 100]`. */
-                per_page?: components["parameters"]["openapi_DownloadPerPageQuery"];
+                per_page?: components["parameters"]["DownloadPerPageQuery"];
                 /**
                  * @description RFC3339 timestamp. Only jobs with `updated_at >= updated_since`
                  *     are returned. Used by the frontend to load the recent-tracked
                  *     window without scanning the whole history.
                  */
-                updated_since?: components["parameters"]["openapi_DownloadUpdatedSinceQuery"];
+                updated_since?: components["parameters"]["DownloadUpdatedSinceQuery"];
             };
             header?: never;
             path?: never;
@@ -1985,11 +1479,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_DownloadJobList"];
+                    "application/json": components["schemas"]["DownloadJobList"];
                 };
             };
-            400: components["responses"]["openapi_BadRequest"];
-            401: components["responses"]["openapi_Unauthenticated"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
         };
     };
     SubmitDownload: {
@@ -2001,7 +1495,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["openapi_SubmitDownloadRequest"];
+                "application/json": components["schemas"]["SubmitDownloadRequest"];
             };
         };
         responses: {
@@ -2011,13 +1505,13 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_DownloadJob"];
+                    "application/json": components["schemas"]["DownloadJob"];
                 };
             };
-            400: components["responses"]["openapi_BadRequest"];
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
-            502: components["responses"]["openapi_Upstream"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
     ClearDownloads: {
@@ -2028,7 +1522,7 @@ export interface operations {
                  *     filter. Example: `queued,running`.
                  * @example queued,running
                  */
-                status?: components["parameters"]["openapi_DownloadStatusListQuery"];
+                status?: components["parameters"]["DownloadStatusListQuery"];
             };
             header?: never;
             path?: never;
@@ -2042,11 +1536,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_ClearDownloadsResponse"];
+                    "application/json": components["schemas"]["ClearDownloadsResponse"];
                 };
             };
-            400: components["responses"]["openapi_BadRequest"];
-            401: components["responses"]["openapi_Unauthenticated"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
         };
     };
     GetDownload: {
@@ -2055,7 +1549,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Download job identifier returned by `POST /downloads`. */
-                id: components["parameters"]["openapi_DownloadIdPath"];
+                id: components["parameters"]["DownloadIdPath"];
             };
             cookie?: never;
         };
@@ -2067,11 +1561,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_DownloadJob"];
+                    "application/json": components["schemas"]["DownloadJob"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
         };
     };
     RemoveDownload: {
@@ -2080,22 +1574,22 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Download job identifier returned by `POST /downloads`. */
-                id: components["parameters"]["openapi_DownloadIdPath"];
+                id: components["parameters"]["DownloadIdPath"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            204: components["responses"]["openapi_NoContent"];
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
             /** @description Job is still running — cancel it before removing. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_Error"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -2106,22 +1600,22 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Download job identifier returned by `POST /downloads`. */
-                id: components["parameters"]["openapi_DownloadIdPath"];
+                id: components["parameters"]["DownloadIdPath"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            204: components["responses"]["openapi_NoContent"];
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
             /** @description Job is already in a terminal state. */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_Error"];
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -2150,7 +1644,7 @@ export interface operations {
                     "text/event-stream": string;
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
+            401: components["responses"]["Unauthenticated"];
         };
     };
     GetHealth: {
@@ -2173,13 +1667,33 @@ export interface operations {
             };
         };
     };
+    GetI18n: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The configured and resolved application language. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["I18nStatus"];
+                };
+            };
+        };
+    };
     ListFollowingIllusts: {
         parameters: {
             query?: {
                 /** @description Visibility scope (public or private). */
-                restrict?: components["parameters"]["openapi_RestrictQuery"];
+                restrict?: components["parameters"]["RestrictQuery"];
                 /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["openapi_OffsetQuery"];
+                offset?: components["parameters"]["OffsetQuery"];
             };
             header?: never;
             path?: never;
@@ -2193,27 +1707,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_IllustPage"];
+                    "application/json": components["schemas"]["IllustPage"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
-            502: components["responses"]["openapi_Upstream"];
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
         };
     };
     ListRanking: {
         parameters: {
             query?: {
-                mode?: components["schemas"]["openapi_RankingMode"];
+                mode?: components["schemas"]["RankingMode"];
                 /** @description Ranking date in `YYYY-MM-DD`. Omit for the latest. */
                 date?: string;
                 /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["openapi_OffsetQuery"];
+                offset?: components["parameters"]["OffsetQuery"];
                 /**
                  * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
                  *     to apply the same policy filter as the official iOS client;
                  *     pass `none` to disable.
                  */
-                client_mode?: components["parameters"]["openapi_ClientModeQuery"];
+                client_mode?: components["parameters"]["ClientModeQuery"];
             };
             header?: never;
             path?: never;
@@ -2227,31 +1741,31 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_IllustPage"];
+                    "application/json": components["schemas"]["IllustPage"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
-            502: components["responses"]["openapi_Upstream"];
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
         };
     };
     ListRecommended: {
         parameters: {
             query?: {
                 /** @description Illust type filter; both are returned when omitted (where supported). */
-                type?: components["parameters"]["openapi_IllustTypeQuery"];
+                type?: components["parameters"]["IllustTypeQuery"];
                 /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["openapi_OffsetQuery"];
+                offset?: components["parameters"]["OffsetQuery"];
                 /**
                  * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
                  *     to apply the same policy filter as the official iOS client;
                  *     pass `none` to disable.
                  */
-                client_mode?: components["parameters"]["openapi_ClientModeQuery"];
+                client_mode?: components["parameters"]["ClientModeQuery"];
                 /**
                  * @description When false, omit the daily-ranking section Pixiv injects into the
                  *     recommended feed. Omit to keep Pixiv's default behaviour.
                  */
-                include_ranking_illusts?: components["parameters"]["openapi_IncludeRankingIllustsQuery"];
+                include_ranking_illusts?: components["parameters"]["IncludeRankingIllustsQuery"];
             };
             header?: never;
             path?: never;
@@ -2265,11 +1779,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_IllustPage"];
+                    "application/json": components["schemas"]["IllustPage"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
-            502: components["responses"]["openapi_Upstream"];
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
         };
     };
     GetIllust: {
@@ -2278,7 +1792,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Pixiv illustration ID. */
-                id: components["parameters"]["openapi_IllustIdPath"];
+                id: components["parameters"]["IllustIdPath"];
             };
             cookie?: never;
         };
@@ -2290,12 +1804,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_IllustDetailResponse"];
+                    "application/json": components["schemas"]["IllustDetailResponse"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
-            502: components["responses"]["openapi_Upstream"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
     GetBookmarkDetail: {
@@ -2304,7 +1818,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Pixiv illustration ID. */
-                id: components["parameters"]["openapi_IllustIdPath"];
+                id: components["parameters"]["IllustIdPath"];
             };
             cookie?: never;
         };
@@ -2316,12 +1830,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_BookmarkDetail"];
+                    "application/json": components["schemas"]["BookmarkDetail"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
-            502: components["responses"]["openapi_Upstream"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
     AddBookmark: {
@@ -2330,20 +1844,20 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Pixiv illustration ID. */
-                id: components["parameters"]["openapi_IllustIdPath"];
+                id: components["parameters"]["IllustIdPath"];
             };
             cookie?: never;
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["openapi_BookmarkRequest"];
+                "application/json": components["schemas"]["BookmarkRequest"];
             };
         };
         responses: {
-            204: components["responses"]["openapi_NoContent"];
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
-            502: components["responses"]["openapi_Upstream"];
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
     DeleteBookmark: {
@@ -2352,16 +1866,16 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Pixiv illustration ID. */
-                id: components["parameters"]["openapi_IllustIdPath"];
+                id: components["parameters"]["IllustIdPath"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            204: components["responses"]["openapi_NoContent"];
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
-            502: components["responses"]["openapi_Upstream"];
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
     GetUgoiraMetadata: {
@@ -2370,7 +1884,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Pixiv illustration ID. */
-                id: components["parameters"]["openapi_IllustIdPath"];
+                id: components["parameters"]["IllustIdPath"];
             };
             cookie?: never;
         };
@@ -2382,39 +1896,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_UgoiraMetadataResponse"];
+                    "application/json": components["schemas"]["UgoiraMetadataResponse"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
-            502: components["responses"]["openapi_Upstream"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
     SearchIllusts: {
         parameters: {
             query: {
                 word: string;
-                search_target?: components["schemas"]["openapi_SearchTarget"];
-                sort?: components["schemas"]["openapi_SearchSort"];
+                search_target?: components["schemas"]["SearchTarget"];
+                sort?: components["schemas"]["SearchSort"];
                 /** @description Lower bound `YYYY-MM-DD` for creation date. */
                 start_date?: string;
                 /** @description Upper bound `YYYY-MM-DD` for creation date. */
                 end_date?: string;
                 /** @description Time-window filter for search results. */
-                duration?: components["parameters"]["openapi_DurationQuery"];
+                duration?: components["parameters"]["DurationQuery"];
                 /**
                  * @description When true, exclude AI-generated works from search results
                  *     (Pixiv `search_ai_type=1`). Omit or set false to include them.
                  */
-                exclude_ai?: components["parameters"]["openapi_ExcludeAiQuery"];
+                exclude_ai?: components["parameters"]["ExcludeAiQuery"];
                 /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["openapi_OffsetQuery"];
+                offset?: components["parameters"]["OffsetQuery"];
                 /**
                  * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
                  *     to apply the same policy filter as the official iOS client;
                  *     pass `none` to disable.
                  */
-                client_mode?: components["parameters"]["openapi_ClientModeQuery"];
+                client_mode?: components["parameters"]["ClientModeQuery"];
             };
             header?: never;
             path?: never;
@@ -2428,29 +1942,29 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_IllustPage"];
+                    "application/json": components["schemas"]["IllustPage"];
                 };
             };
-            400: components["responses"]["openapi_BadRequest"];
-            401: components["responses"]["openapi_Unauthenticated"];
-            502: components["responses"]["openapi_Upstream"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
         };
     };
     SearchUsers: {
         parameters: {
             query: {
                 word: string;
-                sort?: components["schemas"]["openapi_SearchSort"];
+                sort?: components["schemas"]["SearchSort"];
                 /** @description Time-window filter for search results. */
-                duration?: components["parameters"]["openapi_DurationQuery"];
+                duration?: components["parameters"]["DurationQuery"];
                 /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["openapi_OffsetQuery"];
+                offset?: components["parameters"]["OffsetQuery"];
                 /**
                  * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
                  *     to apply the same policy filter as the official iOS client;
                  *     pass `none` to disable.
                  */
-                client_mode?: components["parameters"]["openapi_ClientModeQuery"];
+                client_mode?: components["parameters"]["ClientModeQuery"];
             };
             header?: never;
             path?: never;
@@ -2464,12 +1978,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_UserPreviewPage"];
+                    "application/json": components["schemas"]["UserPreviewPage"];
                 };
             };
-            400: components["responses"]["openapi_BadRequest"];
-            401: components["responses"]["openapi_Unauthenticated"];
-            502: components["responses"]["openapi_Upstream"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
         };
     };
     GetUser: {
@@ -2480,12 +1994,12 @@ export interface operations {
                  *     to apply the same policy filter as the official iOS client;
                  *     pass `none` to disable.
                  */
-                client_mode?: components["parameters"]["openapi_ClientModeQuery"];
+                client_mode?: components["parameters"]["ClientModeQuery"];
             };
             header?: never;
             path: {
                 /** @description Pixiv user ID. */
-                id: components["parameters"]["openapi_UserIdPath"];
+                id: components["parameters"]["UserIdPath"];
             };
             cookie?: never;
         };
@@ -2497,34 +2011,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_UserDetailPage"];
+                    "application/json": components["schemas"]["UserDetailPage"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
-            502: components["responses"]["openapi_Upstream"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
     ListUserBookmarks: {
         parameters: {
             query?: {
                 /** @description Visibility scope (public or private). */
-                restrict?: components["parameters"]["openapi_RestrictQuery"];
+                restrict?: components["parameters"]["RestrictQuery"];
                 /** @description Cursor for the next bookmarks page; pass `next_max_bookmark_id` from the previous response. */
-                max_bookmark_id?: components["parameters"]["openapi_MaxBookmarkIdQuery"];
+                max_bookmark_id?: components["parameters"]["MaxBookmarkIdQuery"];
                 /** @description Restrict bookmarks to those tagged with this exact tag name. */
-                tag?: components["parameters"]["openapi_BookmarkTagQuery"];
+                tag?: components["parameters"]["BookmarkTagQuery"];
                 /**
                  * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
                  *     to apply the same policy filter as the official iOS client;
                  *     pass `none` to disable.
                  */
-                client_mode?: components["parameters"]["openapi_ClientModeQuery"];
+                client_mode?: components["parameters"]["ClientModeQuery"];
             };
             header?: never;
             path: {
                 /** @description Pixiv user ID. */
-                id: components["parameters"]["openapi_UserIdPath"];
+                id: components["parameters"]["UserIdPath"];
             };
             cookie?: never;
         };
@@ -2536,12 +2050,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_IllustPage"];
+                    "application/json": components["schemas"]["IllustPage"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
-            502: components["responses"]["openapi_Upstream"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
     AddFollow: {
@@ -2550,20 +2064,20 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Pixiv user ID. */
-                id: components["parameters"]["openapi_UserIdPath"];
+                id: components["parameters"]["UserIdPath"];
             };
             cookie?: never;
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["openapi_FollowRequest"];
+                "application/json": components["schemas"]["FollowRequest"];
             };
         };
         responses: {
-            204: components["responses"]["openapi_NoContent"];
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
-            502: components["responses"]["openapi_Upstream"];
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
     DeleteFollow: {
@@ -2572,30 +2086,30 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Pixiv user ID. */
-                id: components["parameters"]["openapi_UserIdPath"];
+                id: components["parameters"]["UserIdPath"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            204: components["responses"]["openapi_NoContent"];
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
-            502: components["responses"]["openapi_Upstream"];
+            204: components["responses"]["NoContent"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
     ListUserFollowing: {
         parameters: {
             query?: {
                 /** @description Visibility scope (public or private). */
-                restrict?: components["parameters"]["openapi_RestrictQuery"];
+                restrict?: components["parameters"]["RestrictQuery"];
                 /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["openapi_OffsetQuery"];
+                offset?: components["parameters"]["OffsetQuery"];
             };
             header?: never;
             path: {
                 /** @description Pixiv user ID. */
-                id: components["parameters"]["openapi_UserIdPath"];
+                id: components["parameters"]["UserIdPath"];
             };
             cookie?: never;
         };
@@ -2607,32 +2121,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_UserPreviewPage"];
+                    "application/json": components["schemas"]["UserPreviewPage"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
-            502: components["responses"]["openapi_Upstream"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
     ListUserIllusts: {
         parameters: {
             query?: {
                 /** @description Illust type filter; both are returned when omitted (where supported). */
-                type?: components["parameters"]["openapi_IllustTypeQuery"];
+                type?: components["parameters"]["IllustTypeQuery"];
                 /** @description Offset for offset-paginated list endpoints. */
-                offset?: components["parameters"]["openapi_OffsetQuery"];
+                offset?: components["parameters"]["OffsetQuery"];
                 /**
                  * @description Client emulation mode (Pixiv's `filter` query). Omit (= `for_ios`)
                  *     to apply the same policy filter as the official iOS client;
                  *     pass `none` to disable.
                  */
-                client_mode?: components["parameters"]["openapi_ClientModeQuery"];
+                client_mode?: components["parameters"]["ClientModeQuery"];
             };
             header?: never;
             path: {
                 /** @description Pixiv user ID. */
-                id: components["parameters"]["openapi_UserIdPath"];
+                id: components["parameters"]["UserIdPath"];
             };
             cookie?: never;
         };
@@ -2644,12 +2158,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["openapi_UserIllustsPage"];
+                    "application/json": components["schemas"]["UserIllustsPage"];
                 };
             };
-            401: components["responses"]["openapi_Unauthenticated"];
-            404: components["responses"]["openapi_NotFound"];
-            502: components["responses"]["openapi_Upstream"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
         };
     };
 }

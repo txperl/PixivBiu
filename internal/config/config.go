@@ -20,11 +20,20 @@ const envPrefix = "PIXIVBIU_"
 const SchemaVersion = "1"
 
 type Config struct {
+	App      AppConfig      `koanf:"app"      cfg:"category=app,desc=应用通用设置"`
 	Server   ServerConfig   `koanf:"server"   cfg:"category=server,desc=HTTP 服务器设置"`
 	Log      LogConfig      `koanf:"log"      cfg:"category=log,desc=日志输出设置"`
 	Pixiv    PixivConfig    `koanf:"pixiv"    cfg:"category=pixiv,desc=Pixiv 上游与认证设置"`
 	Download DownloadConfig `koanf:"download" cfg:"category=download,desc=下载行为与模板"`
 	Inbox    InboxConfig    `koanf:"inbox"    cfg:"category=inbox,desc=事件总线 / SSE"`
+}
+
+// AppConfig holds settings that don't belong to any single subsystem.
+// language drives both the backend (startup banner + lifecycle logs) and
+// the frontend UI — the frontend fetches the resolved value from /i18n
+// and mirrors it, so the two never disagree.
+type AppConfig struct {
+	Language string `koanf:"language" cfg:"desc=应用界面与日志统一语言（auto = 跟随系统）,enum=auto|en|zh-CN|ja,restart=true"`
 }
 
 type ServerConfig struct {
@@ -40,9 +49,8 @@ type TimeoutsConfig struct {
 }
 
 type LogConfig struct {
-	Level    string `koanf:"level"    cfg:"desc=日志级别,enum=debug|info|warn|error,advanced=true"`
-	Format   string `koanf:"format"   cfg:"desc=输出格式,enum=text|json,restart=true,advanced=true"`
-	Language string `koanf:"language" cfg:"desc=启动横幅与生命周期日志语言（auto = 跟随系统）,enum=auto|en|zh-CN|ja,restart=true,advanced=true"`
+	Level  string `koanf:"level"  cfg:"desc=日志级别,enum=debug|info|warn|error,advanced=true"`
+	Format string `koanf:"format" cfg:"desc=输出格式,enum=text|json,restart=true,advanced=true"`
 }
 
 type PixivConfig struct {
@@ -84,6 +92,7 @@ type InboxConfig struct {
 // is treated as read-only by every consumer.
 var defaults = sync.OnceValue(func() map[string]any {
 	return map[string]any{
+		"app.language":             "auto",
 		"server.host":              "0.0.0.0",
 		"server.port":              8080,
 		"server.timeouts.read":     "15s",
@@ -91,7 +100,6 @@ var defaults = sync.OnceValue(func() map[string]any {
 		"server.timeouts.shutdown": "10s",
 		"log.level":                "info",
 		"log.format":               "text",
-		"log.language":             "auto",
 		"pixiv.proxy":              "",
 		"pixiv.bypass_sni":         false,
 		"pixiv.state_file":         "./usr/state.json",

@@ -1,6 +1,7 @@
 import {
     CloudServerIcon,
     Download04Icon,
+    GlobalIcon,
     Image01Icon,
     InboxIcon,
     Note01Icon,
@@ -37,11 +38,12 @@ interface SectionMeta {
 // useSectionDescription() (keyed by the section id). Everything else (fields,
 // types, constraints) comes from GET /config/schema.
 export const SECTION_META: Record<string, SectionMeta> = {
-    server: { icon: CloudServerIcon, order: 0 },
-    log: { icon: Note01Icon, order: 1 },
-    pixiv: { icon: Image01Icon, order: 2 },
-    download: { icon: Download04Icon, order: 3 },
-    inbox: { icon: InboxIcon, order: 4 },
+    app: { icon: GlobalIcon, order: 0 },
+    server: { icon: CloudServerIcon, order: 1 },
+    log: { icon: Note01Icon, order: 2 },
+    pixiv: { icon: Image01Icon, order: 3 },
+    download: { icon: Download04Icon, order: 4 },
+    inbox: { icon: InboxIcon, order: 5 },
 };
 
 export const FALLBACK_SECTION_ICON: IconSvgElement = Settings03Icon;

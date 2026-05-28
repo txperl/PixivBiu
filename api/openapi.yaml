@@ -82,6 +82,9 @@ paths:
   /events:
     $ref: './paths/events.yaml#/stream'
 
+  /i18n:
+    $ref: './paths/i18n.yaml#/root'
+
   /config:
     $ref: './paths/config.yaml#/root'
   /config/schema:
@@ -234,6 +237,27 @@ components:
       required: [status]
       properties:
         status: { type: string, example: ok }
+
+    I18nStatus:
+      type: object
+      required: [configured, locale]
+      description: |
+        Snapshot of the application's language settings. `configured` is
+        the raw value the user picked (`auto` is allowed and means "follow
+        system"). `locale` is the concrete language the running process
+        actually bound — `auto` is resolved via env (`LANG` / `LC_ALL` /
+        `LC_MESSAGES`) at startup, falling back to `en` when no match.
+      properties:
+        configured:
+          type: string
+          description: Value of `app.language` as stored in config.
+          enum: [auto, en, zh-CN, ja]
+          example: auto
+        locale:
+          type: string
+          description: Concrete locale bound by the running process.
+          enum: [en, zh-CN, ja]
+          example: zh-CN
 
     Error:
       type: object
