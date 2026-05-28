@@ -30,8 +30,8 @@ func authedService(t *testing.T) *pixiv.Service {
 
 func TestRestartConfig_TriggersRestartWhenAuthed(t *testing.T) {
 	var fired int
-	// hub/dl/pkce/heartbeat/cfgMgr are unused by RestartConfig.
-	h := NewHandler(authedService(t), nil, nil, nil, nil, nil, nil, func() { fired++ })
+	// hub/dl/pkce/heartbeat/cfgMgr/locale are unused by RestartConfig.
+	h := NewHandler(authedService(t), nil, nil, nil, nil, nil, "", func() { fired++ })
 
 	rec := httptest.NewRecorder()
 	h.RestartConfig(rec, httptest.NewRequest(http.MethodPost, "/config/restart", nil))
@@ -58,7 +58,7 @@ func TestRestartConfig_RequiresAuth(t *testing.T) {
 		t.Fatalf("NewService: %v", err)
 	}
 	var fired int
-	h := NewHandler(svc, nil, nil, nil, nil, nil, nil, func() { fired++ })
+	h := NewHandler(svc, nil, nil, nil, nil, nil, "", func() { fired++ })
 
 	rec := httptest.NewRecorder()
 	h.RestartConfig(rec, httptest.NewRequest(http.MethodPost, "/config/restart", nil))

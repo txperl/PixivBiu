@@ -28,17 +28,17 @@ type APIHandler struct {
 	// connection so a hot-reload of inbox.heartbeat affects new streams.
 	heartbeat *atomic.Int64
 	cfgMgr    *config.Manager
-	// tr is bound to the boot-resolved app.language; GET /i18n surfaces
-	// its Locale() so the frontend can mirror the backend's choice
-	// without sniffing navigator.language itself.
-	tr *i18n.Translator
+	// locale is the boot-resolved app.language (app.language is restart-
+	// required). GET /i18n surfaces it so the frontend can mirror the
+	// backend's choice without sniffing navigator.language itself.
+	locale i18n.Locale
 	// restart triggers a graceful self-restart of the process; nil-safe
 	// (RestartConfig guards against a nil trigger).
 	restart func()
 }
 
-func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat *atomic.Int64, cfgMgr *config.Manager, tr *i18n.Translator, restart func()) *APIHandler {
-	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, cfgMgr: cfgMgr, tr: tr, restart: restart}
+func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat *atomic.Int64, cfgMgr *config.Manager, locale i18n.Locale, restart func()) *APIHandler {
+	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, cfgMgr: cfgMgr, locale: locale, restart: restart}
 }
 
 var _ ServerInterface = (*APIHandler)(nil)

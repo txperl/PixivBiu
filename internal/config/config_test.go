@@ -375,11 +375,10 @@ func TestPatch_RestartKeyPendingThenReset(t *testing.T) {
 	}
 }
 
-// app.language is consumed by both the boot-time translator (startup
-// banner + lifecycle log lines) and — via GET /i18n — the frontend UI,
-// so it must behave like a restart-required key: patching it advances
-// File but freezes Effective and surfaces in pending_restart, rather
-// than silently reporting as live-applied.
+// app.language is consumed by the frontend via GET /i18n (pinned at boot,
+// since the field is restart-required). Patching it must advance File but
+// freeze Effective and surface in pending_restart, rather than silently
+// reporting as live-applied.
 func TestPatch_AppLanguageRestartRequired(t *testing.T) {
 	mgr := newMgr(t, "")
 	view, err := mgr.Patch(map[string]any{"app.language": "ja"})

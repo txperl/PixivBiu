@@ -2,59 +2,6 @@ package i18n
 
 import "testing"
 
-// allLocales is every locale the catalog must cover.
-var allLocales = []Locale{LocaleEN, LocaleZHCN, LocaleJA}
-
-func TestCatalog_Completeness(t *testing.T) {
-	for key, entry := range catalog {
-		for _, loc := range allLocales {
-			if _, ok := entry[loc]; !ok {
-				t.Errorf("catalog key %q missing locale %q", key, loc)
-			}
-		}
-	}
-}
-
-func TestT_FallbackToEN(t *testing.T) {
-	// Inject a key that only defines EN to exercise the missing-locale path
-	// without depending on the real catalog being incomplete.
-	const key = "test.only_en"
-	catalog[key] = map[Locale]string{LocaleEN: "english only"}
-	t.Cleanup(func() { delete(catalog, key) })
-
-	tr := New(LocaleJA)
-	if got := tr.T(key); got != "english only" {
-		t.Errorf("T(%q) with missing JA = %q, want EN fallback %q", key, got, "english only")
-	}
-}
-
-func TestT_MissingKeyReturnsKey(t *testing.T) {
-	tr := New(LocaleEN)
-	const key = "does.not.exist"
-	if got := tr.T(key); got != key {
-		t.Errorf("T(%q) = %q, want the key itself", key, got)
-	}
-}
-
-func TestT_ArgsInterpolate(t *testing.T) {
-	const key = "test.args"
-	catalog[key] = map[Locale]string{
-		LocaleEN:   "listening on %s port %d",
-		LocaleZHCN: "监听 %s 端口 %d",
-		LocaleJA:   "%s ポート %d で待受",
-	}
-	t.Cleanup(func() { delete(catalog, key) })
-
-	tr := New(LocaleEN)
-	if got, want := tr.T(key, "localhost", 8080), "listening on localhost port 8080"; got != want {
-		t.Errorf("T with args = %q, want %q", got, want)
-	}
-	trJA := New(LocaleJA)
-	if got, want := trJA.T(key, "localhost", 8080), "localhost ポート 8080 で待受"; got != want {
-		t.Errorf("T(JA) with args = %q, want %q", got, want)
-	}
-}
-
 func TestResolve(t *testing.T) {
 	tests := []struct {
 		name       string

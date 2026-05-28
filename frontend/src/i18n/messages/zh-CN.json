@@ -269,7 +269,7 @@
     "cfg_server_timeouts_shutdown": "优雅关闭超时",
     "cfg_log_level": "日志级别",
     "cfg_log_format": "输出格式",
-    "cfg_app_language": "应用界面与日志统一语言（auto = 跟随系统）",
+    "cfg_app_language": "应用界面语言（auto = 跟随系统）",
     "cfg_app_language_auto": "自动（跟随系统）",
     "cfg_pixiv_proxy": "HTTP/SOCKS 代理 URL（空串 = 直连）",
     "cfg_pixiv_bypass_sni": "对 API 启用 DoH + 替代 SNI（仅对受限网络）",

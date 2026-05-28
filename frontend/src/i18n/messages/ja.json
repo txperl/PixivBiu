@@ -269,7 +269,7 @@
     "cfg_server_timeouts_shutdown": "グレースフルシャットダウンのタイムアウト",
     "cfg_log_level": "ログレベル",
     "cfg_log_format": "出力フォーマット",
-    "cfg_app_language": "アプリ UI とログの統一言語（auto = システムに従う）",
+    "cfg_app_language": "アプリ UI 言語（auto = システムに従う）",
     "cfg_app_language_auto": "自動（システムに従う）",
     "cfg_pixiv_proxy": "HTTP/SOCKS プロキシ URL（空 = 直接接続）",
     "cfg_pixiv_bypass_sni": "API に DoH + 代替 SNI を有効化（制限されたネットワークのみ）",

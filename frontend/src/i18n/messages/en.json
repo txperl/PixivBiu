@@ -269,7 +269,7 @@
     "cfg_server_timeouts_shutdown": "Graceful shutdown timeout",
     "cfg_log_level": "Log level",
     "cfg_log_format": "Output format",
-    "cfg_app_language": "Application UI and log language (auto = follow system)",
+    "cfg_app_language": "Application UI language (auto = follow system)",
     "cfg_app_language_auto": "Auto (follow system)",
     "cfg_pixiv_proxy": "HTTP/SOCKS proxy URL (empty = direct connection)",
     "cfg_pixiv_bypass_sni": "Enable DoH + alternate SNI for the API (only for restricted networks)",

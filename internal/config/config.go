@@ -29,11 +29,11 @@ type Config struct {
 }
 
 // AppConfig holds settings that don't belong to any single subsystem.
-// language drives both the backend (startup banner + lifecycle logs) and
-// the frontend UI — the frontend fetches the resolved value from /i18n
-// and mirrors it, so the two never disagree.
+// language drives the frontend UI language: the frontend fetches the
+// resolved value from /i18n and mirrors it, so configured and effective
+// never disagree. Backend logs/banner are always in English.
 type AppConfig struct {
-	Language string `koanf:"language" cfg:"desc=应用界面与日志统一语言（auto = 跟随系统）,enum=auto|en|zh-CN|ja,restart=true"`
+	Language string `koanf:"language" cfg:"desc=应用界面语言（auto = 跟随系统）,enum=auto|en|zh-CN|ja,restart=true"`
 }
 
 type ServerConfig struct {
