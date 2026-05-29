@@ -13,6 +13,8 @@ The current backend covers **auth + read-only browsing + bookmark/follow + downl
 | **Backend** | Go + chi + oapi-codegen | 8080 | REST API server. OpenAPI-first: routes and types generated from `api/openapi.yaml`. |
 | **Frontend** | React 19 + Vite + TypeScript | 5173 (dev) | SPA. Talks to backend via `/api/v1/*`. |
 
+For **production the built SPA is embedded into the Go binary** (`go:embed`, `internal/web`) and served by the same server at `/`, so a release is a single self-contained executable and the frontend calls `/api` same-origin (no CORS). The Vite dev server (5173) only applies during development, proxying `/api` → 8080. See [Build & Release](#build--release).
+
 ## Tech Stack
 
 ### Backend (Go)
@@ -75,7 +77,8 @@ PixivBiu-go/
 │   ├── inbox/                    # In-memory pub-sub + SSE dispatcher (ring buffer + Last-Event-ID replay)
 │   ├── download/                 # Download manager, worker pool, naming templates, ugoira conversion
 │   │                             #   store.go persists usr/downloads.json atomically
-│   └── server/server.go          # chi router assembly, middleware wiring
+│   ├── server/server.go          # chi router assembly, middleware wiring, SPA catch-all (serves internal/web)
+│   └── web/web.go                # Embedded frontend: //go:embed dist/ (Vite output) + SPA/asset handler w/ index.html fallback
 ├── usr/                          # Gitignored; holds settings.json + state.json + downloads.json
 ├── downloads/                    # Gitignored; default download.output_dir
 ├── frontend/                     # React + Vite SPA (feature-based; kebab-case file names)
@@ -90,8 +93,10 @@ PixivBiu-go/
 │   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, format.ts (formatCount/hueFromId/formatBytes), pixiv-image.ts (TEMP pximg→pixiv.cat rewrite), fetch-state.ts (FetchState<T>), url-params.ts (readPage/patchParams), api/ (openapi-fetch client + `useApiErrorMessage` hook), theme/
 │   │   └── styles/               #   globals.css + material-you.css
 │   ├── package.json              #   `bun run dev | build | check`. `build` runs `paraglide-js compile` before tsc.
-│   └── vite.config.ts            #   `paraglideVitePlugin` + Tailwind + React
-├── Makefile                      # gen / dev / build / test / tidy / fmt / vet / clean
+│   └── vite.config.ts            #   `paraglideVitePlugin` + Tailwind + React; `build.outDir` → ../internal/web/dist
+├── .github/workflows/            # CI (push/PR) + Release (v* tag → GoReleaser)
+├── .goreleaser.yaml              # Cross-platform release build (frontend embedded)
+├── Makefile                      # gen / dev / build / build-web / dist / test / tidy / fmt / vet / clean
 ├── go.mod / go.sum
 ```
 
@@ -116,12 +121,14 @@ PixivBiu-go/
 | `make gen-backend`  | Regenerate `internal/api/server.gen.go` from `api/openapi.yaml` |
 | `make gen-frontend` | Regenerate `frontend/src/lib/api/schema.gen.ts` from running backend's `/openapi.json` |
 | `make dev`    | Run the server (`go run ./cmd/server -config ./usr/settings.json`) |
-| `make build`  | Build binary to `bin/pixivbiu` |
+| `make build`  | Build backend binary to `bin/pixivbiu` (embeds the current `internal/web/dist`) |
+| `make build-web` | Build the frontend into the embed dir `internal/web/dist` |
+| `make dist`   | Full self-contained build: `build-web` + `build` (SPA embedded) |
 | `make test`   | Run tests |
 | `make tidy`   | `go mod tidy` |
 | `make fmt`    | `go fmt ./...` |
 | `make vet`    | `go vet ./...` |
-| `make clean`  | Remove `bin/` |
+| `make clean`  | Remove `bin/` + `dist/` and clear `internal/web/dist` (keeps `.gitkeep`) |
 
 ### Quick Verification
 
@@ -131,6 +138,16 @@ curl -s http://localhost:8080/api/v1/health   # => {"status":"ok"}
 open  http://localhost:8080/docs              # Scalar API Reference (interactive tester)
 curl -s http://localhost:8080/openapi.json    # Raw OpenAPI spec served from the embedded binary
 ```
+
+### Build & Release
+
+The frontend is **embedded into the Go binary**, so a release is a single self-contained executable (no separate static host, no CORS).
+
+- **Embed.** `frontend`'s Vite build emits to `internal/web/dist` (`vite.config.ts` → `build.outDir`, `emptyOutDir:false`); `internal/web/web.go` bakes it in via `//go:embed all:dist`. Only `internal/web/dist/.gitkeep` is committed (the build output is gitignored), so a backend-only `go build` still compiles — the handler then serves a "frontend not built" notice instead of the SPA.
+- **Serving.** `internal/server/server.go` mounts the SPA as the chi `NotFound` catch-all: unmapped `/api/v1/*` → structured JSON 404 (`api.RouteNotFoundError`), everything else → SPA with `index.html` fallback for client-side routes (hashed `assets/*` get an immutable `Cache-Control`).
+- **Version.** Injected via `-ldflags -X main.version=` (git-describe locally, the tag in releases); printed in the boot banner.
+- **CI** (`.github/workflows/ci.yml`, push to master / PR): backend `gofmt` + `go vet` + `go test -race` + `go build`; frontend Biome + `bun run build` (which type-checks via `tsc -b`).
+- **Release** (`.github/workflows/release.yml`, on `v*` tag): [GoReleaser](https://goreleaser.com) (`.goreleaser.yaml`) builds the frontend (via `make build-web`), cross-compiles linux/macOS/windows × amd64/arm64 (`CGO_ENABLED=0`), and publishes archives + SHA-256 checksums + a grouped changelog as a GitHub Release. **Tags must be strict semver** (`v3.0.0`, prerelease `v3.0.0-beta.1`) — legacy `v2.x.ya/b` suffixes are rejected by GoReleaser. Dry-run with `goreleaser release --snapshot --clean`.
 
 ## Key Development Rules
 
@@ -307,7 +324,7 @@ Behavioral notes the spec carries but are easy to miss:
 - `unauthenticated` / 401 — no/expired access token; POST `/auth/login` first.
 - `bad_request` / 400 — malformed input / invalid illust / missing or expired PKCE state / missing auth code / param validation failure.
 - `forbidden` / 403 — upstream 403 (e.g., restricted / deleted illust).
-- `not_found` / 404 — upstream 404 / unknown download job.
+- `not_found` / 404 — upstream 404 / unknown download job / unmapped API route (`RouteNotFoundError`).
 - `conflict` / 409 — cancelling a terminal job, or removing a non-terminal one.
 - `rate_limited` / 429 — upstream 429.
 - `upstream_error` / 502 — any other upstream failure.
@@ -387,6 +404,6 @@ The following are intentionally **not** implemented yet — do not add them with
 - Rate-limiting / quota middleware
 - Metrics, tracing, health probes beyond `/health`
 - Database, ORM, migrations
-- Docker / CI pipelines
+- Docker images (releases are single self-contained binaries — see [Build & Release](#build--release); CI + tag-driven GitHub Releases are implemented)
 
 When adding features, prefer **extending the OpenAPI spec first**, then generating and implementing — not inventing ad-hoc routes or helper packages.
