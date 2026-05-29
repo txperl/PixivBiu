@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"testing"
@@ -435,6 +437,50 @@ func TestExtractAuthCode(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if got := extractAuthCode(c.in); got != c.want {
 				t.Errorf("extractAuthCode(%q): want %q, got %q", c.in, c.want, got)
+			}
+		})
+	}
+}
+
+// TestClassify_TransportFailureMapsToUpstream502 guards the other half of the
+// "garbage code reports success" fix: a failed network path to Pixiv (no HTTP
+// response came back) must surface as upstream 502, not the internal 500
+// fallback — it's the connection to Pixiv that failed, which is what the user
+// needs to know. http.Client.Do returns *url.Error (a net.Error) on transport
+// failure; our own auth bound surfaces as context.DeadlineExceeded.
+func TestClassify_TransportFailureMapsToUpstream502(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+	}{
+		{"net.Error (dns)", &net.DNSError{Err: "no such host", Name: "oauth.secure.pixiv.net"}},
+		{"wrapped net.Error", fmt.Errorf("pixiv oauth: %w", &net.DNSError{Err: "no such host"})},
+		{"context deadline", context.DeadlineExceeded},
+		{"wrapped deadline", fmt.Errorf("exchange auth code: %w", context.DeadlineExceeded)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			status, body := classify(c.err)
+			if status != http.StatusBadGateway {
+				t.Errorf("status: want 502, got %d", status)
+			}
+			if body.Code != ErrorCodeUpstreamError {
+				t.Errorf("code: want upstream_error, got %q", body.Code)
+			}
+			if body.Kind != ErrorKindUpstream {
+				t.Errorf("kind: want upstream, got %q", body.Kind)
+			}
+			if body.Upstream == nil {
+				t.Fatal("upstream: want populated, got nil")
+			}
+			if body.Upstream.Reason != Generic {
+				t.Errorf("upstream.reason: want generic, got %q", body.Upstream.Reason)
+			}
+			if body.Upstream.Status != 0 {
+				t.Errorf("upstream.status: want 0 (no HTTP response), got %d", body.Upstream.Status)
+			}
+			if body.Message != "" {
+				t.Errorf("message: want empty, got %q", body.Message)
 			}
 		})
 	}

@@ -166,6 +166,11 @@ func (s *Service) LoginWithAuthCode(ctx context.Context, code, verifier string) 
 	if verifier == "" {
 		return state.Token{}, ErrNoRefreshToken
 	}
+	// One budget for both upstream round-trips (code exchange + refresh). On
+	// the failure path only the first call runs, so the two never stack to
+	// 2×authTimeout, keeping the whole operation under the server WriteTimeout.
+	ctx, cancel := context.WithTimeout(ctx, authTimeout)
+	defer cancel()
 	s.mu.RLock()
 	httpc := s.httpc
 	s.mu.RUnlock()
@@ -189,6 +194,13 @@ func (s *Service) Logout() error {
 // refresh calls pixivgo.Auth, updates the in-memory + on-disk state.
 // The client's own accessToken/refreshToken are updated by pixivgo.Auth.
 func (s *Service) refresh(ctx context.Context, refreshToken string) (state.Token, error) {
+	// Bound every token refresh so an unreachable Pixiv fails within authTimeout
+	// (kept under the server WriteTimeout) instead of hanging. Covers Start,
+	// Login, and the background loop; under LoginWithAuthCode's wider span budget
+	// this is a harmless no-op — the outer deadline is already the tighter one.
+	ctx, cancel := context.WithTimeout(ctx, authTimeout)
+	defer cancel()
+
 	// Snapshot the client under the lock: Reload may swap it concurrently.
 	s.mu.RLock()
 	client := s.client
@@ -273,6 +285,13 @@ var pixivProbeURL = "https://app-api.pixiv.net/"
 // a slow proxy handshake, short enough that a blocked host fails the step
 // promptly so the user can reach the proxy input.
 const probeTimeout = 8 * time.Second
+
+// authTimeout bounds a user-facing auth operation (token exchange and/or
+// refresh). Kept comfortably below server.timeouts.write (default 15s) so an
+// unreachable Pixiv fails fast with a clean error: without it, hc.Do hangs
+// with no deadline until the server's WriteTimeout tears the connection down
+// and the client sees a torn/empty response instead of an error.
+const authTimeout = 10 * time.Second
 
 // ProbeReachable reports whether Pixiv is reachable over the network path
 // implied by proxy (nil = use the running config's proxy as-is) plus the

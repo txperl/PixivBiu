@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/txperl/pixivgo"
 )
@@ -96,6 +97,36 @@ func TestExchangeAuthCode_MissingRefreshTokenIsError(t *testing.T) {
 	_, err := ExchangeAuthCode(context.Background(), nil, "c", "v")
 	if err == nil {
 		t.Fatalf("want error when refresh_token absent, got nil")
+	}
+}
+
+// TestExchangeAuthCode_RespectsContextDeadline is the regression guard for the
+// hang behind the "garbage code reports success" bug: when Pixiv never answers,
+// the exchange must honour the caller's deadline and fail fast with a context
+// error, not block until some outer (server WriteTimeout) deadline tears the
+// connection down. The stub never responds until the test tears down.
+func TestExchangeAuthCode_RespectsContextDeadline(t *testing.T) {
+	block := make(chan struct{})
+	stubPixivToken(t, func(map[string]string) (int, string) {
+		<-block
+		return http.StatusOK, `{"refresh_token":"rt"}`
+	})
+	// Registered after stubPixivToken so it runs *before* srv.Close (cleanups
+	// are LIFO), unblocking the handler so Close doesn't deadlock on it.
+	t.Cleanup(func() { close(block) })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err := ExchangeAuthCode(ctx, nil, "c", "v")
+	elapsed := time.Since(start)
+
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("want context.DeadlineExceeded, got %T (%v)", err, err)
+	}
+	if elapsed > time.Second {
+		t.Errorf("exchange did not fail fast on the deadline: took %s", elapsed)
 	}
 }
 

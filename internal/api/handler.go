@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"sync/atomic"
 
@@ -173,6 +174,23 @@ func classify(err error) (int, Error) {
 				Reason ErrorUpstreamReason `json:"reason"`
 				Status int                 `json:"status"`
 			}{Reason: reason, Status: pe.StatusCode},
+		}
+	}
+
+	// Transport-level failure reaching Pixiv (DNS / refused / reset / timeout):
+	// no HTTP response came back, so there's no status to map. It's the network
+	// path to Pixiv that failed, not an internal bug — surface it as upstream
+	// (502) so the user sees "can't reach Pixiv" rather than a generic 500. This
+	// also catches our own context.DeadlineExceeded, which satisfies net.Error.
+	// Status 0 marks "no upstream HTTP response".
+	if _, ok := errors.AsType[net.Error](err); ok {
+		return http.StatusBadGateway, Error{
+			Code: ErrorCodeUpstreamError,
+			Kind: ErrorKindUpstream,
+			Upstream: &struct {
+				Reason ErrorUpstreamReason `json:"reason"`
+				Status int                 `json:"status"`
+			}{Reason: Generic, Status: 0},
 		}
 	}
 
