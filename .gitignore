@@ -3,6 +3,9 @@
 
 /bin
 
+# GoReleaser build output (archives, checksums, cross-compiled binaries).
+/dist
+
 # Legacy local config — superseded by usr/settings.json since v3.
 # Kept ignored so an existing config.yaml on dev machines (often holding
 # proxy creds or other secrets) doesn't surface as untracked and get
@@ -12,6 +15,12 @@
 # User data — settings.json / state.json / downloads.json
 /usr
 /downloads
+
+# Embedded frontend build output. The Vite build (frontend/) emits here and
+# go:embed bakes it into the binary; only the .gitkeep is tracked so a
+# backend-only `go build` still compiles before the frontend is built.
+/internal/web/dist/*
+!/internal/web/dist/.gitkeep
 
 ### Go ###
 # If you prefer the allow list template instead of the deny list, see community template:

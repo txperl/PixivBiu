@@ -37,6 +37,26 @@ func (e *UnknownStatusError) UserMessage() string {
 
 func (*UnknownStatusError) APICode() ErrorCode { return ErrorCodeBadRequest }
 
+// RouteNotFoundError backs the router's NotFound handler for requests under
+// the API base that match no registered route. Routing it through WriteError
+// (as a UserError) keeps unmapped-endpoint responses on the same structured
+// envelope as every other API error, instead of chi's plain-text default or
+// the SPA's HTML fallback.
+type RouteNotFoundError struct {
+	Method string
+	Path   string
+}
+
+func (e *RouteNotFoundError) Error() string {
+	return fmt.Sprintf("no route for %s %s", e.Method, e.Path)
+}
+
+func (*RouteNotFoundError) UserMessage() string {
+	return "The requested endpoint does not exist."
+}
+
+func (*RouteNotFoundError) APICode() ErrorCode { return ErrorCodeNotFound }
+
 // paramValidationFailure unwraps oapi-codegen's parameter-validation
 // error types into a safe (name, summary) pair, dropping the wrapped
 // Err — its text often quotes raw decoder output. Returns ("", "") if

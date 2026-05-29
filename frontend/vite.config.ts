@@ -26,6 +26,16 @@ export default defineConfig({
             "@": path.resolve(__dirname, "./src"),
         },
     },
+    build: {
+        // Emit straight into the Go `internal/web` package so go:embed bakes
+        // the SPA into the server binary (single self-contained artifact).
+        // outDir sits outside the frontend root; emptyOutDir:false preserves
+        // the committed dist/.gitkeep (which keeps backend-only `go build`
+        // compiling) and avoids Vite's outside-root deletion guard. Stale
+        // hashed assets are harmless and cleared by `make clean`.
+        outDir: path.resolve(__dirname, "../internal/web/dist"),
+        emptyOutDir: false,
+    },
     server: {
         proxy: {
             "/api": "http://localhost:8080",
