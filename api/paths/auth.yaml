@@ -85,3 +85,29 @@ status:
         content:
           application/json:
             schema: { $ref: '../openapi.yaml#/components/schemas/AuthStatus' }
+
+connectivity:
+  post:
+    operationId: checkConnectivity
+    summary: Check whether the backend can reach Pixiv
+    description: |
+      Probes Pixiv reachability over the backend's current network path
+      (proxy / SNI bypass) without authenticating. The login onboarding
+      calls this before sign-in. Optionally accepts a `proxy` to test a
+      candidate proxy URL; when the probe succeeds with a supplied proxy
+      and no Pixiv session exists yet, that proxy is persisted so the
+      imminent OAuth login uses it. `reachable:false` is a normal 200
+      result (the answer to the question), not an error.
+    tags: [auth]
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/ConnectivityRequest' }
+    responses:
+      '200':
+        description: Probe completed; inspect `reachable`.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/ConnectivityStatus' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }

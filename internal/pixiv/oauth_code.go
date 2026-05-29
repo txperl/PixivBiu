@@ -23,6 +23,11 @@ const (
 	// accept; the hosted callback page just shows blank/error, but the URL
 	// carries `?code=…`.
 	pixivOAuthRedirectURI = "https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback"
+
+	// pixivAppUserAgent identifies us as the Pixiv mobile app on the requests
+	// we issue directly (token exchange, reachability probe) rather than through
+	// pixivgo, which sets its own UA on the calls it owns.
+	pixivAppUserAgent = "PixivAndroidApp/5.0.234 (Android 11; Pixel 5)"
 )
 
 // pixivTokenURL is var (not const) so tests can swap it for an httptest server.
@@ -77,7 +82,7 @@ func ExchangeAuthCode(ctx context.Context, hc *http.Client, code, verifier strin
 		return "", err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", "PixivAndroidApp/5.0.234 (Android 11; Pixel 5)")
+	req.Header.Set("User-Agent", pixivAppUserAgent)
 
 	resp, err := hc.Do(req)
 	if err != nil {

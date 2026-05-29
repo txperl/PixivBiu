@@ -5,14 +5,15 @@ import { useAuth } from "@/features/auth/use-auth";
 import { detectPasteIssue } from "@/features/auth/utils";
 import { useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { ConnectivityPanel } from "./components/connectivity-panel";
 import { LoginPanel } from "./components/login-panel";
 import { ReadyPanel } from "./components/ready-panel";
 import { WelcomePanel } from "./components/welcome-panel";
 
-type Stage = "welcome" | "login" | "ready";
+type Stage = "welcome" | "connectivity" | "login" | "ready";
 type OAuthSession = { state: string; loginUrl: string };
 
-const STAGES: Stage[] = ["welcome", "login", "ready"];
+const STAGES: Stage[] = ["welcome", "connectivity", "login", "ready"];
 
 const POPUP_W = 480;
 const POPUP_H = 720;
@@ -66,6 +67,15 @@ function LoginPage() {
     if (status?.authenticated && !interactedRef.current) {
         return <Navigate to={intendedFrom} replace />;
     }
+
+    // Welcome's CTA only advances to the connectivity beat — no popup, no OAuth
+    // yet. The popup is opened later from the connectivity step's button so it
+    // still rides a real click (browsers block window.open after an await).
+    const onStart = () => {
+        interactedRef.current = true;
+        setError(null);
+        setStage("connectivity");
+    };
 
     const onClickPixivLogin = async () => {
         interactedRef.current = true;
@@ -144,8 +154,9 @@ function LoginPage() {
             )}
         >
             <div className="max-w-xl">
-                {stage === "welcome" && (
-                    <WelcomePanel pending={pending} error={error} onClickPixivLogin={onClickPixivLogin} />
+                {stage === "welcome" && <WelcomePanel onContinue={onStart} />}
+                {stage === "connectivity" && (
+                    <ConnectivityPanel pending={pending} error={error} onProceed={onClickPixivLogin} />
                 )}
                 {stage === "login" && (
                     <LoginPanel

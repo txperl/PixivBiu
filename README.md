@@ -53,7 +53,7 @@ open  http://localhost:8080/docs                   # Scalar 交互式文档
 
 | 域 | 说明 |
 |---|---|
-| `/auth/*` | 浏览器内 Pixiv OAuth (PKCE) 登录；登出、状态查询；token 自动刷新；refresh_token 直登保留为高级入口 |
+| `/auth/*` | 浏览器内 Pixiv OAuth (PKCE) 登录；登出、状态查询；token 自动刷新；refresh_token 直登保留为高级入口；登录前先做连通性检测（连不上可设代理） |
 | `/illusts/*`、`/users/*`、`/search/*` | Pixiv 只读浏览 + 书签/关注写入 |
 | `/downloads` | 单图 / 多图 / 动图下载，JSON 持久化，断点重启恢复 |
 | `/events` | SSE 统一消息流；`Last-Event-ID` 重连补齐，evict 时发 `system.resync` |
@@ -62,7 +62,9 @@ open  http://localhost:8080/docs                   # Scalar 交互式文档
 
 ## 登录
 
-PixivBiu 内置 Pixiv OAuth (PKCE) 流程，全程在浏览器里完成：
+登录前，引导页会先做一次 **Pixiv 连通性检测**：连得上就继续；连不上时会浮现一个代理输入框，当场实测，通过后记住（写入 `pixiv.proxy`），随后的登录与浏览都走这个代理。
+
+连通性检测通过后，登录本身走 Pixiv OAuth (PKCE) 流程，全程在浏览器里完成：
 
 1. 顶栏点头像 → **使用 Pixiv 账号登录**，会弹出 Pixiv 官方登录页（验证码 / 二次验证都由 Pixiv 自家处理）
 2. **在弹窗里** 按 `F12` / `⌥⌘I` 打开 DevTools

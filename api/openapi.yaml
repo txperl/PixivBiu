@@ -42,6 +42,8 @@ paths:
     $ref: './paths/auth.yaml#/oauthStart'
   /auth/oauth/exchange:
     $ref: './paths/auth.yaml#/oauthExchange'
+  /auth/connectivity:
+    $ref: './paths/auth.yaml#/connectivity'
 
   /illusts/ranking:
     $ref: './paths/illusts.yaml#/ranking'
@@ -404,6 +406,29 @@ components:
         user_id:       { type: integer, format: int64, nullable: true }
         user_name:     { type: string, nullable: true }
         expires_at:    { type: string, format: date-time, nullable: true }
+
+    ConnectivityRequest:
+      type: object
+      properties:
+        proxy:
+          type: string
+          description: |
+            Optional proxy URL to test (e.g. `http://127.0.0.1:7890` or
+            `socks5://127.0.0.1:1080`). Omit to probe the current
+            configuration as-is. When the probe succeeds with a supplied
+            proxy and there's no Pixiv session yet, the proxy is persisted
+            to settings so the subsequent login uses it.
+
+    ConnectivityStatus:
+      type: object
+      required: [reachable]
+      properties:
+        reachable:
+          type: boolean
+          description: Whether any HTTP response came back from Pixiv over the tested path.
+        latency_ms:
+          type: integer
+          description: Round-trip time of the probe request, in milliseconds.
 
     BookmarkRequest:
       type: object

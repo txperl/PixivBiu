@@ -32,11 +32,7 @@ func TestReload_RebuildsClientPreservingToken(t *testing.T) {
 }
 
 func TestReload_NoChangeIsNoOp(t *testing.T) {
-	store := state.NewStore(filepath.Join(t.TempDir(), "state.json"))
-	svc, err := NewService(config.PixivConfig{Proxy: "http://a:1"}, slog.New(slog.DiscardHandler), store)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
+	svc := newTestService(t, config.PixivConfig{Proxy: "http://a:1"})
 	before := svc.Client()
 	if err := svc.Reload(config.PixivConfig{Proxy: "http://a:1"}); err != nil {
 		t.Fatalf("Reload: %v", err)
@@ -47,11 +43,7 @@ func TestReload_NoChangeIsNoOp(t *testing.T) {
 }
 
 func TestReload_BadProxyKeepsOldClient(t *testing.T) {
-	store := state.NewStore(filepath.Join(t.TempDir(), "state.json"))
-	svc, err := NewService(config.PixivConfig{}, slog.New(slog.DiscardHandler), store)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
+	svc := newTestService(t, config.PixivConfig{})
 	before := svc.Client()
 	if err := svc.Reload(config.PixivConfig{Proxy: "http://%zz"}); err == nil {
 		t.Fatal("expected error for invalid proxy URL")

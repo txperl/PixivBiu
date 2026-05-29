@@ -3,6 +3,7 @@ import { api, type components } from "@/lib/api";
 export type AuthStatus = components["schemas"]["AuthStatus"];
 export type AuthApiError = components["schemas"]["Error"];
 export type OAuthStartResponse = components["schemas"]["OAuthStartResponse"];
+export type ConnectivityStatus = components["schemas"]["ConnectivityStatus"];
 
 export async function getAuthStatus(): Promise<{ data: AuthStatus | null; error: AuthApiError | null }> {
     const { data, error } = await api.GET("/auth/status");
@@ -32,6 +33,18 @@ export async function exchangeOAuth(
 ): Promise<{ data: AuthStatus | null; error: AuthApiError | null }> {
     const { data, error } = await api.POST("/auth/oauth/exchange", {
         body: { state, code },
+    });
+    return { data: data ?? null, error: error ?? null };
+}
+
+// checkConnectivity probes whether the backend can reach Pixiv. Omit `proxy` to
+// test the current configuration; pass one to test (and, on success, persist) a
+// candidate proxy. `reachable: false` is a normal result, not an `error`.
+export async function checkConnectivity(
+    proxy?: string,
+): Promise<{ data: ConnectivityStatus | null; error: AuthApiError | null }> {
+    const { data, error } = await api.POST("/auth/connectivity", {
+        body: proxy === undefined ? undefined : { proxy },
     });
     return { data: data ?? null, error: error ?? null };
 }

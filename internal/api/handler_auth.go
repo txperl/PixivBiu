@@ -86,6 +86,61 @@ func (h *APIHandler) ExchangeOAuth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, makeAuthStatus(tok))
 }
 
+// CheckConnectivity probes whether Pixiv is reachable over the backend's
+// current network path, optionally testing a candidate proxy. It is
+// deliberately unauthenticated: the login onboarding calls it before sign-in so
+// a user on a restricted network can discover — and fix, via a proxy — a dead
+// connection before wrestling with the OAuth popup.
+//
+// reachable=false is a normal 200 result (the answer to the question), not an
+// error. When a supplied proxy works AND there's no Pixiv session yet, the
+// proxy is persisted so the imminent OAuth login uses it. That write is bounded
+// to the pre-login window: once authenticated, proxy changes belong on the
+// (auth-gated) Settings page, so we skip persisting here.
+func (h *APIHandler) CheckConnectivity(w http.ResponseWriter, r *http.Request) {
+	var req CheckConnectivityJSONRequestBody
+	if err := decodeJSON(r, &req); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	var override *string
+	if req.Proxy != nil {
+		p := strings.TrimSpace(*req.Proxy)
+		override = &p
+	}
+
+	reachable, latency, err := h.svc.ProbeReachable(r.Context(), override)
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	if reachable && override != nil {
+		if err := h.persistOnboardingProxy(*override); err != nil {
+			WriteError(w, r, err)
+			return
+		}
+	}
+
+	ms := int(latency.Milliseconds())
+	writeJSON(w, http.StatusOK, ConnectivityStatus{Reachable: reachable, LatencyMs: &ms})
+}
+
+// persistOnboardingProxy records a proxy the connectivity probe just proved
+// works, so the imminent OAuth login uses it. It is a deliberate no-op once a
+// Pixiv session exists: after login, proxy changes go through the auth-gated
+// Settings page (PATCH /config), not this open endpoint. The write hot-reloads
+// the live client via the config manager's OnReload hooks (cmd/server/main.go)
+// before the client proceeds to OAuth.
+func (h *APIHandler) persistOnboardingProxy(proxy string) error {
+	if h.svc.Authenticated() {
+		return nil
+	}
+	_, err := h.cfgMgr.Patch(map[string]any{"pixiv": map[string]any{"proxy": proxy}})
+	return err
+}
+
 // extractAuthCode tolerates the user pasting either the full Pixiv callback
 // URL or just the bare code. Anything that looks like a URL is parsed first;
 // otherwise we trust the trimmed input.

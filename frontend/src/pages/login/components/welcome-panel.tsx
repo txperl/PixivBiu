@@ -1,18 +1,8 @@
 import { Button } from "@/components/ui/button";
-import type { AuthApiError } from "@/features/auth/api";
 import { useMessages } from "@/i18n";
-import { ErrorBlock } from "./error-block";
 import { useReveal } from "./use-reveal";
 
-export function WelcomePanel({
-    pending,
-    error,
-    onClickPixivLogin,
-}: {
-    pending: boolean;
-    error: AuthApiError | null;
-    onClickPixivLogin: () => void;
-}) {
+export function WelcomePanel({ onContinue }: { onContinue: () => void }) {
     const m = useMessages();
     const titleRef = useReveal<HTMLHeadingElement>(300);
     const subtitleRef = useReveal<HTMLParagraphElement>(300);
@@ -38,10 +28,9 @@ export function WelcomePanel({
             </div>
 
             <div ref={ctaRef} className="mt-4 space-y-3">
-                <Button type="button" size="lg" onClick={onClickPixivLogin} disabled={pending}>
-                    {pending ? m.login_welcome_preparing() : m.login_welcome_cta()}
+                <Button type="button" size="lg" onClick={onContinue}>
+                    {m.login_welcome_cta()}
                 </Button>
-                {error && <ErrorBlock error={error} />}
             </div>
         </div>
     );

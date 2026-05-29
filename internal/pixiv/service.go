@@ -264,6 +264,56 @@ func (s *Service) loop(ctx context.Context) {
 	}
 }
 
+// pixivProbeURL is the host ProbeReachable pings. It's a var (like
+// pixivTokenURL) so tests can point it at an httptest server. Any HTTP
+// response from it — even a 404 — proves the network path works.
+var pixivProbeURL = "https://app-api.pixiv.net/"
+
+// probeTimeout bounds a single reachability probe. Long enough to ride out
+// a slow proxy handshake, short enough that a blocked host fails the step
+// promptly so the user can reach the proxy input.
+const probeTimeout = 8 * time.Second
+
+// ProbeReachable reports whether Pixiv is reachable over the network path
+// implied by proxy (nil = use the running config's proxy as-is) plus the
+// running config's bypass_sni. It builds a throwaway client and never mutates
+// the Service, so it's safe to call before login and with a candidate proxy.
+//
+// A (false, nil) result means the probe ran but no HTTP response came back
+// (timeout, DNS failure, refused connection, proxy error) — i.e. unreachable,
+// an expected answer rather than a fault. A non-nil error means the probe
+// could not even be set up (e.g. SNI-bypass init failed).
+func (s *Service) ProbeReachable(ctx context.Context, proxy *string) (bool, time.Duration, error) {
+	s.mu.RLock()
+	cfg := s.cfg
+	s.mu.RUnlock()
+	if proxy != nil {
+		cfg.Proxy = *proxy
+	}
+
+	_, httpc, err := buildClient(cfg)
+	if err != nil {
+		return false, 0, err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pixivProbeURL, nil)
+	if err != nil {
+		return false, 0, err
+	}
+	req.Header.Set("User-Agent", pixivAppUserAgent)
+
+	start := time.Now()
+	resp, err := httpc.Do(req)
+	elapsed := time.Since(start)
+	if err != nil {
+		return false, elapsed, nil
+	}
+	resp.Body.Close()
+	return true, elapsed, nil
+}
+
 // buildClient constructs a pixivgo client with proxy / bypass settings
 // applied. It does NOT authenticate. The second return is the raw
 // *http.Client backing the pixivgo client (or http.DefaultClient when neither
