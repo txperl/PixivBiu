@@ -1,0 +1,94 @@
+# GoReleaser config — https://goreleaser.com
+# Produces self-contained, cross-platform binaries with the frontend SPA
+# baked in (see internal/web), plus checksums and a grouped changelog, and
+# publishes them as a GitHub Release. Triggered by .github/workflows/release.yml
+# on a pushed `v*` tag. Validate locally with:
+#   goreleaser check
+#   goreleaser release --snapshot --clean
+version: 2
+
+project_name: PixivBiu
+
+before:
+  hooks:
+    # Build the frontend (into internal/web/dist) so go:embed bakes real assets
+    # into the binary. Delegates to the Makefile target so the build command
+    # has a single source of truth shared with local `make dist`. Runs once;
+    # every cross-compile target below embeds the same dist/.
+    - make build-web
+
+builds:
+  - id: pixivbiu
+    main: ./cmd/server
+    binary: pixivbiu
+    env:
+      - CGO_ENABLED=0 # pure Go; lets one Linux runner cross-compile everything
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    # Reproducible builds: stamp binaries with the commit time, not build time.
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: pixivbiu
+    formats:
+      - tar.gz
+    # tar.gz everywhere except Windows, which gets a zip.
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    # README/LICENSE/CHANGELOG are picked up by GoReleaser's default file glob.
+
+checksum:
+  name_template: "checksums.txt" # SHA-256 by default
+
+snapshot:
+  # Used only by `--snapshot` (untagged dry runs); never by a real release.
+  # Avoids `incpatch .Version` so dry runs work even when the latest tag is
+  # a legacy non-semver one (e.g. v2.6.4b) — real releases use the semver tag.
+  version_template: "0.0.0-snapshot-{{ .ShortCommit }}"
+
+changelog:
+  sort: asc
+  use: github
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Refactors
+      regexp: '^.*?refactor(\(.+\))??!?:.+$'
+      order: 2
+    - title: Others
+      order: 999
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^style:"
+      - "^build:"
+      - "Merge "
+
+release:
+  github:
+    owner: txperl
+    name: PixivBiu
+  # Tags with a prerelease suffix (e.g. v3.0.0-beta.1) are flagged as
+  # pre-releases on GitHub automatically.
+  prerelease: auto
+  draft: false

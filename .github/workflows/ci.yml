@@ -1,0 +1,73 @@
+name: CI
+
+# Quality gate for the Go backend and the React frontend. Runs on pushes to
+# master and on every pull request; tag pushes are handled by release.yml.
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref so only the latest commit is checked.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod # single source of truth for the Go version
+          # setup-go@v5 caches the build and module cache automatically.
+
+      - name: Check gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::These files are not gofmt-ed:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      # The committed internal/web/dist/.gitkeep lets the go:embed in
+      # internal/web compile without a frontend build (the frontend job
+      # exercises the real build separately).
+      - name: Test
+        run: go test -race ./...
+
+      - name: Build
+        run: go build ./...
+
+  frontend:
+    name: Frontend (React)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        # postinstall compiles the Paraglide i18n messages that tsc/vite need.
+        run: bun install --frozen-lockfile
+
+      - name: Lint and format check (Biome)
+        run: bunx @biomejs/biome ci .
+
+      # `bun run build` is `paraglide:compile && tsc -b && vite build`, so this
+      # type-checks (tsc) and bundles in one pass — no separate tsc step needed.
+      - name: Type check and build
+        run: bun run build

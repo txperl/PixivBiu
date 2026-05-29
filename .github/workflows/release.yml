@@ -1,0 +1,36 @@
+name: Release
+
+# Cross-compiles the self-contained binaries (frontend embedded) and publishes
+# a GitHub Release. Triggered by pushing a semver tag, e.g.:
+#   git tag v3.0.0 && git push origin v3.0.0
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # create the release and upload the archives + checksums
+
+jobs:
+  goreleaser:
+    name: GoReleaser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so the changelog can diff against the prior tag
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # GoReleaser's `before` hook builds the frontend (cd frontend && bun ...),
+      # so bun must be on PATH for the release run.
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
