@@ -75,7 +75,9 @@ func (s *Store) Save(flatLayer map[string]any) error {
 }
 
 // flatten lowers a nested map into dotted-key form, e.g.
-//   {"download": {"max_concurrent": 8}}  →  {"download.max_concurrent": 8}
+//
+//	{"download": {"max_concurrent": 8}}  →  {"download.max_concurrent": 8}
+//
 // Non-map values terminate the descent.
 func flatten(prefix string, v any) map[string]any {
 	out := map[string]any{}

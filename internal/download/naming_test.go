@@ -394,8 +394,8 @@ func TestResolveCollisionPair_StaggeredTakenSkipsToCommonFree(t *testing.T) {
 	// .webp is taken at n=0 only; .zip is taken at n=1 only. n=0 and
 	// n=1 each fail (one variant taken); n=2 is where both are free.
 	disk := map[string]struct{}{
-		"/dl/a.webp":     {},
-		"/dl/a (1).zip":  {},
+		"/dl/a.webp":    {},
+		"/dl/a (1).zip": {},
 	}
 	exists := func(p string) bool { _, ok := disk[p]; return ok }
 	gotBase, gotAlt := resolveCollisionPairWith("/dl/a.webp", ".zip", nil, exists)

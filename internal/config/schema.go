@@ -78,9 +78,9 @@ func BuildSchema() (*Schema, error) {
 	defs := defaults()
 
 	root := map[string]any{
-		"$schema": "https://json-schema.org/draft/2020-12/schema",
-		"type":    "object",
-		"title":   "PixivBiu settings",
+		"$schema":              "https://json-schema.org/draft/2020-12/schema",
+		"type":                 "object",
+		"title":                "PixivBiu settings",
 		"x-cfg-schema-version": SchemaVersion,
 	}
 	props := map[string]any{}
