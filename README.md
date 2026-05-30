@@ -49,10 +49,13 @@ make gen-backend
 make dev
 
 # 4. 验证
-curl -s http://localhost:8080/api/v1/health        # => {"status":"ok"}
-curl -N http://localhost:8080/api/v1/events        # SSE 事件流
-open  http://localhost:8080/docs                   # Scalar 交互式文档
+curl -s http://127.0.0.1:4001/api/v1/health        # => {"status":"ok"}
+curl -N http://127.0.0.1:4001/api/v1/events        # SSE 事件流
+open  http://127.0.0.1:4001/docs                   # Scalar 交互式文档
 ```
+
+> 默认监听 `127.0.0.1:4001`（仅本机）。若端口被占用会自动顺延到下一个空闲端口（见启动 banner）。
+> 需要从局域网/Docker 访问时，设 `PIXIVBIU_SERVER_HOST=0.0.0.0`。
 
 ## 当前功能
 

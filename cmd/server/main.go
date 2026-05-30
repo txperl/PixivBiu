@@ -166,20 +166,32 @@ func run() error {
 
 	httpHandler := server.New(cfg, logger, handler)
 
-	addr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
 	srv := &http.Server{
-		Addr:         addr,
 		Handler:      httpHandler,
 		ReadTimeout:  cfg.Server.Timeouts.Read,
 		WriteTimeout: cfg.Server.Timeouts.Write,
 	}
 
-	printBanner(cfg, svc, addr, cfgMgr.StorePath(), stateFile, storeFile)
+	// Bind explicitly (rather than ListenAndServe) so a busy port surfaces
+	// synchronously. With server.port_fallback on (the default for the
+	// self-contained binary) we walk to the next free port and report the
+	// *actual* address below; the dev backend (make dev) turns it off so a
+	// busy port fails loud and the fixed Vite proxy / gen:api stay correct.
+	ln, err := listenWithFallback(cfg.Server.Host, cfg.Server.Port, cfg.Server.PortFallback)
+	if err != nil {
+		return fmt.Errorf("listen: %w", err)
+	}
+	if actual := tcpPort(ln); actual != cfg.Server.Port {
+		logger.Warn("configured port busy; using fallback",
+			slog.Int("configured", cfg.Server.Port), slog.Int("actual", actual))
+	}
+
+	printBanner(cfg, svc, ln, cfgMgr.StorePath(), stateFile, storeFile)
 
 	errCh := make(chan error, 1)
 	go func() {
-		logger.Info("server starting", slog.String("server.address", addr))
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logger.Info("server starting", slog.String("server.address", ln.Addr().String()))
+		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 		close(errCh)
@@ -248,18 +260,70 @@ func flagPassed(name string) bool {
 	return found
 }
 
+// maxPortFallback caps how many consecutive ports listenWithFallback tries
+// when the configured one is busy: configured .. configured+maxPortFallback-1.
+const maxPortFallback = 10
+
+// listenWithFallback binds host:port. When fallback is true it walks forward
+// to the next free port (up to maxPortFallback) when the configured one is in
+// use — a common desktop case (a previous instance, or another app squatting
+// the port). When false a busy port fails immediately, which is what the dev
+// backend wants (its Vite proxy / gen:api are pinned to the configured port).
+// Only EADDRINUSE triggers a walk; a bad host or permission error fails right
+// away so a real misconfiguration isn't silently masked. (Go defines
+// syscall.EADDRINUSE on Windows too, mapped to WSAEADDRINUSE, so errors.Is is
+// cross-platform.)
+func listenWithFallback(host string, port int, fallback bool) (net.Listener, error) {
+	// The config's min/max only gates PATCH, not the startup file/env layers,
+	// so a hand-set settings.json / PIXIVBIU_SERVER_PORT can arrive out of
+	// range. Reject it here: otherwise the loop below would skip every attempt
+	// and return a nil listener with no error, panicking the caller.
+	if port < 1 || port > 65535 {
+		return nil, fmt.Errorf("invalid server port %d (must be 1-65535)", port)
+	}
+	attempts := 1
+	if fallback {
+		attempts = maxPortFallback
+	}
+	var lastErr error
+	for i := 0; i < attempts; i++ {
+		p := port + i
+		if p > 65535 {
+			break
+		}
+		ln, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(p)))
+		if err == nil {
+			return ln, nil
+		}
+		if !errors.Is(err, syscall.EADDRINUSE) {
+			return nil, err
+		}
+		lastErr = err
+	}
+	return nil, lastErr
+}
+
+// tcpPort returns the bound port of a TCP listener — the one spot that
+// asserts net.Listen("tcp", …) yields a *net.TCPAddr.
+func tcpPort(ln net.Listener) int { return ln.Addr().(*net.TCPAddr).Port }
+
 // printBanner writes a human-friendly boot summary to stderr: key URLs,
 // auth state, and the most-asked-about config fields. slog keeps writing to
 // stdout, so the banner stays out of the log stream. All banner text is
 // fixed English; the frontend owns the UI locale (it reads `app.language`
 // from GET /config and resolves `auto` against navigator.language).
-func printBanner(cfg *config.Config, svc *pixiv.Service, addr, settingsPath, statePath, indexPath string) {
+func printBanner(cfg *config.Config, svc *pixiv.Service, ln net.Listener, settingsPath, statePath, indexPath string) {
+	// Read the bound port off the listener, not cfg: a busy configured port
+	// may have been bumped to a fallback, and the banner must point at where
+	// the server actually listens.
+	addr := ln.Addr().String()
+	port := tcpPort(ln)
 	displayHost := cfg.Server.Host
 	switch displayHost {
 	case "0.0.0.0", "::", "":
 		displayHost = "localhost"
 	}
-	base := fmt.Sprintf("http://%s:%d", displayHost, cfg.Server.Port)
+	base := fmt.Sprintf("http://%s:%d", displayHost, port)
 
 	proxy := cfg.Pixiv.Proxy
 	if proxy == "" {

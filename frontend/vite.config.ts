@@ -38,7 +38,10 @@ export default defineConfig({
     },
     server: {
         proxy: {
-            "/api": "http://localhost:8080",
+            // 127.0.0.1, not localhost: the backend binds IPv4 loopback by
+            // default, but localhost can resolve to ::1 (IPv6) under Node/Bun
+            // and the proxy would then fail to reach a running server.
+            "/api": "http://127.0.0.1:4001",
         },
     },
 });

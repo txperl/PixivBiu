@@ -32,8 +32,11 @@ func TestLoad_MissingFile_UsesDefaults(t *testing.T) {
 	if cfg.Download.MaxConcurrent != 4 {
 		t.Errorf("default MaxConcurrent = %d, want 4", cfg.Download.MaxConcurrent)
 	}
-	if cfg.Server.Port != 8080 {
-		t.Errorf("default Server.Port = %d, want 8080", cfg.Server.Port)
+	if cfg.Server.Port != 4001 {
+		t.Errorf("default Server.Port = %d, want 4001", cfg.Server.Port)
+	}
+	if !cfg.Server.PortFallback {
+		t.Error("default Server.PortFallback = false, want true")
 	}
 }
 
@@ -524,7 +527,7 @@ func TestSchema_FlagsInternal(t *testing.T) {
 	sc := newMgr(t, "").Schema()
 
 	for _, key := range []string{
-		"server.host", "server.port",
+		"server.host", "server.port", "server.port_fallback",
 		"server.timeouts.read", "server.timeouts.write", "server.timeouts.shutdown",
 		"pixiv.state_file", "download.referer", "download.store_file",
 		"inbox.buffer_size", "inbox.progress_throttle", "inbox.heartbeat",

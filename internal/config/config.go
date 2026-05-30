@@ -38,9 +38,10 @@ type AppConfig struct {
 }
 
 type ServerConfig struct {
-	Host     string         `koanf:"host"     cfg:"desc=监听地址（0.0.0.0 接受所有）,restart=true,internal=true"`
-	Port     int            `koanf:"port"     cfg:"desc=监听端口,min=1,max=65535,restart=true,internal=true"`
-	Timeouts TimeoutsConfig `koanf:"timeouts" cfg:"desc=HTTP 超时"`
+	Host         string         `koanf:"host"          cfg:"desc=监听地址（默认 127.0.0.1 仅本机；0.0.0.0 接受所有，供局域网/Docker 访问）,restart=true,internal=true"`
+	Port         int            `koanf:"port"          cfg:"desc=监听端口,min=1,max=65535,restart=true,internal=true"`
+	PortFallback bool           `koanf:"port_fallback" cfg:"desc=端口被占用时自动顺延到下一个空闲端口（dev 下建议关闭以固定端口）,restart=true,internal=true"`
+	Timeouts     TimeoutsConfig `koanf:"timeouts"      cfg:"desc=HTTP 超时"`
 }
 
 type TimeoutsConfig struct {
@@ -94,8 +95,9 @@ type InboxConfig struct {
 var defaults = sync.OnceValue(func() map[string]any {
 	return map[string]any{
 		"app.language":             "auto",
-		"server.host":              "0.0.0.0",
-		"server.port":              8080,
+		"server.host":              "127.0.0.1",
+		"server.port":              4001,
+		"server.port_fallback":     true,
 		"server.timeouts.read":     "15s",
 		"server.timeouts.write":    "15s",
 		"server.timeouts.shutdown": "10s",

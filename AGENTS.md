@@ -10,10 +10,10 @@ The current backend covers **auth + read-only browsing + bookmark/follow + downl
 
 | Component | Tech Stack | Default Port | Description |
 |-----------|-----------|--------------|-------------|
-| **Backend** | Go + chi + oapi-codegen | 8080 | REST API server. OpenAPI-first: routes and types generated from `api/openapi.yaml`. |
+| **Backend** | Go + chi + oapi-codegen | 4001 | REST API server (binds `127.0.0.1` by default). OpenAPI-first: routes and types generated from `api/openapi.yaml`. |
 | **Frontend** | React 19 + Vite + TypeScript | 5173 (dev) | SPA. Talks to backend via `/api/v1/*`. |
 
-For **production the built SPA is embedded into the Go binary** (`go:embed`, `internal/web`) and served by the same server at `/`, so a release is a single self-contained executable and the frontend calls `/api` same-origin (no CORS). The Vite dev server (5173) only applies during development, proxying `/api` → 8080. See [Build & Release](#build--release).
+For **production the built SPA is embedded into the Go binary** (`go:embed`, `internal/web`) and served by the same server at `/`, so a release is a single self-contained executable and the frontend calls `/api` same-origin (no CORS). The Vite dev server (5173) only applies during development, proxying `/api` → 4001. See [Build & Release](#build--release).
 
 ## Tech Stack
 
@@ -134,9 +134,9 @@ PixivBiu-go/
 
 ```bash
 make dev &
-curl -s http://localhost:8080/api/v1/health   # => {"status":"ok"}
-open  http://localhost:8080/docs              # Scalar API Reference (interactive tester)
-curl -s http://localhost:8080/openapi.json    # Raw OpenAPI spec served from the embedded binary
+curl -s http://127.0.0.1:4001/api/v1/health   # => {"status":"ok"}
+open  http://127.0.0.1:4001/docs              # Scalar API Reference (interactive tester)
+curl -s http://127.0.0.1:4001/openapi.json    # Raw OpenAPI spec served from the embedded binary
 ```
 
 ### Build & Release
@@ -191,7 +191,7 @@ The SPA consumes the same spec via [`openapi-typescript`](https://openapi-ts.dev
 - **`frontend/src/lib/api/schema.gen.ts`** is the auto-generated artefact. Like `internal/api/server.gen.go`, it is **committed** so PRs diff API changes and CI doesn't depend on the backend running. **Don't edit it by hand.**
 - **`frontend/src/lib/api/{client,index}.ts`** wrap the generated `paths` into a singleton `api` client with `baseUrl: "/api/v1"`. Consumers `import { api } from "@/lib/api"` and call `api.GET("/illusts/{id}", { params: { path: { id } } })`; the response is `{ data, error }` with both branches fully typed.
 - **Domain wrappers.** Features that hit the API typically expose a thin wrapper at `frontend/src/features/<domain>/api.ts` (e.g. `features/auth/api.ts` exports `getAuthStatus` / `login` / `logout`). Components/hooks call those wrappers, not `api.GET` directly — keeps UI code free of OpenAPI plumbing and gives one place per domain to massage shapes if needed.
-- **Dev proxy.** `vite.config.ts::server.proxy` forwards `/api/*` from `:5173` to `:8080`, so the same `baseUrl: "/api/v1"` works in dev (proxied) and prod (same-origin).
+- **Dev proxy.** `vite.config.ts::server.proxy` forwards `/api/*` from `:5173` to `:4001`, so the same `baseUrl: "/api/v1"` works in dev (proxied) and prod (same-origin). The Vite proxy and `gen:api` are pinned to `:4001`, so `make dev` runs with `PIXIVBIU_SERVER_PORT_FALLBACK=false` — a busy port fails loud instead of bumping to `:4002` and leaving the proxy/gen pointed at a stale backend. (The shipped binary keeps fallback on; its embedded SPA is same-origin so there's no fixed port to honor.)
 - **Refresh loop:** edit spec → `make gen-backend` (backend types + routes) → `make gen-frontend` (frontend types; needs the backend up). The pixivgo schema sync rule above also applies to the frontend — `properties` drift in the yaml mistypes `schema.gen.ts`.
 
 ### Backend Handlers

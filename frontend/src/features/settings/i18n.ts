@@ -17,12 +17,13 @@ import type { FieldSpec } from "./types";
 
 export function useFieldText(): (field: FieldSpec) => string {
     const m = useMessages();
-    // Keyed by `cfg_` + field.key.replaceAll(".", "_"). Covers all 25 leaf
+    // Keyed by `cfg_` + field.key.replaceAll(".", "_"). Covers all 26 leaf
     // fields; anything else falls through to field.description / field.key.
     const map: Record<string, () => string> = {
         cfg_app_language: () => m.cfg_app_language(),
         cfg_server_host: () => m.cfg_server_host(),
         cfg_server_port: () => m.cfg_server_port(),
+        cfg_server_port_fallback: () => m.cfg_server_port_fallback(),
         cfg_server_timeouts_read: () => m.cfg_server_timeouts_read(),
         cfg_server_timeouts_write: () => m.cfg_server_timeouts_write(),
         cfg_server_timeouts_shutdown: () => m.cfg_server_timeouts_shutdown(),

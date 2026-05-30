@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "vite",
         "paraglide:compile": "paraglide-js compile --project ./src/i18n/project.inlang --outdir ./src/i18n/generated --emit-ts-declarations",
-        "gen:api": "openapi-typescript http://localhost:8080/openapi.json -o ./src/lib/api/schema.gen.ts",
+        "gen:api": "openapi-typescript http://127.0.0.1:4001/openapi.json -o ./src/lib/api/schema.gen.ts",
         "postinstall": "bun run paraglide:compile",
         "build": "bun run paraglide:compile && tsc -b && vite build",
         "lint": "biome lint .",
