@@ -34,7 +34,8 @@ type Config struct {
 // GET /config, resolving `auto` against navigator.language. Backend
 // logs/banner are always in English.
 type AppConfig struct {
-	Language string `koanf:"language" cfg:"desc=应用界面语言（auto = 跟随浏览器）,enum=auto|en|zh-CN|ja"`
+	Language    string `koanf:"language"     cfg:"desc=应用界面语言（auto = 跟随浏览器）,enum=auto|en|zh-CN|ja"`
+	OpenBrowser bool   `koanf:"open_browser" cfg:"desc=启动时自动在默认浏览器打开界面,restart=true"`
 }
 
 type ServerConfig struct {
@@ -95,6 +96,7 @@ type InboxConfig struct {
 var defaults = sync.OnceValue(func() map[string]any {
 	return map[string]any{
 		"app.language":             "auto",
+		"app.open_browser":         false,
 		"server.host":              "127.0.0.1",
 		"server.port":              4001,
 		"server.port_fallback":     true,

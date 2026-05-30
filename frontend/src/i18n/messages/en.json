@@ -287,6 +287,7 @@
     "cfg_log_format": "Output format",
     "cfg_app_language": "Application UI language (auto = follow system)",
     "cfg_app_language_auto": "Auto (follow system)",
+    "cfg_app_open_browser": "Automatically open the UI in the default browser at startup",
     "cfg_pixiv_proxy": "HTTP/SOCKS proxy URL (empty = direct connection)",
     "cfg_pixiv_bypass_sni": "Enable DoH + alternate SNI for the API (only for restricted networks)",
     "cfg_pixiv_state_file": "File path for persisting the auth token",

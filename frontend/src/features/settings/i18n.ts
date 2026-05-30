@@ -21,6 +21,7 @@ export function useFieldText(): (field: FieldSpec) => string {
     // fields; anything else falls through to field.description / field.key.
     const map: Record<string, () => string> = {
         cfg_app_language: () => m.cfg_app_language(),
+        cfg_app_open_browser: () => m.cfg_app_open_browser(),
         cfg_server_host: () => m.cfg_server_host(),
         cfg_server_port: () => m.cfg_server_port(),
         cfg_server_port_fallback: () => m.cfg_server_port_fallback(),

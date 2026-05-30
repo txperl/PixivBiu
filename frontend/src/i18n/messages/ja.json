@@ -287,6 +287,7 @@
     "cfg_log_format": "出力フォーマット",
     "cfg_app_language": "アプリ UI 言語（auto = システムに従う）",
     "cfg_app_language_auto": "自動（システムに従う）",
+    "cfg_app_open_browser": "起動時に既定のブラウザーで UI を自動的に開く",
     "cfg_pixiv_proxy": "HTTP/SOCKS プロキシ URL（空 = 直接接続）",
     "cfg_pixiv_bypass_sni": "API に DoH + 代替 SNI を有効化（制限されたネットワークのみ）",
     "cfg_pixiv_state_file": "認証トークンを永続化するファイルパス",

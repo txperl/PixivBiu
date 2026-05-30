@@ -105,10 +105,11 @@ open  http://127.0.0.1:4001/docs                   # Scalar 交互式文档
 注意几个语义（完整说明见 [`AGENTS.md`](AGENTS.md) 的 Configuration 章节）：
 
 - **选择性热重载**——非 `restart`、非运维设置的字段 PATCH 后**立即生效**（日志级别、代理、下载模板 / 超时，以及 `app.language` 界面语言——它完全由前端解析，PATCH 后界面立即切换，无需重启）。
-- **重启字段**——可 PATCH 的 `restart=true` 字段（`log.format`、`pixiv.bypass_sni`、`download.max_concurrent`）写盘后仍冻结在启动值，列入 `GET /config` 的 `pending_restart`；调 `POST /api/v1/config/restart` 优雅排空并 re-exec 后生效（下载任务、SSE 自动恢复，无损）。
+- **重启字段**——可 PATCH 的 `restart=true` 字段（`app.open_browser`、`log.format`、`pixiv.bypass_sni`、`download.max_concurrent`）写盘后仍冻结在启动值，列入 `GET /config` 的 `pending_restart`；调 `POST /api/v1/config/restart` 优雅排空并 re-exec 后生效（下载任务、SSE 自动恢复，无损）。
 - **运维设置**（`internal=true`：`server.*`、`pixiv.state_file`、`download.{referer,store_file}`、`inbox.*`）——**运行时 API / 界面不可改**（PATCH 与指定 key 的 reset 拒绝，`{"all":true}` 保留，界面只读），只能手动编辑 `settings.json` 或用 `PIXIVBIU_*` 环境变量。
 - **敏感字段**（`pixiv.proxy`）写盘是明文、`GET` 返回 `***`；PATCH 收到 `"***"` 或 `""` 视为「保持原值」。
 - **env 仍胜出**——被 env 锁定的字段 PATCH 写入文件但 `effective` 不变，直到 env 撤销。文件路径用 `-config` 覆盖（默认 `./usr/settings.json`）。
+- **启动自动开浏览器**——`app.open_browser`（默认关，`restart=true`）开启后，启动时用默认浏览器打开界面。覆盖优先级：命令行参数 `-open` / `-open=false`（最高）> 环境变量 `PIXIVBIU_APP_OPEN_BROWSER` > 配置文件。headless Linux 下自动跳过；嵌入 Electron 时由外壳置 env 为 `false` 以免重复开窗。
 
 env 覆盖示例（开发期最常用的快捷开关）：
 

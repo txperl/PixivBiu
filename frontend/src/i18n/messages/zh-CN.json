@@ -287,6 +287,7 @@
     "cfg_log_format": "输出格式",
     "cfg_app_language": "应用界面语言（auto = 跟随系统）",
     "cfg_app_language_auto": "自动（跟随系统）",
+    "cfg_app_open_browser": "启动时自动在默认浏览器打开界面",
     "cfg_pixiv_proxy": "HTTP/SOCKS 代理 URL（空串 = 直连）",
     "cfg_pixiv_bypass_sni": "对 API 启用 DoH + 替代 SNI（仅对受限网络）",
     "cfg_pixiv_state_file": "认证 token 持久化文件路径",

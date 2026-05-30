@@ -22,6 +22,7 @@ import (
 
 	"github.com/txperl/PixivBiu/internal/api"
 	"github.com/txperl/PixivBiu/internal/auth"
+	"github.com/txperl/PixivBiu/internal/browser"
 	"github.com/txperl/PixivBiu/internal/config"
 	"github.com/txperl/PixivBiu/internal/download"
 	"github.com/txperl/PixivBiu/internal/inbox"
@@ -45,6 +46,7 @@ func main() {
 
 func run() error {
 	configPath := flag.String("config", "./usr/settings.json", "path to runtime settings file (managed via API)")
+	openFlag := flag.Bool("open", false, "open the web UI in the default browser at startup (overrides app.open_browser)")
 	flag.Parse()
 
 	// Relative runtime paths anchor to the executable's directory so the
@@ -90,6 +92,17 @@ func run() error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	cfg := cfgMgr.Config()
+
+	// Effective auto-open: the config/env value, overridden only when the
+	// -open flag is explicitly passed (-open or -open=false). flag.Visit
+	// reports only flags set on the command line, so an absent flag leaves
+	// the config value intact.
+	openBrowser := cfg.App.OpenBrowser
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "open" {
+			openBrowser = *openFlag
+		}
+	})
 
 	logger, levelVar, err := newLogger(cfg.Log)
 	if err != nil {
@@ -173,10 +186,13 @@ func run() error {
 	}
 
 	// Bind explicitly (rather than ListenAndServe) so a busy port surfaces
-	// synchronously. With server.port_fallback on (the default for the
-	// self-contained binary) we walk to the next free port and report the
-	// *actual* address below; the dev backend (make dev) turns it off so a
-	// busy port fails loud and the fixed Vite proxy / gen:api stay correct.
+	// synchronously, before we print "Ready!" or open a browser. With
+	// server.port_fallback on (the default for the self-contained binary) we
+	// walk to the next free port and report the *actual* address below; the
+	// dev backend (make dev) turns it off so a busy port fails loud and the
+	// fixed Vite proxy / gen:api stay correct. Once Listen returns the socket
+	// is bound and connections queue in the backlog, so opening the browser
+	// now can't hit connection-refused even before Serve starts accepting.
 	ln, err := listenWithFallback(cfg.Server.Host, cfg.Server.Port, cfg.Server.PortFallback)
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
@@ -187,6 +203,16 @@ func run() error {
 	}
 
 	printBanner(cfg, svc, ln, cfgMgr.StorePath(), stateFile, storeFile)
+
+	if openBrowser {
+		// Best-effort: a failed launch must never block or fail boot. Open
+		// returns once the launcher starts (and is a no-op on headless Linux).
+		// Use the listener's actual port, not cfg: a fallback may have bumped
+		// it, and the browser must land where the server really listens.
+		if err := browser.Open(displayBaseURL(cfg, tcpPort(ln))); err != nil {
+			logger.Warn("could not open browser", slog.Any("error", err))
+		}
+	}
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -307,6 +333,21 @@ func listenWithFallback(host string, port int, fallback bool) (net.Listener, err
 // asserts net.Listen("tcp", …) yields a *net.TCPAddr.
 func tcpPort(ln net.Listener) int { return ln.Addr().(*net.TCPAddr).Port }
 
+// displayBaseURL builds the browseable root URL for the given bound port,
+// rewriting wildcard/empty listen hosts to localhost so the value works in
+// a browser (a browser can't navigate to http://0.0.0.0). net.JoinHostPort
+// brackets IPv6 literals so ::1 becomes http://[::1]:port. Shared by the
+// boot banner and the auto-open-browser launcher; callers pass the listener's
+// actual port (tcpPort) so a port fallback is reflected everywhere.
+func displayBaseURL(cfg *config.Config, port int) string {
+	displayHost := cfg.Server.Host
+	switch displayHost {
+	case "0.0.0.0", "::", "":
+		displayHost = "localhost"
+	}
+	return "http://" + net.JoinHostPort(displayHost, strconv.Itoa(port))
+}
+
 // printBanner writes a human-friendly boot summary to stderr: key URLs,
 // auth state, and the most-asked-about config fields. slog keeps writing to
 // stdout, so the banner stays out of the log stream. All banner text is
@@ -317,13 +358,7 @@ func printBanner(cfg *config.Config, svc *pixiv.Service, ln net.Listener, settin
 	// may have been bumped to a fallback, and the banner must point at where
 	// the server actually listens.
 	addr := ln.Addr().String()
-	port := tcpPort(ln)
-	displayHost := cfg.Server.Host
-	switch displayHost {
-	case "0.0.0.0", "::", "":
-		displayHost = "localhost"
-	}
-	base := fmt.Sprintf("http://%s:%d", displayHost, port)
+	base := displayBaseURL(cfg, tcpPort(ln))
 
 	proxy := cfg.Pixiv.Proxy
 	if proxy == "" {
