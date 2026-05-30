@@ -342,54 +342,6 @@ func TestResolveCollisionPair_FinalTakenForcesBump(t *testing.T) {
 	}
 }
 
-func TestResolveExecRoot_GoBuildTempFallsBackToCWD(t *testing.T) {
-	cases := []struct {
-		name string
-		exe  string
-		cwd  string
-		want string
-	}{
-		{
-			name: "go-run temp dir falls back to cwd",
-			exe:  "/var/folders/xx/T/go-build123456789/b001/exe/server",
-			cwd:  "/home/me/proj",
-			want: "/home/me/proj",
-		},
-		{
-			name: "installed binary keeps exec dir",
-			exe:  "/usr/local/bin/pixivbiu",
-			cwd:  "/elsewhere",
-			want: "/usr/local/bin",
-		},
-		{
-			name: "repo-built binary keeps exec dir",
-			exe:  "/home/me/proj/bin/pixivbiu",
-			cwd:  "/anywhere",
-			want: "/home/me/proj/bin",
-		},
-		{
-			name: "go-build-prefixed install path keeps exec dir",
-			exe:  "/opt/go-builds/pixivbiu/bin/pixivbiu",
-			cwd:  "/anywhere",
-			want: "/opt/go-builds/pixivbiu/bin",
-		},
-		{
-			name: "bare go-build path component keeps exec dir",
-			exe:  "/home/me/.cache/go-build/binaries/pixivbiu",
-			cwd:  "/anywhere",
-			want: "/home/me/.cache/go-build/binaries",
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			got := resolveExecRoot(c.exe, c.cwd)
-			if got != c.want {
-				t.Errorf("resolveExecRoot(%q, %q) = %q, want %q", c.exe, c.cwd, got, c.want)
-			}
-		})
-	}
-}
-
 func TestResolveCollisionPair_StaggeredTakenSkipsToCommonFree(t *testing.T) {
 	// .webp is taken at n=0 only; .zip is taken at n=1 only. n=0 and
 	// n=1 each fail (one variant taken); n=2 is where both are free.

@@ -65,6 +65,10 @@ type Manager struct {
 //
 // proxyURL is reused from pixiv.proxy. bypass_sni is intentionally not
 // plumbed: its DoH client only resolves the API host, not i.pximg.net.
+//
+// root anchors a relative download.output_dir and populates
+// NameContext.Root; the composition root computes it once
+// (runtimepath.Root) and injects it here.
 func NewManager(
 	cfg config.DownloadConfig,
 	proxyURL string,
@@ -72,9 +76,9 @@ func NewManager(
 	svc *pixiv.Service,
 	store *Store,
 	pub *Publisher,
+	root string,
 ) (*Manager, error) {
-	execRoot := ExecRoot()
-	renderer, err := NewRenderer(cfg, execRoot)
+	renderer, err := NewRenderer(cfg, root)
 	if err != nil {
 		return nil, fmt.Errorf("build renderer: %w", err)
 	}
@@ -99,7 +103,7 @@ func NewManager(
 		pixiv:    svc,
 		store:    store,
 		pub:      pub,
-		execRoot: execRoot,
+		execRoot: root,
 		homeDir:  HomeDir(),
 		jobs:     jobs,
 		queue:    make(chan *Task, qSize),

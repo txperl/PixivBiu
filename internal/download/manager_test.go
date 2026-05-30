@@ -35,7 +35,7 @@ func newTestManager(t *testing.T) *Manager {
 	hub := inbox.NewHub(64)
 	pub := NewPublisher(hub, 0)
 	logger := slog.New(slog.DiscardHandler)
-	m, err := NewManager(cfg, "", logger, nil, NewStore(cfg.StoreFile), pub)
+	m, err := NewManager(cfg, "", logger, nil, NewStore(cfg.StoreFile), pub, "")
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestNewManager_HonorsProxy(t *testing.T) {
 	hub := inbox.NewHub(8)
 	pub := NewPublisher(hub, 0)
 	logger := slog.New(slog.DiscardHandler)
-	m, err := NewManager(cfg, proxy.URL, logger, nil, NewStore(cfg.StoreFile), pub)
+	m, err := NewManager(cfg, proxy.URL, logger, nil, NewStore(cfg.StoreFile), pub, "")
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
@@ -510,7 +510,7 @@ func TestRemoveTerminal_PublishesEventsWithStableCounts(t *testing.T) {
 		PximgBase:         "https://i.pximg.net",
 		StoreFile:         filepath.Join(t.TempDir(), "downloads.json"),
 	}
-	m, err := NewManager(cfg, "", slog.New(slog.DiscardHandler), nil, NewStore(cfg.StoreFile), pub)
+	m, err := NewManager(cfg, "", slog.New(slog.DiscardHandler), nil, NewStore(cfg.StoreFile), pub, "")
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}

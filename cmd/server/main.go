@@ -26,6 +26,7 @@ import (
 	"github.com/txperl/PixivBiu/internal/download"
 	"github.com/txperl/PixivBiu/internal/inbox"
 	"github.com/txperl/PixivBiu/internal/pixiv"
+	"github.com/txperl/PixivBiu/internal/runtimepath"
 	"github.com/txperl/PixivBiu/internal/server"
 	"github.com/txperl/PixivBiu/internal/state"
 )
@@ -46,12 +47,25 @@ func run() error {
 	configPath := flag.String("config", "./usr/settings.json", "path to runtime settings file (managed via API)")
 	flag.Parse()
 
-	cfgMgr, err := config.NewManager(*configPath,
+	// Relative runtime paths anchor to the executable's directory so the
+	// same binary reads/writes the same files regardless of launch CWD
+	// (matching download.output_dir). Under `make dev` (go run) Root()
+	// falls back to the repo root. See internal/runtimepath.
+	root := runtimepath.Root()
+
+	// The -config DEFAULT is anchored to the binary dir; a value the user
+	// passed explicitly keeps normal shell/CWD semantics.
+	settingsPath := *configPath
+	if !flagPassed("config") {
+		settingsPath = runtimepath.Anchor(root, settingsPath)
+	}
+
+	cfgMgr, err := config.NewManager(settingsPath,
 		// Templates only parse cleanly with the download funcmap, and a
 		// bad proxy URL would only surface inside pixiv.NewService. Both
 		// would fail the next boot if a PATCH let them through unchecked.
 		config.WithValidator(func(c *config.Config) error {
-			_, err := download.NewRenderer(c.Download, download.ExecRoot())
+			_, err := download.NewRenderer(c.Download, root)
 			return err
 		}),
 		config.WithValidator(func(c *config.Config) error {
@@ -83,7 +97,10 @@ func run() error {
 	}
 	slog.SetDefault(logger)
 
-	store := state.NewStore(cfg.Pixiv.StateFile)
+	// Program-managed state/index files anchor to the binary dir too;
+	// Anchor leaves absolute overrides untouched.
+	stateFile := runtimepath.Anchor(root, cfg.Pixiv.StateFile)
+	store := state.NewStore(stateFile)
 	svc, err := pixiv.NewService(cfg.Pixiv, logger, store)
 	if err != nil {
 		return fmt.Errorf("init pixiv service: %w", err)
@@ -97,9 +114,10 @@ func run() error {
 
 	hub := inbox.NewHub(cfg.Inbox.BufferSize)
 
-	dlStore := download.NewStore(cfg.Download.StoreFile)
+	storeFile := runtimepath.Anchor(root, cfg.Download.StoreFile)
+	dlStore := download.NewStore(storeFile)
 	dlPub := download.NewPublisher(hub, cfg.Inbox.ProgressThrottle)
-	dlMgr, err := download.NewManager(cfg.Download, cfg.Pixiv.Proxy, logger, svc, dlStore, dlPub)
+	dlMgr, err := download.NewManager(cfg.Download, cfg.Pixiv.Proxy, logger, svc, dlStore, dlPub, root)
 	if err != nil {
 		return fmt.Errorf("init download manager: %w", err)
 	}
@@ -156,7 +174,7 @@ func run() error {
 		WriteTimeout: cfg.Server.Timeouts.Write,
 	}
 
-	printBanner(cfg, svc, addr, cfgMgr.StorePath())
+	printBanner(cfg, svc, addr, cfgMgr.StorePath(), stateFile, storeFile)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -217,12 +235,25 @@ func run() error {
 	return nil
 }
 
+// flagPassed reports whether the named flag was set explicitly on the
+// command line. An explicit -config keeps normal shell/CWD semantics,
+// while the default value is anchored to the binary dir.
+func flagPassed(name string) bool {
+	var found bool
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
 // printBanner writes a human-friendly boot summary to stderr: key URLs,
 // auth state, and the most-asked-about config fields. slog keeps writing to
 // stdout, so the banner stays out of the log stream. All banner text is
 // fixed English; the frontend owns the UI locale (it reads `app.language`
 // from GET /config and resolves `auto` against navigator.language).
-func printBanner(cfg *config.Config, svc *pixiv.Service, addr, settingsPath string) {
+func printBanner(cfg *config.Config, svc *pixiv.Service, addr, settingsPath, statePath, indexPath string) {
 	displayHost := cfg.Server.Host
 	switch displayHost {
 	case "0.0.0.0", "::", "":
@@ -264,6 +295,7 @@ func printBanner(cfg *config.Config, svc *pixiv.Service, addr, settingsPath stri
 
    Auth     %s
    State    %s
+   Index    %s
    Settings %s
    Proxy    %s
 
@@ -277,7 +309,7 @@ func printBanner(cfg *config.Config, svc *pixiv.Service, addr, settingsPath stri
 		"Pixiv companion server",
 		"Listening", addr,
 		base, base, base, base,
-		auth, cfg.Pixiv.StateFile, settingsPath, proxy, sni,
+		auth, statePath, indexPath, settingsPath, proxy, sni,
 		"Ready!",
 	)
 }

@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -54,7 +53,7 @@ type Renderer struct {
 // NewRenderer parses all three templates with the shared funcmap.
 // Any parse error short-circuits and identifies which template is
 // broken so operators can fix config.yaml quickly. baseDir anchors a
-// relative `output_dir`; pass ExecRoot() in production.
+// relative `output_dir`; pass runtimepath.Root() in production.
 func NewRenderer(cfg config.DownloadConfig, baseDir string) (*Renderer, error) {
 	fm := funcMap()
 	out, err := template.New("output_dir").Funcs(fm).Parse(cfg.OutputDir)
@@ -441,40 +440,4 @@ func HomeDir() string {
 		return ""
 	}
 	return h
-}
-
-// ExecRoot returns the directory of the running executable, or "."
-// on error. Populates NameContext.Root and anchors a relative
-// download.output_dir.
-//
-// `go run` places the built binary under a `go-build*` temp directory
-// that the toolchain wipes on process exit. Anchoring downloads there
-// would silently destroy dev-mode artefacts and leave the persisted
-// store pointing at missing files, so we detect that layout and fall
-// back to the process CWD (which under `make dev` is the repo root).
-func ExecRoot() string {
-	exe, err := os.Executable()
-	if err != nil {
-		return "."
-	}
-	cwd, cwdErr := os.Getwd()
-	if cwdErr != nil {
-		cwd = "."
-	}
-	return resolveExecRoot(exe, cwd)
-}
-
-// goBuildTempRE matches Go's temp-build directory segment:
-// `os.MkdirTemp(..., "go-build")` produces `go-build` + decimal digits.
-// Anchoring on the bare prefix would catch install paths like
-// `/opt/go-builds/...`; requiring the digit suffix scopes us to the
-// real toolchain layout.
-var goBuildTempRE = regexp.MustCompile(`(^|/)go-build[0-9]+(/|$)`)
-
-func resolveExecRoot(exe, cwd string) string {
-	dir := filepath.Dir(exe)
-	if goBuildTempRE.MatchString(filepath.ToSlash(dir)) {
-		return cwd
-	}
-	return dir
 }
