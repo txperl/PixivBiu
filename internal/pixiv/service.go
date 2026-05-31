@@ -211,10 +211,16 @@ func (s *Service) refresh(ctx context.Context, refreshToken string) (state.Token
 		return state.Token{}, err
 	}
 
+	// AccessTokenExpiresAt uses .Round(0) to strip the monotonic clock reading,
+	// leaving a pure wall-clock instant. macOS pauses the monotonic clock during
+	// system sleep; without this, time.Until() over-estimates the remaining
+	// lifetime after a long sleep and loop skips a needed refresh while the token
+	// is already wall-clock expired — every request then fails until a restart
+	// reloads the (wall-clock) expiry from disk.
 	tok := state.Token{
 		RefreshToken:         resp.RefreshToken,
 		AccessToken:          resp.AccessToken,
-		AccessTokenExpiresAt: time.Now().Add(time.Duration(resp.ExpiresIn) * time.Second),
+		AccessTokenExpiresAt: time.Now().Add(time.Duration(resp.ExpiresIn) * time.Second).Round(0),
 		UserID:               int64(resp.User.ID.Int()),
 		UserName:             resp.User.Name,
 	}
