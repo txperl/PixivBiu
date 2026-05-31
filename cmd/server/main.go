@@ -94,15 +94,13 @@ func run() error {
 	cfg := cfgMgr.Config()
 
 	// Effective auto-open: the config/env value, overridden only when the
-	// -open flag is explicitly passed (-open or -open=false). flag.Visit
+	// -open flag is explicitly passed (-open or -open=false). flagPassed
 	// reports only flags set on the command line, so an absent flag leaves
 	// the config value intact.
 	openBrowser := cfg.App.OpenBrowser
-	flag.Visit(func(f *flag.Flag) {
-		if f.Name == "open" {
-			openBrowser = *openFlag
-		}
-	})
+	if flagPassed("open") {
+		openBrowser = *openFlag
+	}
 
 	logger, levelVar, err := newLogger(cfg.Log)
 	if err != nil {
