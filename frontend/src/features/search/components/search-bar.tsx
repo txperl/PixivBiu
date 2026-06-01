@@ -70,7 +70,7 @@ function SearchBar({ defaultValue = "", autoFocus = false }: SearchBarProps) {
                     placeholder={m.search_bar_placeholder()}
                     className="h-auto w-full appearance-none bg-transparent outline-none"
                 />
-                <kbd className="rounded-md bg-card px-2 py-[3px] font-mono text-[11px] text-muted-foreground">⌘K</kbd>
+                {/*<kbd className="rounded-md bg-card px-2 py-[3px] font-mono text-[11px] text-muted-foreground">⌘K</kbd>*/}
             </div>
 
             <div className="flex-1" />

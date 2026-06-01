@@ -1,13 +1,15 @@
 import StatCard from "@/components/stat-card";
 import { useMessages } from "@/i18n";
+import { useGreeting } from "../use-greeting";
 
 function Greeting() {
     const m = useMessages();
+    const greeting = useGreeting();
     return (
         <section>
             <div className="mb-4 flex items-end gap-3.5">
                 <div>
-                    <h1 className="m-0 font-normal text-3xl text-foreground leading-tight">{m.home_greeting()}</h1>
+                    <h1 className="m-0 font-normal text-3xl text-foreground leading-tight">{greeting}</h1>
                     <p className="mt-2 mb-0 text-muted-foreground text-sm">{m.home_greeting_meta({ count: 48 })}</p>
                 </div>
                 <div className="flex-1" />

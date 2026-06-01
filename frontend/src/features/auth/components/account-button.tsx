@@ -1,21 +1,17 @@
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/features/auth/use-auth";
 import { useMessages } from "@/i18n";
-import { MoreIcon } from "@/lib/icons";
 
 const AVATAR_GRADIENT = "linear-gradient(135deg, oklch(0.78 0.10 45), oklch(0.68 0.13 45))";
 
 function AccountButton() {
     const m = useMessages();
-    const { status, pending, refresh, logout } = useAuth();
+    const { status, pending, logout } = useAuth();
 
     // The sidebar is only ever rendered when authenticated (RootLayout guards
     // unauth users to /login), so we only need the loading skeleton and the
@@ -35,56 +31,41 @@ function AccountButton() {
     const initial = (status.user_name?.trim().slice(0, 1) || "P").toUpperCase();
 
     return (
-        <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
+        <DropdownMenu>
+            <DropdownMenuTrigger
+                render={
+                    <button
+                        type="button"
+                        aria-label={m.auth_account_menu()}
+                        className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent aria-expanded:bg-sidebar-accent"
+                    />
+                }
+            >
                 <div
-                    className="flex size-8 shrink-0 items-center justify-center rounded-full font-medium text-sm text-white"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full text-sm text-white"
                     style={{ background: AVATAR_GRADIENT }}
                 >
                     {initial}
                 </div>
                 <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-foreground text-sm">{status.user_name ?? "—"}</div>
+                    <div className="truncate text-foreground text-sm">{status.user_name ?? "—"}</div>
                     <div className="font-mono text-[11px] text-muted-foreground">
                         {status.user_id != null ? `#${status.user_id}` : "—"}
                     </div>
                 </div>
-            </div>
-            <DropdownMenu>
-                <DropdownMenuTrigger
-                    render={
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="rounded-full"
-                            aria-label={m.auth_account_menu()}
-                        />
-                    }
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" sideOffset={8}>
+                <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => {
+                        void logout();
+                    }}
+                    disabled={pending}
                 >
-                    <HugeiconsIcon icon={MoreIcon} size={16} strokeWidth={1.5} className="text-muted-foreground" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" side="top" sideOffset={8}>
-                    <DropdownMenuItem
-                        onClick={() => {
-                            void refresh();
-                        }}
-                        disabled={pending}
-                    >
-                        {m.auth_refresh_status()}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                        variant="destructive"
-                        onClick={() => {
-                            void logout();
-                        }}
-                        disabled={pending}
-                    >
-                        {m.auth_logout()}
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-        </div>
+                    {m.auth_logout()}
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 }
 

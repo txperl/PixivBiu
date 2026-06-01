@@ -39,7 +39,7 @@ type NavGroupDef = {
 function ItemBody({ item, active }: { item: NavItemDef; active: boolean }) {
     return (
         <>
-            <HugeiconsIcon icon={item.icon} size={18} strokeWidth={active ? 2 : 1.5} />
+            <HugeiconsIcon icon={item.icon} size={18} strokeWidth={active ? 1.5 : 1.5} />
             <span className="flex-1">{item.label}</span>
             {item.badge !== undefined && <Badge variant="destructive">{item.badge}</Badge>}
             {item.count !== undefined && (
@@ -50,10 +50,10 @@ function ItemBody({ item, active }: { item: NavItemDef; active: boolean }) {
 }
 
 const baseClass =
-    "flex h-10 w-full cursor-pointer items-center gap-3 rounded-full px-4 text-left text-sm transition-colors";
-const activeClass = "bg-secondary font-semibold text-secondary-foreground";
-const inactiveClass = "font-medium text-muted-foreground hover:bg-sidebar-accent";
-const disabledClass = "font-medium text-muted-foreground/60 cursor-not-allowed";
+    "flex h-10 w-full cursor-pointer items-center gap-3 rounded-xl px-4 text-left text-sm transition-colors";
+const activeClass = "bg-secondary text-secondary-foreground";
+const inactiveClass = "text-muted-foreground hover:bg-sidebar-accent";
+const disabledClass = "text-muted-foreground/60 cursor-not-allowed";
 
 function NavItem({ item, pathname, search }: { item: NavItemDef; pathname: string; search: URLSearchParams }) {
     if (!item.to) {
