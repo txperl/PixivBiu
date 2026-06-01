@@ -1,0 +1,63 @@
+[中文](README.md) | English | [日本語](README_JA.md)
+
+# PixivBiu
+
+A handy companion tool for Pixiv.
+
+- **Browse** — a full client experience: illusts, users, rankings, bookmark & follow, and more
+- **Filter** — quickly narrow lists by bookmarks, views, tags, type, and more
+- **Download** — original-quality downloads of single images, multi-page works, and ugoira
+- **Desktop & server** — all platforms, with Windows / macOS / Linux packages
+
+## Usage
+
+1. Head to [Releases](https://github.com/txperl/PixivBiu/releases) and download the package for your system
+2. Unzip and run the `pixivbiu` file
+3. Open [http://127.0.0.1:4001](http://127.0.0.1:4001) in your browser
+
+## Configuration
+
+Feature and usage settings can be changed directly on the Settings page.
+
+Note, however, that some ops-related settings can only be changed through the config file or environment variables.
+
+Common environment variables:
+
+| Variable                          | Purpose                                                   |
+| --------------------------------- | --------------------------------------------------------- |
+| `PIXIVBIU_SERVER_HOST`            | Listen address (default `127.0.0.1`; `0.0.0.0` to expose) |
+| `PIXIVBIU_SERVER_PORT`            | Listen port (default `4001`)                              |
+| `PIXIVBIU_LOG_LEVEL`              | Log level `debug` / `info` / `warn` / `error`             |
+| `PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT` | Ugoira output `webp` / `gif` / `none`                     |
+| `PIXIVBIU_APP_LANGUAGE`           | UI language `auto` / `en` / `zh-CN` / `ja`                |
+| `PIXIVBIU_PIXIV_PROXY`            | Proxy URL (`scheme://host`, empty = direct)               |
+
+For full configuration details, see [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+
+## Development
+
+Building and developing requires `Go 1.26+`, `bun`, and `make`.
+
+### Build from Source
+
+```bash
+git clone https://github.com/txperl/PixivBiu.git
+cd PixivBiu
+
+# build frontend + backend
+# the resulting bin/pixivbiu has the frontend embedded
+make dist
+
+# run
+./bin/pixivbiu
+```
+
+### For Dev
+
+For development, start the backend with `make dev`, then the frontend with `cd frontend && bun run dev`.
+
+For project architecture and implementation details, see [AGENTS.md](AGENTS.md).
+
+## License
+
+- [MIT](LICENSE)
