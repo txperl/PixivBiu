@@ -627,7 +627,7 @@ export interface paths {
         /**
          * Force an immediate update check against GitHub
          * @description Contacts the GitHub Releases API now, recomputes the status, and returns
-         *     it. Honors the `app.update.include_prerelease` channel toggle.
+         *     it. Honors the `app.update.channel` setting (stable / beta / alpha).
          *
          *     Refused with 400 when no release applies to the current channel/platform
          *     (e.g. the repo has no semver release yet); GitHub being unreachable is a 502.

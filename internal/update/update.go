@@ -95,22 +95,10 @@ func (s *Service) config() config.UpdateConfig {
 	return s.cfg
 }
 
-// checkInterval is the gap between automatic checks. An unset/invalid value
-// (<= 0) falls back to the daily default; a positive value is honored but never
-// allowed below a one-minute floor. That way a small interval stays small
-// instead of silently behaving like the default, while a misconfigured 0 still
-// can't spin the background loop.
-func checkInterval(cfg config.UpdateConfig) time.Duration {
-	const floor = time.Minute
-	switch {
-	case cfg.Interval <= 0:
-		return 24 * time.Hour
-	case cfg.Interval < floor:
-		return floor
-	default:
-		return cfg.Interval
-	}
-}
+// checkInterval is the fixed gap between automatic background checks. It is not
+// user-configurable: a few hours is plenty for a desktop tool, and a knob here
+// is more footgun (a tiny value hammering GitHub) than feature.
+const checkInterval = 3 * time.Hour
 
 // Status returns the last cached check result without touching the network.
 func (s *Service) Status() Status {
@@ -171,22 +159,15 @@ func normalizeVersion(v string) string {
 // release. Real releases are clean semver, optionally on the alpha/beta/rc
 // channels; anything else with a prerelease label (the default "0.1.0-dev", a
 // GoReleaser "-snapshot-…", or a git-describe "-N-gHASH"/"-dirty") is treated
-// as dev so the UI never nags and Apply refuses to touch it.
+// as dev so the UI never nags and Apply refuses to touch it. The prerelease
+// taxonomy lives in one place: releaseRank tags exactly those non-release
+// suffixes with rank -1.
 func isDevVersion(v string) bool {
 	nv := normalizeVersion(v)
 	if !semver.IsValid(nv) {
 		return true
 	}
-	pre := strings.ToLower(semver.Prerelease(nv)) // includes the leading '-'
-	if pre == "" {
-		return false
-	}
-	for _, ch := range []string{"-alpha", "-beta", "-rc"} {
-		if strings.HasPrefix(pre, ch) {
-			return false
-		}
-	}
-	return true
+	return releaseRank(nv) < 0
 }
 
 // assetName builds the GoReleaser archive name for a release version and the

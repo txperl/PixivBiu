@@ -23,8 +23,7 @@ export function useFieldText(): (field: FieldSpec) => string {
         cfg_app_language: () => m.cfg_app_language(),
         cfg_app_open_browser: () => m.cfg_app_open_browser(),
         cfg_app_update_enabled: () => m.cfg_app_update_enabled(),
-        cfg_app_update_include_prerelease: () => m.cfg_app_update_include_prerelease(),
-        cfg_app_update_interval: () => m.cfg_app_update_interval(),
+        cfg_app_update_channel: () => m.cfg_app_update_channel(),
         cfg_server_host: () => m.cfg_server_host(),
         cfg_server_port: () => m.cfg_server_port(),
         cfg_server_port_fallback: () => m.cfg_server_port_fallback(),
@@ -111,6 +110,16 @@ export function useFieldEnumLabel(): (field: FieldSpec, value: string) => string
                     return "简体中文";
                 case "ja":
                     return "日本語";
+            }
+        }
+        if (field.key === "app.update.channel") {
+            switch (value) {
+                case "stable":
+                    return m.cfg_app_update_channel_stable();
+                case "beta":
+                    return m.cfg_app_update_channel_beta();
+                case "alpha":
+                    return m.cfg_app_update_channel_alpha();
             }
         }
         return value;

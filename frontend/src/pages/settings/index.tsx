@@ -60,10 +60,17 @@ function SettingsPage() {
     // Sections with nothing to show under the current toggle are dropped
     // entirely (e.g. the all-internal "server" section when advanced is off),
     // so the nav, scroll-spy, and content stay in sync and free of empty cards.
+    // The `about` category is excluded here: its fields (the update settings)
+    // render inside the custom About card, which is always shown regardless of
+    // the advanced toggle, so it must not also appear as a normal section.
     const visibleSections = useMemo(
-        () => sections.filter((s) => s.fields.some((f) => isFieldVisible(f, showAdvanced))),
+        () => sections.filter((s) => s.category !== ABOUT_ID && s.fields.some((f) => isFieldVisible(f, showAdvanced))),
         [sections, showAdvanced],
     );
+
+    // The update settings carry category `about`, so the form owns them
+    // (values/dirty/overridden/reset). The About card renders them itself.
+    const aboutFields = useMemo(() => sections.find((s) => s.category === ABOUT_ID)?.fields ?? [], [sections]);
 
     // The About card is a synthetic section pinned first in the nav/scroll-spy.
     const navSections = useMemo<SectionSpec[]>(
@@ -176,7 +183,18 @@ function SettingsPage() {
 
                             <NamingValuesProvider values={form.values}>
                                 <div className="min-w-0 space-y-5">
-                                    <SettingsAbout />
+                                    <SettingsAbout
+                                        fields={aboutFields}
+                                        values={form.values}
+                                        fieldErrors={form.fieldErrors}
+                                        sources={view.sources}
+                                        overriddenKeys={form.overriddenKeys}
+                                        pendingRestart={pendingSet}
+                                        busyKeys={form.busyKeys}
+                                        showAdvanced={showAdvanced}
+                                        onChange={form.setValue}
+                                        onResetField={form.resetField}
+                                    />
                                     {visibleSections.map((section) => (
                                         <SettingsSection
                                             key={section.category}

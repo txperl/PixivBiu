@@ -19,12 +19,14 @@ GoReleaser builds the frontend (`make build-web`), cross-compiles linux/macOS/wi
 
 The **tag suffix** is the only thing that picks a channel. `.goreleaser.yaml` runs `prerelease: auto`, so any tag with a prerelease suffix is flagged as a GitHub pre-release automatically.
 
-| Channel | Example tag      | GitHub         | Who gets the update                                |
-| ------- | ---------------- | -------------- | -------------------------------------------------- |
-| Stable  | `v3.0.0`         | normal release | everyone                                           |
-| RC      | `v3.1.0-rc.1`    | pre-release    | only users with `app.update.include_prerelease` on |
-| Beta    | `v3.1.0-beta.1`  | pre-release    | same                                               |
-| Alpha   | `v3.1.0-alpha.1` | pre-release    | same                                               |
+The in-app updater uses a **cumulative maturity model**: a user's `app.update.channel` sets a floor (`stable` < `beta` < `alpha`), and each riskier channel is a superset that also accepts everything more stable. So `rc` has no dedicated channel — it folds into `beta` (and `alpha`).
+
+| Tag suffix | Example tag      | GitHub         | Reaches channels        |
+| ---------- | ---------------- | -------------- | ----------------------- |
+| (none)     | `v3.0.0`         | normal release | stable · beta · alpha   |
+| RC         | `v3.1.0-rc.1`    | pre-release    | beta · alpha            |
+| Beta       | `v3.1.0-beta.1`  | pre-release    | beta · alpha            |
+| Alpha      | `v3.1.0-alpha.1` | pre-release    | alpha                   |
 
 ```bash
 # stable
@@ -36,17 +38,18 @@ git tag v3.1.0-beta.1   && git push origin v3.1.0-beta.1
 ## Tag rules
 
 - **Strict semver only.** Legacy `v2.6.4a` / `v2.6.4b`-style suffixes are rejected by GoReleaser and `x/mod/semver`.
-- **Only `-alpha` / `-beta` / `-rc` are real channels.** The in-app updater (`internal/update/update.go::isDevVersion`) treats any _other_ prerelease suffix (`-dev`, `-snapshot`, a git-describe `-N-gHASH`, …) as a **dev build**: it is never offered as an update and `Apply` refuses to install it. Don't invent suffixes.
+- **Only `-alpha` / `-beta` / `-rc` are recognized pre-release suffixes.** The in-app updater ranks them by maturity (`internal/update/checker.go::releaseRank`) and treats any _other_ prerelease suffix (`-dev`, `-snapshot`, a git-describe `-N-gHASH`, …) as a **dev build**: it is never offered as an update and `Apply` refuses to install it. Don't invent suffixes.
 - **Dot-separate the counter:** `-beta.1`, not `-beta1`.
 
 ## Who receives an update
 
-`semver.Compare` orders a prerelease **below** its release (`-alpha < -beta < -rc < release`), and the updater (`internal/update/checker.go::resolveLatest`) only offers a version strictly newer than the running one. Two consequences worth knowing:
+`semver.Compare` orders a prerelease **below** its release (`-alpha < -beta < -rc < release`). `resolveLatest` keeps every release at or above the channel's maturity floor, then offers the single semver-newest one that is strictly newer than the running version. Three consequences worth knowing:
 
-- A user on `v3.0.0-beta.1` is pulled up to `v3.0.0` once the stable release ships (and reaches them even with prereleases disabled, since the beta is filtered out and the stable is higher).
-- A user on `v3.0.0` with prereleases **on** is offered `v3.1.0-beta.1` (3.1.0 > 3.0.0) but **not** `v3.0.0-beta.2` (lower than the installed 3.0.0).
+- A user on `v3.0.0-beta.1` is pulled up to `v3.0.0` once the stable release ships (and reaches them even on the `stable` channel, since the beta is filtered out and the stable is higher).
+- A user on `v3.0.0` on the `beta` channel is offered `v3.1.0-beta.1` (3.1.0 > 3.0.0) but **not** `v3.0.0-beta.2` (lower than the installed 3.0.0).
+- Because the model is cumulative, an `alpha`/`beta` user always still receives stable releases when they're the newest tag — every channel converges onto stable. A newer stable outranks any pre-release of the same version, so no one is stranded on a pre-release.
 
-The only user-facing knob is `app.update.include_prerelease` (default off) — see [CONFIGURATION.md](CONFIGURATION.md).
+The only user-facing knob is `app.update.channel` (`stable` / `beta` / `alpha`, default `stable`) — see [CONFIGURATION.md](CONFIGURATION.md).
 
 ## Changelog
 

@@ -7,20 +7,50 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"golang.org/x/mod/semver"
 )
+
+// releaseRank ranks a release tag by maturity: stable > rc > beta > alpha.
+// A higher rank is more stable. Unknown prerelease suffixes (-dev, -snapshot,
+// a git-describe -N-gHASH, …) rank -1 so they are never offered as an update,
+// consistent with isDevVersion treating them as dev builds.
+func releaseRank(v string) int {
+	switch pre := strings.ToLower(semver.Prerelease(v)); {
+	case pre == "":
+		return 3 // stable
+	case strings.HasPrefix(pre, "-rc"):
+		return 2
+	case strings.HasPrefix(pre, "-beta"):
+		return 1
+	case strings.HasPrefix(pre, "-alpha"):
+		return 0
+	default:
+		return -1
+	}
+}
+
+// channelFloor maps an update channel to the minimum maturity rank it accepts.
+// The model is cumulative: a riskier channel is a superset of the safer ones
+// (beta also takes rc+stable; alpha takes everything). An unknown channel
+// resolves to the stable floor (see resolveLatest).
+var channelFloor = map[string]int{
+	"stable": 3,
+	"beta":   1,
+	"alpha":  0,
+}
 
 // startupDelay holds the first automatic check briefly after boot so it doesn't
 // compete with startup work (auth refresh, download resume).
 const startupDelay = 10 * time.Second
 
 // Start launches the background check loop in a goroutine. It performs an
-// initial check shortly after boot, then re-checks every Interval, skipping
-// ticks while disabled (app.update.enabled) and re-reading the live interval
-// each cycle so a config reload takes effect without a restart. The loop exits
-// when ctx is cancelled.
+// initial check shortly after boot, then re-checks every checkInterval (a fixed
+// 3-hour cadence), skipping ticks while disabled (app.update.enabled), which it
+// re-reads live each cycle so a config reload takes effect without a restart.
+// The loop exits when ctx is cancelled.
 func (s *Service) Start(ctx context.Context, logger *slog.Logger) {
 	go s.loop(ctx, logger)
 }
@@ -43,7 +73,7 @@ func (s *Service) loop(ctx context.Context, logger *slog.Logger) {
 						slog.String("latest", st.LatestVersion))
 				}
 			}
-			timer.Reset(checkInterval(cfg))
+			timer.Reset(checkInterval)
 		}
 	}
 }
@@ -133,16 +163,24 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 	return s.status, nil
 }
 
-// resolveLatest returns the newest release that matches the current channel
-// (stable, or stable+prerelease when include_prerelease is on). Releases whose
-// tag isn't valid semver (e.g. legacy "v2.6.4b") are skipped.
+// resolveLatest returns the newest release at or above the current channel's
+// maturity floor. Channels are cumulative (stable < beta < alpha): beta also
+// accepts rc+stable, alpha accepts everything, and stable accepts only final
+// releases — so semver.Compare still picks the single newest applicable tag and
+// every channel converges onto stable releases when they're newest. Releases
+// whose tag isn't valid semver (e.g. legacy "v2.6.4b") are skipped, as are
+// unknown prerelease suffixes (releaseRank -1). An unknown channel falls back to
+// the stable floor.
 func (s *Service) resolveLatest(ctx context.Context) (*releaseInfo, error) {
 	releases, err := s.fetchReleases(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	includePre := s.config().IncludePrerelease
+	floor, ok := channelFloor[s.config().Channel]
+	if !ok {
+		floor = channelFloor["stable"]
+	}
 	var best *ghRelease
 	var bestVer string
 	for i := range releases {
@@ -150,11 +188,11 @@ func (s *Service) resolveLatest(ctx context.Context) (*releaseInfo, error) {
 		if r.Draft {
 			continue
 		}
-		if r.Prerelease && !includePre {
-			continue
-		}
 		v := normalizeVersion(r.TagName)
 		if !semver.IsValid(v) {
+			continue
+		}
+		if releaseRank(v) < floor {
 			continue
 		}
 		if best == nil || semver.Compare(v, bestVer) > 0 {

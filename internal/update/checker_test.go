@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/txperl/PixivBiu/internal/config"
 )
@@ -53,15 +52,14 @@ func mockReleases(t *testing.T, releases []ghRelease) *httptest.Server {
 	}))
 }
 
-func newTestService(t *testing.T, current string, includePre bool, url string) *Service {
+func newTestService(t *testing.T, current, channel, url string) *Service {
 	t.Helper()
 	orig := githubAPI
 	githubAPI = url
 	t.Cleanup(func() { githubAPI = orig })
 	return NewService(current, "txperl", "PixivBiu", config.UpdateConfig{
-		Enabled:           true,
-		IncludePrerelease: includePre,
-		Interval:          time.Hour,
+		Enabled: true,
+		Channel: channel,
 	}, "")
 }
 
@@ -86,7 +84,7 @@ func TestCheckUpdateAvailable(t *testing.T) {
 	})
 	defer ts.Close()
 
-	s := newTestService(t, "3.0.0", false, ts.URL)
+	s := newTestService(t, "3.0.0", "stable", ts.URL)
 	st, err := s.Check(context.Background())
 	if err != nil {
 		t.Fatalf("Check: %v", err)
@@ -102,40 +100,49 @@ func TestCheckUpdateAvailable(t *testing.T) {
 	}
 }
 
-func TestCheckPrereleaseFiltering(t *testing.T) {
+// TestCheckChannelFloors exercises the cumulative channel model: a channel
+// accepts its own maturity floor and everything more stable. The fixture holds
+// a stable, a beta, and an alpha; each channel should resolve to the newest tag
+// it's allowed to see.
+func TestCheckChannelFloors(t *testing.T) {
+	// Filtering keys off the tag suffix (via releaseRank), not GitHub's
+	// prerelease bool, so the fixtures omit it.
 	releases := []ghRelease{
-		{TagName: "v3.0.0", HTMLURL: "https://example/v3.0.0", Prerelease: false},
-		withAssets(ghRelease{TagName: "v3.2.0-beta.1", HTMLURL: "https://example/beta", Prerelease: true}),
+		withAssets(ghRelease{TagName: "v3.0.0", HTMLURL: "https://example/v3.0.0"}),
+		withAssets(ghRelease{TagName: "v3.2.0-beta.1", HTMLURL: "https://example/beta"}),
+		withAssets(ghRelease{TagName: "v3.3.0-alpha.1", HTMLURL: "https://example/alpha"}),
 	}
 
-	// Stable channel: the beta is invisible, so 3.0.0 is "latest" and we're current.
-	ts := mockReleases(t, releases)
-	defer ts.Close()
-	s := newTestService(t, "3.0.0", false, ts.URL)
-	st, err := s.Check(context.Background())
-	if err != nil {
-		t.Fatalf("Check: %v", err)
+	cases := []struct {
+		channel    string
+		wantLatest string
+		wantAvail  bool
+	}{
+		// Stable: betas/alphas invisible, so v3.0.0 is latest and we're current.
+		{"stable", "v3.0.0", false},
+		// Beta: accepts beta+stable but not alpha → the beta is newest.
+		{"beta", "v3.2.0-beta.1", true},
+		// Alpha: accepts everything → the alpha is newest.
+		{"alpha", "v3.3.0-alpha.1", true},
+		// Unknown channel falls back to the stable floor.
+		{"nonsense", "v3.0.0", false},
 	}
-	if st.LatestVersion != "v3.0.0" {
-		t.Errorf("stable channel LatestVersion = %q, want v3.0.0", st.LatestVersion)
-	}
-	if st.UpdateAvailable {
-		t.Error("stable channel UpdateAvailable = true, want false")
-	}
-
-	// Prerelease channel: the beta becomes visible and is newer.
-	ts2 := mockReleases(t, releases)
-	defer ts2.Close()
-	s2 := newTestService(t, "3.0.0", true, ts2.URL)
-	st2, err := s2.Check(context.Background())
-	if err != nil {
-		t.Fatalf("Check (prerelease): %v", err)
-	}
-	if st2.LatestVersion != "v3.2.0-beta.1" {
-		t.Errorf("prerelease channel LatestVersion = %q, want v3.2.0-beta.1", st2.LatestVersion)
-	}
-	if !st2.UpdateAvailable {
-		t.Error("prerelease channel UpdateAvailable = false, want true")
+	for _, c := range cases {
+		t.Run(c.channel, func(t *testing.T) {
+			ts := mockReleases(t, releases)
+			defer ts.Close()
+			s := newTestService(t, "3.0.0", c.channel, ts.URL)
+			st, err := s.Check(context.Background())
+			if err != nil {
+				t.Fatalf("Check: %v", err)
+			}
+			if st.LatestVersion != c.wantLatest {
+				t.Errorf("LatestVersion = %q, want %q", st.LatestVersion, c.wantLatest)
+			}
+			if st.UpdateAvailable != c.wantAvail {
+				t.Errorf("UpdateAvailable = %v, want %v", st.UpdateAvailable, c.wantAvail)
+			}
+		})
 	}
 }
 
@@ -145,7 +152,7 @@ func TestCheckDevBuildNeverOffersUpdate(t *testing.T) {
 	})
 	defer ts.Close()
 
-	s := newTestService(t, "0.1.0-dev", false, ts.URL)
+	s := newTestService(t, "0.1.0-dev", "stable", ts.URL)
 	st, err := s.Check(context.Background())
 	if err != nil {
 		t.Fatalf("Check: %v", err)
@@ -188,7 +195,7 @@ func TestCheckOnlyOffersApplicableReleases(t *testing.T) {
 			})
 			defer ts.Close()
 
-			s := newTestService(t, "3.0.0", false, ts.URL)
+			s := newTestService(t, "3.0.0", "stable", ts.URL)
 			st, err := s.Check(context.Background())
 			if err != nil {
 				t.Fatalf("Check: %v", err)
@@ -204,24 +211,6 @@ func TestCheckOnlyOffersApplicableReleases(t *testing.T) {
 				t.Errorf("AssetName = %q, want non-empty=%v", st.AssetName, c.wantAvailable)
 			}
 		})
-	}
-}
-
-func TestCheckInterval(t *testing.T) {
-	cases := []struct {
-		in   time.Duration
-		want time.Duration
-	}{
-		{0, 24 * time.Hour},                // unset → daily default
-		{-5 * time.Second, 24 * time.Hour}, // invalid → daily default
-		{30 * time.Second, time.Minute},    // valid sub-minute → clamped up to the floor, not daily
-		{time.Minute, time.Minute},         // exactly the floor
-		{6 * time.Hour, 6 * time.Hour},     // honored as-is
-	}
-	for _, c := range cases {
-		if got := checkInterval(config.UpdateConfig{Interval: c.in}); got != c.want {
-			t.Errorf("checkInterval(%v) = %v, want %v", c.in, got, c.want)
-		}
 	}
 }
 
@@ -242,7 +231,7 @@ func TestCheckClassifiesGithubFailureAsUpstream(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	s := newTestService(t, "3.0.0", false, ts.URL)
+	s := newTestService(t, "3.0.0", "stable", ts.URL)
 	_, err := s.Check(context.Background())
 	var ue *Error
 	if !errors.As(err, &ue) || ue.Kind != KindUpstream {
@@ -255,7 +244,7 @@ func TestCheckNoApplicableReleaseIsRefused(t *testing.T) {
 	ts := mockReleases(t, []ghRelease{{TagName: "v2.6.4b"}}) // legacy non-semver only
 	defer ts.Close()
 
-	s := newTestService(t, "3.0.0", false, ts.URL)
+	s := newTestService(t, "3.0.0", "stable", ts.URL)
 	_, err := s.Check(context.Background())
 	var ue *Error
 	if !errors.As(err, &ue) || ue.Kind != KindRefused {

@@ -3,14 +3,22 @@ import { type ReactNode, useState } from "react";
 import LeapyLoading from "@/components/series-leapy/leapy-loading";
 import { Sheet, SheetHead } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
-import { SCROLL_OFFSET } from "@/features/settings";
+import { type FieldSpec, SCROLL_OFFSET } from "@/features/settings";
 import { type UpdateApiError, useUpdate } from "@/features/system";
 import { useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
+import { type FieldRowProps, SettingsFieldList } from "./settings-field-list";
 
 // Section id for the About card; shared with the settings page so the nav and
 // scroll-spy (which key off data-section-id) treat it like a real section.
 export const ABOUT_ID = "about";
+
+interface SettingsAboutProps extends FieldRowProps {
+    // The `about`-category schema fields (the update settings). They live in the
+    // form like any other field; the About card renders them here instead of as
+    // a normal section, gated by the advanced toggle.
+    fields: FieldSpec[];
+}
 
 function UpdatingOverlay({ label }: { label: string }) {
     return (
@@ -24,7 +32,18 @@ function UpdatingOverlay({ label }: { label: string }) {
 // SettingsAbout is a custom (non-schema) settings card: it shows the running
 // version + build info and drives the one-click update flow. It participates
 // in the settings nav / scroll-spy via the shared data-section-id contract.
-export function SettingsAbout() {
+export function SettingsAbout({
+    fields,
+    values,
+    fieldErrors,
+    sources,
+    overriddenKeys,
+    pendingRestart,
+    busyKeys,
+    showAdvanced,
+    onChange,
+    onResetField,
+}: SettingsAboutProps) {
     const m = useMessages();
     const resolveApiError = useApiErrorMessage();
     const { status, systemVersion, checking, applying, updateAvailable, checkNow, apply } = useUpdate();
@@ -83,7 +102,6 @@ export function SettingsAbout() {
                 <SheetHead
                     icon={InformationCircleIcon}
                     title={m.settings_about_title()}
-                    meta={currentVersion}
                     actions={
                         <Button variant="outline" size="sm" onClick={onCheck} disabled={checking}>
                             {checking ? m.settings_about_checking() : m.settings_about_check_now()}
@@ -91,6 +109,12 @@ export function SettingsAbout() {
                     }
                 />
                 <div className="space-y-4 px-[18px] py-4 text-sm">
+                    {/* Version is the first item under About. */}
+                    <div className="flex items-center justify-between gap-3">
+                        <span className="text-muted-foreground">{m.settings_about_version_label()}</span>
+                        <span className="font-mono text-foreground">{currentVersion}</span>
+                    </div>
+
                     {systemVersion && (
                         <div className="flex items-center justify-between gap-3">
                             <span className="text-muted-foreground">{m.settings_about_runtime_label()}</span>
@@ -110,6 +134,23 @@ export function SettingsAbout() {
                               : m.settings_about_never_checked()}
                     </p>
                 </div>
+
+                {/* Update settings (enabled / channel) — advanced tier, so they
+                    only surface with the advanced toggle on. They render with the
+                    same field rows as any other section. */}
+                <SettingsFieldList
+                    fields={fields}
+                    className="border-muted/40 border-t"
+                    values={values}
+                    fieldErrors={fieldErrors}
+                    sources={sources}
+                    overriddenKeys={overriddenKeys}
+                    pendingRestart={pendingRestart}
+                    busyKeys={busyKeys}
+                    showAdvanced={showAdvanced}
+                    onChange={onChange}
+                    onResetField={onResetField}
+                />
             </Sheet>
             {applying && <UpdatingOverlay label={m.settings_about_updating()} />}
         </section>

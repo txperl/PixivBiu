@@ -23,9 +23,8 @@ built-in defaults  →  ./usr/settings.json  →  environment variables  (env wi
 |---|---|---|---|
 | `PIXIVBIU_APP_LANGUAGE` | `auto` | `auto` / `en` / `zh-CN` / `ja` — UI language (resolved client-side; `auto` follows the browser) | — |
 | `PIXIVBIU_APP_OPEN_BROWSER` | `false` | bool — open the web UI in the default browser at startup | restart |
-| `PIXIVBIU_APP_UPDATE_ENABLED` | `true` | bool — auto-check GitHub Releases for a newer build at startup and on the interval below | — |
-| `PIXIVBIU_APP_UPDATE_INCLUDE_PRERELEASE` | `false` | bool — also offer pre-release (beta/rc) builds | — |
-| `PIXIVBIU_APP_UPDATE_INTERVAL` | `24h` | duration — minimum interval between auto-checks (sub-minute values clamp to `1m`; `0`/negative falls back to `24h`) | advanced |
+| `PIXIVBIU_APP_UPDATE_ENABLED` | `true` | bool — auto-check GitHub Releases for a newer build at startup and every 3 hours thereafter | advanced |
+| `PIXIVBIU_APP_UPDATE_CHANNEL` | `stable` | `stable` / `beta` / `alpha` — update channel; a cumulative maturity floor (beta also accepts rc+stable, alpha accepts everything) | advanced |
 
 ## server
 

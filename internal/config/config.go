@@ -36,7 +36,7 @@ type Config struct {
 type AppConfig struct {
 	Language    string       `koanf:"language"     cfg:"desc=应用界面语言（auto = 跟随浏览器）,enum=auto|en|zh-CN|ja"`
 	OpenBrowser bool         `koanf:"open_browser" cfg:"desc=启动时自动在默认浏览器打开界面,restart=true"`
-	Update      UpdateConfig `koanf:"update"       cfg:"desc=版本更新检查"`
+	Update      UpdateConfig `koanf:"update"       cfg:"category=about,desc=版本更新检查"`
 }
 
 // UpdateConfig controls the built-in GitHub-release update check. The
@@ -45,10 +45,14 @@ type AppConfig struct {
 // matching archive, verifies its SHA-256, swaps the binary in place, and
 // restarts. All keys are hot-reloadable: the checker reads them live on
 // each tick, so toggling them never needs a restart.
+//
+// Channel is a cumulative maturity floor (stable < beta < alpha): each
+// riskier channel is a superset that also accepts everything more stable,
+// so every channel still converges onto stable releases when they're the
+// newest. See internal/update/checker.go::releaseRank.
 type UpdateConfig struct {
-	Enabled           bool          `koanf:"enabled"            cfg:"desc=启动后自动检查新版本"`
-	IncludePrerelease bool          `koanf:"include_prerelease" cfg:"desc=包含预发布版本（beta/rc）"`
-	Interval          time.Duration `koanf:"interval"           cfg:"desc=自动检查的最小间隔,advanced=true"`
+	Enabled bool   `koanf:"enabled" cfg:"desc=自动检查更新,advanced=true"`
+	Channel string `koanf:"channel" cfg:"desc=更新通道（beta/alpha 也接收预发布版本）,enum=stable|beta|alpha,advanced=true"`
 }
 
 type ServerConfig struct {
@@ -108,22 +112,21 @@ type InboxConfig struct {
 // is treated as read-only by every consumer.
 var defaults = sync.OnceValue(func() map[string]any {
 	return map[string]any{
-		"app.language":                  "auto",
-		"app.open_browser":              false,
-		"app.update.enabled":            true,
-		"app.update.include_prerelease": false,
-		"app.update.interval":           "24h",
-		"server.host":                   "127.0.0.1",
-		"server.port":                   4001,
-		"server.port_fallback":          true,
-		"server.timeouts.read":          "15s",
-		"server.timeouts.write":         "15s",
-		"server.timeouts.shutdown":      "10s",
-		"log.level":                     "info",
-		"log.format":                    "text",
-		"pixiv.proxy":                   "",
-		"pixiv.bypass_sni":              false,
-		"pixiv.state_file":              "./usr/state.json",
+		"app.language":             "auto",
+		"app.open_browser":         false,
+		"app.update.enabled":       true,
+		"app.update.channel":       "stable",
+		"server.host":              "127.0.0.1",
+		"server.port":              4001,
+		"server.port_fallback":     true,
+		"server.timeouts.read":     "15s",
+		"server.timeouts.write":    "15s",
+		"server.timeouts.shutdown": "10s",
+		"log.level":                "info",
+		"log.format":               "text",
+		"pixiv.proxy":              "",
+		"pixiv.bypass_sni":         false,
+		"pixiv.state_file":         "./usr/state.json",
 
 		"download.output_dir":            `./downloads/{{.Now | date "2006-01-02"}}`,
 		"download.file_template":         `{{.IllustID}}_{{.Title | trunc 80}}{{.Ext}}`,
