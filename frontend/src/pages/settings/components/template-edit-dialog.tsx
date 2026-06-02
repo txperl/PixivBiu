@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
     type DatePreset,
     type FieldSpec,
-    NAMING_MENU,
+    menuForField,
     useFieldText,
     useNamingFieldLabel,
     useTemplatePreview,
@@ -107,6 +107,9 @@ export function TemplateEditDialog({
     const [draft, setDraft] = useState(value);
     const ref = useRef<HTMLTextAreaElement>(null);
     const { example, error: previewError } = useTemplatePreview(field.key, draft, open);
+    // Only the tokens valid for THIS field — output_dir gets home/root,
+    // filenames get ext (and the multi-page one gets page); see menuForField.
+    const menu = menuForField(field.key);
 
     // Re-seed the draft from the committed value each time the dialog opens (so
     // a cancelled edit doesn't linger), and focus the editor with the caret at
@@ -184,7 +187,7 @@ export function TemplateEditDialog({
                 <div className="space-y-1.5">
                     <div className="text-muted-foreground text-xs">{m.settings_template_insert_field()}</div>
                     <div className="flex flex-wrap gap-1.5">
-                        {NAMING_MENU.map((item) =>
+                        {menu.map((item) =>
                             item.presets ? (
                                 <DatePresetChip
                                     key={item.id}

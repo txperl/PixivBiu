@@ -15,6 +15,13 @@ export interface DatePreset {
     insert: string;
 }
 
+// The three dotted config keys the template editor covers. Defined here (the
+// palette-data module) so both the palette scoping and the preview context
+// share one source of truth.
+export const OUTPUT_DIR_KEY = "download.output_dir";
+export const FILE_KEY = "download.file_template";
+export const GROUP_KEY = "download.file_group_template";
+
 export interface NamingMenuItem {
     // Label key suffix + React key.
     id: string;
@@ -22,6 +29,12 @@ export interface NamingMenuItem {
     insert?: string;
     // Branch item: a submenu of date-format presets (then `insert` is unused).
     presets?: DatePreset[];
+    // Field keys this token is offered for; absent ⇒ shown for every field.
+    // The three fields render differently — output_dir is a directory anchor
+    // (RenderRootPath, absolute-aware) while file/group are ALWAYS-relative
+    // filename paths (RenderRelativePath strips a leading slash) — so a token
+    // valid in one is nonsense in another.
+    fields?: readonly string[];
 }
 
 // Go reference-time layouts → friendly sample labels. Shared by the "posted"
@@ -44,8 +57,20 @@ export const NAMING_MENU: readonly NamingMenuItem[] = [
     { id: "authorid", insert: "{{.UserID}}" },
     { id: "posted", presets: datePresets(".CreatedAt") },
     { id: "today", presets: datePresets(".Now") },
-    { id: "page", insert: "{{.Index | pad 2}}" },
-    { id: "ext", insert: "{{.Ext}}" },
-    { id: "home", insert: "{{.Home}}" },
-    { id: "root", insert: "{{.Root}}" },
+    // page only matters for the multi-page filename (single-page and the
+    // directory both render at Index 0); ext belongs to a filename, not a
+    // directory; home/root anchor the directory and are stripped to relative
+    // inside a filename.
+    { id: "page", insert: "{{.Index | pad 2}}", fields: [GROUP_KEY] },
+    { id: "ext", insert: "{{.Ext}}", fields: [FILE_KEY, GROUP_KEY] },
+    { id: "home", insert: "{{.Home}}", fields: [OUTPUT_DIR_KEY] },
+    { id: "root", insert: "{{.Root}}", fields: [OUTPUT_DIR_KEY] },
 ] as const;
+
+// menuForField returns the palette entries valid for one template field (see
+// NamingMenuItem.fields). The dialog renders this rather than the full menu so
+// it never offers a token that is meaningless — or actively misleading — for
+// the field being edited.
+export function menuForField(fieldKey: string): readonly NamingMenuItem[] {
+    return NAMING_MENU.filter((item) => !item.fields || item.fields.includes(fieldKey));
+}

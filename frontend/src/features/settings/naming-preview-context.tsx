@@ -1,11 +1,7 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { type NamingPreviewRequest, type NamingPreviewResponse, previewNaming } from "./api";
+import { FILE_KEY, GROUP_KEY, OUTPUT_DIR_KEY } from "./naming-tokens";
 import type { FormValues } from "./values";
-
-// The three dotted config keys the template editor covers.
-const OUTPUT_DIR_KEY = "download.output_dir";
-const FILE_KEY = "download.file_template";
-const GROUP_KEY = "download.file_group_template";
 
 // Live values mirror the preview request body; tying the type to the generated
 // request keeps them in lockstep if the schema gains a field.

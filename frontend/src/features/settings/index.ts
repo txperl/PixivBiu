@@ -20,7 +20,7 @@ export {
     useNamingValues,
     useTemplatePreview,
 } from "./naming-preview-context";
-export { type DatePreset, NAMING_MENU, type NamingMenuItem } from "./naming-tokens";
+export { type DatePreset, menuForField } from "./naming-tokens";
 export { isAdvanced, isFieldVisible, NAV_TOP, SCROLL_OFFSET } from "./presentation";
 export { type SettingsSaveState, settingsSaveState } from "./save-state";
 export type { FieldSpec, SectionSpec } from "./types";

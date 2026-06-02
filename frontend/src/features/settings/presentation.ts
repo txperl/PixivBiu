@@ -8,6 +8,7 @@ import {
     Settings03Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
+import { FILE_KEY, GROUP_KEY, OUTPUT_DIR_KEY } from "./naming-tokens";
 import type { ControlKind, FieldSpec } from "./types";
 
 // Must match config.SchemaVersion in the Go backend. A mismatch surfaces a
@@ -52,9 +53,9 @@ export const FALLBACK_SECTION_ICON: IconSvgElement = Settings03Icon;
 // The Go text/template path/filename fields get the dedicated "template"
 // control: a monospace box plus a token-insertion palette and a live preview.
 export const CONTROL_OVERRIDE: Record<string, ControlKind> = {
-    "download.output_dir": "template",
-    "download.file_template": "template",
-    "download.file_group_template": "template",
+    [OUTPUT_DIR_KEY]: "template",
+    [FILE_KEY]: "template",
+    [GROUP_KEY]: "template",
 };
 
 // Advanced and internal (program-only) fields form one lower-priority tier:
