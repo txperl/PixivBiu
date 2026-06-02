@@ -1,0 +1,3 @@
+# Frontend is a first-party SPA embedded into the Go binary via go:embed.
+# Exclude it from GitHub language stats so Go shows as the primary language.
+frontend/** linguist-detectable=false
