@@ -48,23 +48,29 @@ function datePresets(variable: string): DatePreset[] {
     ];
 }
 
+// Grouped so the palette reads in tidy bands: work metadata, then author, then
+// dates, then the field-scoped location/structure tokens. The first three
+// bands show for every field; the last band is filtered per field (see below).
 export const NAMING_MENU: readonly NamingMenuItem[] = [
+    // Work metadata.
     { id: "id", insert: "{{.IllustID}}" },
+    { id: "type", insert: "{{.Type}}" },
     { id: "title", insert: "{{.Title}}" },
     { id: "title_trunc", insert: "{{.Title | trunc 80}}" },
-    { id: "type", insert: "{{.Type}}" },
+    // Author.
     { id: "author", insert: "{{.UserName}}" },
     { id: "authorid", insert: "{{.UserID}}" },
+    // Dates.
     { id: "posted", presets: datePresets(".CreatedAt") },
     { id: "today", presets: datePresets(".Now") },
-    // page only matters for the multi-page filename (single-page and the
-    // directory both render at Index 0); ext belongs to a filename, not a
-    // directory; home/root anchor the directory and are stripped to relative
-    // inside a filename.
-    { id: "page", insert: "{{.Index | pad 2}}", fields: [GROUP_KEY] },
-    { id: "ext", insert: "{{.Ext}}", fields: [FILE_KEY, GROUP_KEY] },
+    // Location / structure — field-scoped and mutually exclusive: home/root
+    // anchor the directory and are stripped to relative inside a filename; page
+    // only matters for the multi-page filename (single-page and the directory
+    // both render at Index 0); ext belongs to a filename, not a directory.
     { id: "home", insert: "{{.Home}}", fields: [OUTPUT_DIR_KEY] },
     { id: "root", insert: "{{.Root}}", fields: [OUTPUT_DIR_KEY] },
+    { id: "page", insert: "{{.Index | pad 2}}", fields: [GROUP_KEY] },
+    { id: "ext", insert: "{{.Ext}}", fields: [FILE_KEY, GROUP_KEY] },
 ] as const;
 
 // menuForField returns the palette entries valid for one template field (see

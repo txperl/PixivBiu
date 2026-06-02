@@ -72,7 +72,7 @@ function DatePresetChip({
 }
 
 const TEXTAREA_CLASS = cn(
-    "w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-1.5 font-mono text-sm outline-none transition-colors",
+    "w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-1.5 font-mono text-xs outline-none transition-colors",
     "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
     "aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:bg-input/30",
 );
@@ -157,7 +157,6 @@ export function TemplateEditDialog({
                         id={id}
                         type="button"
                         variant="outline"
-                        size="sm"
                         disabled={disabled}
                         aria-invalid={invalid || undefined}
                         aria-describedby={describedBy}

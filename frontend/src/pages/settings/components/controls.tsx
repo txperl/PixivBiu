@@ -137,18 +137,22 @@ function TextareaControl({ field, id, value, invalid, disabled, describedBy, onC
     );
 }
 
-// Template fields (output_dir / file_template / file_group_template) show a
-// read-only view of the current Go text/template plus an "Edit" button that
-// opens the dedicated dialog editor (semantic token palette + live preview).
-// The dialog owns the draft and only writes back to the form on "Done".
+// Template fields (output_dir / file_template / file_group_template) show the
+// current Go text/template in a disabled, monospace input (display only) plus
+// an "Edit" button that opens the dedicated dialog editor (semantic token
+// palette + live preview). The dialog is the only way to change the value: it
+// keeps a draft and writes it back to the form on "Done".
 function TemplateControl({ field, id, value, invalid, disabled, describedBy, onChange }: ControlProps) {
     return (
-        <div className="flex max-w-2xl items-stretch gap-2">
-            <code className="min-w-0 flex-1 break-all rounded-lg border border-input bg-muted/30 px-2.5 py-1.5 font-mono text-sm">
-                {value || (
-                    <span className="text-muted-foreground">{field.default != null ? String(field.default) : ""}</span>
-                )}
-            </code>
+        <div className="flex max-w-2xl items-center gap-2">
+            {/* Display-only mirror of the value; the Edit button (below) is the
+                focusable control that owns the field id + aria state. */}
+            <Input
+                value={value}
+                disabled
+                placeholder={field.default != null ? String(field.default) : undefined}
+                className="flex-1 font-mono"
+            />
             <TemplateEditDialog
                 field={field}
                 id={id}
