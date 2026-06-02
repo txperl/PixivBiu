@@ -30,12 +30,19 @@ import (
 	"github.com/txperl/PixivBiu/internal/runtimepath"
 	"github.com/txperl/PixivBiu/internal/server"
 	"github.com/txperl/PixivBiu/internal/state"
+	"github.com/txperl/PixivBiu/internal/update"
 )
 
 // version is the semantic version of the binary. Overridable at link time:
 //
 //	go build -ldflags "-X main.version=1.2.3"
 var version = "0.1.0-dev"
+
+// repoOwner/repoName identify the GitHub repo the updater checks for releases.
+const (
+	repoOwner = "txperl"
+	repoName  = "PixivBiu"
+)
 
 func main() {
 	if err := run(); err != nil {
@@ -146,8 +153,15 @@ func run() error {
 	var restartOnce sync.Once
 	restart := func() { restartOnce.Do(func() { close(restartCh) }) }
 
+	// updSvc checks GitHub for newer releases and backs the one-click
+	// self-update. It reuses pixiv.proxy so update traffic takes the same path
+	// users already configured for Pixiv (e.g. behind the GFW). Start launches
+	// the periodic background check, honoring app.update.enabled / interval live.
+	updSvc := update.NewService(version, repoOwner, repoName, cfg.App.Update, cfg.Pixiv.Proxy)
+	updSvc.Start(ctx, logger)
+
 	pkceStore := auth.NewStore()
-	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, hbAtomic, cfgMgr, restart)
+	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, hbAtomic, cfgMgr, restart, updSvc, version)
 
 	// Reload hooks each take the whole *Config because some keys cross
 	// service boundaries — pixiv.proxy is reused by the download client.
@@ -173,6 +187,9 @@ func run() error {
 	})
 	cfgMgr.OnReload(func(n *config.Config) {
 		hbAtomic.Store(int64(n.Inbox.Heartbeat))
+	})
+	cfgMgr.OnReload(func(n *config.Config) {
+		updSvc.Reload(n.App.Update, n.Pixiv.Proxy)
 	})
 
 	httpHandler := server.New(cfg, logger, handler)

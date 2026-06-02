@@ -22,6 +22,9 @@ export function useFieldText(): (field: FieldSpec) => string {
     const map: Record<string, () => string> = {
         cfg_app_language: () => m.cfg_app_language(),
         cfg_app_open_browser: () => m.cfg_app_open_browser(),
+        cfg_app_update_enabled: () => m.cfg_app_update_enabled(),
+        cfg_app_update_include_prerelease: () => m.cfg_app_update_include_prerelease(),
+        cfg_app_update_interval: () => m.cfg_app_update_interval(),
         cfg_server_host: () => m.cfg_server_host(),
         cfg_server_port: () => m.cfg_server_port(),
         cfg_server_port_fallback: () => m.cfg_server_port_fallback(),

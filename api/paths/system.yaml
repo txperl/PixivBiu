@@ -1,0 +1,79 @@
+version:
+  get:
+    operationId: getSystemVersion
+    summary: Get the running binary's version and build info
+    description: |
+      Returns the version the running process was built with (the same value
+      shown in the boot banner), plus the Go runtime and target OS/arch.
+    tags: [system]
+    responses:
+      '200':
+        description: Version info.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/SystemVersion' }
+
+update:
+  get:
+    operationId: getUpdateStatus
+    summary: Get the cached update-check result
+    description: |
+      Returns the result of the most recent update check without contacting
+      GitHub. `is_dev` is true for local/dev builds, where updates are never
+      offered. Use `POST /system/update/check` to force a fresh check.
+    tags: [system]
+    responses:
+      '200':
+        description: Cached update status.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/UpdateStatus' }
+
+updateCheck:
+  post:
+    operationId: checkForUpdate
+    summary: Force an immediate update check against GitHub
+    description: |
+      Contacts the GitHub Releases API now, recomputes the status, and returns
+      it. Honors the `app.update.include_prerelease` channel toggle.
+
+      Refused with 400 when no release applies to the current channel/platform
+      (e.g. the repo has no semver release yet); GitHub being unreachable is a 502.
+    tags: [system]
+    responses:
+      '200':
+        description: Fresh update status.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/UpdateStatus' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
+updateApply:
+  post:
+    operationId: applyUpdate
+    summary: Download, verify, and apply the latest update, then restart
+    description: |
+      Downloads the release archive built for this OS/arch, verifies its
+      SHA-256 against the release's checksums.txt, swaps the running binary in
+      place, and triggers a graceful self-restart. The 202 is flushed before
+      the restart begins, so the client should expect the connection (and any
+      SSE streams) to drop shortly after — the same flow as `POST /config/restart`.
+
+      Refused with 400 on dev/non-release builds, when no newer release exists,
+      or when verification fails (the binary on disk is left untouched). Requires
+      the app's `X-PixivBiu-App` header (CSRF guard); 409 if an apply is already
+      running.
+    tags: [system]
+    responses:
+      '202':
+        description: Update verified and applied; the process will restart.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/UpdateApplyAccepted' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }

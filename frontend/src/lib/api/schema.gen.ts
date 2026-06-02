@@ -564,6 +564,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the cached update-check result
+         * @description Returns the result of the most recent update check without contacting
+         *     GitHub. `is_dev` is true for local/dev builds, where updates are never
+         *     offered. Use `POST /system/update/check` to force a fresh check.
+         */
+        get: operations["GetUpdateStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/update/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download, verify, and apply the latest update, then restart
+         * @description Downloads the release archive built for this OS/arch, verifies its
+         *     SHA-256 against the release's checksums.txt, swaps the running binary in
+         *     place, and triggers a graceful self-restart. The 202 is flushed before
+         *     the restart begins, so the client should expect the connection (and any
+         *     SSE streams) to drop shortly after — the same flow as `POST /config/restart`.
+         *
+         *     Refused with 400 on dev/non-release builds, when no newer release exists,
+         *     or when verification fails (the binary on disk is left untouched). Requires
+         *     the app's `X-PixivBiu-App` header (CSRF guard); 409 if an apply is already
+         *     running.
+         */
+        post: operations["ApplyUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/update/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Force an immediate update check against GitHub
+         * @description Contacts the GitHub Releases API now, recomputes the status, and returns
+         *     it. Honors the `app.update.include_prerelease` channel toggle.
+         *
+         *     Refused with 400 when no release applies to the current channel/platform
+         *     (e.g. the repo has no semver release yet); GitHub being unreachable is a 502.
+         */
+        post: operations["CheckForUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the running binary's version and build info
+         * @description Returns the version the running process was built with (the same value
+         *     shown in the boot banner), plus the Go runtime and target OS/arch.
+         */
+        get: operations["GetSystemVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{id}": {
         parameters: {
             query?: never;
@@ -1161,6 +1257,16 @@ export interface components {
              */
             illust_id: number;
         };
+        SystemVersion: {
+            /** @example arm64 */
+            arch: string;
+            /** @example go1.26.1 */
+            go_version: string;
+            /** @example darwin */
+            os: string;
+            /** @description Binary version (main.version), e.g. 3.0.0 or 0.1.0-dev. */
+            version: string;
+        };
         UgoiraFrame: {
             /** Format: int64 */
             delay: number;
@@ -1176,6 +1282,44 @@ export interface components {
         };
         UgoiraZipUrls: {
             medium: string;
+        };
+        UpdateApplyAccepted: {
+            /**
+             * @description Always `updating`.
+             * @example updating
+             */
+            status: string;
+        };
+        UpdateStatus: {
+            /** @description The release archive matching this OS/arch (the file Apply downloads). */
+            asset_name?: string;
+            /** @description The running binary's version. */
+            current_version: string;
+            /**
+             * @description Running a dev/non-release build (e.g. `0.1.0-dev`, a `go run`, or a
+             *     git-describe build). Updates are never offered or applied for these.
+             */
+            is_dev: boolean;
+            /**
+             * Format: date-time
+             * @description When this status was produced; absent if never checked.
+             */
+            last_checked?: string | null;
+            /** @description Human-safe error from the most recent check, if any. */
+            last_error?: string;
+            /** @description Newest applicable release tag (normalized, e.g. v3.1.0). Empty until a check succeeds. */
+            latest_version?: string;
+            /**
+             * Format: date-time
+             * @description When `latest_version` was published.
+             */
+            published_at?: string | null;
+            /** @description Release body (markdown) as published on GitHub. */
+            release_notes?: string;
+            /** @description GitHub release page for `latest_version`. */
+            release_url?: string;
+            /** @description A newer release exists AND this is a real release build. */
+            update_available: boolean;
         };
         /** @description Pixiv user summary. Shape mirrors pixivgo.UserInfo. */
         User: {
@@ -1233,6 +1377,24 @@ export interface components {
     responses: {
         /** @description Invalid parameters. */
         BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Conflicts with the current state (e.g. an operation already in progress). */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Request not allowed (e.g. missing the app's required header). */
+        Forbidden: {
             headers: {
                 [name: string]: unknown;
             };
@@ -2122,6 +2284,94 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             502: components["responses"]["Upstream"];
+        };
+    };
+    GetUpdateStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cached update status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatus"];
+                };
+            };
+        };
+    };
+    ApplyUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Update verified and applied; the process will restart. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateApplyAccepted"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    CheckForUpdate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fresh update status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateStatus"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    GetSystemVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Version info. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemVersion"];
+                };
+            };
         };
     };
     GetUser: {

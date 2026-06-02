@@ -4,6 +4,7 @@ import { NavLink, useLocation, useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/features/auth";
 import { useDownloadCounts } from "@/features/downloads";
+import { useUpdate } from "@/features/system";
 import { useMessages } from "@/i18n";
 import {
     DownloadIcon,
@@ -27,6 +28,8 @@ type NavItemDef = {
     to?: string;
     count?: number;
     badge?: number;
+    // A small status dot (e.g. "update available"), shown when no numeric badge.
+    dot?: boolean;
     activeMatch?: ActiveMatch;
 };
 
@@ -42,6 +45,9 @@ function ItemBody({ item, active }: { item: NavItemDef; active: boolean }) {
             <HugeiconsIcon icon={item.icon} size={18} strokeWidth={active ? 1.5 : 1.5} />
             <span className="flex-1">{item.label}</span>
             {item.badge !== undefined && <Badge variant="destructive">{item.badge}</Badge>}
+            {item.badge === undefined && item.dot && (
+                <span aria-hidden className="size-1.5 rounded-full bg-destructive" />
+            )}
             {item.count !== undefined && (
                 <span className="font-mono text-[11px] text-muted-foreground">{item.count}</span>
             )}
@@ -81,6 +87,7 @@ function Nav() {
     const m = useMessages();
     const { status } = useAuth();
     const { activeCount } = useDownloadCounts();
+    const { updateAvailable } = useUpdate();
     const { pathname } = useLocation();
     const [search] = useSearchParams();
 
@@ -104,7 +111,13 @@ function Nav() {
         ],
     };
 
-    const settingsItem: NavItemDef = { id: "settings", label: m.nav_settings(), icon: SettingsIcon, to: "/settings" };
+    const settingsItem: NavItemDef = {
+        id: "settings",
+        label: m.nav_settings(),
+        icon: SettingsIcon,
+        to: "/settings",
+        dot: updateAvailable,
+    };
 
     const personalItems: NavItemDef[] = [
         {

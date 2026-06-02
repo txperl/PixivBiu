@@ -4,7 +4,7 @@
 
 [PixivBiu](https://github.com/txperl/PixivBiu) is a Pixiv artwork browsing, searching, and downloading tool. **v3 is its next major version**, adopting Go as the implementation language and evolving the project structure to a decoupled backend + frontend monorepo.
 
-The current backend covers **auth + read-only browsing + bookmark/follow + download + SSE event stream**, all backed by [github.com/txperl/pixivgo](https://github.com/txperl/pixivgo). Image proxy, search cache, and SauceNAO remain intentionally deferred.
+The current backend covers **auth + read-only browsing + bookmark/follow + download + SSE event stream** (all backed by [github.com/txperl/pixivgo](https://github.com/txperl/pixivgo)), plus **version reporting & one-click self-update from GitHub Releases**. Image proxy, search cache, and SauceNAO remain intentionally deferred.
 
 ## Architecture Overview
 
@@ -55,7 +55,8 @@ PixivBiu-go/
 │   │   ├── search.yaml           #     /search/*
 │   │   ├── downloads.yaml        #     /downloads · /downloads/{id}
 │   │   ├── events.yaml           #     /events (SSE)
-│   │   └── config.yaml           #     /config · /config/schema · /config/reset · /config/restart · /config/naming/preview
+│   │   ├── config.yaml           #     /config · /config/schema · /config/reset · /config/restart · /config/naming/preview
+│   │   └── system.yaml           #     /system/version · /system/update · /system/update/{check,apply}
 │   └── cfg.yaml                  #   oapi-codegen configuration (self-mapping for cross-file $refs)
 ├── cmd/server/main.go            # Entry point: load config → init logger → wire pixiv/inbox/download → HTTP
 ├── internal/
@@ -65,7 +66,8 @@ PixivBiu-go/
 │   │   ├── handler.go            #   APIHandler: struct, NewHandler, helpers, error classifier
 │   │   ├── handler_{auth,illusts,users,search}.go   # Per-domain handlers
 │   │   ├── handler_downloads.go  #   /downloads/* + DownloadJob/Task projection
-│   │   └── handler_events.go     #   /events SSE (delegates to inbox.ServeSSE)
+│   │   ├── handler_events.go     #   /events SSE (delegates to inbox.ServeSSE)
+│   │   └── handler_system.go     #   /system/* — version report + update check/apply (CSRF-guarded)
 │   ├── config/                   # Layered settings (defaults → usr/settings.json → env)
 │   │   ├── config.go             #   Struct + `cfg:` tags (sole source of truth for keys, defaults, validation)
 │   │   ├── manager.go            #   Manager: live config snapshot (atomic) + OnReload hooks, Patch/Reset, validators
@@ -78,6 +80,7 @@ PixivBiu-go/
 │   ├── inbox/                    # In-memory pub-sub + SSE dispatcher (ring buffer + Last-Event-ID replay)
 │   ├── download/                 # Download manager, worker pool, naming templates, ugoira conversion
 │   │                             #   store.go persists usr/downloads.json atomically
+│   ├── update/                   # GitHub-release checker + Apply (download → verify SHA-256 → selfupdate binary swap → restart)
 │   ├── server/server.go          # chi router assembly, middleware wiring, SPA catch-all (serves internal/web)
 │   └── web/web.go                # Embedded frontend: //go:embed dist/ (Vite output) + SPA/asset handler w/ index.html fallback
 ├── usr/                          # Gitignored; holds settings.json + state.json + downloads.json
@@ -87,11 +90,11 @@ PixivBiu-go/
 │   │   ├── main.tsx              #   Entry — mounts <App />, imports global CSS
 │   │   ├── app/                  #   App shell: App.tsx + providers.tsx + router.tsx + layouts/{root-layout,root-sidebar}
 │   │   ├── pages/                #   Route-level shells (thin); folder-per-route — only compose features
-│   │   ├── features/             #   Domain modules: auth · illusts · users · search · ranking · downloads · events · activity-bar · filter · settings
+│   │   ├── features/             #   Domain modules: auth · illusts · users · search · ranking · downloads · events · activity-bar · filter · settings · system
 │   │   │                         #     each owns api.ts (calls openapi-fetch) + components/ + (optional) hooks/store/types
 │   │   ├── components/           #   Cross-feature shared UI; ui/ for shadcn primitives (don't put business UI here)
 │   │   ├── i18n/                 #   See i18n bullet above
-│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, format.ts (formatCount/hueFromId/formatBytes), pixiv-image.ts (TEMP pximg→pixiv.cat rewrite), fetch-state.ts (FetchState<T>), url-params.ts (readPage/patchParams), api/ (openapi-fetch client + `useApiErrorMessage` hook), theme/
+│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, format.ts (formatCount/hueFromId/formatBytes), pixiv-image.ts (TEMP pximg→pixiv.cat rewrite), fetch-state.ts (FetchState<T>), url-params.ts (readPage/patchParams), poll.ts (pollUntil — restart + update-status catch-up), api/ (openapi-fetch client + `useApiErrorMessage` hook), theme/
 │   │   └── styles/               #   globals.css + material-you.css
 │   ├── package.json              #   `bun run dev | build | check`. `build` runs `paraglide-js compile` before tsc.
 │   └── vite.config.ts            #   `paraglideVitePlugin` + Tailwind + React; `build.outDir` → ../internal/web/dist
@@ -157,7 +160,7 @@ The frontend is **embedded into the Go binary**, so a release is a single self-c
 This is an **OpenAPI-first** project. The spec under `api/` is the **single source of truth** for all HTTP routes, request/response schemas, and model types. The spec is **split across files**:
 
 - `api/openapi.yaml` — root: `info`, `servers`, `tags`, `components` (all schemas, parameters, shared responses), and `paths:` entries that `$ref` into sub-files.
-- `api/paths/{auth,illusts,users,search,downloads,events,config}.yaml` — each file holds the PathItems for one domain, keyed by a short identifier (e.g. `login:`, `byId:`).
+- `api/paths/{auth,illusts,users,search,downloads,events,config,system}.yaml` — each file holds the PathItems for one domain, keyed by a short identifier (e.g. `login:`, `byId:`).
 
 oapi-codegen resolves the cross-file `$ref`s directly — no bundling step. The trick is in `api/cfg.yaml`: `import-mapping: { ../openapi.yaml: "-" }` declares that the parent file (which `paths/*.yaml` refers back into for shared schemas) belongs to the same Go package, and `output-options.skip-prune: true` stops the pruner from dropping schemas that are only reachable through those cross-file refs.
 
@@ -312,6 +315,7 @@ Behavioral notes the spec carries but are easy to miss:
 - **Pagination** — Pixiv-backed lists carry `next_offset` or `next_max_bookmark_id` (pass non-null back unchanged; null = end-of-list). `GET /downloads` instead uses `page` / `per_page`, is newest-first, and returns `total + active_count + done_count`.
 - `DELETE /downloads/{id}` and `DELETE /downloads` are **history-log deletes only — they never touch disk**; `clearDownloads` 400s if any supplied status is non-terminal (empty = all terminal).
 - `GET /config` masks sensitive fields and lists restart-required keys in `pending_restart`; `POST /config/restart` returns 202 then drains + re-execs (downloads re-enqueue, SSE reconnects — non-destructive).
+- `GET /system/version` and `GET /system/update` (cached check result) are **open** (no auth) so the About panel renders pre-login; the mutating checks (`POST /system/update/check`, `.../apply`) require auth. `POST /system/update/apply` additionally requires the SPA's `X-PixivBiu-App` request header as a **CSRF guard** (a cross-origin page can't add it without a CORS preflight the server never grants → 403) and is **single-flighted** (a second concurrent apply → 409); it downloads/verifies/swaps synchronously (the check/apply writes opt out of the server write deadline), flushes `202 {status:"updating"}`, then `restart()`s. Dev / `go run` builds report `is_dev:true` and refuse apply; GitHub reachability/download failures surface as `upstream_error`/502 with an **update-specific** message (not the Pixiv-outage copy). The `X-PixivBiu-App` header is sent on every request by the shared api client (`lib/api/client.ts`); keep its name in sync with `appRequestHeader` (`handler_system.go`).
 
 **Error envelope.** `internal/api/handler.go::classify` is the **only** place that constructs `Error{}`; every endpoint funnels through `api.WriteError(w, r, err)` (also wired to oapi-codegen's `ChiServerOptions.ErrorHandlerFunc`, so generated parameter-validation failures share the envelope). Raw `err.Error()` text is never read into the wire body — the full error goes to httplog instead. Fields:
 
@@ -327,11 +331,11 @@ Behavioral notes the spec carries but are easy to miss:
 **Code list:**
 - `unauthenticated` / 401 — no/expired access token; POST `/auth/login` first.
 - `bad_request` / 400 — malformed input / invalid illust / missing or expired PKCE state / missing auth code / param validation failure.
-- `forbidden` / 403 — upstream 403 (e.g., restricted / deleted illust).
+- `forbidden` / 403 — upstream 403 (e.g., restricted / deleted illust); also the update-apply CSRF guard (request missing the `X-PixivBiu-App` header).
 - `not_found` / 404 — upstream 404 / unknown download job / unmapped API route (`RouteNotFoundError`).
-- `conflict` / 409 — cancelling a terminal job, or removing a non-terminal one.
+- `conflict` / 409 — cancelling a terminal job, removing a non-terminal one, or an update apply already in progress.
 - `rate_limited` / 429 — upstream 429.
-- `upstream_error` / 502 — any other upstream failure.
+- `upstream_error` / 502 — any other upstream failure (incl. GitHub reachability/download failures during an update check/apply, carrying an update-specific message).
 - `internal_error` / 500 — unclassified.
 
 ## Token State

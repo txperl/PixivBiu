@@ -32,6 +32,15 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/HealthStatus' }
 
+  /system/version:
+    $ref: './paths/system.yaml#/version'
+  /system/update:
+    $ref: './paths/system.yaml#/update'
+  /system/update/check:
+    $ref: './paths/system.yaml#/updateCheck'
+  /system/update/apply:
+    $ref: './paths/system.yaml#/updateApply'
+
   /auth/login:
     $ref: './paths/auth.yaml#/login'
   /auth/logout:
@@ -226,6 +235,16 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Request not allowed (e.g. missing the app's required header).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Conflicts with the current state (e.g. an operation already in progress).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
     Upstream:
       description: Pixiv upstream returned an unexpected error.
       content:
@@ -238,6 +257,65 @@ components:
       required: [status]
       properties:
         status: { type: string, example: ok }
+
+    SystemVersion:
+      type: object
+      required: [version, go_version, os, arch]
+      properties:
+        version:    { type: string, description: "Binary version (main.version), e.g. 3.0.0 or 0.1.0-dev." }
+        go_version: { type: string, example: go1.26.1 }
+        os:         { type: string, example: darwin }
+        arch:       { type: string, example: arm64 }
+
+    UpdateStatus:
+      type: object
+      required: [current_version, update_available, is_dev]
+      properties:
+        current_version:
+          type: string
+          description: The running binary's version.
+        latest_version:
+          type: string
+          description: Newest applicable release tag (normalized, e.g. v3.1.0). Empty until a check succeeds.
+        update_available:
+          type: boolean
+          description: A newer release exists AND this is a real release build.
+        is_dev:
+          type: boolean
+          description: |
+            Running a dev/non-release build (e.g. `0.1.0-dev`, a `go run`, or a
+            git-describe build). Updates are never offered or applied for these.
+        release_url:
+          type: string
+          description: GitHub release page for `latest_version`.
+        release_notes:
+          type: string
+          description: Release body (markdown) as published on GitHub.
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When `latest_version` was published.
+        asset_name:
+          type: string
+          description: The release archive matching this OS/arch (the file Apply downloads).
+        last_checked:
+          type: string
+          format: date-time
+          nullable: true
+          description: When this status was produced; absent if never checked.
+        last_error:
+          type: string
+          description: Human-safe error from the most recent check, if any.
+
+    UpdateApplyAccepted:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          description: Always `updating`.
+          example: updating
 
     Error:
       type: object

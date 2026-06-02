@@ -18,6 +18,7 @@ import (
 	"github.com/txperl/PixivBiu/internal/download"
 	"github.com/txperl/PixivBiu/internal/inbox"
 	"github.com/txperl/PixivBiu/internal/pixiv"
+	"github.com/txperl/PixivBiu/internal/update"
 )
 
 type APIHandler struct {
@@ -32,10 +33,14 @@ type APIHandler struct {
 	// restart triggers a graceful self-restart of the process; nil-safe
 	// (RestartConfig guards against a nil trigger).
 	restart func()
+	// upd backs the system/update endpoints; version is the running binary's
+	// version (main.version), surfaced by GET /system/version.
+	upd     *update.Service
+	version string
 }
 
-func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat *atomic.Int64, cfgMgr *config.Manager, restart func()) *APIHandler {
-	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, cfgMgr: cfgMgr, restart: restart}
+func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat *atomic.Int64, cfgMgr *config.Manager, restart func(), upd *update.Service, version string) *APIHandler {
+	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, cfgMgr: cfgMgr, restart: restart, upd: upd, version: version}
 }
 
 var _ ServerInterface = (*APIHandler)(nil)
@@ -95,6 +100,7 @@ var sentinelErrors = []struct {
 	{download.ErrNotFound, ErrorCodeNotFound, http.StatusNotFound},
 	{download.ErrAlreadyTerminal, ErrorCodeConflict, http.StatusConflict},
 	{download.ErrStillRunning, ErrorCodeConflict, http.StatusConflict},
+	{ErrMissingAppHeader, ErrorCodeForbidden, http.StatusForbidden},
 }
 
 // classify maps err to (HTTP status, wire body). Sentinels and generic

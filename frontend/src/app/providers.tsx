@@ -4,6 +4,7 @@ import { ActivityBarProvider } from "@/features/activity-bar";
 import { AuthProvider, useAuth } from "@/features/auth";
 import { DownloadStateProvider } from "@/features/downloads";
 import { EventStreamProvider } from "@/features/events";
+import { UpdateProvider } from "@/features/system";
 import { LocaleProvider, LocaleSync } from "@/i18n";
 
 // Bridges AuthProvider and LocaleProvider without coupling either to the
@@ -21,7 +22,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
                     <AuthGatedLocaleSync />
                     <EventStreamProvider>
                         <DownloadStateProvider>
-                            <ActivityBarProvider>{children}</ActivityBarProvider>
+                            <UpdateProvider>
+                                <ActivityBarProvider>{children}</ActivityBarProvider>
+                            </UpdateProvider>
                         </DownloadStateProvider>
                     </EventStreamProvider>
                 </AuthProvider>

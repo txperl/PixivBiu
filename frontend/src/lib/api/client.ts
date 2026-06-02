@@ -1,7 +1,15 @@
 import createClient, { type Middleware } from "openapi-fetch";
 import type { components, paths } from "./schema.gen";
 
-export const api = createClient<paths>({ baseUrl: "/api/v1" });
+// X-PixivBiu-App marks every request as coming from the SPA. The backend uses it
+// as a CSRF guard on the binary-replacing update-apply endpoint: a cross-origin
+// page can't add this header without a CORS preflight the server never grants, so
+// it can't forge an authenticated self-update. Keep the name in sync with
+// appRequestHeader (internal/api/handler_system.go).
+export const api = createClient<paths>({
+    baseUrl: "/api/v1",
+    headers: { "X-PixivBiu-App": "1" },
+});
 
 // SYNTHETIC is the error we surface when the backend gives us nothing usable.
 // The frontend localizes `internal_error`.

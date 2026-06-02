@@ -34,8 +34,21 @@ type Config struct {
 // GET /config, resolving `auto` against navigator.language. Backend
 // logs/banner are always in English.
 type AppConfig struct {
-	Language    string `koanf:"language"     cfg:"desc=应用界面语言（auto = 跟随浏览器）,enum=auto|en|zh-CN|ja"`
-	OpenBrowser bool   `koanf:"open_browser" cfg:"desc=启动时自动在默认浏览器打开界面,restart=true"`
+	Language    string       `koanf:"language"     cfg:"desc=应用界面语言（auto = 跟随浏览器）,enum=auto|en|zh-CN|ja"`
+	OpenBrowser bool         `koanf:"open_browser" cfg:"desc=启动时自动在默认浏览器打开界面,restart=true"`
+	Update      UpdateConfig `koanf:"update"       cfg:"desc=版本更新检查"`
+}
+
+// UpdateConfig controls the built-in GitHub-release update check. The
+// background checker compares the running binary's version against the
+// latest release; applying an update (user-triggered) downloads the
+// matching archive, verifies its SHA-256, swaps the binary in place, and
+// restarts. All keys are hot-reloadable: the checker reads them live on
+// each tick, so toggling them never needs a restart.
+type UpdateConfig struct {
+	Enabled           bool          `koanf:"enabled"            cfg:"desc=启动后自动检查新版本"`
+	IncludePrerelease bool          `koanf:"include_prerelease" cfg:"desc=包含预发布版本（beta/rc）"`
+	Interval          time.Duration `koanf:"interval"           cfg:"desc=自动检查的最小间隔,advanced=true"`
 }
 
 type ServerConfig struct {
@@ -95,19 +108,22 @@ type InboxConfig struct {
 // is treated as read-only by every consumer.
 var defaults = sync.OnceValue(func() map[string]any {
 	return map[string]any{
-		"app.language":             "auto",
-		"app.open_browser":         false,
-		"server.host":              "127.0.0.1",
-		"server.port":              4001,
-		"server.port_fallback":     true,
-		"server.timeouts.read":     "15s",
-		"server.timeouts.write":    "15s",
-		"server.timeouts.shutdown": "10s",
-		"log.level":                "info",
-		"log.format":               "text",
-		"pixiv.proxy":              "",
-		"pixiv.bypass_sni":         false,
-		"pixiv.state_file":         "./usr/state.json",
+		"app.language":                  "auto",
+		"app.open_browser":              false,
+		"app.update.enabled":            true,
+		"app.update.include_prerelease": false,
+		"app.update.interval":           "24h",
+		"server.host":                   "127.0.0.1",
+		"server.port":                   4001,
+		"server.port_fallback":          true,
+		"server.timeouts.read":          "15s",
+		"server.timeouts.write":         "15s",
+		"server.timeouts.shutdown":      "10s",
+		"log.level":                     "info",
+		"log.format":                    "text",
+		"pixiv.proxy":                   "",
+		"pixiv.bypass_sni":              false,
+		"pixiv.state_file":              "./usr/state.json",
 
 		"download.output_dir":            `./downloads/{{.Now | date "2006-01-02"}}`,
 		"download.file_template":         `{{.IllustID}}_{{.Title | trunc 80}}{{.Ext}}`,

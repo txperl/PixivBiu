@@ -1,4 +1,4 @@
-import { Alert02Icon } from "@hugeicons/core-free-icons";
+import { Alert02Icon, InformationCircleIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import LeapyLoading from "@/components/series-leapy/leapy-loading";
@@ -10,6 +10,7 @@ import {
     NAV_TOP,
     NamingValuesProvider,
     restartConfig,
+    type SectionSpec,
     type SettingsSaveState,
     settingsSaveState,
     useConfig,
@@ -20,6 +21,7 @@ import { useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { SettingsHeaderActions } from "./components/header-actions";
+import { ABOUT_ID, SettingsAbout } from "./components/settings-about";
 import { SettingsNav } from "./components/settings-nav";
 import { SettingsSection } from "./components/settings-section";
 
@@ -63,9 +65,18 @@ function SettingsPage() {
         [sections, showAdvanced],
     );
 
-    const sectionIds = useMemo(() => visibleSections.map((s) => s.category), [visibleSections]);
+    // The About card is a synthetic section pinned first in the nav/scroll-spy.
+    const navSections = useMemo<SectionSpec[]>(
+        () => [
+            { category: ABOUT_ID, title: m.settings_about_title(), icon: InformationCircleIcon, fields: [] },
+            ...visibleSections,
+        ],
+        [m, visibleSections],
+    );
+
+    const sectionIds = useMemo(() => navSections.map((s) => s.category), [navSections]);
     const { activeId, scrollTo } = useScrollSpy(scrollerRef, sectionIds);
-    const currentActive = activeId ?? visibleSections[0]?.category;
+    const currentActive = activeId ?? navSections[0]?.category;
 
     const pendingKeys = view?.pending_restart ?? [];
     const pendingSet = useMemo(() => new Set(pendingKeys), [pendingKeys]);
@@ -160,11 +171,12 @@ function SettingsPage() {
 
                         <div className="grid grid-cols-[200px_minmax(0,1fr)] gap-8">
                             <aside className="sticky self-start" style={{ top: NAV_TOP }}>
-                                <SettingsNav sections={visibleSections} activeId={currentActive} onSelect={scrollTo} />
+                                <SettingsNav sections={navSections} activeId={currentActive} onSelect={scrollTo} />
                             </aside>
 
                             <NamingValuesProvider values={form.values}>
                                 <div className="min-w-0 space-y-5">
+                                    <SettingsAbout />
                                     {visibleSections.map((section) => (
                                         <SettingsSection
                                             key={section.category}

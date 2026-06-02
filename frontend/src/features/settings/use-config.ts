@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRefreshOnReconnect } from "@/features/events";
 import type { FetchState } from "@/lib/fetch-state";
+import { pollUntil } from "@/lib/poll";
 import { type ConfigApiError, type ConfigView, getConfig, getConfigSchema } from "./api";
 import { compileSchema } from "./compile-schema";
 import { EXPECTED_SCHEMA_VERSION } from "./presentation";
@@ -20,8 +21,6 @@ export interface UseConfigResult {
     // this UI was built against.
     schemaMismatch: boolean;
 }
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const RESTART_POLL_INTERVAL = 1500;
 const RESTART_POLL_TIMEOUT = 60_000;
@@ -90,19 +89,22 @@ export function useConfig(): UseConfigResult {
                     return null;
                 }
             };
-            const deadline = Date.now() + RESTART_POLL_TIMEOUT;
-            await sleep(RESTART_POLL_INTERVAL);
-            while (Date.now() < deadline) {
-                const data = await tryGet();
-                if (data && !keys.some((k) => data.pending_restart.includes(k))) {
-                    applyView(data);
-                    return;
-                }
-                await sleep(RESTART_POLL_INTERVAL);
-            }
+            const recovered = await pollUntil(
+                async () => {
+                    const data = await tryGet();
+                    if (data && !keys.some((k) => data.pending_restart.includes(k))) {
+                        applyView(data);
+                        return true;
+                    }
+                    return false;
+                },
+                { interval: RESTART_POLL_INTERVAL, timeout: RESTART_POLL_TIMEOUT },
+            );
             // Timed out — adopt whatever the server reports so the UI stops waiting.
-            const data = await tryGet();
-            if (data) applyView(data);
+            if (!recovered) {
+                const data = await tryGet();
+                if (data) applyView(data);
+            }
         },
         [applyView],
     );
