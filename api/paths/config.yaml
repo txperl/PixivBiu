@@ -99,6 +99,35 @@ restart:
             schema: { $ref: '../openapi.yaml#/components/schemas/ConfigRestartAccepted' }
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
 
+namingPreview:
+  post:
+    operationId: previewNaming
+    summary: Render the download naming templates against a fixed sample work
+    description: |
+      Runs the REAL Go `text/template` renderer against a fixed,
+      representative work and returns the example output paths. Any
+      omitted template falls back to the current effective value.
+
+      This endpoint is **non-persisting** — nothing is written to
+      settings.json. It exists to power a live preview in the settings
+      UI, so per-template parse/exec failures are returned in `fields`
+      (keyed by dotted config path) and DO NOT cause a non-200: the
+      editor can show inline errors without an HTTP error while the user
+      is mid-edit. Authoritative validation still happens on PATCH.
+    tags: [config]
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema: { $ref: '../openapi.yaml#/components/schemas/NamingPreviewRequest' }
+    responses:
+      '200':
+        description: Rendered example. Inspect `fields` for per-template errors.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/NamingPreviewResponse' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+
 schema:
   get:
     operationId: getConfigSchema

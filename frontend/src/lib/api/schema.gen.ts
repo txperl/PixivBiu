@@ -179,6 +179,35 @@ export interface paths {
         patch: operations["PatchConfig"];
         trace?: never;
     };
+    "/config/naming/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Render the download naming templates against a fixed sample work
+         * @description Runs the REAL Go `text/template` renderer against a fixed,
+         *     representative work and returns the example output paths. Any
+         *     omitted template falls back to the current effective value.
+         *
+         *     This endpoint is **non-persisting** — nothing is written to
+         *     settings.json. It exists to power a live preview in the settings
+         *     UI, so per-template parse/exec failures are returned in `fields`
+         *     (keyed by dotted config path) and DO NOT cause a non-200: the
+         *     editor can show inline errors without an HTTP error while the user
+         *     is mid-edit. Authoritative validation still happens on PATCH.
+         */
+        post: operations["PreviewNaming"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/config/reset": {
         parameters: {
             query?: never;
@@ -946,6 +975,46 @@ export interface components {
         MetaSinglePage: {
             original_image_url?: string;
         };
+        /**
+         * @description Candidate download naming templates to render. All three are
+         *     optional; any omitted field falls back to the current effective
+         *     value. Mirrors the three `download.*` template keys. Nothing is
+         *     persisted — this is a render-only preview.
+         */
+        NamingPreviewRequest: {
+            /** @description Candidate `download.file_group_template` template. */
+            file_group_template?: string;
+            /** @description Candidate `download.file_template` template. */
+            file_template?: string;
+            /** @description Candidate `download.output_dir` template. */
+            output_dir?: string;
+        };
+        NamingPreviewResponse: {
+            /**
+             * @description Per-template error messages keyed by dotted config path
+             *     (`download.output_dir` / `download.file_template` /
+             *     `download.file_group_template`). A key is present only when
+             *     that template failed to parse or render; an empty/absent map
+             *     means every template rendered cleanly. Present even on 200.
+             */
+            fields: {
+                [key: string]: string;
+            };
+            /**
+             * @description Full example path for a multi-page work: `output_dir` joined
+             *     with `file_group_template` at page Index 2 (demonstrates
+             *     `pad`, sample `.png`). Empty if either template failed.
+             */
+            multi_page: string;
+            /** @description Rendered `output_dir` (absolute/relative aware). Empty if it failed to parse/render. */
+            output_dir: string;
+            /**
+             * @description Full example path for a single-page work: `output_dir` joined
+             *     with `file_template` (Index 0, sample `.jpg`). Empty if either
+             *     template failed.
+             */
+            single_page: string;
+        };
         /** @description Pixiv novel metadata. Shape mirrors pixivgo.NovelInfo. */
         Novel: {
             caption: string;
@@ -1438,6 +1507,31 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+        };
+    };
+    PreviewNaming: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NamingPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Rendered example. Inspect `fields` for per-template errors. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NamingPreviewResponse"];
+                };
+            };
             401: components["responses"]["Unauthenticated"];
         };
     };

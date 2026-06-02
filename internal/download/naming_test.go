@@ -1,12 +1,70 @@
 package download
 
 import (
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 	"text/template"
 	"time"
+
+	"github.com/txperl/PixivBiu/internal/config"
 )
+
+func TestPreviewNaming(t *testing.T) {
+	base := t.TempDir()
+	cfg := config.DownloadConfig{
+		OutputDir:         `./downloads/{{.Now | date "2006-01-02"}}`,
+		FileTemplate:      `{{.IllustID}}_{{.Title | trunc 80}}{{.Ext}}`,
+		FileGroupTemplate: `{{.IllustID}}_{{.Title | trunc 80}}/{{.Index | pad 2}}{{.Ext}}`,
+	}
+
+	t.Run("defaults render cleanly", func(t *testing.T) {
+		outDir, single, multi, errs := PreviewNaming(cfg, base, "/home/sample", base)
+		if errs != nil {
+			t.Fatalf("defaults should render cleanly, got errs=%v", errs)
+		}
+		today := time.Now().Local().Format("2006-01-02")
+		wantOut := filepath.Join(base, "downloads", today)
+		if outDir != wantOut {
+			t.Errorf("output_dir = %q, want %q", outDir, wantOut)
+		}
+		// Single page: Index 0, .jpg; sample Title has no forbidden chars.
+		wantSingle := filepath.Join(wantOut, "123456789_Sample Work タイトル.jpg")
+		if single != wantSingle {
+			t.Errorf("single_page = %q, want %q", single, wantSingle)
+		}
+		// Multi page: Index 2 → "02" via pad, .png, in a per-title subdir.
+		wantMulti := filepath.Join(wantOut, "123456789_Sample Work タイトル", "02.png")
+		if multi != wantMulti {
+			t.Errorf("multi_page = %q, want %q", multi, wantMulti)
+		}
+	})
+
+	t.Run("a broken template isolates its own error", func(t *testing.T) {
+		bad := cfg
+		bad.FileTemplate = `{{.Title` // unterminated action → parse error
+		outDir, single, multi, errs := PreviewNaming(bad, base, "/home/sample", base)
+		if outDir == "" {
+			t.Error("output_dir should still render when only file_template is broken")
+		}
+		if single != "" {
+			t.Errorf("single_page should be empty on a broken file_template, got %q", single)
+		}
+		if multi == "" {
+			t.Error("multi_page should still render when only file_template is broken")
+		}
+		if _, ok := errs["download.file_template"]; !ok {
+			t.Errorf("expected a per-key error for download.file_template, got %v", errs)
+		}
+		if _, ok := errs["download.output_dir"]; ok {
+			t.Errorf("output_dir should not carry an error, got %v", errs)
+		}
+		if _, ok := errs["download.file_group_template"]; ok {
+			t.Errorf("file_group_template should not carry an error, got %v", errs)
+		}
+	})
+}
 
 func mustParse(t *testing.T, name, src string) *template.Template {
 	t.Helper()

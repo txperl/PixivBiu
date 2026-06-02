@@ -36,6 +36,94 @@ type NameContext struct {
 	Root      string
 }
 
+// SampleContext returns a fixed, representative NameContext used to render
+// the live preview in the settings UI. Title/UserName are pre-sanitised to
+// mirror the real Submit path (manager.go), and home/root inject the live
+// anchors so {{.Home}} / {{.Root}} render realistically.
+//
+// Now is the REAL current time (not a fixed sample): output_dir's default
+// formats {{.Now | date ...}}, and users edit output_dir specifically to
+// see what today's dated folder will be — a frozen date would mislead.
+// CreatedAt is fixed because it is a property of the (sample) work, not of
+// "now". Ext defaults to a single-page image; callers override per page.
+func SampleContext(home, root string) NameContext {
+	return NameContext{
+		IllustID:  123456789,
+		Title:     Sanitize("Sample Work タイトル"),
+		Type:      "illust",
+		UserID:    42,
+		UserName:  Sanitize("ExampleArtist"),
+		CreatedAt: time.Date(2024, 3, 14, 9, 26, 53, 0, time.UTC),
+		Now:       time.Now().Local(),
+		Index:     0,
+		Ext:       ".jpg",
+		Home:      home,
+		Root:      root,
+	}
+}
+
+// PreviewNaming renders the three download templates against SampleContext
+// for the settings-UI live preview. Unlike NewRenderer (which short-circuits
+// on the first parse error), it parses+renders each template INDIVIDUALLY so
+// a single broken template yields a per-key error while the others still
+// render. It never returns a Go error: parse/exec failures are recorded in
+// `errs` (keyed by dotted config path) so the HTTP layer can answer 200 and
+// the editor can show inline errors mid-edit.
+//
+// Returns the rendered output_dir, the single-page full example path
+// (output_dir + file_template, page index 0), the multi-page full example
+// path (output_dir + file_group_template, page index 2 to demonstrate pad),
+// and the per-key error map (nil when everything rendered cleanly). The full
+// paths are left empty when either their relative part or output_dir failed.
+func PreviewNaming(cfg config.DownloadConfig, baseDir, home, root string) (outputDir, single, multi string, errs map[string]string) {
+	const (
+		keyOut   = "download.output_dir"
+		keyFile  = "download.file_template"
+		keyGroup = "download.file_group_template"
+	)
+	errs = map[string]string{}
+	fm := funcMap()
+	r := &Renderer{BaseDir: baseDir}
+	ctx := SampleContext(home, root)
+
+	// output_dir (absolute/relative aware via RenderRootPath).
+	outOK := false
+	if tmpl, err := template.New("output_dir").Funcs(fm).Parse(cfg.OutputDir); err != nil {
+		errs[keyOut] = err.Error()
+	} else if rendered, err := r.RenderRootPath(tmpl, ctx); err != nil {
+		errs[keyOut] = err.Error()
+	} else {
+		outputDir, outOK = rendered, true
+	}
+
+	// file_template → single-page relative path (page index 0, .jpg).
+	singleCtx := ctx
+	if tmpl, err := template.New("file_template").Funcs(fm).Parse(cfg.FileTemplate); err != nil {
+		errs[keyFile] = err.Error()
+	} else if rel, err := r.RenderRelativePath(tmpl, singleCtx); err != nil {
+		errs[keyFile] = err.Error()
+	} else if outOK {
+		single = filepath.Join(outputDir, rel)
+	}
+
+	// file_group_template → multi-page relative path (page index 2, .png).
+	groupCtx := ctx
+	groupCtx.Index = 2
+	groupCtx.Ext = ".png"
+	if tmpl, err := template.New("file_group_template").Funcs(fm).Parse(cfg.FileGroupTemplate); err != nil {
+		errs[keyGroup] = err.Error()
+	} else if rel, err := r.RenderRelativePath(tmpl, groupCtx); err != nil {
+		errs[keyGroup] = err.Error()
+	} else if outOK {
+		multi = filepath.Join(outputDir, rel)
+	}
+
+	if len(errs) == 0 {
+		errs = nil
+	}
+	return outputDir, single, multi, errs
+}
+
 // Renderer holds pre-parsed templates. Build it once at startup from
 // DownloadConfig so that bad template syntax fails the server boot
 // rather than surfacing mid-download.

@@ -8,6 +8,7 @@ import ConfirmPopover from "@/features/downloads/components/confirm-popover";
 import {
     isFieldVisible,
     NAV_TOP,
+    NamingValuesProvider,
     restartConfig,
     type SettingsSaveState,
     settingsSaveState,
@@ -162,24 +163,26 @@ function SettingsPage() {
                                 <SettingsNav sections={visibleSections} activeId={currentActive} onSelect={scrollTo} />
                             </aside>
 
-                            <div className="min-w-0 space-y-5">
-                                {visibleSections.map((section) => (
-                                    <SettingsSection
-                                        key={section.category}
-                                        section={section}
-                                        values={form.values}
-                                        fieldErrors={form.fieldErrors}
-                                        sources={view.sources}
-                                        overriddenKeys={form.overriddenKeys}
-                                        pendingRestart={pendingSet}
-                                        busyKeys={form.busyKeys}
-                                        showAdvanced={showAdvanced}
-                                        onChange={form.setValue}
-                                        onResetField={form.resetField}
-                                        onResetSection={form.resetSection}
-                                    />
-                                ))}
-                            </div>
+                            <NamingValuesProvider values={form.values}>
+                                <div className="min-w-0 space-y-5">
+                                    {visibleSections.map((section) => (
+                                        <SettingsSection
+                                            key={section.category}
+                                            section={section}
+                                            values={form.values}
+                                            fieldErrors={form.fieldErrors}
+                                            sources={view.sources}
+                                            overriddenKeys={form.overriddenKeys}
+                                            pendingRestart={pendingSet}
+                                            busyKeys={form.busyKeys}
+                                            showAdvanced={showAdvanced}
+                                            onChange={form.setValue}
+                                            onResetField={form.resetField}
+                                            onResetSection={form.resetSection}
+                                        />
+                                    ))}
+                                </div>
+                            </NamingValuesProvider>
                         </div>
                     </div>
                 )}

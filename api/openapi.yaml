@@ -92,6 +92,8 @@ paths:
     $ref: './paths/config.yaml#/reset'
   /config/restart:
     $ref: './paths/config.yaml#/restart'
+  /config/naming/preview:
+    $ref: './paths/config.yaml#/namingPreview'
 
 components:
   parameters:
@@ -1048,3 +1050,50 @@ components:
           description: |
             When true, clear the entire file layer. Mutually exclusive
             with `keys`; sending both is rejected with 400.
+
+    NamingPreviewRequest:
+      type: object
+      description: |
+        Candidate download naming templates to render. All three are
+        optional; any omitted field falls back to the current effective
+        value. Mirrors the three `download.*` template keys. Nothing is
+        persisted — this is a render-only preview.
+      properties:
+        output_dir:
+          type: string
+          description: Candidate `download.output_dir` template.
+        file_template:
+          type: string
+          description: Candidate `download.file_template` template.
+        file_group_template:
+          type: string
+          description: Candidate `download.file_group_template` template.
+
+    NamingPreviewResponse:
+      type: object
+      required: [output_dir, single_page, multi_page, fields]
+      properties:
+        output_dir:
+          type: string
+          description: Rendered `output_dir` (absolute/relative aware). Empty if it failed to parse/render.
+        single_page:
+          type: string
+          description: |
+            Full example path for a single-page work: `output_dir` joined
+            with `file_template` (Index 0, sample `.jpg`). Empty if either
+            template failed.
+        multi_page:
+          type: string
+          description: |
+            Full example path for a multi-page work: `output_dir` joined
+            with `file_group_template` at page Index 2 (demonstrates
+            `pad`, sample `.png`). Empty if either template failed.
+        fields:
+          type: object
+          additionalProperties: { type: string }
+          description: |
+            Per-template error messages keyed by dotted config path
+            (`download.output_dir` / `download.file_template` /
+            `download.file_group_template`). A key is present only when
+            that template failed to parse or render; an empty/absent map
+            means every template rendered cleanly. Present even on 200.

@@ -10,7 +10,16 @@ export type CfgType = "string" | "integer" | "boolean";
 
 // Which form control renders a given field. Derived once in compileSchema
 // from the field's type/format/enum plus the presentation overlay.
-export type ControlKind = "text" | "number" | "switch" | "select" | "duration" | "textarea" | "password";
+export type ControlKind =
+    | "text"
+    | "number"
+    | "switch"
+    | "select"
+    | "duration"
+    | "textarea"
+    | "password"
+    // Go text/template field with a token-insertion palette + live preview.
+    | "template";
 
 // A single leaf setting, flattened to its dotted key.
 export interface FieldSpec {

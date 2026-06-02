@@ -116,6 +116,20 @@ func NewManager(
 // returned value is a copy safe to read without holding any lock.
 func (m *Manager) conf() config.DownloadConfig { return m.state.Load().cfg }
 
+// Conf is the exported view of the live (hot-reload-aware) download config,
+// for callers outside this package (e.g. the naming-preview handler). Unlike
+// the immutable boot snapshot held by config.Manager, this advances on every
+// successful Reload, so previews reflect the user's most recent saved values.
+func (m *Manager) Conf() config.DownloadConfig { return m.conf() }
+
+// Root is the base directory a relative output_dir is anchored to
+// (runtimepath.Root() in production). Exposed so previews anchor exactly
+// like real downloads.
+func (m *Manager) Root() string { return m.execRoot }
+
+// Home is the user's home directory used to populate {{.Home}} in templates.
+func (m *Manager) Home() string { return m.homeDir }
+
 // Reload swaps in download config that changed at runtime, rebuilding
 // the template renderer and HTTP client. proxyURL is pixiv.proxy, reused
 // for image fetches. Restart-only fields (max_concurrent, store_file)

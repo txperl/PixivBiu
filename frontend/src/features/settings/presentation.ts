@@ -49,11 +49,12 @@ export const SECTION_META: Record<string, SectionMeta> = {
 export const FALLBACK_SECTION_ICON: IconSvgElement = Settings03Icon;
 
 // Per-key control override where the schema type alone is insufficient.
-// Go text/template fields read better in a multi-line monospace box.
+// The Go text/template path/filename fields get the dedicated "template"
+// control: a monospace box plus a token-insertion palette and a live preview.
 export const CONTROL_OVERRIDE: Record<string, ControlKind> = {
-    "download.output_dir": "textarea",
-    "download.file_template": "textarea",
-    "download.file_group_template": "textarea",
+    "download.output_dir": "template",
+    "download.file_template": "template",
+    "download.file_group_template": "template",
 };
 
 // Advanced and internal (program-only) fields form one lower-priority tier:

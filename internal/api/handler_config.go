@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/txperl/PixivBiu/internal/config"
+	"github.com/txperl/PixivBiu/internal/download"
 )
 
 // GetConfig returns the current effective config, the persisted overrides,
@@ -94,6 +95,49 @@ func (h *APIHandler) RestartConfig(w http.ResponseWriter, r *http.Request) {
 		f.Flush()
 	}
 	h.restart()
+}
+
+// PreviewNaming renders the three download naming templates against a fixed
+// sample work for the settings-UI live preview. It persists nothing;
+// per-template parse/exec errors come back in the body (still 200) so the
+// editor can show inline errors mid-edit without an HTTP error.
+// Authoritative validation still happens on PATCH.
+func (h *APIHandler) PreviewNaming(w http.ResponseWriter, r *http.Request) {
+	if err := h.requireAuth(); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	var body PreviewNamingJSONRequestBody
+	if err := decodeJSON(r, &body); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	// Start from the LIVE effective config (h.dl.Conf(), not the stale boot
+	// snapshot) so omitted templates fall back to the user's current values;
+	// overlay only the candidates the request supplied.
+	cand := h.dl.Conf()
+	if body.OutputDir != nil {
+		cand.OutputDir = *body.OutputDir
+	}
+	if body.FileTemplate != nil {
+		cand.FileTemplate = *body.FileTemplate
+	}
+	if body.FileGroupTemplate != nil {
+		cand.FileGroupTemplate = *body.FileGroupTemplate
+	}
+
+	root := h.dl.Root()
+	outDir, single, multi, errs := download.PreviewNaming(cand, root, h.dl.Home(), root)
+	if errs == nil {
+		errs = map[string]string{}
+	}
+	writeJSON(w, http.StatusOK, NamingPreviewResponse{
+		OutputDir:  outDir,
+		SinglePage: single,
+		MultiPage:  multi,
+		Fields:     errs,
+	})
 }
 
 func viewToWire(v *config.View) ConfigView {

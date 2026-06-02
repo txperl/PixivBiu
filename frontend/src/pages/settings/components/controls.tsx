@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { type FieldSpec, useFieldEnumLabel } from "@/features/settings";
 import { useMessages } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { TemplateEditDialog } from "./template-edit-dialog";
 
 export interface ControlProps {
     field: FieldSpec;
@@ -112,6 +113,14 @@ function SecretControl({ id, value, invalid, disabled, describedBy, onChange }: 
     );
 }
 
+const TEXTAREA_CLASS = cn(
+    "w-full max-w-2xl resize-y rounded-lg border border-input bg-transparent px-2.5 py-1.5 font-mono text-sm outline-none transition-colors",
+    "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+    "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+    "aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20",
+    "dark:bg-input/30",
+);
+
 function TextareaControl({ field, id, value, invalid, disabled, describedBy, onChange }: ControlProps) {
     return (
         <textarea
@@ -122,15 +131,34 @@ function TextareaControl({ field, id, value, invalid, disabled, describedBy, onC
             aria-invalid={invalid || undefined}
             aria-describedby={describedBy}
             placeholder={field.default != null ? String(field.default) : undefined}
-            className={cn(
-                "w-full max-w-2xl resize-y rounded-lg border border-input bg-transparent px-2.5 py-1.5 font-mono text-sm outline-none transition-colors",
-                "placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-                "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-                "aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20",
-                "dark:bg-input/30",
-            )}
+            className={TEXTAREA_CLASS}
             onChange={(e) => onChange(e.target.value)}
         />
+    );
+}
+
+// Template fields (output_dir / file_template / file_group_template) show a
+// read-only view of the current Go text/template plus an "Edit" button that
+// opens the dedicated dialog editor (semantic token palette + live preview).
+// The dialog owns the draft and only writes back to the form on "Done".
+function TemplateControl({ field, id, value, invalid, disabled, describedBy, onChange }: ControlProps) {
+    return (
+        <div className="flex max-w-2xl items-stretch gap-2">
+            <code className="min-w-0 flex-1 break-all rounded-lg border border-input bg-muted/30 px-2.5 py-1.5 font-mono text-sm">
+                {value || (
+                    <span className="text-muted-foreground">{field.default != null ? String(field.default) : ""}</span>
+                )}
+            </code>
+            <TemplateEditDialog
+                field={field}
+                id={id}
+                value={value}
+                invalid={invalid}
+                disabled={disabled}
+                describedBy={describedBy}
+                onChange={onChange}
+            />
+        </div>
     );
 }
 
@@ -146,6 +174,8 @@ export function FieldControl(props: ControlProps) {
             return <SecretControl {...props} />;
         case "textarea":
             return <TextareaControl {...props} />;
+        case "template":
+            return <TemplateControl {...props} />;
         default:
             return <InputControl {...props} />;
     }

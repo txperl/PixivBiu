@@ -54,6 +54,28 @@ export function useFieldText(): (field: FieldSpec) => string {
     };
 }
 
+// useNamingFieldLabel resolves an "insert field" menu id (see NAMING_MENU in
+// naming-tokens.ts) to its localized label, via the same explicit-static-map
+// pattern as useFieldText. Falls back to the raw id if a label is absent.
+export function useNamingFieldLabel(): (id: string) => string {
+    const m = useMessages();
+    const map: Record<string, () => string> = {
+        id: () => m.settings_template_field_id(),
+        title: () => m.settings_template_field_title(),
+        title_trunc: () => m.settings_template_field_title_trunc(),
+        type: () => m.settings_template_field_type(),
+        author: () => m.settings_template_field_author(),
+        authorid: () => m.settings_template_field_authorid(),
+        posted: () => m.settings_template_field_posted(),
+        today: () => m.settings_template_field_today(),
+        page: () => m.settings_template_field_page(),
+        ext: () => m.settings_template_field_ext(),
+        home: () => m.settings_template_field_home(),
+        root: () => m.settings_template_field_root(),
+    };
+    return (id: string) => map[id]?.() ?? id;
+}
+
 export function useSectionTitle(): (sectionId: string, fallback?: string) => string {
     const m = useMessages();
     const map: Record<string, () => string> = {
