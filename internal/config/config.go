@@ -20,12 +20,12 @@ const envPrefix = "PIXIVBIU_"
 const SchemaVersion = "1"
 
 type Config struct {
-	App      AppConfig      `koanf:"app"      cfg:"category=app,desc=应用通用设置"`
-	Server   ServerConfig   `koanf:"server"   cfg:"category=server,desc=HTTP 服务器设置"`
-	Log      LogConfig      `koanf:"log"      cfg:"category=log,desc=日志输出设置"`
-	Pixiv    PixivConfig    `koanf:"pixiv"    cfg:"category=pixiv,desc=Pixiv 上游与认证设置"`
-	Download DownloadConfig `koanf:"download" cfg:"category=download,desc=下载行为与模板"`
-	Inbox    InboxConfig    `koanf:"inbox"    cfg:"category=inbox,desc=事件总线 / SSE"`
+	App      AppConfig      `koanf:"app"      cfg:"category=app"`      // general application settings
+	Server   ServerConfig   `koanf:"server"   cfg:"category=server"`   // HTTP server
+	Log      LogConfig      `koanf:"log"      cfg:"category=log"`      // log output
+	Pixiv    PixivConfig    `koanf:"pixiv"    cfg:"category=pixiv"`    // Pixiv upstream & auth
+	Download DownloadConfig `koanf:"download" cfg:"category=download"` // download behavior & templates
+	Inbox    InboxConfig    `koanf:"inbox"    cfg:"category=inbox"`    // event bus / SSE
 }
 
 // AppConfig holds settings that don't belong to any single subsystem.
@@ -34,9 +34,9 @@ type Config struct {
 // GET /config, resolving `auto` against navigator.language. Backend
 // logs/banner are always in English.
 type AppConfig struct {
-	Language    string       `koanf:"language"     cfg:"desc=应用界面语言（auto = 跟随浏览器）,enum=auto|en|zh-CN|ja"`
-	OpenBrowser bool         `koanf:"open_browser" cfg:"desc=启动时自动在默认浏览器打开界面,restart=true"`
-	Update      UpdateConfig `koanf:"update"       cfg:"category=about,desc=版本更新检查"`
+	Language    string       `koanf:"language"     cfg:"enum=auto|en|zh-CN|ja"` // UI language (auto = follow browser)
+	OpenBrowser bool         `koanf:"open_browser" cfg:"restart=true"`          // open the web UI in the default browser at startup
+	Update      UpdateConfig `koanf:"update"       cfg:"category=about"`        // update-check settings
 }
 
 // UpdateConfig controls the built-in GitHub-release update check. The
@@ -51,60 +51,60 @@ type AppConfig struct {
 // so every channel still converges onto stable releases when they're the
 // newest. See internal/update/checker.go::releaseRank.
 type UpdateConfig struct {
-	Enabled bool   `koanf:"enabled" cfg:"desc=自动检查更新,advanced=true"`
-	Channel string `koanf:"channel" cfg:"desc=更新通道（beta/alpha 也接收预发布版本）,enum=stable|beta|alpha,advanced=true"`
+	Enabled bool   `koanf:"enabled" cfg:"advanced=true"`                        // auto-check for updates
+	Channel string `koanf:"channel" cfg:"enum=stable|beta|alpha,advanced=true"` // update channel (beta/alpha also accept prereleases)
 }
 
 type ServerConfig struct {
-	Host         string         `koanf:"host"          cfg:"desc=监听地址（默认 127.0.0.1 仅本机；0.0.0.0 接受所有，供局域网/Docker 访问）,restart=true,internal=true"`
-	Port         int            `koanf:"port"          cfg:"desc=监听端口,min=1,max=65535,restart=true,internal=true"`
-	PortFallback bool           `koanf:"port_fallback" cfg:"desc=端口被占用时自动顺延到下一个空闲端口（dev 下建议关闭以固定端口）,restart=true,internal=true"`
-	Timeouts     TimeoutsConfig `koanf:"timeouts"      cfg:"desc=HTTP 超时"`
+	Host         string         `koanf:"host"          cfg:"restart=true,internal=true"`                 // listen address (127.0.0.1 = local only; 0.0.0.0 = all interfaces, for LAN/Docker)
+	Port         int            `koanf:"port"          cfg:"min=1,max=65535,restart=true,internal=true"` // listen port
+	PortFallback bool           `koanf:"port_fallback" cfg:"restart=true,internal=true"`                 // advance to the next free port when busy (turn off in dev to pin the port)
+	Timeouts     TimeoutsConfig `koanf:"timeouts"`                                                       // HTTP timeouts
 }
 
 type TimeoutsConfig struct {
-	Read     time.Duration `koanf:"read"     cfg:"desc=读超时,restart=true,internal=true"`
-	Write    time.Duration `koanf:"write"    cfg:"desc=写超时,restart=true,internal=true"`
-	Shutdown time.Duration `koanf:"shutdown" cfg:"desc=优雅关闭超时,restart=true,internal=true"`
+	Read     time.Duration `koanf:"read"     cfg:"restart=true,internal=true"` // read timeout
+	Write    time.Duration `koanf:"write"    cfg:"restart=true,internal=true"` // write timeout
+	Shutdown time.Duration `koanf:"shutdown" cfg:"restart=true,internal=true"` // graceful-shutdown timeout
 }
 
 type LogConfig struct {
-	Level  string `koanf:"level"  cfg:"desc=日志级别,enum=debug|info|warn|error,advanced=true"`
-	Format string `koanf:"format" cfg:"desc=输出格式,enum=text|json,restart=true,advanced=true"`
+	Level  string `koanf:"level"  cfg:"enum=debug|info|warn|error,advanced=true"`  // log level
+	Format string `koanf:"format" cfg:"enum=text|json,restart=true,advanced=true"` // output format
 }
 
 type PixivConfig struct {
-	Proxy     string `koanf:"proxy"      cfg:"desc=HTTP/SOCKS 代理 URL（空串 = 直连）,sensitive=true"`
-	BypassSNI bool   `koanf:"bypass_sni" cfg:"desc=对 API 启用 DoH + 替代 SNI（仅对受限网络）,restart=true"`
-	StateFile string `koanf:"state_file" cfg:"desc=认证 token 持久化文件路径,restart=true,internal=true"`
+	Proxy     string `koanf:"proxy"      cfg:"sensitive=true"`             // HTTP/SOCKS proxy URL (empty = direct)
+	BypassSNI bool   `koanf:"bypass_sni" cfg:"restart=true"`               // use DoH + alternative SNI for the API (restricted networks only)
+	StateFile string `koanf:"state_file" cfg:"restart=true,internal=true"` // auth-token persistence file path
 }
 
 type DownloadConfig struct {
-	OutputDir         string        `koanf:"output_dir"          cfg:"desc=输出目录模板（Go text/template）"`
-	FileTemplate      string        `koanf:"file_template"       cfg:"desc=单文件名模板"`
-	FileGroupTemplate string        `koanf:"file_group_template" cfg:"desc=多页作品文件名模板"`
-	MaxConcurrent     int           `koanf:"max_concurrent"      cfg:"desc=最大并发任务数,min=1,max=64,restart=true"`
-	HTTPTimeout       time.Duration `koanf:"http_timeout"        cfg:"desc=单次下载请求超时"`
-	Retry             RetryConfig   `koanf:"retry"               cfg:"desc=失败重试策略"`
-	Referer           string        `koanf:"referer"             cfg:"desc=下载请求的 Referer 头,internal=true"`
-	PximgBase         string        `koanf:"pximg_base"          cfg:"desc=图片源 base URL（可指向反代）"`
-	Ugoira            UgoiraConfig  `koanf:"ugoira"              cfg:"desc=动图（Ugoira）输出"`
-	StoreFile         string        `koanf:"store_file"          cfg:"desc=下载索引持久化文件路径,restart=true,internal=true"`
+	OutputDir         string        `koanf:"output_dir"`                                      // output dir template (Go text/template)
+	FileTemplate      string        `koanf:"file_template"`                                   // single-file name template
+	FileGroupTemplate string        `koanf:"file_group_template"`                             // multi-page work name template
+	MaxConcurrent     int           `koanf:"max_concurrent" cfg:"min=1,max=64,restart=true"`  // max concurrent tasks
+	HTTPTimeout       time.Duration `koanf:"http_timeout"`                                    // per-download request timeout
+	Retry             RetryConfig   `koanf:"retry"`                                           // failure-retry policy
+	Referer           string        `koanf:"referer"        cfg:"internal=true"`              // Referer header for download requests
+	PximgBase         string        `koanf:"pximg_base"`                                      // image source base URL (can point at a reverse proxy)
+	Ugoira            UgoiraConfig  `koanf:"ugoira"`                                          // ugoira (animated) output
+	StoreFile         string        `koanf:"store_file"     cfg:"restart=true,internal=true"` // download-index persistence file path
 }
 
 type RetryConfig struct {
-	Max            int           `koanf:"max"             cfg:"desc=最大重试次数,min=0,max=10,advanced=true"`
-	InitialBackoff time.Duration `koanf:"initial_backoff" cfg:"desc=首次重试退避时长,advanced=true"`
+	Max            int           `koanf:"max"             cfg:"min=0,max=10,advanced=true"` // max retry attempts
+	InitialBackoff time.Duration `koanf:"initial_backoff" cfg:"advanced=true"`              // first-retry backoff duration
 }
 
 type UgoiraConfig struct {
-	Format string `koanf:"format" cfg:"desc=输出格式（none 保留原 zip）,enum=webp|gif|none"`
+	Format string `koanf:"format" cfg:"enum=webp|gif|none"` // output format (none keeps the original zip)
 }
 
 type InboxConfig struct {
-	BufferSize       int           `koanf:"buffer_size"       cfg:"desc=事件环形缓冲（Last-Event-ID 重放窗口）,min=1,max=100000,restart=true,internal=true"`
-	ProgressThrottle time.Duration `koanf:"progress_throttle" cfg:"desc=进度事件最小间隔,internal=true"`
-	Heartbeat        time.Duration `koanf:"heartbeat"         cfg:"desc=SSE keep-alive 间隔,internal=true"`
+	BufferSize       int           `koanf:"buffer_size"       cfg:"min=1,max=100000,restart=true,internal=true"` // event ring buffer (Last-Event-ID replay window)
+	ProgressThrottle time.Duration `koanf:"progress_throttle" cfg:"internal=true"`                               // min interval between progress events
+	Heartbeat        time.Duration `koanf:"heartbeat"         cfg:"internal=true"`                               // SSE keep-alive interval
 }
 
 // defaults is the single source of truth for built-in defaults.

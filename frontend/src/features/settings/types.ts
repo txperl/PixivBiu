@@ -27,7 +27,6 @@ export interface FieldSpec {
     category: string; // top-level section ("download", "pixiv", …)
     type: CfgType;
     control: ControlKind;
-    description: string; // human-readable, Chinese
     default: unknown;
     enum?: string[];
     minimum?: number;
@@ -56,7 +55,6 @@ export interface SectionSpec {
 // typed as an opaque map upstream, so we narrow it here.
 export interface JsonSchemaNode {
     type?: string;
-    description?: string;
     default?: unknown;
     enum?: unknown[];
     minimum?: number;

@@ -8,8 +8,9 @@ import type { FieldSpec } from "./types";
 // m[dynamicKey]() — that breaks Paraglide tree-shaking and types — so every
 // entry names a concrete m.cfg_* / m.settings_section_* function literally.
 //
-// Each resolver falls back to the field's own Chinese description / the raw
-// section id when a key is absent, so an unknown backend field still renders.
+// Each resolver falls back to the raw field.key / section id when a key is
+// absent, so an unknown backend field still renders (the backend no longer
+// ships any human-readable text — all UI strings live here).
 //
 // Naming bridge: a dotted field.key like "pixiv.proxy" maps to m.cfg_pixiv_proxy
 // (prefix "cfg_" + field.key.replaceAll(".", "_")); a section id like "download"
@@ -21,8 +22,8 @@ const cfgMessageKey = (field: FieldSpec): string => `cfg_${field.key.replaceAll(
 
 export function useFieldText(): (field: FieldSpec) => string {
     const m = useMessages();
-    // Keyed by `cfg_` + field.key.replaceAll(".", "_"). Covers all 26 leaf
-    // fields; anything else falls through to field.description / field.key.
+    // Keyed by `cfg_` + field.key.replaceAll(".", "_"). Covers all 29 leaf
+    // fields; anything else falls through to the raw field.key.
     const map: Record<string, () => string> = {
         cfg_app_language: () => m.cfg_app_language(),
         cfg_app_open_browser: () => m.cfg_app_open_browser(),
@@ -56,7 +57,7 @@ export function useFieldText(): (field: FieldSpec) => string {
     };
     return (field: FieldSpec) => {
         const key = cfgMessageKey(field);
-        return map[key]?.() ?? field.description ?? field.key;
+        return map[key]?.() ?? field.key;
     };
 }
 

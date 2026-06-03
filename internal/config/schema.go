@@ -30,7 +30,6 @@ type FieldMeta struct {
 	Category        string // top-level section ("download", "pixiv", …)
 	GoType          GoType
 	JSONType        string // JSON Schema "type"
-	Description     string // human-readable
 	Default         any    // value from defaults()
 	Min             *int64 // for ints
 	Max             *int64 // for ints
@@ -135,9 +134,6 @@ func (s *Schema) walk(t reflect.Type, prefix, parentCategory string, parentProps
 				"type":       "object",
 				"properties": map[string]any{},
 			}
-			if meta.description != "" {
-				child["description"] = meta.description
-			}
 			if category != "" {
 				child["x-cfg-category"] = category
 			}
@@ -164,7 +160,6 @@ func (s *Schema) addLeaf(key, category string, goType GoType, meta cfgTag, def a
 		Key:             key,
 		Category:        category,
 		GoType:          goType,
-		Description:     meta.description,
 		Default:         def,
 		Enum:            meta.enum,
 		Sensitive:       meta.sensitive,
@@ -187,9 +182,6 @@ func (s *Schema) addLeaf(key, category string, goType GoType, meta cfgTag, def a
 	js := map[string]any{"type": fm.JSONType}
 	if def != nil {
 		js["default"] = def
-	}
-	if fm.Description != "" {
-		js["description"] = fm.Description
 	}
 	if fm.Min != nil {
 		js["minimum"] = *fm.Min
@@ -234,14 +226,13 @@ func (s *Schema) addLeaf(key, category string, goType GoType, meta cfgTag, def a
 
 // cfgTag is the parsed form of a `cfg:"..."` struct tag.
 type cfgTag struct {
-	category    string
-	description string
-	enum        []string
-	min, max    *int64
-	sensitive   bool
-	restart     bool
-	advanced    bool
-	internal    bool
+	category  string
+	enum      []string
+	min, max  *int64
+	sensitive bool
+	restart   bool
+	advanced  bool
+	internal  bool
 }
 
 func parseTag(raw string) cfgTag {
@@ -260,8 +251,6 @@ func parseTag(raw string) cfgTag {
 		switch key {
 		case "category":
 			t.category = val
-		case "desc":
-			t.description = val
 		case "enum":
 			t.enum = strings.Split(val, "|")
 		case "min":

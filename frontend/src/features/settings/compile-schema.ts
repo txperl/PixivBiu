@@ -32,7 +32,6 @@ function walk(props: Record<string, JsonSchemaNode>, prefix: string, category: s
             category: cat,
             type,
             control: deriveControl(node, key, type, isDuration),
-            description: node.description ?? "",
             default: node.default,
             enum: node.enum?.map(String),
             minimum: typeof node.minimum === "number" ? node.minimum : undefined,
