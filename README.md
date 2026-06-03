@@ -1,13 +1,20 @@
-中文 | [English](README_EN.md) | [日本語](README_JA.md)
+**中文** · [English](README_EN.md) · [日本語](README_JA.md)
 
 # PixivBiu
 
-一款不错的 Pixiv 辅助工具。
+[![Go](https://img.shields.io/github/go-mod/go-version/txperl/PixivBiu)](go.mod)
+[![CI](https://img.shields.io/github/actions/workflow/status/txperl/PixivBiu/ci.yml?branch=master&label=CI)](https://github.com/txperl/PixivBiu/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/txperl/PixivBiu?sort=semver)](https://github.com/txperl/PixivBiu/releases)
+[![License](https://img.shields.io/github/license/txperl/PixivBiu)](LICENSE)
+
+PixivBiu，一款不错的 Pixiv 辅助工具。
 
 - **浏览**：完整客户端体验，作品、用户、排行，收藏与关注等
 - **筛选**：快速筛选，如收藏数、浏览量、标签、类型等
 - **下载**：原图下载，包括单图、多图、动图
 - **桌面与服务器**：全平台支持，提供 Windows、macOS、Linux 程序包
+
+<!-- 截图占位：补充界面截图后取消注释 —— ![PixivBiu 界面](docs/screenshot.png) -->
 
 ## 使用
 
@@ -34,11 +41,11 @@
 
 具体的配置说明，可参见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md) 文档。
 
-## Development
+## 开发
 
 构建与开发需要 `Go 1.26+`、`bun`、`make` 环境。
 
-### Build from Source
+### 从源码构建
 
 ```bash
 git clone https://github.com/txperl/PixivBiu.git
@@ -52,12 +59,14 @@ make dist
 ./bin/pixivbiu
 ```
 
-### For Dev
+### 本地开发
 
 开发时，可以 `make dev` 启动后端，然后 `cd frontend && bun run dev` 启动前端。
 
 具体的项目架构与实现细节，可参见 [AGENTS.md](AGENTS.md) 文档。
 
-## License
+## Disclaimer & License
 
-- [MIT](LICENSE)
+This project is intended for personal study and research only. Please comply with Pixiv's Terms of Service, respect creators' copyright, and refrain from any commercial or infringing use, or from redistributing downloaded works.
+
+Released under the [MIT](LICENSE) License.

@@ -1,13 +1,20 @@
-[中文](README.md) | [English](README_EN.md) | 日本語
+[中文](README.md) · [English](README_EN.md) · **日本語**
 
 # PixivBiu
 
-Pixiv のための便利な補助ツール。
+[![Go](https://img.shields.io/github/go-mod/go-version/txperl/PixivBiu)](go.mod)
+[![CI](https://img.shields.io/github/actions/workflow/status/txperl/PixivBiu/ci.yml?branch=master&label=CI)](https://github.com/txperl/PixivBiu/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/txperl/PixivBiu?sort=semver)](https://github.com/txperl/PixivBiu/releases)
+[![License](https://img.shields.io/github/license/txperl/PixivBiu)](LICENSE)
+
+PixivBiu、Pixiv のための便利な補助ツール。
 
 - **閲覧**：本格的なクライアント体験——作品・ユーザー・ランキング、ブックマークやフォローなど
 - **絞り込み**：ブックマーク数・閲覧数・タグ・種類などで素早く絞り込み
 - **ダウンロード**：オリジナル画質のダウンロード（単一・複数ページ・うごイラ対応）
 - **デスクトップ & サーバー**：全プラットフォーム対応、Windows・macOS・Linux 向けパッケージ
+
+<!-- スクリーンショット用プレースホルダー：UI 画像を追加したらコメントを解除 —— ![PixivBiu の画面](docs/screenshot.png) -->
 
 ## 使い方
 
@@ -34,11 +41,11 @@ Pixiv のための便利な補助ツール。
 
 設定の詳細は [docs/CONFIGURATION.md](docs/CONFIGURATION.md) を参照してください。
 
-## Development
+## 開発
 
 ビルドと開発には `Go 1.26+`、`bun`、`make` が必要です。
 
-### Build from Source
+### ソースからビルド
 
 ```bash
 git clone https://github.com/txperl/PixivBiu.git
@@ -52,12 +59,14 @@ make dist
 ./bin/pixivbiu
 ```
 
-### For Dev
+### 開発環境
 
 開発時は、まず `make dev` でバックエンドを起動し、続いて `cd frontend && bun run dev` でフロントエンドを起動します。
 
 プロジェクトの構成や実装の詳細は [AGENTS.md](AGENTS.md) を参照してください。
 
-## License
+## Disclaimer & License
 
-- [MIT](LICENSE)
+This project is intended for personal study and research only. Please comply with Pixiv's Terms of Service, respect creators' copyright, and refrain from any commercial or infringing use, or from redistributing downloaded works.
+
+Released under the [MIT](LICENSE) License.

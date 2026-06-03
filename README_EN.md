@@ -1,13 +1,20 @@
-[中文](README.md) | English | [日本語](README_JA.md)
+[中文](README.md) · **English** · [日本語](README_JA.md)
 
 # PixivBiu
 
-A handy companion tool for Pixiv.
+[![Go](https://img.shields.io/github/go-mod/go-version/txperl/PixivBiu)](go.mod)
+[![CI](https://img.shields.io/github/actions/workflow/status/txperl/PixivBiu/ci.yml?branch=master&label=CI)](https://github.com/txperl/PixivBiu/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/txperl/PixivBiu?sort=semver)](https://github.com/txperl/PixivBiu/releases)
+[![License](https://img.shields.io/github/license/txperl/PixivBiu)](LICENSE)
+
+PixivBiu, a handy companion tool for Pixiv.
 
 - **Browse** — a full client experience: illusts, users, rankings, bookmark & follow, and more
 - **Filter** — quickly narrow lists by bookmarks, views, tags, type, and more
 - **Download** — original-quality downloads of single images, multi-page works, and ugoira
 - **Desktop & server** — all platforms, with Windows / macOS / Linux packages
+
+<!-- Screenshot placeholder: uncomment once a UI screenshot is added — ![PixivBiu UI](docs/screenshot.png) -->
 
 ## Usage
 
@@ -52,12 +59,14 @@ make dist
 ./bin/pixivbiu
 ```
 
-### For Dev
+### Local Development
 
 For development, start the backend with `make dev`, then the frontend with `cd frontend && bun run dev`.
 
 For project architecture and implementation details, see [AGENTS.md](AGENTS.md).
 
-## License
+## Disclaimer & License
 
-- [MIT](LICENSE)
+This project is intended for personal study and research only. Please comply with Pixiv's Terms of Service, respect creators' copyright, and refrain from any commercial or infringing use, or from redistributing downloaded works.
+
+Released under the [MIT](LICENSE) License.
