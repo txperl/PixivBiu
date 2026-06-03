@@ -42,6 +42,7 @@ function walk(props: Record<string, JsonSchemaNode>, prefix: string, category: s
             restartRequired: !!node["x-cfg-restart-required"],
             advanced: !!node["x-cfg-advanced"],
             internal: !!node["x-cfg-internal"],
+            order: typeof node["x-cfg-order"] === "number" ? node["x-cfg-order"] : 0,
         });
     }
 }
@@ -59,12 +60,17 @@ export function compileSchema(schema: ConfigSchema): SectionSpec[] {
     }
 
     const sections: SectionSpec[] = [];
+    const byOrder = (a: FieldSpec, b: FieldSpec) => a.order - b.order;
     for (const [category, sectionFields] of byCategory) {
         const meta = SECTION_META[category];
         // Within a section, the advanced/internal tier sinks below the everyday
-        // fields. Two filters = a stable partition that keeps each group in its
-        // original declaration order.
-        const fields = [...sectionFields.filter((f) => !isAdvanced(f)), ...sectionFields.filter((f) => isAdvanced(f))];
+        // fields. Each group is sorted by x-cfg-order so it follows the Go
+        // struct declaration order rather than the alphabetical order the
+        // schema's properties map serializes to.
+        const fields = [
+            ...sectionFields.filter((f) => !isAdvanced(f)).sort(byOrder),
+            ...sectionFields.filter((f) => isAdvanced(f)).sort(byOrder),
+        ];
         sections.push({
             category,
             // Stable section id; the human-readable title is resolved at render

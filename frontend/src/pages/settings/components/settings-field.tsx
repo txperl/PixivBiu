@@ -1,7 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { type ConfigSource, type FieldSpec, isAdvanced, useFieldText } from "@/features/settings";
+import { type ConfigSource, type FieldSpec, isAdvanced, useFieldHint, useFieldText } from "@/features/settings";
 import { useMessages } from "@/i18n";
 import { RefreshIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,8 @@ export function SettingsField({
 }: SettingsFieldProps) {
     const m = useMessages();
     const fieldText = useFieldText();
+    const fieldHint = useFieldHint();
+    const hint = fieldHint(field);
     const id = fieldId(field.key);
     const errorId = `${id}-error`;
     const fromEnv = source === "env";
@@ -89,6 +91,8 @@ export function SettingsField({
                     onChange={onChange}
                 />
             </div>
+
+            {hint && <p className="mt-1.5 text-muted-foreground text-xs">{hint}</p>}
 
             {error && (
                 <p id={errorId} className="mt-1.5 text-destructive text-xs">

@@ -8,6 +8,7 @@ export {
 export { nestedGet } from "./flatten";
 export {
     useFieldEnumLabel,
+    useFieldHint,
     useFieldText,
     useNamingFieldLabel,
     useSectionDescription,

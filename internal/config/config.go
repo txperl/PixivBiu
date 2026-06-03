@@ -93,8 +93,8 @@ type DownloadConfig struct {
 }
 
 type RetryConfig struct {
-	Max            int           `koanf:"max"             cfg:"desc=最大重试次数,min=0,max=10"`
-	InitialBackoff time.Duration `koanf:"initial_backoff" cfg:"desc=首次重试退避时长"`
+	Max            int           `koanf:"max"             cfg:"desc=最大重试次数,min=0,max=10,advanced=true"`
+	InitialBackoff time.Duration `koanf:"initial_backoff" cfg:"desc=首次重试退避时长,advanced=true"`
 }
 
 type UgoiraConfig struct {

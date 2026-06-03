@@ -15,6 +15,10 @@ import type { FieldSpec } from "./types";
 // (prefix "cfg_" + field.key.replaceAll(".", "_")); a section id like "download"
 // maps to m.settings_section_download.
 
+// Bridges a dotted field.key ("pixiv.proxy") to its message-key stem
+// ("cfg_pixiv_proxy"), shared by useFieldText and useFieldHint.
+const cfgMessageKey = (field: FieldSpec): string => `cfg_${field.key.replaceAll(".", "_")}`;
+
 export function useFieldText(): (field: FieldSpec) => string {
     const m = useMessages();
     // Keyed by `cfg_` + field.key.replaceAll(".", "_"). Covers all 26 leaf
@@ -51,8 +55,34 @@ export function useFieldText(): (field: FieldSpec) => string {
         cfg_inbox_heartbeat: () => m.cfg_inbox_heartbeat(),
     };
     return (field: FieldSpec) => {
-        const key = `cfg_${field.key.replaceAll(".", "_")}`;
+        const key = cfgMessageKey(field);
         return map[key]?.() ?? field.description ?? field.key;
+    };
+}
+
+// useFieldHint resolves the optional one-line help text shown beneath a
+// field's control (e.g. "auto follows your system language"). Same explicit-
+// static-map pattern as useFieldText; returns undefined when a field has no
+// hint, so the row simply omits the help line.
+export function useFieldHint(): (field: FieldSpec) => string | undefined {
+    const m = useMessages();
+    const map: Record<string, () => string> = {
+        cfg_server_host: () => m.cfg_server_host_hint(),
+        cfg_server_port_fallback: () => m.cfg_server_port_fallback_hint(),
+        cfg_app_language: () => m.cfg_app_language_hint(),
+        cfg_app_open_browser: () => m.cfg_app_open_browser_hint(),
+        cfg_pixiv_proxy: () => m.cfg_pixiv_proxy_hint(),
+        cfg_pixiv_bypass_sni: () => m.cfg_pixiv_bypass_sni_hint(),
+        cfg_pixiv_state_file: () => m.cfg_pixiv_state_file_hint(),
+        cfg_download_referer: () => m.cfg_download_referer_hint(),
+        cfg_download_pximg_base: () => m.cfg_download_pximg_base_hint(),
+        cfg_download_ugoira_format: () => m.cfg_download_ugoira_format_hint(),
+        cfg_download_store_file: () => m.cfg_download_store_file_hint(),
+        cfg_inbox_buffer_size: () => m.cfg_inbox_buffer_size_hint(),
+    };
+    return (field: FieldSpec) => {
+        const key = cfgMessageKey(field);
+        return map[key]?.();
     };
 }
 

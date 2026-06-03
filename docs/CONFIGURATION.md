@@ -61,8 +61,8 @@ built-in defaults  →  ./usr/settings.json  →  environment variables  (env wi
 | `PIXIVBIU_DOWNLOAD_FILE_GROUP_TEMPLATE` | *(see below)* | multi-page file name template | — |
 | `PIXIVBIU_DOWNLOAD_MAX_CONCURRENT` | `4` | worker-pool size (1–64) | restart |
 | `PIXIVBIU_DOWNLOAD_HTTP_TIMEOUT` | `60s` | duration — per-download request timeout | — |
-| `PIXIVBIU_DOWNLOAD_RETRY_MAX` | `2` | max retries per task (0–10) | — |
-| `PIXIVBIU_DOWNLOAD_RETRY_INITIAL_BACKOFF` | `1s` | duration — first retry backoff (exponential, capped at 30s) | — |
+| `PIXIVBIU_DOWNLOAD_RETRY_MAX` | `2` | max retries per task (0–10) | advanced |
+| `PIXIVBIU_DOWNLOAD_RETRY_INITIAL_BACKOFF` | `1s` | duration — first retry backoff (exponential, capped at 30s) | advanced |
 | `PIXIVBIU_DOWNLOAD_REFERER` | `https://app-api.pixiv.net/` | `Referer` header sent with downloads | internal |
 | `PIXIVBIU_DOWNLOAD_PXIMG_BASE` | `https://i.pximg.net` | image-source base URL (can point at a reverse proxy) | — |
 | `PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT` | `webp` | `webp` / `gif` / `none` (`none` keeps the original zip) | — |

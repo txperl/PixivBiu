@@ -51,6 +51,12 @@ type FieldMeta struct {
 type Schema struct {
 	JSON   map[string]any
 	Fields map[string]*FieldMeta
+
+	// nextOrder stamps each leaf with a monotonically increasing x-cfg-order
+	// as walk visits the struct depth-first, so the frontend can render
+	// fields in declaration order rather than the alphabetical order
+	// encoding/json gives the properties map.
+	nextOrder int
 }
 
 // IsSensitive returns whether the leaf at key is flagged sensitive.
@@ -221,6 +227,8 @@ func (s *Schema) addLeaf(key, category string, goType GoType, meta cfgTag, def a
 	if fm.Internal {
 		js["x-cfg-internal"] = true
 	}
+	js["x-cfg-order"] = s.nextOrder
+	s.nextOrder++
 	parentProps[propName] = js
 }
 

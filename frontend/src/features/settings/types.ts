@@ -39,6 +39,10 @@ export interface FieldSpec {
     // Program-only (ops/maintenance): editable only by hand in the config
     // file. Rendered read-only and hidden behind the "advanced" toggle.
     internal: boolean;
+    // Declaration-order index from the backend (x-cfg-order); fields are
+    // sorted by it so the page mirrors the Go struct instead of the
+    // alphabetical order the schema's properties map serializes to.
+    order: number;
 }
 
 export interface SectionSpec {
@@ -65,6 +69,7 @@ export interface JsonSchemaNode {
     "x-cfg-restart-required"?: boolean;
     "x-cfg-advanced"?: boolean;
     "x-cfg-internal"?: boolean;
+    "x-cfg-order"?: number;
 }
 
 export interface ConfigSchema extends JsonSchemaNode {
