@@ -13,7 +13,7 @@ require (
 	github.com/knadh/koanf/v2 v2.3.4
 	github.com/minio/selfupdate v0.6.0
 	github.com/oapi-codegen/runtime v1.4.0
-	github.com/txperl/pixivgo v0.0.0-20260417090103-026ffa870239
+	github.com/txperl/pixivgo v0.1.0
 	golang.org/x/mod v0.30.0
 )
 

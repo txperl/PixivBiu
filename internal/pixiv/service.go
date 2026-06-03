@@ -31,9 +31,14 @@ type Service struct {
 	// as everything else.
 	httpc *http.Client
 
-	mu        sync.RWMutex
-	token     state.Token
-	refreshCh chan struct{} // signals the refresh loop to re-check immediately
+	mu    sync.RWMutex
+	token state.Token
+
+	// refreshMu serializes auth publishes (Login, Logout, the loop, the on-401
+	// refresh) so a stale refresh can't clobber a fresh login, and single-flights
+	// a burst of 401s into one refresh. NOT held across a retry (that uses a
+	// pinned client Clone), so retries still run in parallel. Order: refreshMu before mu.
+	refreshMu sync.Mutex
 
 	wg   sync.WaitGroup
 	stop context.CancelFunc
@@ -54,13 +59,12 @@ func NewService(cfg config.PixivConfig, logger *slog.Logger, store *state.Store)
 	}
 
 	s := &Service{
-		cfg:       cfg,
-		logger:    logger,
-		store:     store,
-		client:    client,
-		httpc:     httpc,
-		token:     tok,
-		refreshCh: make(chan struct{}, 1),
+		cfg:    cfg,
+		logger: logger,
+		store:  store,
+		client: client,
+		httpc:  httpc,
+		token:  tok,
 	}
 
 	if !tok.IsEmpty() {
@@ -108,12 +112,9 @@ func (s *Service) Snapshot() state.Token {
 	return s.token
 }
 
-// Client returns the underlying pixivgo client. Handlers use it for
-// read-only API calls; write calls (bookmark/follow) also go through it.
-// The caller must check Authenticated() first — pixivgo itself returns
-// ErrAuthRequired on unauthenticated calls, which we translate in handlers.
-//
-// Read under s.mu because Reload may swap s.client concurrently.
+// Client returns the underlying pixivgo client. For authenticated API calls
+// prefer the package-level Call / Exec wrappers — a bare Client() won't
+// refresh-and-retry on a 401. Read under s.mu because Reload may swap s.client.
 func (s *Service) Client() *pixivgo.Client {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -181,8 +182,11 @@ func (s *Service) LoginWithAuthCode(ctx context.Context, code, verifier string) 
 	return s.refresh(ctx, rt)
 }
 
-// Logout clears the in-memory and on-disk token state.
+// Logout clears the in-memory and on-disk token state, under refreshMu so an
+// in-flight refresh can't re-publish a stale token over the cleared state.
 func (s *Service) Logout() error {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
 	s.mu.Lock()
 	s.token = state.Token{}
 	client := s.client
@@ -191,9 +195,30 @@ func (s *Service) Logout() error {
 	return s.store.Clear()
 }
 
-// refresh calls pixivgo.Auth, updates the in-memory + on-disk state.
-// The client's own accessToken/refreshToken are updated by pixivgo.Auth.
+// refresh authenticates with an explicit refreshToken and publishes the result.
+// Used by Start, Login, and LoginWithAuthCode.
 func (s *Service) refresh(ctx context.Context, refreshToken string) (state.Token, error) {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	return s.refreshLocked(ctx, refreshToken)
+}
+
+// refreshCurrent refreshes the current session, re-reading the token under
+// refreshMu so it can't refresh a stale session. Used by the loop; no-op when
+// logged out.
+func (s *Service) refreshCurrent(ctx context.Context) (state.Token, error) {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	rt := s.refreshToken()
+	if rt == "" {
+		return state.Token{}, nil // logged out since the loop's check — nothing to do
+	}
+	return s.refreshLocked(ctx, rt)
+}
+
+// refreshLocked authenticates and publishes the new token (in-memory, on-disk,
+// and the client itself). Caller MUST hold refreshMu.
+func (s *Service) refreshLocked(ctx context.Context, refreshToken string) (state.Token, error) {
 	// Bound every token refresh so an unreachable Pixiv fails within authTimeout
 	// (kept under the server WriteTimeout) instead of hanging. Covers Start,
 	// Login, and the background loop; under LoginWithAuthCode's wider span budget
@@ -264,7 +289,6 @@ func (s *Service) loop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-		case <-s.refreshCh:
 		}
 		s.mu.RLock()
 		tok := s.token
@@ -275,7 +299,7 @@ func (s *Service) loop(ctx context.Context) {
 		if !tok.AccessTokenExpiresAt.IsZero() && time.Until(tok.AccessTokenExpiresAt) > 5*time.Minute {
 			continue
 		}
-		if _, err := s.refresh(ctx, tok.RefreshToken); err != nil {
+		if _, err := s.refreshCurrent(ctx); err != nil {
 			s.logger.Warn("pixiv token refresh failed; will retry",
 				slog.Any("error", err))
 		}

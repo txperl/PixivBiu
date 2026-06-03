@@ -16,9 +16,11 @@ func (h *APIHandler) GetUser(w http.ResponseWriter, r *http.Request, id UserIdPa
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := h.svc.Client().UserDetail(r.Context(), pixivgo.UserDetailParams{
-		UserID: int(id),
-		Filter: pixivgo.Filter(derefEnum(params.ClientMode)),
+	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.UserInfoDetailed, error) {
+		return c.UserDetail(r.Context(), pixivgo.UserDetailParams{
+			UserID: int(id),
+			Filter: pixivgo.Filter(derefEnum(params.ClientMode)),
+		})
 	})
 	if err != nil {
 		WriteError(w, r, err)
@@ -37,11 +39,13 @@ func (h *APIHandler) ListUserIllusts(w http.ResponseWriter, r *http.Request, id 
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := h.svc.Client().UserIllusts(r.Context(), pixivgo.UserIllustsParams{
-		UserID: int(id),
-		Type:   pixivgo.IllustType(derefEnum(params.Type)),
-		Filter: pixivgo.Filter(derefEnum(params.ClientMode)),
-		Offset: i64OptToIntOpt(params.Offset),
+	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.UserIllustrations, error) {
+		return c.UserIllusts(r.Context(), pixivgo.UserIllustsParams{
+			UserID: int(id),
+			Type:   pixivgo.IllustType(derefEnum(params.Type)),
+			Filter: pixivgo.Filter(derefEnum(params.ClientMode)),
+			Offset: i64OptToIntOpt(params.Offset),
+		})
 	})
 	if err != nil {
 		WriteError(w, r, err)
@@ -59,12 +63,14 @@ func (h *APIHandler) ListUserBookmarks(w http.ResponseWriter, r *http.Request, i
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := h.svc.Client().UserBookmarksIllust(r.Context(), pixivgo.UserBookmarksIllustParams{
-		UserID:        int(id),
-		Restrict:      pixivgo.Restrict(derefEnum(params.Restrict)),
-		Filter:        pixivgo.Filter(derefEnum(params.ClientMode)),
-		MaxBookmarkID: i64OptToIntOpt(params.MaxBookmarkId),
-		Tag:           params.Tag,
+	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.UserBookmarksIllustrations, error) {
+		return c.UserBookmarksIllust(r.Context(), pixivgo.UserBookmarksIllustParams{
+			UserID:        int(id),
+			Restrict:      pixivgo.Restrict(derefEnum(params.Restrict)),
+			Filter:        pixivgo.Filter(derefEnum(params.ClientMode)),
+			MaxBookmarkID: i64OptToIntOpt(params.MaxBookmarkId),
+			Tag:           params.Tag,
+		})
 	})
 	if err != nil {
 		WriteError(w, r, err)
@@ -81,10 +87,12 @@ func (h *APIHandler) ListUserFollowing(w http.ResponseWriter, r *http.Request, i
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := h.svc.Client().UserFollowing(r.Context(), pixivgo.UserFollowingParams{
-		UserID:   int(id),
-		Restrict: pixivgo.Restrict(derefEnum(params.Restrict)),
-		Offset:   i64OptToIntOpt(params.Offset),
+	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.UserFollowing, error) {
+		return c.UserFollowing(r.Context(), pixivgo.UserFollowingParams{
+			UserID:   int(id),
+			Restrict: pixivgo.Restrict(derefEnum(params.Restrict)),
+			Offset:   i64OptToIntOpt(params.Offset),
+		})
 	})
 	if err != nil {
 		WriteError(w, r, err)
@@ -110,9 +118,11 @@ func (h *APIHandler) AddFollow(w http.ResponseWriter, r *http.Request, id UserId
 	if body.Restrict != nil {
 		restrict = pixivgo.Restrict(*body.Restrict)
 	}
-	if err := h.svc.Client().UserFollowAdd(r.Context(), pixivgo.UserFollowAddParams{
-		UserID:   int(id),
-		Restrict: restrict,
+	if err := pixiv.Exec(r.Context(), h.svc, func(c *pixivgo.Client) error {
+		return c.UserFollowAdd(r.Context(), pixivgo.UserFollowAddParams{
+			UserID:   int(id),
+			Restrict: restrict,
+		})
 	}); err != nil {
 		WriteError(w, r, err)
 		return
@@ -125,8 +135,10 @@ func (h *APIHandler) DeleteFollow(w http.ResponseWriter, r *http.Request, id Use
 		WriteError(w, r, err)
 		return
 	}
-	if err := h.svc.Client().UserFollowDelete(r.Context(), pixivgo.UserFollowDeleteParams{
-		UserID: int(id),
+	if err := pixiv.Exec(r.Context(), h.svc, func(c *pixivgo.Client) error {
+		return c.UserFollowDelete(r.Context(), pixivgo.UserFollowDeleteParams{
+			UserID: int(id),
+		})
 	}); err != nil {
 		WriteError(w, r, err)
 		return

@@ -13,16 +13,18 @@ func (h *APIHandler) SearchIllusts(w http.ResponseWriter, r *http.Request, param
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := h.svc.Client().SearchIllust(r.Context(), pixivgo.SearchIllustParams{
-		Word:         params.Word,
-		SearchTarget: pixivgo.SearchTarget(derefEnum(params.SearchTarget)),
-		Sort:         pixivgo.Sort(derefEnum(params.Sort)),
-		Duration:     durationOpt(params.Duration),
-		StartDate:    params.StartDate,
-		EndDate:      params.EndDate,
-		Filter:       pixivgo.Filter(derefEnum(params.ClientMode)),
-		SearchAIType: excludeAIOpt(params.ExcludeAi),
-		Offset:       i64OptToIntOpt(params.Offset),
+	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.SearchIllustrations, error) {
+		return c.SearchIllust(r.Context(), pixivgo.SearchIllustParams{
+			Word:         params.Word,
+			SearchTarget: pixivgo.SearchTarget(derefEnum(params.SearchTarget)),
+			Sort:         pixivgo.Sort(derefEnum(params.Sort)),
+			Duration:     durationOpt(params.Duration),
+			StartDate:    params.StartDate,
+			EndDate:      params.EndDate,
+			Filter:       pixivgo.Filter(derefEnum(params.ClientMode)),
+			SearchAIType: excludeAIOpt(params.ExcludeAi),
+			Offset:       i64OptToIntOpt(params.Offset),
+		})
 	})
 	if err != nil {
 		WriteError(w, r, err)
@@ -39,12 +41,14 @@ func (h *APIHandler) SearchUsers(w http.ResponseWriter, r *http.Request, params 
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := h.svc.Client().SearchUser(r.Context(), pixivgo.SearchUserParams{
-		Word:     params.Word,
-		Sort:     pixivgo.Sort(derefEnum(params.Sort)),
-		Duration: durationOpt(params.Duration),
-		Filter:   pixivgo.Filter(derefEnum(params.ClientMode)),
-		Offset:   i64OptToIntOpt(params.Offset),
+	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.UserListResponse, error) {
+		return c.SearchUser(r.Context(), pixivgo.SearchUserParams{
+			Word:     params.Word,
+			Sort:     pixivgo.Sort(derefEnum(params.Sort)),
+			Duration: durationOpt(params.Duration),
+			Filter:   pixivgo.Filter(derefEnum(params.ClientMode)),
+			Offset:   i64OptToIntOpt(params.Offset),
+		})
 	})
 	if err != nil {
 		WriteError(w, r, err)

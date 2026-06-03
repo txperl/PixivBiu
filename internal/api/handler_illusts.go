@@ -16,8 +16,10 @@ func (h *APIHandler) GetIllust(w http.ResponseWriter, r *http.Request, id Illust
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := h.svc.Client().IllustDetail(r.Context(), pixivgo.IllustDetailParams{
-		IllustID: int(id),
+	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.IllustDetailResponse, error) {
+		return c.IllustDetail(r.Context(), pixivgo.IllustDetailParams{
+			IllustID: int(id),
+		})
 	})
 	if err != nil {
 		WriteError(w, r, err)
@@ -31,8 +33,10 @@ func (h *APIHandler) GetUgoiraMetadata(w http.ResponseWriter, r *http.Request, i
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := h.svc.Client().UgoiraMetadata(r.Context(), pixivgo.UgoiraMetadataParams{
-		IllustID: int(id),
+	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.UgoiraMetadataResponse, error) {
+		return c.UgoiraMetadata(r.Context(), pixivgo.UgoiraMetadataParams{
+			IllustID: int(id),
+		})
 	})
 	if err != nil {
 		WriteError(w, r, err)
@@ -46,11 +50,13 @@ func (h *APIHandler) ListRanking(w http.ResponseWriter, r *http.Request, params 
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := h.svc.Client().IllustRanking(r.Context(), pixivgo.IllustRankingParams{
-		Mode:   pixivgo.RankingMode(derefEnum(params.Mode)),
-		Filter: pixivgo.Filter(derefEnum(params.ClientMode)),
-		Date:   params.Date,
-		Offset: i64OptToIntOpt(params.Offset),
+	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.IllustListResponse, error) {
+		return c.IllustRanking(r.Context(), pixivgo.IllustRankingParams{
+			Mode:   pixivgo.RankingMode(derefEnum(params.Mode)),
+			Filter: pixivgo.Filter(derefEnum(params.ClientMode)),
+			Date:   params.Date,
+			Offset: i64OptToIntOpt(params.Offset),
+		})
 	})
 	if err != nil {
 		WriteError(w, r, err)
@@ -64,11 +70,13 @@ func (h *APIHandler) ListRecommended(w http.ResponseWriter, r *http.Request, par
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := h.svc.Client().IllustRecommended(r.Context(), pixivgo.IllustRecommendedParams{
-		ContentType:           pixivgo.IllustType(derefEnum(params.Type)),
-		Filter:                pixivgo.Filter(derefEnum(params.ClientMode)),
-		IncludeRankingIllusts: params.IncludeRankingIllusts,
-		Offset:                i64OptToIntOpt(params.Offset),
+	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.IllustListResponse, error) {
+		return c.IllustRecommended(r.Context(), pixivgo.IllustRecommendedParams{
+			ContentType:           pixivgo.IllustType(derefEnum(params.Type)),
+			Filter:                pixivgo.Filter(derefEnum(params.ClientMode)),
+			IncludeRankingIllusts: params.IncludeRankingIllusts,
+			Offset:                i64OptToIntOpt(params.Offset),
+		})
 	})
 	if err != nil {
 		WriteError(w, r, err)
@@ -82,9 +90,11 @@ func (h *APIHandler) ListFollowingIllusts(w http.ResponseWriter, r *http.Request
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := h.svc.Client().IllustFollow(r.Context(), pixivgo.IllustFollowParams{
-		Restrict: pixivgo.Restrict(derefEnum(params.Restrict)),
-		Offset:   i64OptToIntOpt(params.Offset),
+	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.IllustListResponse, error) {
+		return c.IllustFollow(r.Context(), pixivgo.IllustFollowParams{
+			Restrict: pixivgo.Restrict(derefEnum(params.Restrict)),
+			Offset:   i64OptToIntOpt(params.Offset),
+		})
 	})
 	if err != nil {
 		WriteError(w, r, err)
@@ -98,8 +108,10 @@ func (h *APIHandler) GetBookmarkDetail(w http.ResponseWriter, r *http.Request, i
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := h.svc.Client().IllustBookmarkDetail(r.Context(), pixivgo.IllustBookmarkDetailParams{
-		IllustID: int(id),
+	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.BookmarkDetailResponse, error) {
+		return c.IllustBookmarkDetail(r.Context(), pixivgo.IllustBookmarkDetailParams{
+			IllustID: int(id),
+		})
 	})
 	if err != nil {
 		WriteError(w, r, err)
@@ -125,9 +137,11 @@ func (h *APIHandler) AddBookmark(w http.ResponseWriter, r *http.Request, id Illu
 	if body.Restrict != nil {
 		restrict = pixivgo.Restrict(*body.Restrict)
 	}
-	if err := h.svc.Client().IllustBookmarkAdd(r.Context(), pixivgo.IllustBookmarkAddParams{
-		IllustID: int(id),
-		Restrict: restrict,
+	if err := pixiv.Exec(r.Context(), h.svc, func(c *pixivgo.Client) error {
+		return c.IllustBookmarkAdd(r.Context(), pixivgo.IllustBookmarkAddParams{
+			IllustID: int(id),
+			Restrict: restrict,
+		})
 	}); err != nil {
 		WriteError(w, r, err)
 		return
@@ -140,8 +154,10 @@ func (h *APIHandler) DeleteBookmark(w http.ResponseWriter, r *http.Request, id I
 		WriteError(w, r, err)
 		return
 	}
-	if err := h.svc.Client().IllustBookmarkDelete(r.Context(), pixivgo.IllustBookmarkDeleteParams{
-		IllustID: int(id),
+	if err := pixiv.Exec(r.Context(), h.svc, func(c *pixivgo.Client) error {
+		return c.IllustBookmarkDelete(r.Context(), pixivgo.IllustBookmarkDeleteParams{
+			IllustID: int(id),
+		})
 	}); err != nil {
 		WriteError(w, r, err)
 		return

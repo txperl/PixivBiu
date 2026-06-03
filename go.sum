@@ -124,8 +124,8 @@ github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81P
 github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5cxcmMvtA=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
-github.com/txperl/pixivgo v0.0.0-20260417090103-026ffa870239 h1:F5ZTFiHPB8LE5jWdCl0gbcGw4ebHXzjBhEXe/k1kGOs=
-github.com/txperl/pixivgo v0.0.0-20260417090103-026ffa870239/go.mod h1:ZG3czU+ZgVsLtsih+4kKQyQEXYMbZyS3WkRGRmWFurE=
+github.com/txperl/pixivgo v0.1.0 h1:Qq+DQYvSg4pXRukCTsIk7Zjj/aDHWLUboM5JREwMwog=
+github.com/txperl/pixivgo v0.1.0/go.mod h1:ZG3czU+ZgVsLtsih+4kKQyQEXYMbZyS3WkRGRmWFurE=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
 github.com/vmware-labs/yaml-jsonpath v0.3.2 h1:/5QKeCBGdsInyDCyVNLbXyilb61MXGi9NP674f9Hobk=

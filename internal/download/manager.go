@@ -500,11 +500,12 @@ func (m *Manager) RemoveTerminal(statuses []Status) (int, error) {
 // enqueues them, and returns the Job. The returned Job is the live
 // pointer; callers must not mutate it.
 func (m *Manager) Submit(ctx context.Context, illustID int64) (*Job, error) {
-	client := m.pixiv.Client()
-	if client == nil {
+	if !m.pixiv.Authenticated() {
 		return nil, pixiv.ErrNotAuthenticated
 	}
-	detail, err := client.IllustDetail(ctx, pixivgo.IllustDetailParams{IllustID: int(illustID)})
+	detail, err := pixiv.Call(ctx, m.pixiv, func(c *pixivgo.Client) (*pixivgo.IllustDetailResponse, error) {
+		return c.IllustDetail(ctx, pixivgo.IllustDetailParams{IllustID: int(illustID)})
+	})
 	if err != nil {
 		return nil, fmt.Errorf("fetch illust %d: %w", illustID, err)
 	}
@@ -671,8 +672,9 @@ func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseC
 // triggered by the worker post-download, not as a separate task.
 func (m *Manager) buildUgoiraTasks(ctx context.Context, job *Job, baseCtx NameContext) error {
 	st := m.state.Load()
-	client := m.pixiv.Client()
-	meta, err := client.UgoiraMetadata(ctx, pixivgo.UgoiraMetadataParams{IllustID: int(job.IllustID)})
+	meta, err := pixiv.Call(ctx, m.pixiv, func(c *pixivgo.Client) (*pixivgo.UgoiraMetadataResponse, error) {
+		return c.UgoiraMetadata(ctx, pixivgo.UgoiraMetadataParams{IllustID: int(job.IllustID)})
+	})
 	if err != nil {
 		return fmt.Errorf("ugoira metadata: %w", err)
 	}
