@@ -32,4 +32,34 @@ function SheetHead({ icon, title, meta, actions }: SheetHeadProps) {
     );
 }
 
-export { Sheet, SheetHead };
+// Fixed-height body region for a Sheet panel. Owns the panel body height so
+// call sites don't repeat the magic number, and gives a definite height for
+// children like ScrollArea (h-full) or SheetEmpty to fill.
+function SheetBody({ children }: { children: React.ReactNode }) {
+    return <div className="h-[300px]">{children}</div>;
+}
+
+type SheetEmptyProps = {
+    icon: IconSvgElement;
+    title: string;
+    hint?: string;
+};
+
+// Centered empty state for a Sheet body. Fills its parent's height — render
+// inside a SheetBody (or any definite-height container) so the soft icon
+// medallion + copy sit centered instead of leaving the panel looking desolate.
+function SheetEmpty({ icon, title, hint }: SheetEmptyProps) {
+    return (
+        <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground/70">
+                <HugeiconsIcon icon={icon} size={24} strokeWidth={1.5} />
+            </div>
+            <div className="space-y-1">
+                <p className="m-0 font-medium text-foreground text-sm">{title}</p>
+                {hint && <p className="m-0 text-muted-foreground text-xs leading-relaxed">{hint}</p>}
+            </div>
+        </div>
+    );
+}
+
+export { Sheet, SheetBody, SheetEmpty, SheetHead };

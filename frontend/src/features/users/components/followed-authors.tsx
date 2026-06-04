@@ -3,7 +3,7 @@ import { zhCN } from "date-fns/locale";
 import { useEffect, useState } from "react";
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
-import { Sheet, SheetHead } from "@/components/sheet";
+import { Sheet, SheetBody, SheetEmpty, SheetHead } from "@/components/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -67,39 +67,40 @@ function FollowedAuthors({ onView }: FollowedAuthorsProps) {
     }, []);
 
     const authors: AuthorGroup[] = state.status === "success" ? groupByAuthor(state.illusts) : [];
-    const meta =
-        state.status === "success"
-            ? m.user_followed_authors_meta({ authors: authors.length, works: state.illusts.length })
-            : undefined;
 
     return (
         <Sheet>
             <SheetHead
                 icon={FollowIcon}
                 title={m.user_followed_authors_title()}
-                meta={meta}
                 actions={
                     <Button variant="ghost" size="sm" onClick={onView}>
                         {m.common_view()}
                     </Button>
                 }
             />
-            <ScrollArea className="h-[300px]">
+            <SheetBody>
                 {state.status === "loading" && <LoadingRows />}
                 {state.status === "error" && (
-                    <div className="px-[18px] py-6 text-center text-muted-foreground text-sm">
+                    <div className="flex h-full items-center justify-center px-[18px] text-center text-muted-foreground text-sm">
                         {resolveApiError(state.error)}
                     </div>
                 )}
                 {state.status === "success" &&
-                    (authors.length === 0 ? (
-                        <div className="px-[18px] py-6 text-center text-muted-foreground text-sm">
-                            {m.user_followed_authors_empty()}
-                        </div>
+                    (authors.length > 0 ? (
+                        <ScrollArea className="h-full">
+                            {authors.map((group, i) => (
+                                <AuthorRow key={group.user.id} group={group} isFirst={i === 0} />
+                            ))}
+                        </ScrollArea>
                     ) : (
-                        authors.map((group, i) => <AuthorRow key={group.user.id} group={group} isFirst={i === 0} />)
+                        <SheetEmpty
+                            icon={FollowIcon}
+                            title={m.user_followed_authors_empty()}
+                            hint={m.user_followed_authors_empty_hint()}
+                        />
                     ))}
-            </ScrollArea>
+            </SheetBody>
         </Sheet>
     );
 }
