@@ -508,9 +508,19 @@ func snapshotEnv(schema *Schema) map[string]any {
 // pruneAgainstDefaults drops keys whose value matches the built-in
 // default. Comparison is done via JSON encoding to normalise the
 // int-vs-float64 mismatch produced by encoding/json.
+//
+// It compares against the static baseDefaults, not defaults(): app.update.
+// channel has no static default (it is build-derived, see SetDefaultUpdate
+// channel) and so is absent here, which means it is never pruned. That is
+// deliberate — diff-only pruning against the live build's default would
+// silently drop an explicit channel choice that happens to equal the running
+// build's default (e.g. "beta" saved on a beta build), so the override would
+// vanish and revert to stable after updating to a stable build. Keeping the
+// key makes an explicitly-chosen channel durable across builds; an unset
+// channel still has nothing persisted and follows the build-derived default.
 func pruneAgainstDefaults(flat map[string]any) map[string]any {
 	out := map[string]any{}
-	defs := defaults()
+	defs := baseDefaults()
 	for k, v := range flat {
 		if def, ok := defs[k]; ok && sameJSON(v, def) {
 			continue

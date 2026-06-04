@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -49,7 +50,9 @@ type AppConfig struct {
 // Channel is a cumulative maturity floor (stable < beta < alpha): each
 // riskier channel is a superset that also accepts everything more stable,
 // so every channel still converges onto stable releases when they're the
-// newest. See internal/update/checker.go::releaseRank.
+// newest. See internal/update/checker.go::releaseRank. Its default is not
+// fixed: it tracks the running build's maturity (a pre-release build defaults
+// to its own channel) via SetDefaultUpdateChannel; an explicit override wins.
 type UpdateConfig struct {
 	Enabled bool   `koanf:"enabled" cfg:"advanced=true"`                        // auto-check for updates
 	Channel string `koanf:"channel" cfg:"enum=stable|beta|alpha,advanced=true"` // update channel (beta/alpha also accept prereleases)
@@ -107,15 +110,33 @@ type InboxConfig struct {
 	Heartbeat        time.Duration `koanf:"heartbeat"         cfg:"internal=true"`                               // SSE keep-alive interval
 }
 
-// defaults is the single source of truth for built-in defaults.
-// Memoised because it's read several times per Patch/View and the map
-// is treated as read-only by every consumer.
-var defaults = sync.OnceValue(func() map[string]any {
+// defaultUpdateChannel is the build-derived default for app.update.channel,
+// seeded once at startup by SetDefaultUpdateChannel from the running binary's
+// maturity (a pre-release build defaults to its own channel). An explicit user
+// override in settings.json / env still wins; this only moves the baseline.
+var defaultUpdateChannel = "stable"
+
+// SetDefaultUpdateChannel overrides the built-in default update channel. It MUST
+// be called before NewManager, because defaults() is read while building the
+// schema and seeding the merged config. An empty or unknown value is ignored,
+// leaving the "stable" default; valid values are stable|beta|alpha (the channel
+// enum). Callers derive the argument from the build via update.DefaultChannel.
+func SetDefaultUpdateChannel(ch string) {
+	switch ch {
+	case "stable", "beta", "alpha":
+		defaultUpdateChannel = ch
+	}
+}
+
+// baseDefaults holds the static built-in defaults. Memoised because it's read
+// several times per Patch/View and the map is treated as read-only by every
+// consumer. The one dynamic key, app.update.channel, is overlaid by defaults()
+// so the default can track the running build's maturity.
+var baseDefaults = sync.OnceValue(func() map[string]any {
 	return map[string]any{
 		"app.language":             "auto",
 		"app.open_browser":         true,
 		"app.update.enabled":       true,
-		"app.update.channel":       "stable",
 		"server.host":              "127.0.0.1",
 		"server.port":              4001,
 		"server.port_fallback":     true,
@@ -145,6 +166,19 @@ var defaults = sync.OnceValue(func() map[string]any {
 		"inbox.heartbeat":         "15s",
 	}
 })
+
+// defaults is the single source of truth for built-in defaults. It returns a
+// fresh copy of the memoised static baseDefaults with app.update.channel
+// overlaid from defaultUpdateChannel, so the build-derived channel reaches the
+// consumers that should honor it: the merged config, the schema "Default", and
+// the effective view. Diff-only persistence deliberately reads baseDefaults
+// instead (see pruneAgainstDefaults), so an explicitly-chosen channel is never
+// pruned. The copy is cheap and may be treated as read-only by callers, as before.
+func defaults() map[string]any {
+	out := maps.Clone(baseDefaults())
+	out["app.update.channel"] = defaultUpdateChannel
+	return out
+}
 
 // buildKoanf assembles a koanf instance from the layered sources:
 // defaults → fileLayer (already a flat dotted-key map) → env(PIXIVBIU_*).

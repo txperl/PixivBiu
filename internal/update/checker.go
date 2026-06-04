@@ -42,6 +42,27 @@ var channelFloor = map[string]int{
 	"alpha":  0,
 }
 
+// DefaultChannel returns the update channel a build should default to — the
+// channel whose floor matches the build's own maturity, so a pre-release build
+// keeps receiving its line's pre-releases out of the box while a stable/dev
+// build stays on stable. It is the build-derived seed for app.update.channel;
+// an explicit user override still wins. rc folds into beta (there is no rc-only
+// channel, and beta's floor already accepts rc), mirroring channelFloor.
+func DefaultChannel(version string) string {
+	nv := normalizeVersion(version)
+	if isDevVersion(nv) {
+		return "stable"
+	}
+	switch releaseRank(nv) {
+	case 0: // alpha
+		return "alpha"
+	case 1, 2: // beta, rc
+		return "beta"
+	default: // stable
+		return "stable"
+	}
+}
+
 // startupDelay holds the first automatic check briefly after boot so it doesn't
 // compete with startup work (auth refresh, download resume).
 const startupDelay = 10 * time.Second

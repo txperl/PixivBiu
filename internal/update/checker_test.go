@@ -32,6 +32,25 @@ func TestIsDevVersion(t *testing.T) {
 	}
 }
 
+func TestDefaultChannel(t *testing.T) {
+	cases := map[string]string{
+		"3.1.0-alpha":    "alpha", // alpha build → alpha channel
+		"v3.1.0-alpha.1": "alpha",
+		"3.1.0-beta.1":   "beta", // beta build → beta channel
+		"3.1.0-rc.2":     "beta", // rc folds into beta (no rc-only channel)
+		"3.0.0":          "stable",
+		"v3.0.0":         "stable",
+		"0.1.0-dev":      "stable", // dev build stays on stable
+		"":               "stable", // unset
+		"v2.6.4b":        "stable", // legacy, not valid semver
+	}
+	for v, want := range cases {
+		if got := DefaultChannel(v); got != want {
+			t.Errorf("DefaultChannel(%q) = %q, want %q", v, got, want)
+		}
+	}
+}
+
 func TestAssetName(t *testing.T) {
 	// The version's leading "v" must be stripped to match GoReleaser's .Version.
 	got := assetName("v3.0.0")

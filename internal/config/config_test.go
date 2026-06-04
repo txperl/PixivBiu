@@ -40,6 +40,82 @@ func TestLoad_MissingFile_UsesDefaults(t *testing.T) {
 	}
 }
 
+func TestDefaultUpdateChannel_BuildDerived(t *testing.T) {
+	// Simulate a pre-release build seeding the default (main.go does this from
+	// update.DefaultChannel(version)). Restore so other tests see "stable".
+	SetDefaultUpdateChannel("beta")
+	defer SetDefaultUpdateChannel("stable")
+
+	if got := defaults()["app.update.channel"]; got != "beta" {
+		t.Fatalf("defaults channel = %v, want beta", got)
+	}
+
+	// No settings file: the build-derived default flows through to the merged
+	// config and the effective view, labeled as a default (not file/env).
+	mgr := newMgr(t, "")
+	if got := mgr.Config().App.Update.Channel; got != "beta" {
+		t.Errorf("Config channel = %q, want beta", got)
+	}
+	view := mustView(t, mgr)
+	if got := nestedGet(view.Effective, "app", "update", "channel"); got != "beta" {
+		t.Errorf("Effective channel = %v, want beta", got)
+	}
+	if got := view.Sources["app.update.channel"]; got != SourceDefaults {
+		t.Errorf("channel source = %v, want %v", got, SourceDefaults)
+	}
+
+	// Escape hatch: an explicit override wins over the build-derived default.
+	mgr2 := newMgr(t, `{"app":{"update":{"channel":"stable"}}}`)
+	if got := mgr2.Config().App.Update.Channel; got != "stable" {
+		t.Errorf("override channel = %q, want stable", got)
+	}
+	if got := mustView(t, mgr2).Sources["app.update.channel"]; got != SourceFile {
+		t.Errorf("override source = %v, want %v", got, SourceFile)
+	}
+
+	// Unknown/empty values are ignored, leaving the current default.
+	SetDefaultUpdateChannel("nonsense")
+	if got := defaults()["app.update.channel"]; got != "beta" {
+		t.Errorf("after invalid set, channel = %v, want beta (unchanged)", got)
+	}
+}
+
+func TestDefaultUpdateChannel_ExplicitOverridePersistsAcrossBuilds(t *testing.T) {
+	// An explicit channel choice that equals the running build's derived
+	// default must still be persisted, so it survives a later update to a build
+	// whose default differs (otherwise diff-only pruning would silently drop it
+	// and revert the user to stable).
+	SetDefaultUpdateChannel("beta") // simulate running a beta build
+	defer SetDefaultUpdateChannel("stable")
+
+	path := filepath.Join(t.TempDir(), "settings.json")
+	mgr, err := NewManager(path)
+	if err != nil {
+		t.Fatalf("NewManager: %v", err)
+	}
+	// User explicitly saves beta — equal to the beta build's default.
+	if _, err := mgr.Patch(map[string]any{"app.update.channel": "beta"}); err != nil {
+		t.Fatalf("Patch: %v", err)
+	}
+	if got := mustView(t, mgr).Sources["app.update.channel"]; got != SourceFile {
+		t.Fatalf("after explicit save, source = %v, want %v (must persist)", got, SourceFile)
+	}
+
+	// Now "update to a stable build": the default reverts to stable, but the
+	// persisted explicit beta must still win.
+	SetDefaultUpdateChannel("stable")
+	mgr2, err := NewManager(path)
+	if err != nil {
+		t.Fatalf("NewManager (stable build): %v", err)
+	}
+	if got := mgr2.Config().App.Update.Channel; got != "beta" {
+		t.Errorf("after update to stable build, channel = %q, want beta (explicit choice lost)", got)
+	}
+	if got := mustView(t, mgr2).Sources["app.update.channel"]; got != SourceFile {
+		t.Errorf("channel source = %v, want %v", got, SourceFile)
+	}
+}
+
 func TestLoad_RejectsInvalidJSON(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	if err := os.WriteFile(path, []byte("{not json"), 0o600); err != nil {

@@ -69,6 +69,12 @@ func run() error {
 		settingsPath = runtimepath.Anchor(root, settingsPath)
 	}
 
+	// Seed the default update channel from the running build's maturity so a
+	// pre-release build defaults to its own channel (a beta build keeps getting
+	// betas) instead of the stable floor. Must precede NewManager, which reads
+	// the defaults while building the schema; an explicit user override wins.
+	config.SetDefaultUpdateChannel(update.DefaultChannel(version))
+
 	cfgMgr, err := config.NewManager(settingsPath,
 		// Templates only parse cleanly with the download funcmap, and a
 		// bad proxy URL would only surface inside pixiv.NewService. Both
