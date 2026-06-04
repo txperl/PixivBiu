@@ -19,6 +19,7 @@ import {
 } from "@/features/settings";
 import { useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
+import { APP_SCROLLER_SELECTOR } from "@/lib/scroll";
 import { cn } from "@/lib/utils";
 import { SettingsHeaderActions } from "./components/header-actions";
 import { ABOUT_ID, SettingsAbout } from "./components/settings-about";
@@ -40,9 +41,9 @@ function SettingsPage() {
 
     const rootRef = useRef<HTMLDivElement>(null);
     const scrollerRef = useRef<HTMLElement | null>(null);
-    // The scroll container is the layout's <main>, not the window.
+    // The scroll container is the layout's ScrollArea viewport ([data-app-scroller]), not <main> or the window.
     useLayoutEffect(() => {
-        scrollerRef.current = rootRef.current?.closest("main") ?? null;
+        scrollerRef.current = rootRef.current?.closest<HTMLElement>(APP_SCROLLER_SELECTOR) ?? null;
     }, []);
 
     const [showAdvanced, setShowAdvanced] = useState(false);

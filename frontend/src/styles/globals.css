@@ -125,6 +125,32 @@
     html {
         @apply font-sans;
     }
+
+    /*
+     * Transient popups (dropdown menu / select) manage their own native scroll
+     * and aren't wrapped in <ScrollArea>, so give them a thin, theme-tinted
+     * native scrollbar instead of the chunky OS default. Always-visible here is
+     * fine — these are short-lived and the pointer is already over them.
+     * Scoped tightly via :where() (specificity 0) so it never touches the app
+     * ScrollArea viewports (which render their own overlay scrollbar) — no double bars.
+     * Add a slot here if a new scrollable popup (max-height + overflow) is introduced.
+     */
+    :where([data-slot="dropdown-menu-content"], [data-slot="dropdown-menu-sub-content"], [data-slot="select-content"]) {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+
+        &::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        &::-webkit-scrollbar-thumb {
+            background-color: var(--border);
+            border-radius: 9999px;
+        }
+        &::-webkit-scrollbar-track {
+            background: transparent;
+        }
+    }
 }
 
 @theme {

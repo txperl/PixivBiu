@@ -31,6 +31,7 @@ import UserBookmarksSpecialFilters from "@/features/users/components/user-bookma
 import { useMessages } from "@/i18n";
 import type { FetchState } from "@/lib/fetch-state";
 import { formatCount, hueFromId } from "@/lib/format";
+import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
 import { cn } from "@/lib/utils";
 import { isBookmarkTab, isOwnerOnlyTab, isTab, readTab, TAB_ICONS, TABS, type Tab, tabToParam } from "./tabs";
@@ -374,7 +375,7 @@ function UserPage() {
     const onJumpPage = (p: number) => {
         if (isBookmarkTab(tab) && !cursors.has(p)) return;
         updateParams({ page: p === 1 ? undefined : String(p) });
-        document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" });
+        scrollAppToTop();
     };
 
     if (!validId) {

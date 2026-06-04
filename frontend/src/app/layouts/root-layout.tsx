@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router";
 import RootSidebar from "@/app/layouts/root-sidebar";
 import LeapyLoading from "@/components/series-leapy/leapy-loading";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ActivityBar, ActivityPanel, useActivityBar } from "@/features/activity-bar";
 import { useAuth } from "@/features/auth";
 
@@ -63,8 +64,12 @@ function RootLayout() {
                 </ResizablePanel>
                 <ResizableHandle />
                 <ResizablePanel id="main">
-                    <main className="h-full overflow-y-auto">
-                        <Outlet />
+                    {/* The ScrollArea viewport (not <main>) is the real page scroller — see
+                        [data-app-scroller] consumers in settings scroll-spy + pager scroll-to-top. */}
+                    <main className="h-full min-h-0">
+                        <ScrollArea className="h-full" viewportProps={{ "data-app-scroller": "" }}>
+                            <Outlet />
+                        </ScrollArea>
                     </main>
                 </ResizablePanel>
                 <ActivityPanelSlot />

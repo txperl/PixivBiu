@@ -23,6 +23,7 @@ import SearchPager from "@/features/search/components/search-pager";
 import { SearchError } from "@/features/search/components/search-states";
 import { useMessages } from "@/i18n";
 import type { FetchState } from "@/lib/fetch-state";
+import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
 
 function readMode(sp: URLSearchParams): RankingMode {
@@ -111,7 +112,7 @@ function RankingPage() {
 
     const onJumpPage = (p: number) => {
         updateParams({ page: p === 1 ? undefined : String(p) });
-        document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" });
+        scrollAppToTop();
     };
 
     return (

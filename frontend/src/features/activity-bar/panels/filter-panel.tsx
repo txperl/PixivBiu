@@ -1,6 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useDownloadMutations } from "@/features/downloads";
 import { GeneralFiltersSection, useGeneralFilters } from "@/features/filter";
 import { countActiveGeneralFilters } from "@/features/filter/types";
@@ -129,23 +130,25 @@ function FilterPanel() {
 
     return (
         <div className="flex h-full flex-col">
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
-                {data.specialFilters && (
-                    <section className="flex flex-col gap-2.5">
-                        <SectionHeader
-                            title={m.filter_section_special()}
-                            count={specialCount}
-                            onReset={data.onResetSpecialFilters}
-                        />
-                        {data.specialFilters}
-                    </section>
-                )}
+            <ScrollArea className="min-h-0 flex-1">
+                <div className="flex flex-col gap-4 p-3">
+                    {data.specialFilters && (
+                        <section className="flex flex-col gap-2.5">
+                            <SectionHeader
+                                title={m.filter_section_special()}
+                                count={specialCount}
+                                onReset={data.onResetSpecialFilters}
+                            />
+                            {data.specialFilters}
+                        </section>
+                    )}
 
-                <section className="flex flex-col gap-2.5">
-                    <SectionHeader title={m.filter_section_general()} count={generalCount} onReset={resetFilters} />
-                    <GeneralFiltersSection />
-                </section>
-            </div>
+                    <section className="flex flex-col gap-2.5">
+                        <SectionHeader title={m.filter_section_general()} count={generalCount} onReset={resetFilters} />
+                        <GeneralFiltersSection />
+                    </section>
+                </div>
+            </ScrollArea>
 
             <FilterPanelFooter
                 quickAction={data.quickAction}

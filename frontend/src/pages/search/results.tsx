@@ -30,6 +30,7 @@ import UserList, { UserListSkeleton } from "@/features/search/components/user-li
 import { useSearchHistory } from "@/features/search/hooks/use-search-history";
 import { useMessages } from "@/i18n";
 import type { FetchState } from "@/lib/fetch-state";
+import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
 
 type SearchType = "illust" | "user";
@@ -224,7 +225,7 @@ function SearchResults({ keyword }: SearchResultsProps) {
 
     const onJumpPage = (p: number) => {
         patch({ page: p === 1 ? undefined : String(p) }, false);
-        document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" });
+        scrollAppToTop();
     };
 
     const currentResults = type === "illust" ? illustState : userState;
