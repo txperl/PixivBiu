@@ -66,6 +66,7 @@
     "login_step5_right_click": "右クリック",
     "login_step5_copy": "Copy / コピー",
     "login_step5_copy_url": "Copy URL / リンクをコピー",
+    "login_session_expired": "セッションの有効期限が切れました。もう一度ログインしてください。",
     "login_welcome_greeting": "👋 こんにちは",
     "login_welcome_intro": "PixivBiu へようこそ",
     "login_welcome_setup": "はじめに、いくつかの設定を行う必要があります",

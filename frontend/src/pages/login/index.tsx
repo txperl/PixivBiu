@@ -40,6 +40,9 @@ function LoginPage() {
     const navigate = useNavigate();
 
     const intendedFrom = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? "/";
+    // Distinguish a revoked session (Pixiv rejected the refresh token) from a
+    // first run, so the welcome step can explain why the user was signed out.
+    const sessionExpired = status?.session_expired === true;
 
     const [stage, setStage] = useState<Stage>("welcome");
     const [oauthSession, setOauthSession] = useState<OAuthSession | null>(null);
@@ -154,7 +157,7 @@ function LoginPage() {
             )}
         >
             <div className="max-w-xl">
-                {stage === "welcome" && <WelcomePanel onContinue={onStart} />}
+                {stage === "welcome" && <WelcomePanel onContinue={onStart} sessionExpired={sessionExpired} />}
                 {stage === "connectivity" && (
                     <ConnectivityPanel pending={pending} error={error} onProceed={onClickPixivLogin} />
                 )}

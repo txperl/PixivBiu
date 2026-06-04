@@ -66,6 +66,7 @@
     "login_step5_right_click": "right-click",
     "login_step5_copy": "Copy",
     "login_step5_copy_url": "Copy URL",
+    "login_session_expired": "Your session has expired. Please sign in again.",
     "login_welcome_greeting": "👋 Hi there",
     "login_welcome_intro": "Welcome to PixivBiu",
     "login_welcome_setup": "To get started, we need to set a few things up",

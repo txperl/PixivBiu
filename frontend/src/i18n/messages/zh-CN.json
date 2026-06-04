@@ -66,6 +66,7 @@
     "login_step5_right_click": "右键",
     "login_step5_copy": "Copy / 复制",
     "login_step5_copy_url": "Copy URL / 复制链接",
+    "login_session_expired": "登录已过期，请重新登录。",
     "login_welcome_greeting": "👋 你好呀",
     "login_welcome_intro": "欢迎来到 PixivBiu",
     "login_welcome_setup": "开始的开始，我们需要进行一些设置",

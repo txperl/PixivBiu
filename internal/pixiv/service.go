@@ -33,6 +33,11 @@ type Service struct {
 
 	mu    sync.RWMutex
 	token state.Token
+	// sessionExpired is set when the session was cleared because Pixiv rejected
+	// the refresh token (invalid_grant), so /auth/status can tell the login page
+	// to show a "session expired" hint instead of the first-run welcome. Reset on
+	// the next successful refresh/login. Guarded by mu.
+	sessionExpired bool
 
 	// refreshMu serializes auth publishes (Login, Logout, the loop, the on-401
 	// refresh) so a stale refresh can't clobber a fresh login, and single-flights
@@ -73,21 +78,41 @@ func NewService(cfg config.PixivConfig, logger *slog.Logger, store *state.Store)
 	return s, nil
 }
 
-// Start performs an initial token refresh (if a refresh_token is present) and
-// launches the background refresh loop. A failure here is logged but not
-// fatal — callers can still POST /auth/login to bootstrap.
+// Start performs an initial token refresh (only when the persisted access token
+// is missing or near expiry) and launches the background refresh loop. A
+// failure here is logged but not fatal — the refresh token is the session, so
+// the user stays authenticated and authenticated calls self-heal (call.go).
 func (s *Service) Start(ctx context.Context) {
 	ctx, s.stop = context.WithCancel(ctx)
 
-	if rt := s.refreshToken(); rt != "" {
-		if _, err := s.refresh(ctx, rt); err != nil {
-			s.logger.Warn("initial pixiv auth failed; continuing unauthenticated",
-				slog.Any("error", err))
-		}
+	tok := s.Snapshot()
+	if tok.RefreshToken != "" && needsInitialRefresh(tok) {
+		// Run the shared automatic-refresh handling (clear-on-reject for a revoked
+		// token, retry log for a transient failure) under refreshMu, the same lock
+		// the loop and on-401 paths use. The outcome is handled in
+		// refreshSessionLocked; Start never aborts on it.
+		s.refreshMu.Lock()
+		_, _ = s.refreshSessionLocked(ctx, tok.RefreshToken)
+		s.refreshMu.Unlock()
 	}
 
 	s.wg.Add(1)
 	go s.loop(ctx)
+}
+
+// needsInitialRefresh reports whether Start should refresh the access token at
+// boot. We skip the network round-trip when the persisted access token still
+// has comfortable life left (mirrors the loop's lead time), so launching no
+// longer rewrites the expiry of a still-valid token and boot isn't blocked on
+// Pixiv when it needn't be. A missing/near-expiry access token still refreshes;
+// a token revoked server-side is caught lazily by the on-401 self-heal. Correct
+// across sleep/wake because AccessTokenExpiresAt is stored with the monotonic
+// reading stripped (.Round(0)).
+func needsInitialRefresh(tok state.Token) bool {
+	if tok.AccessToken == "" || tok.AccessTokenExpiresAt.IsZero() {
+		return true
+	}
+	return time.Until(tok.AccessTokenExpiresAt) <= refreshLeadTime
 }
 
 // Shutdown cancels the refresh loop and waits for it to exit.
@@ -98,11 +123,24 @@ func (s *Service) Shutdown() {
 	s.wg.Wait()
 }
 
-// Authenticated reports whether the client has a usable access token.
+// Authenticated reports whether we hold a usable session — i.e. a refresh
+// token. An expired access token is NOT logged out: the loop and the on-401
+// self-heal (call.go) renew it transparently. Only a permanent refresh
+// rejection (invalid_grant) clears the session.
 func (s *Service) Authenticated() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.token.AccessToken != ""
+	return s.token.RefreshToken != ""
+}
+
+// SessionExpired reports whether the last session was cleared because Pixiv
+// rejected the refresh token (invalid_grant), as opposed to never having logged
+// in. It is reset on the next successful refresh/login. Only meaningful while
+// unauthenticated.
+func (s *Service) SessionExpired() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.sessionExpired
 }
 
 // Snapshot returns a copy of the current persisted token state.
@@ -110,6 +148,15 @@ func (s *Service) Snapshot() state.Token {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.token
+}
+
+// AuthSnapshot returns the persisted token together with the session-expired
+// flag, read under a single lock so the two stay consistent (both are mutated
+// together under mu). Used by GetAuthStatus to project /auth/status.
+func (s *Service) AuthSnapshot() (state.Token, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.token, s.sessionExpired
 }
 
 // Client returns the underlying pixivgo client. For authenticated API calls
@@ -182,13 +229,29 @@ func (s *Service) LoginWithAuthCode(ctx context.Context, code, verifier string) 
 	return s.refresh(ctx, rt)
 }
 
-// Logout clears the in-memory and on-disk token state, under refreshMu so an
-// in-flight refresh can't re-publish a stale token over the cleared state.
+// Logout clears the in-memory and on-disk token state at the user's request.
 func (s *Service) Logout() error {
+	return s.clearSession(false)
+}
+
+// clearSession wipes in-memory + on-disk token state and the client's auth,
+// under refreshMu so an in-flight refresh can't re-publish a stale token over
+// the cleared state. expired=true records that the clear was forced by a
+// rejected refresh token (invalid_grant) so /auth/status can surface a "session
+// expired" hint; an explicit logout passes false.
+func (s *Service) clearSession(expired bool) error {
 	s.refreshMu.Lock()
 	defer s.refreshMu.Unlock()
+	return s.clearSessionLocked(expired)
+}
+
+// clearSessionLocked is the body of clearSession for callers that already hold
+// refreshMu (the loop's refreshCurrent path and the on-401 refreshForRetry).
+// refreshMu is not reentrant, so those paths must use this variant.
+func (s *Service) clearSessionLocked(expired bool) error {
 	s.mu.Lock()
 	s.token = state.Token{}
+	s.sessionExpired = expired
 	client := s.client
 	s.mu.Unlock()
 	client.SetAuth("", "")
@@ -213,7 +276,33 @@ func (s *Service) refreshCurrent(ctx context.Context) (state.Token, error) {
 	if rt == "" {
 		return state.Token{}, nil // logged out since the loop's check — nothing to do
 	}
-	return s.refreshLocked(ctx, rt)
+	return s.refreshSessionLocked(ctx, rt)
+}
+
+// refreshSessionLocked re-authenticates the current session and centralises the
+// failure handling shared by the *automatic* re-auth paths (boot, the refresh
+// loop, and the on-401 retry): a permanent rejection (invalid_grant) clears the
+// session and flags it expired so the next /auth/status shows a "session
+// expired" hint; a transient failure (network/timeout/5xx) is logged and the
+// session kept for a later retry. Caller MUST hold refreshMu.
+//
+// User-initiated Login / LoginWithAuthCode deliberately call refreshLocked
+// directly, NOT this — a token the user just supplied being rejected must not
+// wipe an already-good session.
+func (s *Service) refreshSessionLocked(ctx context.Context, refreshToken string) (state.Token, error) {
+	tok, err := s.refreshLocked(ctx, refreshToken)
+	if err == nil {
+		return tok, nil
+	}
+	if isInvalidGrant(err) {
+		s.logger.Warn("pixiv refresh token rejected; clearing session", slog.Any("error", err))
+		if cerr := s.clearSessionLocked(true); cerr != nil {
+			s.logger.Error("clear session failed", slog.Any("error", cerr))
+		}
+	} else {
+		s.logger.Warn("pixiv token refresh failed; keeping session, will retry", slog.Any("error", err))
+	}
+	return tok, err
 }
 
 // refreshLocked authenticates and publishes the new token (in-memory, on-disk,
@@ -257,6 +346,7 @@ func (s *Service) refreshLocked(ctx context.Context, refreshToken string) (state
 	// the captured `client`, which Reload may have just replaced).
 	s.mu.Lock()
 	s.token = tok
+	s.sessionExpired = false // a successful refresh/login supersedes any prior expiry
 	s.client.SetAuth(tok.AccessToken, tok.RefreshToken)
 	s.mu.Unlock()
 
@@ -278,7 +368,7 @@ func (s *Service) refreshToken() string {
 }
 
 // loop re-runs Auth shortly before the current access token expires.
-// Pixiv tokens last one hour; we refresh when < 5 minutes remain.
+// Pixiv tokens last one hour; we refresh once less than refreshLeadTime remains.
 func (s *Service) loop(ctx context.Context) {
 	defer s.wg.Done()
 	ticker := time.NewTicker(time.Minute)
@@ -296,13 +386,12 @@ func (s *Service) loop(ctx context.Context) {
 		if tok.RefreshToken == "" {
 			continue
 		}
-		if !tok.AccessTokenExpiresAt.IsZero() && time.Until(tok.AccessTokenExpiresAt) > 5*time.Minute {
+		if !tok.AccessTokenExpiresAt.IsZero() && time.Until(tok.AccessTokenExpiresAt) > refreshLeadTime {
 			continue
 		}
-		if _, err := s.refreshCurrent(ctx); err != nil {
-			s.logger.Warn("pixiv token refresh failed; will retry",
-				slog.Any("error", err))
-		}
+		// Outcome handling (clear-on-reject for a revoked token, retry log for a
+		// transient failure) lives in refreshSessionLocked.
+		_, _ = s.refreshCurrent(ctx)
 	}
 }
 
@@ -322,6 +411,12 @@ const probeTimeout = 8 * time.Second
 // with no deadline until the server's WriteTimeout tears the connection down
 // and the client sees a torn/empty response instead of an error.
 const authTimeout = 10 * time.Second
+
+// refreshLeadTime is how long before access-token expiry we proactively
+// refresh. The background loop refreshes once the remaining lifetime drops to
+// this, and Start skips its boot refresh while the persisted token still has
+// more than this left (see needsInitialRefresh).
+const refreshLeadTime = 5 * time.Minute
 
 // ProbeReachable reports whether Pixiv is reachable over the network path
 // implied by proxy (nil = use the running config's proxy as-is) plus the

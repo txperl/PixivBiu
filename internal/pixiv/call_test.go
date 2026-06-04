@@ -101,11 +101,16 @@ func TestCall_RefreshesAndRetriesOn401(t *testing.T) {
 	if got := svc.Snapshot().AccessToken; got != "at2" {
 		t.Errorf("access token = %q, want at2 (refresh must persist)", got)
 	}
+	if svc.SessionExpired() {
+		t.Error("SessionExpired = true after a successful self-heal, want false")
+	}
 }
 
 // TestCall_NoRetryWhenRefreshFails guards the invalid_grant path: when the
 // refresh itself fails (revoked refresh token), Call must return the original
-// 401 and must NOT retry the API call — otherwise a dead refresh token loops.
+// 401, must NOT retry the API call (otherwise a dead refresh token loops), and
+// must clear the session so the next /auth/status reports unauthenticated with
+// a "session expired" hint.
 func TestCall_NoRetryWhenRefreshFails(t *testing.T) {
 	var refreshCount, apiCount atomic.Int32
 	srv := routeServer(t, map[string]http.HandlerFunc{
@@ -138,6 +143,12 @@ func TestCall_NoRetryWhenRefreshFails(t *testing.T) {
 	}
 	if got := apiCount.Load(); got != 1 {
 		t.Errorf("apiCount = %d, want 1 (no retry after a failed refresh)", got)
+	}
+	if svc.Authenticated() {
+		t.Error("Authenticated = true after invalid_grant, want false (session cleared)")
+	}
+	if !svc.SessionExpired() {
+		t.Error("SessionExpired = false after invalid_grant, want true")
 	}
 }
 

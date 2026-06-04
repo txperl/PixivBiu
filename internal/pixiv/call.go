@@ -70,7 +70,9 @@ func (s *Service) refreshForRetry(ctx context.Context, before state.Token) (stat
 	if cur.RefreshToken == "" {
 		return state.Token{}, false
 	}
-	tok, err := s.refreshLocked(ctx, cur.RefreshToken)
+	// refreshSessionLocked clears the session if Pixiv permanently rejects the
+	// token (invalid_grant) so we don't loop 401→refresh→401; refreshMu is held.
+	tok, err := s.refreshSessionLocked(ctx, cur.RefreshToken)
 	if err != nil {
 		return state.Token{}, false
 	}

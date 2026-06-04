@@ -759,6 +759,8 @@ export interface components {
             authenticated: boolean;
             /** Format: date-time */
             expires_at?: string | null;
+            /** @description True when the previous session was cleared because Pixiv rejected the refresh token (invalid_grant) — distinct from a first-run "never logged in" state. The login page surfaces a "session expired, please sign in again" hint when set. Only meaningful while unauthenticated; false or absent otherwise. */
+            session_expired?: boolean | null;
             /** Format: int64 */
             user_id?: number | null;
             user_name?: string | null;

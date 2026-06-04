@@ -27,7 +27,7 @@ func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, makeAuthStatus(tok))
+	writeJSON(w, http.StatusOK, makeAuthStatus(tok, false))
 }
 
 func (h *APIHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +39,8 @@ func (h *APIHandler) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *APIHandler) GetAuthStatus(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, makeAuthStatus(h.svc.Snapshot()))
+	tok, sessionExpired := h.svc.AuthSnapshot()
+	writeJSON(w, http.StatusOK, makeAuthStatus(tok, sessionExpired))
 }
 
 // StartOAuth issues a fresh PKCE state + verifier and hands the client back
@@ -83,7 +84,7 @@ func (h *APIHandler) ExchangeOAuth(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, makeAuthStatus(tok))
+	writeJSON(w, http.StatusOK, makeAuthStatus(tok, false))
 }
 
 // CheckConnectivity probes whether Pixiv is reachable over the backend's
@@ -159,11 +160,21 @@ func extractAuthCode(s string) string {
 	return s
 }
 
-// makeAuthStatus projects an internal state.Token onto the generated AuthStatus
-// model. A blank access token means the server is logged out.
-func makeAuthStatus(tok state.Token) AuthStatus {
-	if tok.AccessToken == "" {
-		return AuthStatus{Authenticated: false}
+// makeAuthStatus projects an internal state.Token (+ the session-expired flag)
+// onto the generated AuthStatus model. The refresh token is the session — a
+// blank refresh token means logged out, and sessionExpired then distinguishes a
+// revoked session from a never-logged-in first run. An expired access token
+// still reads as authenticated: the service renews it transparently (background
+// loop + on-401 self-heal); only a permanent refresh rejection (invalid_grant)
+// clears the refresh token.
+func makeAuthStatus(tok state.Token, sessionExpired bool) AuthStatus {
+	if tok.RefreshToken == "" {
+		s := AuthStatus{Authenticated: false}
+		if sessionExpired {
+			v := true
+			s.SessionExpired = &v
+		}
+		return s
 	}
 	s := AuthStatus{Authenticated: true}
 	if tok.UserID != 0 {

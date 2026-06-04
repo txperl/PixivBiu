@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useMessages } from "@/i18n";
 import { useReveal } from "./use-reveal";
 
-export function WelcomePanel({ onContinue }: { onContinue: () => void }) {
+export function WelcomePanel({ onContinue, sessionExpired }: { onContinue: () => void; sessionExpired?: boolean }) {
     const m = useMessages();
     const titleRef = useReveal<HTMLHeadingElement>(300);
     const subtitleRef = useReveal<HTMLParagraphElement>(300);
@@ -11,6 +11,11 @@ export function WelcomePanel({ onContinue }: { onContinue: () => void }) {
 
     return (
         <div className="flex flex-col gap-5">
+            {sessionExpired && (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-700 text-sm dark:text-amber-400">
+                    {m.login_session_expired()}
+                </div>
+            )}
             <h1 ref={titleRef} className="font-heading font-normal text-3xl text-foreground leading-tight">
                 {m.login_welcome_greeting()}
             </h1>
