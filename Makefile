@@ -20,8 +20,8 @@ gen-backend:  ## Generate server code from the OpenAPI spec
 gen-frontend:  ## Generate frontend OpenAPI types (requires `make dev` running)
 	cd frontend && bun run gen:api
 
-dev:  ## Run the server (port pinned: fallback off so the Vite proxy / gen:api stay valid)
-	PIXIVBIU_SERVER_PORT_FALLBACK=false go run $(PKG) -config ./usr/settings.json
+dev:  ## Run the server (port pinned so the Vite proxy / gen:api stay valid; browser auto-open off — use the Vite dev server on :5173)
+	PIXIVBIU_SERVER_PORT_FALLBACK=false go run $(PKG) -config ./usr/settings.json -open=false
 
 build:  ## Build server binary (embeds the current internal/web/dist)
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o $(BIN) $(PKG)
