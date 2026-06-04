@@ -113,7 +113,7 @@ type InboxConfig struct {
 var defaults = sync.OnceValue(func() map[string]any {
 	return map[string]any{
 		"app.language":             "auto",
-		"app.open_browser":         false,
+		"app.open_browser":         true,
 		"app.update.enabled":       true,
 		"app.update.channel":       "stable",
 		"server.host":              "127.0.0.1",

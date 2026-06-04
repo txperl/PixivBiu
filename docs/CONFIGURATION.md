@@ -22,7 +22,7 @@ built-in defaults  →  ./usr/settings.json  →  environment variables  (env wi
 | Variable | Default | Values / notes | Flags |
 |---|---|---|---|
 | `PIXIVBIU_APP_LANGUAGE` | `auto` | `auto` / `en` / `zh-CN` / `ja` — UI language (resolved client-side; `auto` follows the browser) | — |
-| `PIXIVBIU_APP_OPEN_BROWSER` | `false` | bool — open the web UI in the default browser at startup | restart |
+| `PIXIVBIU_APP_OPEN_BROWSER` | `true` | bool — open the web UI in the default browser at startup | restart |
 | `PIXIVBIU_APP_UPDATE_ENABLED` | `true` | bool — auto-check GitHub Releases for a newer build at startup and every 3 hours thereafter | advanced |
 | `PIXIVBIU_APP_UPDATE_CHANNEL` | `stable` | `stable` / `beta` / `alpha` — update channel; a cumulative maturity floor (beta also accepts rc+stable, alpha accepts everything) | advanced |
 
