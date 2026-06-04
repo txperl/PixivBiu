@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityBarContext, type ActivityBarContextValue } from "./activity-bar-context";
 import { type ActivityItemId, ITEM_DEFS } from "./items";
+import { FILTER_ID } from "./items/filter";
 
 type ItemsRegistry = Partial<Record<ActivityItemId, unknown>>;
 
@@ -9,7 +10,7 @@ const VALID_ITEM_IDS = new Set<string>(ITEM_DEFS.map((d) => d.id));
 
 type PersistedState = { activeItemId: ActivityItemId | null; isOpen: boolean };
 
-const DEFAULT_STATE: PersistedState = { activeItemId: null, isOpen: false };
+const DEFAULT_STATE: PersistedState = { activeItemId: FILTER_ID, isOpen: true };
 
 function readPersisted(): PersistedState {
     if (typeof window === "undefined") return DEFAULT_STATE;
