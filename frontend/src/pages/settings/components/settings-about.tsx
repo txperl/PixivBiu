@@ -1,6 +1,6 @@
 import { InformationCircleIcon } from "@hugeicons/core-free-icons";
 import { type ReactNode, useState } from "react";
-import LeapyLoading from "@/components/series-leapy/leapy-loading";
+import LeapyOverlay from "@/components/series-leapy/leapy-overlay";
 import { Sheet, SheetHead } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
 import { type FieldSpec, SCROLL_OFFSET } from "@/features/settings";
@@ -18,15 +18,6 @@ interface SettingsAboutProps extends FieldRowProps {
     // form like any other field; the About card renders them here instead of as
     // a normal section, gated by the advanced toggle.
     fields: FieldSpec[];
-}
-
-function UpdatingOverlay({ label }: { label: string }) {
-    return (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur">
-            <LeapyLoading size={20} />
-            <span className="text-muted-foreground text-sm">{label}</span>
-        </div>
-    );
 }
 
 // SettingsAbout is a custom (non-schema) settings card: it shows the running
@@ -152,7 +143,7 @@ export function SettingsAbout({
                     onResetField={onResetField}
                 />
             </Sheet>
-            {applying && <UpdatingOverlay label={m.settings_about_updating()} />}
+            {applying && <LeapyOverlay label={m.settings_about_updating()} />}
         </section>
     );
 }

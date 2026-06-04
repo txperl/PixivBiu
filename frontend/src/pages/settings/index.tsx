@@ -1,7 +1,7 @@
 import { Alert02Icon, InformationCircleIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import LeapyLoading from "@/components/series-leapy/leapy-loading";
+import LeapyOverlay from "@/components/series-leapy/leapy-overlay";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import ConfirmPopover from "@/features/downloads/components/confirm-popover";
@@ -31,16 +31,6 @@ const HEADER_TINT: Record<SettingsSaveState, string> = {
     restart: "bg-accent/85",
     none: "bg-background/85",
 };
-
-function RestartOverlay() {
-    const m = useMessages();
-    return (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur">
-            <LeapyLoading size={20} />
-            <span className="text-muted-foreground text-sm">{m.settings_restart_overlay()}</span>
-        </div>
-    );
-}
 
 function SettingsPage() {
     const m = useMessages();
@@ -218,7 +208,7 @@ function SettingsPage() {
                 )}
             </div>
 
-            {restarting && <RestartOverlay />}
+            {restarting && <LeapyOverlay label={m.settings_restart_overlay()} />}
         </div>
     );
 }
