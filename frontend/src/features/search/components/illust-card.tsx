@@ -165,8 +165,7 @@ function IllustCard({ illust, selected = false, selectMode = false, onSelect }: 
                                         alt={illust.title}
                                         fallback={<IllustPlaceholderArt hue={hue} ratio="1/1" rounded={6} />}
                                         className="block h-full w-full object-cover"
-                                        onLoad={(e) => {
-                                            const img = e.currentTarget;
+                                        onLoad={(img) => {
                                             if (!img.naturalWidth || !img.naturalHeight) return;
                                             const ratio = img.naturalWidth / img.naturalHeight;
                                             setPageAspects((prev) =>
