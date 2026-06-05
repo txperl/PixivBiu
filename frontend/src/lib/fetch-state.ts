@@ -1,6 +1,7 @@
-import type { components } from "@/lib/api";
+import type { ApiError } from "@/lib/api";
 
-export type ApiError = components["schemas"]["Error"];
+// Re-exported for back-compat; the canonical definition lives in lib/api/unwrap.
+export type { ApiError };
 
 export type FetchState<T> =
     | { status: "idle" }

@@ -8,6 +8,7 @@ import { useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
 import { formatCount } from "@/lib/format";
 import { HeartIcon, MagnetIcon } from "@/lib/icons";
+import { useInvalidateIllustLists } from "@/lib/query/use-invalidate-illust-lists";
 import { cn } from "@/lib/utils";
 
 const RESTRICT_ICONS: Record<Restrict, typeof MagnetIcon> = {
@@ -30,6 +31,9 @@ function IllustBookmarkButton({
 }: IllustBookmarkButtonProps) {
     const m = useMessages();
     const resolveApiError = useApiErrorMessage();
+    // Refresh cached lists after a successful toggle so a return-visit re-seeds
+    // cards from the server (the in-view card is covered by local state below).
+    const invalidateIllustLists = useInvalidateIllustLists();
     const restrictOptions = [
         { value: "private", icon: RESTRICT_ICONS.private, label: m.search_bookmark_private() },
         { value: "public", icon: RESTRICT_ICONS.public, label: m.search_bookmark_public() },
@@ -99,6 +103,8 @@ function IllustBookmarkButton({
             setCount(wasCount);
             setCurrentRestrict(wasRestrict);
             setErrorTitle(resolveApiError(error));
+        } else {
+            invalidateIllustLists();
         }
         setPending(false);
     };
@@ -120,6 +126,8 @@ function IllustBookmarkButton({
             setCount(wasCount);
             setCurrentRestrict(wasRestrict);
             setErrorTitle(resolveApiError(error));
+        } else {
+            invalidateIllustLists();
         }
         setPending(false);
     };

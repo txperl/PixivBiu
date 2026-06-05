@@ -1,19 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { useFilterPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
 import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
 import {
     DEFAULT_RANKING_MODE,
-    type IllustPage,
     isRankingMode,
-    listRanking,
     modeFor,
     periodOf,
     RANKING_PAGE_SIZE,
     type RankingMode,
     type RankingPeriod,
     type RankingVariantKey,
+    rankingQueryOptions,
     variantKeyOf,
 } from "@/features/ranking/api";
 import RankingDatePicker from "@/features/ranking/components/ranking-date-picker";
@@ -22,7 +22,6 @@ import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/ill
 import SearchPager from "@/features/search/components/search-pager";
 import { SearchError } from "@/features/search/components/search-states";
 import { useMessages } from "@/i18n";
-import type { FetchState } from "@/lib/fetch-state";
 import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
 
@@ -57,11 +56,29 @@ function RankingPage() {
     const page = readPage(searchParams);
     const period = periodOf(mode);
     const variantKey = variantKeyOf(mode);
+    const offset = (page - 1) * RANKING_PAGE_SIZE;
 
-    const [state, setState] = useState<FetchState<IllustPage>>({ status: "idle" });
+    // keepPreviousData keeps the prior page on screen while the next loads, so
+    // paging/period/date changes never flash a skeleton; the skeleton (isPending)
+    // shows only on the first load with an empty cache. Returning within gcTime
+    // renders cached data instantly, then revalidates per staleTime.
+    const { data, isPending, isError, error } = useQuery({
+        ...rankingQueryOptions({ mode, date, offset }),
+        placeholderData: keepPreviousData,
+    });
+
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
-    const rawIllusts = state.status === "success" ? state.data.illusts : undefined;
-    const { filtered, totalBefore, totalAfter } = useFilteredIllusts(rawIllusts);
+
+    // Reset selection whenever the list identity (mode/date/page) changes — the
+    // previous list's selection must not bleed across a navigation. Replaces the
+    // clearSelection() that used to live in the now-gone fetch effect. mode/date/
+    // page are intentional re-run triggers (the effect body doesn't read them).
+    // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on navigation, not on body deps.
+    useEffect(() => {
+        clearSelection();
+    }, [mode, date, page, clearSelection]);
+
+    const { filtered, totalBefore, totalAfter } = useFilteredIllusts(data?.illusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
     useFilterPanel({
         specialFilters: null,
@@ -76,21 +93,6 @@ function RankingPage() {
             onClearSelection: clearSelection,
         },
     });
-
-    useEffect(() => {
-        let cancelled = false;
-        setState({ status: "loading" });
-        clearSelection();
-        const offset = (page - 1) * RANKING_PAGE_SIZE;
-        listRanking({ mode, date, offset }).then(({ data, error }) => {
-            if (cancelled) return;
-            if (error) setState({ status: "error", error });
-            else if (data) setState({ status: "success", data });
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [mode, date, page, clearSelection]);
 
     const updateParams = (patch: Record<string, string | undefined>, resetPage = false) => {
         setSearchParams(patchParams(searchParams, patch, resetPage));
@@ -129,19 +131,20 @@ function RankingPage() {
                 onVariantChange={onVariantChange}
             />
 
-            {state.status === "loading" && <IllustGridSkeleton />}
-            {state.status === "error" && <SearchError error={state.error} />}
-            {state.status === "success" &&
-                (state.data.illusts.length === 0 ? (
-                    <RankingEmpty date={date} />
-                ) : filtered.length === 0 ? (
-                    <FilteredEmpty totalBefore={totalBefore} />
-                ) : (
-                    <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
-                ))}
+            {isPending ? (
+                <IllustGridSkeleton />
+            ) : isError ? (
+                <SearchError error={error} />
+            ) : data.illusts.length === 0 ? (
+                <RankingEmpty date={date} />
+            ) : filtered.length === 0 ? (
+                <FilteredEmpty totalBefore={totalBefore} />
+            ) : (
+                <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
+            )}
 
-            {state.status === "success" && state.data.illusts.length > 0 && (
-                <SearchPager currentPage={page} hasNext={state.data.next_offset != null} onJump={onJumpPage} />
+            {!isPending && !isError && data.illusts.length > 0 && (
+                <SearchPager currentPage={page} hasNext={data.next_offset != null} onJump={onJumpPage} />
             )}
         </div>
     );

@@ -1,4 +1,5 @@
-import { api, type components } from "@/lib/api";
+import { queryOptions } from "@tanstack/react-query";
+import { api, type components, unwrap } from "@/lib/api";
 
 export type RankingMode = components["schemas"]["RankingMode"];
 export type IllustPage = components["schemas"]["IllustPage"];
@@ -82,4 +83,18 @@ export async function listRanking(
         },
     });
     return { data: data ?? null, error: error ?? null };
+}
+
+// Data-fetching convention (see AGENTS.md): each features/<domain>/api.ts exports
+// a <domain>QueryOptions(params) factory. Query key is ["<domain>", params] — a
+// single object param so adding a field later doesn't reshuffle positional keys
+// (TanStack hashes object keys order-independently). The generics pin TError to
+// RankingApiError so useQuery().error is typed; unwrap() turns the never-throw
+// { data, error } wrapper into Query's throw-on-error contract. Components call
+// useQuery(rankingQueryOptions(...)) and never touch openapi-fetch directly.
+export function rankingQueryOptions(params: ListRankingParams) {
+    return queryOptions<IllustPage, RankingApiError>({
+        queryKey: ["ranking", params],
+        queryFn: () => listRanking(params).then(unwrap),
+    });
 }
