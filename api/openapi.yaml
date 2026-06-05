@@ -996,7 +996,7 @@ components:
       properties:
         id:               { type: string }
         job_id:           { type: string }
-        url:              { type: string, description: "Final request URL (after pximg mirror rewrite)." }
+        url:              { type: string, description: "Final request URL." }
         file_path:        { type: string, description: "Target path on disk." }
         status:           { $ref: '#/components/schemas/DownloadStatus' }
         size_bytes:       { type: integer, format: int64, description: "Content-Length, or -1 if unknown." }

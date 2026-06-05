@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/txperl/pixivgo"
@@ -199,21 +198,6 @@ func pickPreviewURL(u pixivgo.ImageUrls) string {
 		return u.Medium
 	}
 	return u.Large
-}
-
-// rewritePximg swaps the `https://i.pximg.net` prefix of rawURL with
-// the configured mirror base, leaving non-pximg URLs untouched.
-// Invalid URLs are returned unchanged — the HTTP client will surface
-// the real error.
-func rewritePximg(rawURL, mirrorBase string) string {
-	if mirrorBase == "" || mirrorBase == "https://i.pximg.net" {
-		return rawURL
-	}
-	const defaultBase = "https://i.pximg.net"
-	if !strings.HasPrefix(rawURL, defaultBase) {
-		return rawURL
-	}
-	return strings.TrimSuffix(mirrorBase, "/") + rawURL[len(defaultBase):]
 }
 
 // buildHTTPClient constructs an http.Client with the configured

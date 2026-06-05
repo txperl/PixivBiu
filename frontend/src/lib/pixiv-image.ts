@@ -1,7 +1,7 @@
 // Routes i.pximg.net image URLs through the same-origin backend proxy
 // (GET /api/v1/proxy/img), which fetches them with the Pixiv Referer and
-// disk-caches them. Replaces the earlier client-side i.pixiv.cat bridge —
-// images now load same-origin and from a persistent local cache.
+// disk-caches them, so images load same-origin and from a persistent
+// local cache.
 const PXIMG_HOST = "i.pximg.net";
 
 export function rewritePximgUrl(url: string | null | undefined): string {

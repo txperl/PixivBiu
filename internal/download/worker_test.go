@@ -186,24 +186,6 @@ func TestHttpDownload_OnSizeFiresBeforeFirstProgress(t *testing.T) {
 	}
 }
 
-func TestRewritePximg(t *testing.T) {
-	cases := []struct {
-		in, mirror, want string
-	}{
-		{"https://i.pximg.net/img/a.jpg", "https://proxy.example.com", "https://proxy.example.com/img/a.jpg"},
-		{"https://i.pximg.net/img/a.jpg", "https://proxy.example.com/", "https://proxy.example.com/img/a.jpg"},
-		{"https://other.host/a.jpg", "https://proxy.example.com", "https://other.host/a.jpg"},
-		{"https://i.pximg.net/a.jpg", "", "https://i.pximg.net/a.jpg"},
-		{"https://i.pximg.net/a.jpg", "https://i.pximg.net", "https://i.pximg.net/a.jpg"},
-	}
-	for _, c := range cases {
-		got := rewritePximg(c.in, c.mirror)
-		if got != c.want {
-			t.Errorf("rewritePximg(%q,%q) = %q, want %q", c.in, c.mirror, got, c.want)
-		}
-	}
-}
-
 func TestBackoff_Exponential(t *testing.T) {
 	base := 100 * time.Millisecond
 	a1 := backoff(1, base)

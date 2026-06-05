@@ -317,8 +317,6 @@
     "cfg_download_retry_initial_backoff": "首次重试退避时长",
     "cfg_download_referer": "Referer 头",
     "cfg_download_referer_hint": "随每个下载请求一同发送",
-    "cfg_download_pximg_base": "图片源 base URL",
-    "cfg_download_pximg_base_hint": "可指向反向代理",
     "cfg_download_ugoira_format": "输出格式",
     "cfg_download_ugoira_format_hint": "none 保留原始 zip",
     "cfg_download_store_file": "下载索引文件",

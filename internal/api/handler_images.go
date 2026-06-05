@@ -17,8 +17,7 @@ const imageStreamGrace = 30 * time.Second
 // URL; any other host/scheme is rejected (SSRF guard) before a fetch is
 // attempted. The endpoint is intentionally open (no requireAuth): it only
 // proxies public Pixiv image-CDN URLs and the server binds 127.0.0.1 by
-// default. The frontend points its pximg URLs here (replacing the old
-// i.pixiv.cat bridge).
+// default. The frontend points its pximg URLs here.
 func (h *APIHandler) ProxyImage(w http.ResponseWriter, r *http.Request, params ProxyImageParams) {
 	u, err := url.Parse(params.Url)
 	if err != nil || u.Scheme != "https" || u.Hostname() != imgcache.AllowedHost {

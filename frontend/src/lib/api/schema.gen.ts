@@ -948,7 +948,7 @@ export interface components {
             /** Format: date-time */
             started_at?: string | null;
             status: components["schemas"]["DownloadStatus"];
-            /** @description Final request URL (after pximg mirror rewrite). */
+            /** @description Final request URL. */
             url: string;
         };
         Error: {

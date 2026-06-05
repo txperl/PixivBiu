@@ -91,7 +91,6 @@ type DownloadConfig struct {
 	HTTPTimeout       time.Duration `koanf:"http_timeout"`                                    // per-download request timeout
 	Retry             RetryConfig   `koanf:"retry"`                                           // failure-retry policy
 	Referer           string        `koanf:"referer"        cfg:"internal=true"`              // Referer header for download requests
-	PximgBase         string        `koanf:"pximg_base"`                                      // image source base URL (can point at a reverse proxy)
 	Ugoira            UgoiraConfig  `koanf:"ugoira"`                                          // ugoira (animated) output
 	StoreFile         string        `koanf:"store_file"     cfg:"restart=true,internal=true"` // download-index persistence file path
 }
@@ -174,7 +173,6 @@ var baseDefaults = sync.OnceValue(func() map[string]any {
 		"download.retry.max":             2,
 		"download.retry.initial_backoff": "1s",
 		"download.referer":               "https://app-api.pixiv.net/",
-		"download.pximg_base":            "https://i.pximg.net",
 		"download.ugoira.format":         "webp",
 		"download.store_file":            "./usr/downloads.json",
 

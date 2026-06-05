@@ -64,7 +64,6 @@ built-in defaults  →  ./usr/settings.json  →  environment variables  (env wi
 | `PIXIVBIU_DOWNLOAD_RETRY_MAX` | `2` | max retries per task (0–10) | advanced |
 | `PIXIVBIU_DOWNLOAD_RETRY_INITIAL_BACKOFF` | `1s` | duration — first retry backoff (exponential, capped at 30s) | advanced |
 | `PIXIVBIU_DOWNLOAD_REFERER` | `https://app-api.pixiv.net/` | `Referer` header sent with downloads | internal |
-| `PIXIVBIU_DOWNLOAD_PXIMG_BASE` | `https://i.pximg.net` | image-source base URL (can point at a reverse proxy) | — |
 | `PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT` | `webp` | `webp` / `gif` / `none` (`none` keeps the original zip) | — |
 | `PIXIVBIU_DOWNLOAD_STORE_FILE` | `./usr/downloads.json` | download-index persistence path | restart, internal |
 

@@ -317,8 +317,6 @@
     "cfg_download_retry_initial_backoff": "Initial retry backoff",
     "cfg_download_referer": "Referer header",
     "cfg_download_referer_hint": "Sent with every download request",
-    "cfg_download_pximg_base": "Image source base URL",
-    "cfg_download_pximg_base_hint": "Can point to a reverse proxy",
     "cfg_download_ugoira_format": "Output format",
     "cfg_download_ugoira_format_hint": "\"none\" keeps the original zip",
     "cfg_download_store_file": "Download index file",

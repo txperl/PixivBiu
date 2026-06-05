@@ -405,7 +405,7 @@ A comment line `:keepalive` is sent every `inbox.heartbeat` (default 15s) to kee
 
 ## Image Proxy
 
-`GET /api/v1/proxy/img?url=<i.pximg.net url>` (open, host-allowlisted) fetches a Pixiv CDN image with the Pixiv Referer, disk-caches it under `usr/cache/img/`, and streams it back with an immutable `Cache-Control` — replacing the old client-side `i.pixiv.cat` bridge (`frontend/src/lib/pixiv-image.ts::rewritePximgUrl` now points here). `internal/imgcache` owns it:
+`GET /api/v1/proxy/img?url=<i.pximg.net url>` (open, host-allowlisted) fetches a Pixiv CDN image with the Pixiv Referer, disk-caches it under `usr/cache/img/`, and streams it back with an immutable `Cache-Control`, so images load same-origin (`frontend/src/lib/pixiv-image.ts::rewritePximgUrl` points here). `internal/imgcache` owns it:
 
 - **SSRF guard, two boundaries.** The handler 400s a non-`i.pximg.net` `url` (client input); the fetch client's `CheckRedirect` 502s a cross-host redirect (upstream `Location`). Both key off the `imgcache.AllowedHost` constant.
 - **Stampede control** via `golang.org/x/sync/singleflight` — concurrent misses for one url share a single upstream fetch + cache write; oversized bodies (> 64 MiB) are rejected, never cached truncated.

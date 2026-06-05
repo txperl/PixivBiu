@@ -29,7 +29,6 @@ func newTestManager(t *testing.T) *Manager {
 		MaxConcurrent:     1,
 		HTTPTimeout:       5 * time.Second,
 		Retry:             config.RetryConfig{Max: 2, InitialBackoff: 5 * time.Millisecond},
-		PximgBase:         "https://i.pximg.net",
 		StoreFile:         filepath.Join(t.TempDir(), "downloads.json"),
 	}
 	hub := inbox.NewHub(64)
@@ -235,7 +234,6 @@ func TestNewManager_HonorsProxy(t *testing.T) {
 		FileGroupTemplate: `{{.IllustID}}_{{.Index}}{{.Ext}}`,
 		MaxConcurrent:     1,
 		HTTPTimeout:       2 * time.Second,
-		PximgBase:         "https://i.pximg.net",
 		StoreFile:         filepath.Join(t.TempDir(), "downloads.json"),
 	}
 	hub := inbox.NewHub(8)
@@ -507,7 +505,6 @@ func TestRemoveTerminal_PublishesEventsWithStableCounts(t *testing.T) {
 		MaxConcurrent:     1,
 		HTTPTimeout:       5 * time.Second,
 		Retry:             config.RetryConfig{Max: 2, InitialBackoff: 5 * time.Millisecond},
-		PximgBase:         "https://i.pximg.net",
 		StoreFile:         filepath.Join(t.TempDir(), "downloads.json"),
 	}
 	m, err := NewManager(cfg, "", slog.New(slog.DiscardHandler), nil, NewStore(cfg.StoreFile), pub, "")

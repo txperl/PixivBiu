@@ -1,7 +1,7 @@
 // Package imgcache fetches Pixiv CDN images (i.pximg.net) with the Pixiv
 // Referer, caches them on disk, and streams them back. It exists so the
 // frontend can load images same-origin (no third-party mirror) with a
-// persistent local cache, replacing the client-side i.pixiv.cat bridge.
+// persistent local cache.
 package imgcache
 
 import (

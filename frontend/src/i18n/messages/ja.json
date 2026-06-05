@@ -317,8 +317,6 @@
     "cfg_download_retry_initial_backoff": "初回リトライのバックオフ時間",
     "cfg_download_referer": "Referer ヘッダー",
     "cfg_download_referer_hint": "各ダウンロードリクエストに付与されます",
-    "cfg_download_pximg_base": "画像ソースのベース URL",
-    "cfg_download_pximg_base_hint": "リバースプロキシを指定できます",
     "cfg_download_ugoira_format": "出力フォーマット",
     "cfg_download_ugoira_format_hint": "none は元の zip を保持します",
     "cfg_download_store_file": "ダウンロードインデックスファイル",

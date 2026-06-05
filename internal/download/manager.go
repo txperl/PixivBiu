@@ -520,7 +520,7 @@ func (m *Manager) Submit(ctx context.Context, illustID int64) (*Job, error) {
 		IllustID:   illustID,
 		IllustType: illustType,
 		Title:      info.Title,
-		PreviewURL: rewritePximg(pickPreviewURL(info.ImageUrls), m.conf().PximgBase),
+		PreviewURL: pickPreviewURL(info.ImageUrls),
 		Status:     StatusQueued,
 		CreatedAt:  now,
 		UpdatedAt:  now,
@@ -628,7 +628,7 @@ func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseC
 		job.Tasks = append(job.Tasks, &Task{
 			ID:        newID("tsk_"),
 			JobID:     job.ID,
-			URL:       rewritePximg(url, st.cfg.PximgBase),
+			URL:       url,
 			FilePath:  full,
 			Status:    StatusQueued,
 			SizeBytes: -1,
@@ -658,7 +658,7 @@ func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseC
 		job.Tasks = append(job.Tasks, &Task{
 			ID:        newID("tsk_"),
 			JobID:     job.ID,
-			URL:       rewritePximg(url, st.cfg.PximgBase),
+			URL:       url,
 			FilePath:  full,
 			Status:    StatusQueued,
 			SizeBytes: -1,
@@ -717,7 +717,7 @@ func (m *Manager) buildUgoiraTasks(ctx context.Context, job *Job, baseCtx NameCo
 	job.Tasks = append(job.Tasks, &Task{
 		ID:        newID("tsk_"),
 		JobID:     job.ID,
-		URL:       rewritePximg(zipURL, st.cfg.PximgBase),
+		URL:       zipURL,
 		FilePath:  zipPath,
 		Status:    StatusQueued,
 		SizeBytes: -1,
