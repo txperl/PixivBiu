@@ -16,6 +16,7 @@ import (
 	"github.com/txperl/PixivBiu/internal/auth"
 	"github.com/txperl/PixivBiu/internal/config"
 	"github.com/txperl/PixivBiu/internal/download"
+	"github.com/txperl/PixivBiu/internal/imgcache"
 	"github.com/txperl/PixivBiu/internal/inbox"
 	"github.com/txperl/PixivBiu/internal/pixiv"
 	"github.com/txperl/PixivBiu/internal/update"
@@ -37,10 +38,12 @@ type APIHandler struct {
 	// version (main.version), surfaced by GET /system/version.
 	upd     *update.Service
 	version string
+	// img backs GET /proxy/img — fetches + disk-caches Pixiv CDN images.
+	img *imgcache.Proxy
 }
 
-func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat *atomic.Int64, cfgMgr *config.Manager, restart func(), upd *update.Service, version string) *APIHandler {
-	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, cfgMgr: cfgMgr, restart: restart, upd: upd, version: version}
+func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat *atomic.Int64, cfgMgr *config.Manager, restart func(), upd *update.Service, img *imgcache.Proxy, version string) *APIHandler {
+	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, cfgMgr: cfgMgr, restart: restart, upd: upd, version: version, img: img}
 }
 
 var _ ServerInterface = (*APIHandler)(nil)
@@ -101,6 +104,7 @@ var sentinelErrors = []struct {
 	{download.ErrAlreadyTerminal, ErrorCodeConflict, http.StatusConflict},
 	{download.ErrStillRunning, ErrorCodeConflict, http.StatusConflict},
 	{ErrMissingAppHeader, ErrorCodeForbidden, http.StatusForbidden},
+	{imgcache.ErrInvalidURL, ErrorCodeBadRequest, http.StatusBadRequest},
 }
 
 // classify maps err to (HTTP status, wire body). Sentinels and generic
@@ -180,6 +184,24 @@ func classify(err error) (int, Error) {
 				Reason ErrorUpstreamReason `json:"reason"`
 				Status int                 `json:"status"`
 			}{Reason: reason, Status: pe.StatusCode},
+		}
+	}
+
+	// Image-proxy upstream failures (i.pximg.net) carry the upstream status
+	// (0 = no response arrived). Route them through the same kind=upstream
+	// discriminator as pixiv upstream errors so the 502 envelope is uniform.
+	if ie, ok := errors.AsType[*imgcache.UpstreamError](err); ok {
+		reason := Generic
+		if ie.Status == http.StatusTooManyRequests {
+			reason = RateLimit
+		}
+		return http.StatusBadGateway, Error{
+			Code: ErrorCodeUpstreamError,
+			Kind: ErrorKindUpstream,
+			Upstream: &struct {
+				Reason ErrorUpstreamReason `json:"reason"`
+				Status int                 `json:"status"`
+			}{Reason: reason, Status: ie.Status},
 		}
 	}
 

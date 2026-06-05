@@ -27,6 +27,7 @@ type Config struct {
 	Pixiv    PixivConfig    `koanf:"pixiv"    cfg:"category=pixiv"`    // Pixiv upstream & auth
 	Download DownloadConfig `koanf:"download" cfg:"category=download"` // download behavior & templates
 	Inbox    InboxConfig    `koanf:"inbox"    cfg:"category=inbox"`    // event bus / SSE
+	Image    ImageConfig    `koanf:"image"    cfg:"category=image"`    // image proxy & disk cache
 }
 
 // AppConfig holds settings that don't belong to any single subsystem.
@@ -110,6 +111,22 @@ type InboxConfig struct {
 	Heartbeat        time.Duration `koanf:"heartbeat"         cfg:"internal=true"`                               // SSE keep-alive interval
 }
 
+// ImageConfig groups the image-proxy / disk-cache settings backing
+// GET /proxy/img. Hot-reloadable: the cache ceiling is read live on each
+// store and the HTTP client (which reuses pixiv.proxy) is rebuilt on reload.
+type ImageConfig struct {
+	Cache ImageCacheConfig `koanf:"cache"` // on-disk image cache
+}
+
+type ImageCacheConfig struct {
+	MaxSizeMB int64 `koanf:"max_size_mb" cfg:"min=0"` // disk cache size cap in MB (0 = unlimited)
+}
+
+// MaxBytes is the cache cap in bytes (0 = unlimited). Keeping the MB→bytes
+// conversion here means wiring code passes a consumer-ready value, matching how
+// duration fields reach services already decoded.
+func (c ImageCacheConfig) MaxBytes() int64 { return c.MaxSizeMB << 20 }
+
 // defaultUpdateChannel is the build-derived default for app.update.channel,
 // seeded once at startup by SetDefaultUpdateChannel from the running binary's
 // maturity (a pre-release build defaults to its own channel). An explicit user
@@ -164,6 +181,8 @@ var baseDefaults = sync.OnceValue(func() map[string]any {
 		"inbox.buffer_size":       200,
 		"inbox.progress_throttle": "250ms",
 		"inbox.heartbeat":         "15s",
+
+		"image.cache.max_size_mb": int64(2048), // 2 GiB
 	}
 })
 

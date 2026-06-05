@@ -4,7 +4,7 @@
 
 [PixivBiu](https://github.com/txperl/PixivBiu) is a Pixiv artwork browsing, searching, and downloading tool. **v3 is its next major version**, adopting Go as the implementation language and evolving the project structure to a decoupled backend + frontend monorepo.
 
-The current backend covers **auth + read-only browsing + bookmark/follow + download + SSE event stream** (all backed by [github.com/txperl/pixivgo](https://github.com/txperl/pixivgo)), plus **version reporting & one-click self-update from GitHub Releases**. Image proxy, search cache, and SauceNAO remain intentionally deferred.
+The current backend covers **auth + read-only browsing + bookmark/follow + download + SSE event stream** (all backed by [github.com/txperl/pixivgo](https://github.com/txperl/pixivgo)), plus **version reporting & one-click self-update from GitHub Releases**, and a **same-origin image proxy with on-disk cache**. Search cache and SauceNAO remain intentionally deferred.
 
 ## Architecture Overview
 
@@ -56,7 +56,8 @@ PixivBiu-go/
 │   │   ├── downloads.yaml        #     /downloads · /downloads/{id}
 │   │   ├── events.yaml           #     /events (SSE)
 │   │   ├── config.yaml           #     /config · /config/schema · /config/reset · /config/restart · /config/naming/preview
-│   │   └── system.yaml           #     /system/version · /system/update · /system/update/{check,apply}
+│   │   ├── system.yaml           #     /system/version · /system/update · /system/update/{check,apply}
+│   │   └── proxy.yaml            #     /proxy/img (i.pximg.net image proxy + disk cache)
 │   └── cfg.yaml                  #   oapi-codegen configuration (self-mapping for cross-file $refs)
 ├── cmd/server/main.go            # Entry point: load config → init logger → wire pixiv/inbox/download → HTTP
 ├── internal/
@@ -80,6 +81,7 @@ PixivBiu-go/
 │   ├── inbox/                    # In-memory pub-sub + SSE dispatcher (ring buffer + Last-Event-ID replay)
 │   ├── download/                 # Download manager, worker pool, naming templates, ugoira conversion
 │   │                             #   store.go persists usr/downloads.json atomically
+│   ├── imgcache/                 # Image proxy: fetch i.pximg.net (Referer) → disk cache (background sweeper) → stream
 │   ├── update/                   # GitHub-release checker + Apply (download → verify SHA-256 → selfupdate binary swap → restart)
 │   ├── server/server.go          # chi router assembly, middleware wiring, SPA catch-all (serves internal/web)
 │   └── web/web.go                # Embedded frontend: //go:embed dist/ (Vite output) + SPA/asset handler w/ index.html fallback
@@ -94,7 +96,7 @@ PixivBiu-go/
 │   │   │                         #     each owns api.ts (calls openapi-fetch) + components/ + (optional) hooks/store/types
 │   │   ├── components/           #   Cross-feature shared UI; ui/ for shadcn primitives (don't put business UI here)
 │   │   ├── i18n/                 #   See i18n bullet above
-│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, format.ts (formatCount/hueFromId/formatBytes), pixiv-image.ts (TEMP pximg→pixiv.cat rewrite), fetch-state.ts (FetchState<T>), url-params.ts (readPage/patchParams), poll.ts (pollUntil — restart + update-status catch-up), api/ (openapi-fetch client + `useApiErrorMessage` hook), theme/
+│   │   ├── lib/                  #   Stateless utilities — utils.ts (cn), icons.ts, format.ts (formatCount/hueFromId/formatBytes), pixiv-image.ts (pximg → same-origin /api/v1/proxy/img rewrite), fetch-state.ts (FetchState<T>), url-params.ts (readPage/patchParams), poll.ts (pollUntil — restart + update-status catch-up), api/ (openapi-fetch client + `useApiErrorMessage` hook), theme/
 │   │   └── styles/               #   globals.css + material-you.css
 │   ├── package.json              #   `bun run dev | build | check`. `build` runs `paraglide-js compile` before tsc.
 │   └── vite.config.ts            #   `paraglideVitePlugin` + Tailwind + React; `build.outDir` → ../internal/web/dist
@@ -401,11 +403,19 @@ data: {id, ts, topic, type, data}
 
 A comment line `:keepalive` is sent every `inbox.heartbeat` (default 15s) to keep proxies from idling out the connection.
 
+## Image Proxy
+
+`GET /api/v1/proxy/img?url=<i.pximg.net url>` (open, host-allowlisted) fetches a Pixiv CDN image with the Pixiv Referer, disk-caches it under `usr/cache/img/`, and streams it back with an immutable `Cache-Control` — replacing the old client-side `i.pixiv.cat` bridge (`frontend/src/lib/pixiv-image.ts::rewritePximgUrl` now points here). `internal/imgcache` owns it:
+
+- **SSRF guard, two boundaries.** The handler 400s a non-`i.pximg.net` `url` (client input); the fetch client's `CheckRedirect` 502s a cross-host redirect (upstream `Location`). Both key off the `imgcache.AllowedHost` constant.
+- **Stampede control** via `golang.org/x/sync/singleflight` — concurrent misses for one url share a single upstream fetch + cache write; oversized bodies (> 64 MiB) are rejected, never cached truncated.
+- **Disk cache = reconcile loop**, with the filesystem as the single source of truth (no in-memory byte total to drift from disk). A background manager (`Proxy.Start(ctx)` — ctx-cancel lifecycle with nothing to flush, like `update.Service`) sweeps `usr/cache/img/` against `image.cache.max_size_mb`, deleting oldest-by-mtime once over cap — on a periodic tick **and** a debounced write-kick. Cache hits bump mtime (throttled to ~1/hr) for approximate LRU.
+- `image.cache.max_size_mb` (MB, `0` = unlimited) hot-reloads; the cache directory is hardcoded under `usr/cache/`. The fetch reuses `download.referer`, `pixiv.proxy`, and `download.http_timeout`.
+
 ## Out of Scope (Current Phase)
 
 The following are intentionally **not** implemented yet — do not add them without explicit instruction:
 
-- `i.pximg.net` reverse-proxy endpoint — frontend currently bridges image URLs to `i.pixiv.cat` client-side via `frontend/src/lib/pixiv-image.ts::rewritePximgUrl` (used by `components/pximg-image.tsx`). Drop that helper once a server-side proxy lands.
 - aria2 backend
 - Resume-in-place (partial chunks) for downloads
 - Persistent unread-notification inbox (events are ephemeral by design)

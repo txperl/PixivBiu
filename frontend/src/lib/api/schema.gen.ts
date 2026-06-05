@@ -524,6 +524,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/proxy/img": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Proxy and cache a Pixiv image
+         * @description Fetches an `i.pximg.net` image with the Pixiv Referer, caches it to
+         *     disk, and streams it back with an immutable cache header. The `url`
+         *     host is restricted to `i.pximg.net` (SSRF guard). Open endpoint: it
+         *     only proxies public Pixiv image CDN URLs, so it needs no session.
+         */
+        get: operations["ProxyImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search/illusts": {
         parameters: {
             query?: never;
@@ -2203,6 +2226,31 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    ProxyImage: {
+        parameters: {
+            query: {
+                /** @description Full `https://i.pximg.net/...` image URL to proxy. */
+                url: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The image bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
             502: components["responses"]["Upstream"];
         };
     };

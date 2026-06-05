@@ -18,6 +18,7 @@ tags:
   - name: downloads
   - name: events
   - name: config
+  - name: proxy
 
 paths:
   /health:
@@ -103,6 +104,9 @@ paths:
     $ref: './paths/config.yaml#/restart'
   /config/naming/preview:
     $ref: './paths/config.yaml#/namingPreview'
+
+  /proxy/img:
+    $ref: './paths/proxy.yaml#/img'
 
 components:
   parameters:

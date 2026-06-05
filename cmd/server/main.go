@@ -25,6 +25,7 @@ import (
 	"github.com/txperl/PixivBiu/internal/browser"
 	"github.com/txperl/PixivBiu/internal/config"
 	"github.com/txperl/PixivBiu/internal/download"
+	"github.com/txperl/PixivBiu/internal/imgcache"
 	"github.com/txperl/PixivBiu/internal/inbox"
 	"github.com/txperl/PixivBiu/internal/pixiv"
 	"github.com/txperl/PixivBiu/internal/runtimepath"
@@ -166,8 +167,26 @@ func run() error {
 	updSvc := update.NewService(version, repoOwner, repoName, cfg.App.Update, cfg.Pixiv.Proxy)
 	updSvc.Start(ctx, logger)
 
+	// imgProxy backs GET /proxy/img: it fetches i.pximg.net images with the
+	// Pixiv Referer and disk-caches them under usr/cache/img (anchored to the
+	// binary dir like the other usr/ files). It reuses pixiv.proxy and the
+	// download HTTP timeout so image traffic follows the same path/limits.
+	imgProxy, err := imgcache.NewProxy(
+		runtimepath.Anchor(root, "usr/cache/img"),
+		cfg.Image.Cache.MaxBytes(),
+		cfg.Download.Referer,
+		cfg.Pixiv.Proxy,
+		cfg.Download.HTTPTimeout,
+	)
+	if err != nil {
+		return fmt.Errorf("init image proxy: %w", err)
+	}
+	// Background cache manager: reconciles usr/cache/img against the size cap
+	// (periodic + on write). Stops when ctx is cancelled at shutdown.
+	imgProxy.Start(ctx)
+
 	pkceStore := auth.NewStore()
-	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, hbAtomic, cfgMgr, restart, updSvc, version)
+	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, hbAtomic, cfgMgr, restart, updSvc, imgProxy, version)
 
 	// Reload hooks each take the whole *Config because some keys cross
 	// service boundaries — pixiv.proxy is reused by the download client.
@@ -196,6 +215,11 @@ func run() error {
 	})
 	cfgMgr.OnReload(func(n *config.Config) {
 		updSvc.Reload(n.App.Update, n.Pixiv.Proxy)
+	})
+	cfgMgr.OnReload(func(n *config.Config) {
+		if err := imgProxy.Reload(n.Image.Cache.MaxBytes(), n.Pixiv.Proxy, n.Download.HTTPTimeout); err != nil {
+			logger.Error("image proxy reload failed", slog.Any("error", err))
+		}
 	})
 
 	httpHandler := server.New(cfg, logger, handler)

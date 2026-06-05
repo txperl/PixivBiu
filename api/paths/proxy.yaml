@@ -1,0 +1,24 @@
+img:
+  get:
+    operationId: proxyImage
+    summary: Proxy and cache a Pixiv image
+    description: |
+      Fetches an `i.pximg.net` image with the Pixiv Referer, caches it to
+      disk, and streams it back with an immutable cache header. The `url`
+      host is restricted to `i.pximg.net` (SSRF guard). Open endpoint: it
+      only proxies public Pixiv image CDN URLs, so it needs no session.
+    tags: [proxy]
+    parameters:
+      - name: url
+        in: query
+        required: true
+        description: Full `https://i.pximg.net/...` image URL to proxy.
+        schema: { type: string, minLength: 1 }
+    responses:
+      '200':
+        description: The image bytes.
+        content:
+          image/*:
+            schema: { type: string, format: binary }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }

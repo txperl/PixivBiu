@@ -22,7 +22,7 @@ const cfgMessageKey = (field: FieldSpec): string => `cfg_${field.key.replaceAll(
 
 export function useFieldText(): (field: FieldSpec) => string {
     const m = useMessages();
-    // Keyed by `cfg_` + field.key.replaceAll(".", "_"). Covers all 29 leaf
+    // Keyed by `cfg_` + field.key.replaceAll(".", "_"). Covers all 30 leaf
     // fields; anything else falls through to the raw field.key.
     const map: Record<string, () => string> = {
         cfg_app_language: () => m.cfg_app_language(),
@@ -54,6 +54,7 @@ export function useFieldText(): (field: FieldSpec) => string {
         cfg_inbox_buffer_size: () => m.cfg_inbox_buffer_size(),
         cfg_inbox_progress_throttle: () => m.cfg_inbox_progress_throttle(),
         cfg_inbox_heartbeat: () => m.cfg_inbox_heartbeat(),
+        cfg_image_cache_max_size_mb: () => m.cfg_image_cache_max_size_mb(),
     };
     return (field: FieldSpec) => {
         const key = cfgMessageKey(field);
@@ -80,6 +81,7 @@ export function useFieldHint(): (field: FieldSpec) => string | undefined {
         cfg_download_ugoira_format: () => m.cfg_download_ugoira_format_hint(),
         cfg_download_store_file: () => m.cfg_download_store_file_hint(),
         cfg_inbox_buffer_size: () => m.cfg_inbox_buffer_size_hint(),
+        cfg_image_cache_max_size_mb: () => m.cfg_image_cache_max_size_mb_hint(),
     };
     return (field: FieldSpec) => {
         const key = cfgMessageKey(field);
@@ -118,6 +120,7 @@ export function useSectionTitle(): (sectionId: string, fallback?: string) => str
         pixiv: () => m.settings_section_pixiv(),
         download: () => m.settings_section_download(),
         inbox: () => m.settings_section_inbox(),
+        image: () => m.settings_section_image(),
     };
     return (sectionId: string, fallback?: string) => map[sectionId]?.() ?? fallback ?? sectionId;
 }
@@ -166,6 +169,7 @@ export function useSectionDescription(): (sectionId: string) => string | undefin
         pixiv: () => m.settings_section_pixiv_desc(),
         download: () => m.settings_section_download_desc(),
         inbox: () => m.settings_section_inbox_desc(),
+        image: () => m.settings_section_image_desc(),
     };
     return (sectionId: string) => map[sectionId]?.();
 }
