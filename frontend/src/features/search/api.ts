@@ -1,4 +1,6 @@
-import { api, type components } from "@/lib/api";
+import { queryOptions } from "@tanstack/react-query";
+import { api, type components, unwrap } from "@/lib/api";
+import { keepPreviousPage } from "@/lib/query/keep-previous-page";
 
 export type SearchTarget = components["schemas"]["SearchTarget"];
 export type SearchSort = components["schemas"]["SearchSort"];
@@ -95,4 +97,23 @@ export async function searchUsers(
         },
     });
     return { data: data ?? null, error: error ?? null };
+}
+
+// Query factories (see AGENTS.md "Data fetching"). Both are offset-paged. keepPreviousPage is
+// baked in here (the factory owns the key shape): a page jump keeps the prior page on screen,
+// but a new keyword/filter shows a skeleton instead of the old results lingering as "success".
+export function searchIllustsQueryOptions(params: SearchIllustsParams) {
+    return queryOptions<IllustPage, SearchApiError>({
+        queryKey: ["search-illusts", params],
+        queryFn: () => searchIllusts(params).then(unwrap),
+        placeholderData: keepPreviousPage(params, ["offset"]),
+    });
+}
+
+export function searchUsersQueryOptions(params: SearchUsersParams) {
+    return queryOptions<UserPreviewPage, SearchApiError>({
+        queryKey: ["search-users", params],
+        queryFn: () => searchUsers(params).then(unwrap),
+        placeholderData: keepPreviousPage(params, ["offset"]),
+    });
 }

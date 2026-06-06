@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFilterPanel } from "@/features/activity-bar";
@@ -7,7 +8,6 @@ import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
 import {
     DEFAULT_SEARCH_SORT,
     DEFAULT_SEARCH_TARGET,
-    type IllustPage,
     SEARCH_DURATIONS,
     SEARCH_PAGE_SIZE,
     SEARCH_SORTS,
@@ -15,9 +15,8 @@ import {
     type SearchDuration,
     type SearchSort,
     type SearchTarget,
-    searchIllusts,
-    searchUsers,
-    type UserPreviewPage,
+    searchIllustsQueryOptions,
+    searchUsersQueryOptions,
 } from "@/features/search/api";
 import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/illust-grid";
 import SearchPager from "@/features/search/components/search-pager";
@@ -29,7 +28,6 @@ import { SearchError, SearchNoResults } from "@/features/search/components/searc
 import UserList, { UserListSkeleton } from "@/features/search/components/user-list";
 import { useSearchHistory } from "@/features/search/hooks/use-search-history";
 import { useMessages } from "@/i18n";
-import type { FetchState } from "@/lib/fetch-state";
 import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
 
@@ -98,13 +96,33 @@ function SearchResults({ keyword }: SearchResultsProps) {
     const excludeAi = readExcludeAi(searchParams);
     const page = readPage(searchParams);
 
-    const [illustState, setIllustState] = useState<FetchState<IllustPage>>({ status: "idle" });
-    const [userState, setUserState] = useState<FetchState<UserPreviewPage>>({ status: "idle" });
+    const offset = (page - 1) * SEARCH_PAGE_SIZE;
+    // Two queries, one per mode; only the active mode fetches (`enabled`). The factories bake
+    // in keepPreviousPage, so paging keeps the prior page (no skeleton flash) while a new
+    // keyword/filter shows a skeleton instead of stale results.
+    const illustQuery = useQuery({
+        ...searchIllustsQueryOptions({
+            word: keyword,
+            searchTarget: target,
+            sort,
+            duration,
+            startDate,
+            endDate,
+            excludeAi: excludeAi || undefined,
+            offset,
+        }),
+        enabled: type === "illust",
+    });
+    const userQuery = useQuery({
+        ...searchUsersQueryOptions({ word: keyword, sort, duration, offset }),
+        enabled: type === "user",
+    });
+    const activeQuery = type === "illust" ? illustQuery : userQuery;
+
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
     const { push: pushHistory } = useSearchHistory();
 
-    const rawIllusts = illustState.status === "success" ? illustState.data.illusts : undefined;
-    const { filtered, totalBefore, totalAfter } = useFilteredIllusts(rawIllusts);
+    const { filtered, totalBefore, totalAfter } = useFilteredIllusts(illustQuery.data?.illusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
 
     const patch = useCallback(
@@ -179,44 +197,19 @@ function SearchResults({ keyword }: SearchResultsProps) {
                 : null,
     });
 
+    // Record the keyword once the active query succeeds (v5 has no onSuccess).
+    // pushHistory dedupes, so re-runs across paging are no-ops.
+    useEffect(() => {
+        if (activeQuery.isSuccess) pushHistory(keyword);
+    }, [keyword, activeQuery.isSuccess, pushHistory]);
+
+    // Reset selection whenever the list identity changes — the previous list's selection
+    // must not bleed across a navigation. `keyword` is part of the identity (a new keyword
+    // is a different result set), so it must trigger a clear like the other search params.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on navigation, not on body deps.
     useEffect(() => {
         clearSelection();
-        let cancelled = false;
-        const offset = (page - 1) * SEARCH_PAGE_SIZE;
-        if (type === "illust") {
-            setIllustState({ status: "loading" });
-            searchIllusts({
-                word: keyword,
-                searchTarget: target,
-                sort,
-                duration,
-                startDate,
-                endDate,
-                excludeAi: excludeAi || undefined,
-                offset,
-            }).then(({ data, error }) => {
-                if (cancelled) return;
-                if (error) setIllustState({ status: "error", error });
-                else if (data) {
-                    setIllustState({ status: "success", data });
-                    pushHistory(keyword);
-                }
-            });
-        } else {
-            setUserState({ status: "loading" });
-            searchUsers({ word: keyword, sort, duration, offset }).then(({ data, error }) => {
-                if (cancelled) return;
-                if (error) setUserState({ status: "error", error });
-                else if (data) {
-                    setUserState({ status: "success", data });
-                    pushHistory(keyword);
-                }
-            });
-        }
-        return () => {
-            cancelled = true;
-        };
-    }, [keyword, type, target, sort, duration, startDate, endDate, excludeAi, page, clearSelection, pushHistory]);
+    }, [keyword, type, target, sort, duration, startDate, endDate, excludeAi, page, clearSelection]);
 
     const onTabChange = (v: string) => {
         if (v !== "illust" && v !== "user") return;
@@ -228,12 +221,7 @@ function SearchResults({ keyword }: SearchResultsProps) {
         scrollAppToTop();
     };
 
-    const currentResults = type === "illust" ? illustState : userState;
-    const hasNext =
-        currentResults.status === "success" &&
-        (type === "illust"
-            ? (currentResults.data as IllustPage).next_offset != null
-            : (currentResults.data as UserPreviewPage).next_offset != null);
+    const hasNext = activeQuery.data?.next_offset != null;
 
     return (
         <>
@@ -257,34 +245,28 @@ function SearchResults({ keyword }: SearchResultsProps) {
             </Tabs>
 
             {type === "illust" ? (
-                <>
-                    {illustState.status === "loading" && <IllustGridSkeleton />}
-                    {illustState.status === "error" && <SearchError error={illustState.error} />}
-                    {illustState.status === "success" &&
-                        (illustState.data.illusts.length === 0 ? (
-                            <SearchNoResults word={keyword} />
-                        ) : filtered.length === 0 ? (
-                            <FilteredEmpty totalBefore={totalBefore} />
-                        ) : (
-                            <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
-                        ))}
-                </>
+                illustQuery.isPending ? (
+                    <IllustGridSkeleton />
+                ) : illustQuery.isError ? (
+                    <SearchError error={illustQuery.error} />
+                ) : illustQuery.data.illusts.length === 0 ? (
+                    <SearchNoResults word={keyword} />
+                ) : filtered.length === 0 ? (
+                    <FilteredEmpty totalBefore={totalBefore} />
+                ) : (
+                    <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
+                )
+            ) : userQuery.isPending ? (
+                <UserListSkeleton />
+            ) : userQuery.isError ? (
+                <SearchError error={userQuery.error} />
+            ) : userQuery.data.user_previews.length === 0 ? (
+                <SearchNoResults word={keyword} />
             ) : (
-                <>
-                    {userState.status === "loading" && <UserListSkeleton />}
-                    {userState.status === "error" && <SearchError error={userState.error} />}
-                    {userState.status === "success" &&
-                        (userState.data.user_previews.length === 0 ? (
-                            <SearchNoResults word={keyword} />
-                        ) : (
-                            <UserList previews={userState.data.user_previews} />
-                        ))}
-                </>
+                <UserList previews={userQuery.data.user_previews} />
             )}
 
-            {currentResults.status === "success" && (
-                <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />
-            )}
+            {activeQuery.isSuccess && <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />}
         </>
     );
 }

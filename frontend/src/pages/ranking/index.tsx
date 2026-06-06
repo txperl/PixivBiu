@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { useFilterPanel } from "@/features/activity-bar";
@@ -58,14 +58,11 @@ function RankingPage() {
     const variantKey = variantKeyOf(mode);
     const offset = (page - 1) * RANKING_PAGE_SIZE;
 
-    // keepPreviousData keeps the prior page on screen while the next loads, so
-    // paging/period/date changes never flash a skeleton; the skeleton (isPending)
-    // shows only on the first load with an empty cache. Returning within gcTime
-    // renders cached data instantly, then revalidates per staleTime.
-    const { data, isPending, isError, error } = useQuery({
-        ...rankingQueryOptions({ mode, date, offset }),
-        placeholderData: keepPreviousData,
-    });
+    // The factory bakes in keepPreviousPage, so a page jump keeps the prior page on screen
+    // (no skeleton flash) while a mode/date change correctly shows a skeleton for the new
+    // list. The skeleton (isPending) otherwise shows only on the first load with an empty
+    // cache; returning within gcTime renders cached data instantly, then revalidates.
+    const { data, isPending, isError, error } = useQuery(rankingQueryOptions({ mode, date, offset }));
 
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
 

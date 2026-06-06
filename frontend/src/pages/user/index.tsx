@@ -1,5 +1,6 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useParams, useSearchParams } from "react-router";
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
@@ -15,21 +16,20 @@ import SearchPager from "@/features/search/components/search-pager";
 import { SearchError } from "@/features/search/components/search-states";
 import UserList, { UserListSkeleton } from "@/features/search/components/user-list";
 import {
-    getUser,
     type IllustPage,
-    listUserBookmarks,
-    listUserFollowing,
-    listUserIllusts,
     USER_PAGE_SIZE,
+    type UserApiError,
     type UserDetailPage,
     type UserIllustsPage,
-    type UserIllustsType,
     type UserPreviewPage,
+    userBookmarksQueryOptions,
+    userDetailQueryOptions,
+    userFollowingQueryOptions,
+    userIllustsQueryOptions,
 } from "@/features/users/api";
 import FollowButton from "@/features/users/components/follow-button";
 import UserBookmarksSpecialFilters from "@/features/users/components/user-bookmarks-special-filters";
 import { useMessages } from "@/i18n";
-import type { FetchState } from "@/lib/fetch-state";
 import { formatCount, hueFromId } from "@/lib/format";
 import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
@@ -180,22 +180,6 @@ function NoResults({ tab }: { tab: Tab }) {
     );
 }
 
-function fetchTabData(
-    tab: Tab,
-    userId: number,
-    page: number,
-    cursor: number | undefined,
-    bookmarkTag: string | undefined,
-) {
-    const offset = (page - 1) * USER_PAGE_SIZE;
-    if (tab === "bookmarks") return listUserBookmarks({ userId, tag: bookmarkTag, maxBookmarkId: cursor });
-    if (tab === "bookmarks_private") {
-        return listUserBookmarks({ userId, restrict: "private", tag: bookmarkTag, maxBookmarkId: cursor });
-    }
-    if (tab === "following") return listUserFollowing({ userId, offset });
-    return listUserIllusts({ userId, type: tab as UserIllustsType, offset });
-}
-
 function tabHasNext(data: TabData): boolean {
     if ("next_max_bookmark_id" in data && data.next_max_bookmark_id != null) return true;
     return "next_offset" in data && data.next_offset != null;
@@ -203,26 +187,31 @@ function tabHasNext(data: TabData): boolean {
 
 function TabBody({
     tab,
-    state,
+    isPending,
+    isError,
+    error,
+    data,
     selected,
     onToggle,
     filteredIllusts,
     totalBefore,
 }: {
     tab: Tab;
-    state: FetchState<TabData>;
+    isPending: boolean;
+    isError: boolean;
+    error: UserApiError | null;
+    data: TabData | undefined;
     selected: Set<number>;
     onToggle: (id: number) => void;
     filteredIllusts: Illust[];
     totalBefore: number;
 }) {
-    if (state.status === "loading") {
+    if (isPending) {
         return tab === "following" ? <UserListSkeleton /> : <IllustGridSkeleton />;
     }
-    if (state.status === "error") return <SearchError error={state.error} />;
-    if (state.status !== "success") return null;
+    if (isError && error) return <SearchError error={error} />;
+    if (!data) return null;
 
-    const data = state.data;
     if ("user_previews" in data) {
         return data.user_previews.length === 0 ? <NoResults tab={tab} /> : <UserList previews={data.user_previews} />;
     }
@@ -249,12 +238,70 @@ function UserPage() {
 
     const visibleTabs = TABS.filter((t) => !isOwnerOnlyTab(t) || isMe);
 
-    const [profileState, setProfileState] = useState<FetchState<UserDetailPage>>({ status: "idle" });
-    const [tabState, setTabState] = useState<FetchState<TabData>>({ status: "idle" });
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
 
-    const rawTabIllusts =
-        tabState.status === "success" && "illusts" in tabState.data ? tabState.data.illusts : undefined;
+    // Pixiv paginates bookmarks by cursor (max_bookmark_id), built up by paging forward
+    // from page 1. Public/private bookmark chains are independent — keep one map per
+    // restrict. The chain is also tag-specific (Pixiv returns different cursors per tag),
+    // so reset when the tag changes. Numbered pages over a forward-only cursor need this
+    // page→cursor map (a cursor can only be walked, never computed); TanStack caches the
+    // page results, but the chain itself still lives here.
+    // useRef, not useMemo: React may discard memoized values, silently losing the chain.
+    const cursorsRef = useRef<{
+        userId: number;
+        tag: string;
+        bookmarks: Map<number, number | undefined>;
+        bookmarksPrivate: Map<number, number | undefined>;
+    } | null>(null);
+    if (!cursorsRef.current || cursorsRef.current.userId !== userId || cursorsRef.current.tag !== bookmarkTag) {
+        cursorsRef.current = {
+            userId,
+            tag: bookmarkTag,
+            bookmarks: new Map([[1, undefined]]),
+            bookmarksPrivate: new Map([[1, undefined]]),
+        };
+    }
+    const cursors = tab === "bookmarks_private" ? cursorsRef.current.bookmarksPrivate : cursorsRef.current.bookmarks;
+
+    const offset = (page - 1) * USER_PAGE_SIZE;
+    // No placeholderData: a profile has no pages, so the only time it would kick in is a
+    // user-id change — and keeping the previous user's header/follow button on screen under
+    // the new id is exactly what we must avoid. Show the skeleton instead.
+    const profileQuery = useQuery({
+        ...userDetailQueryOptions(userId),
+        enabled: validId,
+    });
+    // Offset tabs keep their numbered pagers; the factories bake in keepPreviousPage, so a
+    // same-list page jump keeps the prior page (no skeleton flash) but a user/tab change does
+    // not — the old user's or tab's list never lingers as "success" under the new identity.
+    const userIllustsQuery = useQuery({
+        ...userIllustsQueryOptions({ userId, type: tab === "manga" ? "manga" : "illust", offset }),
+        enabled: validId && (tab === "illust" || tab === "manga"),
+    });
+    const followingQuery = useQuery({
+        ...userFollowingQueryOptions({ userId, offset }),
+        enabled: validId && tab === "following",
+    });
+    // Bookmark tabs keep the numbered, forward-only pager: the current page's cursor comes
+    // from the chain map, and `enabled` waits until that cursor is known (and, for the
+    // owner-only private tab, until auth resolves so we don't fetch public first).
+    const bookmarkCursor = cursors.get(page);
+    const bookmarksQuery = useQuery({
+        ...userBookmarksQueryOptions({
+            userId,
+            restrict: tab === "bookmarks_private" ? "private" : "public",
+            tag: bookmarkTag || undefined,
+            maxBookmarkId: bookmarkCursor,
+        }),
+        enabled:
+            validId &&
+            isBookmarkTab(tab) &&
+            cursors.has(page) &&
+            (rawTab === "bookmarks_private" ? authResolved : true),
+    });
+
+    const list = isBookmarkTab(tab) ? bookmarksQuery : tab === "following" ? followingQuery : userIllustsQuery;
+    const rawTabIllusts = list.data && "illusts" in list.data ? list.data.illusts : undefined;
     const { filtered, totalBefore, totalAfter } = useFilteredIllusts(rawTabIllusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
 
@@ -295,72 +342,38 @@ function UserPage() {
               },
     );
 
-    // Pixiv paginates bookmarks by cursor (max_bookmark_id), built up by paging forward
-    // from page 1. Public/private bookmark chains are independent — keep one map per
-    // restrict. The chain is also tag-specific (Pixiv returns different cursors per tag),
-    // so reset when the tag changes.
-    // useRef, not useMemo: React may discard memoized values, silently losing the chain.
-    const cursorsRef = useRef<{
-        userId: number;
-        tag: string;
-        bookmarks: Map<number, number | undefined>;
-        bookmarksPrivate: Map<number, number | undefined>;
-    } | null>(null);
-    if (!cursorsRef.current || cursorsRef.current.userId !== userId || cursorsRef.current.tag !== bookmarkTag) {
-        cursorsRef.current = {
-            userId,
-            tag: bookmarkTag,
-            bookmarks: new Map([[1, undefined]]),
-            bookmarksPrivate: new Map([[1, undefined]]),
-        };
-    }
-    const cursors = tab === "bookmarks_private" ? cursorsRef.current.bookmarksPrivate : cursorsRef.current.bookmarks;
-
+    // Direct navigation to a deep bookmark page has no cached cursor; fall back to page 1
+    // (an undefined cursor would be treated as page 1 and poison the chain). Wait for auth
+    // before deciding for the owner-only private tab.
     useEffect(() => {
         if (!validId) return;
-        let cancelled = false;
-        setProfileState({ status: "loading" });
-        getUser(userId).then(({ data, error }) => {
-            if (cancelled) return;
-            if (error) setProfileState({ status: "error", error });
-            else if (data) setProfileState({ status: "success", data });
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [userId, validId]);
-
-    useEffect(() => {
-        if (!validId) return;
-        // Wait for auth before falling back from bookmarks_private → bookmarks; otherwise
-        // an owner refreshing on ?tab=bookmarks_private fetches public first, then private.
         if (rawTab === "bookmarks_private" && !authResolved) return;
-        // Direct navigation to a deep bookmark page has no cached cursor; fall back to
-        // page 1. Fetching with undefined cursor is treated as page 1 by Pixiv and would
-        // poison the page→cursor cache.
         if (isBookmarkTab(tab) && !cursors.has(page)) {
             setSearchParams((sp) => patchParams(sp, { page: undefined }));
-            return;
         }
-        let cancelled = false;
-        setTabState({ status: "loading" });
+    }, [validId, rawTab, authResolved, tab, cursors, page, setSearchParams]);
+
+    // Record the next page's cursor once a bookmark page resolves (replaces the old fetch
+    // success callback) so the pager can advance to / jump to page+1. Two guards:
+    //  - Skip placeholder data: during a page/tag change keepPreviousPage may still surface the
+    //    previous page's result, and storing its cursor under page+1 would jump with the wrong cursor.
+    //  - Skip when the current page's cursor is unknown (`!cursors.has(page)`): the query is
+    //    disabled then, but its key (maxBookmarkId: undefined) collides with page 1's cache, so
+    //    `bookmarksQuery.data` can leak cached page-1 data. Recording its cursor under page+1 would
+    //    poison the chain before the deep-link fallback below resets the URL to page 1.
+    useEffect(() => {
+        if (bookmarksQuery.isPlaceholderData || !cursors.has(page)) return;
+        const d = bookmarksQuery.data;
+        if (isBookmarkTab(tab) && d && "next_max_bookmark_id" in d && d.next_max_bookmark_id != null) {
+            cursors.set(page + 1, d.next_max_bookmark_id);
+        }
+    }, [bookmarksQuery.data, bookmarksQuery.isPlaceholderData, tab, page, cursors]);
+
+    // Reset selection whenever the list identity (user/tab/page/tag) changes.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on navigation, not on body deps.
+    useEffect(() => {
         clearSelection();
-        const cursor = isBookmarkTab(tab) ? cursors.get(page) : undefined;
-        const tagArg = isBookmarkTab(tab) && bookmarkTag ? bookmarkTag : undefined;
-        fetchTabData(tab, userId, page, cursor, tagArg).then(({ data, error }) => {
-            if (cancelled) return;
-            if (error) setTabState({ status: "error", error });
-            else if (data) {
-                setTabState({ status: "success", data });
-                if ("next_max_bookmark_id" in data && data.next_max_bookmark_id != null) {
-                    cursors.set(page + 1, data.next_max_bookmark_id);
-                }
-            }
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [userId, validId, tab, rawTab, authResolved, page, cursors, bookmarkTag, setSearchParams, clearSelection]);
+    }, [userId, tab, page, bookmarkTag, clearSelection]);
 
     const updateParams = (patch: Record<string, string | undefined>, resetPage = false) => {
         setSearchParams(patchParams(searchParams, patch, resetPage));
@@ -386,15 +399,13 @@ function UserPage() {
         );
     }
 
-    const hasNext = tabState.status === "success" && tabHasNext(tabState.data);
+    const hasNext = list.data != null && tabHasNext(list.data);
 
     return (
         <div className="relative flex flex-col gap-4 px-7 pt-7 pb-7">
-            {profileState.status === "loading" && <ProfileHeaderSkeleton />}
-            {profileState.status === "error" && <SearchError error={profileState.error} />}
-            {profileState.status === "success" && (
-                <ProfileHeader data={profileState.data} isMe={isMe} onSelectTab={selectTab} />
-            )}
+            {profileQuery.isPending && <ProfileHeaderSkeleton />}
+            {profileQuery.isError && <SearchError error={profileQuery.error} />}
+            {profileQuery.isSuccess && <ProfileHeader data={profileQuery.data} isMe={isMe} onSelectTab={selectTab} />}
 
             <Tabs value={tab} onValueChange={onTabChange}>
                 <div className="border-muted/60 border-b">
@@ -415,14 +426,17 @@ function UserPage() {
 
             <TabBody
                 tab={tab}
-                state={tabState}
+                isPending={list.isPending}
+                isError={list.isError}
+                error={list.error}
+                data={list.data}
                 selected={selected}
                 onToggle={toggle}
                 filteredIllusts={filtered}
                 totalBefore={totalBefore}
             />
 
-            {tabState.status === "success" && <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />}
+            {list.isSuccess && <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />}
         </div>
     );
 }

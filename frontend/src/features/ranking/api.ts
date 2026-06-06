@@ -1,5 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import { api, type components, unwrap } from "@/lib/api";
+import { keepPreviousPage } from "@/lib/query/keep-previous-page";
+import { offsetInfiniteQueryOptions } from "@/lib/query/offset-infinite-query-options";
 
 export type RankingMode = components["schemas"]["RankingMode"];
 export type IllustPage = components["schemas"]["IllustPage"];
@@ -96,5 +98,17 @@ export function rankingQueryOptions(params: ListRankingParams) {
     return queryOptions<IllustPage, RankingApiError>({
         queryKey: ["ranking", params],
         queryFn: () => listRanking(params).then(unwrap),
+        // Keep the prior page during a page jump (no skeleton flash) but NOT across a
+        // mode/date change — those are different lists, so they must not show stale results.
+        placeholderData: keepPreviousPage(params, ["offset"]),
+    });
+}
+
+// Infinite variant for the home "week" tab (load-more UX). Distinct key from the
+// paged ranking page so the two don't share a cache entry.
+export function weekRankingInfiniteQueryOptions() {
+    return offsetInfiniteQueryOptions<IllustPage>({
+        queryKey: ["ranking-week-infinite"],
+        fetchPage: (offset) => listRanking({ mode: "week", offset }).then(unwrap),
     });
 }

@@ -1,4 +1,5 @@
-import { api, type components } from "@/lib/api";
+import { api, type components, unwrap } from "@/lib/api";
+import { offsetInfiniteQueryOptions } from "@/lib/query/offset-infinite-query-options";
 
 export type Restrict = components["schemas"]["Restrict"];
 export type IllustType = components["schemas"]["IllustType"];
@@ -45,6 +46,21 @@ export async function listFollowingIllusts(
         },
     });
     return { data: data ?? null, error: error ?? null };
+}
+
+// Infinite query factories for the home feeds (load-more UX). Both are offset-paged.
+export function recommendedInfiniteQueryOptions(params: ListRecommendedParams) {
+    return offsetInfiniteQueryOptions<IllustPage>({
+        queryKey: ["recommended-infinite", params],
+        fetchPage: (offset) => listRecommended({ ...params, offset }).then(unwrap),
+    });
+}
+
+export function followingInfiniteQueryOptions(params: ListFollowingIllustsParams) {
+    return offsetInfiniteQueryOptions<IllustPage>({
+        queryKey: ["following-infinite", params],
+        fetchPage: (offset) => listFollowingIllusts({ ...params, offset }).then(unwrap),
+    });
 }
 
 export async function getBookmarkDetail(

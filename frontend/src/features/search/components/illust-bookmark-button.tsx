@@ -9,6 +9,7 @@ import { useApiErrorMessage } from "@/lib/api";
 import { formatCount } from "@/lib/format";
 import { HeartIcon, MagnetIcon } from "@/lib/icons";
 import { useInvalidateIllustLists } from "@/lib/query/use-invalidate-illust-lists";
+import { usePropSyncedState } from "@/lib/use-prop-synced-state";
 import { cn } from "@/lib/utils";
 
 const RESTRICT_ICONS: Record<Restrict, typeof MagnetIcon> = {
@@ -38,9 +39,13 @@ function IllustBookmarkButton({
         { value: "private", icon: RESTRICT_ICONS.private, label: m.search_bookmark_private() },
         { value: "public", icon: RESTRICT_ICONS.public, label: m.search_bookmark_public() },
     ] as const satisfies ReadonlyArray<{ value: Restrict; icon: unknown; label: string }>;
-    const [bookmarked, setBookmarked] = useState(initialIsBookmarked);
-    const [count, setCount] = useState(initialBookmarkCount);
     const [pending, setPending] = useState(false);
+    // Seeded from props, but re-adopt them when the backing query revalidates (a return-visit
+    // re-seeds is_bookmarked/total_bookmarks from a fresh refetch); the optimistic values win
+    // while a mutation is pending. currentRestrict stays bespoke: no prop carries it (it's the
+    // lazily-fetched popover detail, re-derived on popover open).
+    const [bookmarked, setBookmarked] = usePropSyncedState(initialIsBookmarked, pending);
+    const [count, setCount] = usePropSyncedState(initialBookmarkCount, pending);
     const [errorTitle, setErrorTitle] = useState<string | null>(null);
     const [popoverOpen, setPopoverOpen] = useState(false);
     // null = unknown (either not bookmarked, or bookmarked but detail not yet fetched).

@@ -1,5 +1,6 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { keepPreviousData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import LeapyLoading from "@/components/series-leapy/leapy-loading";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,17 +8,14 @@ import { useFilterPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
 import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
 import {
-    type Illust,
-    type IllustApiError,
-    type IllustPage,
+    followingInfiniteQueryOptions,
     type IllustType,
-    listFollowingIllusts,
-    listRecommended,
     type Restrict,
+    recommendedInfiniteQueryOptions,
 } from "@/features/illusts/api";
 import FollowingSpecialFilters from "@/features/illusts/components/following-special-filters";
 import RecommendedSpecialFilters from "@/features/illusts/components/recommended-special-filters";
-import { listRanking } from "@/features/ranking/api";
+import { weekRankingInfiniteQueryOptions } from "@/features/ranking/api";
 import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/illust-grid";
 import { SearchError } from "@/features/search/components/search-states";
 import { useMessages } from "@/i18n";
@@ -26,28 +24,10 @@ import { cn } from "@/lib/utils";
 
 export type TabId = "for-you" | "week" | "follow";
 
-type TabState =
-    | { status: "idle" }
-    | { status: "loading" }
-    | { status: "error"; error: IllustApiError }
-    | {
-          status: "success";
-          illusts: Illust[];
-          nextOffset: number | null;
-          loadingMore: boolean;
-          refreshing: boolean;
-      };
-
 type ForYouParams = { type: IllustType | undefined; includeRankingIllusts: boolean };
 type FollowParams = { restrict: Restrict };
 
 const TAB_IDS: ReadonlyArray<TabId> = ["for-you", "week", "follow"];
-
-const INITIAL: Record<TabId, TabState> = {
-    "for-you": { status: "idle" },
-    week: { status: "idle" },
-    follow: { status: "idle" },
-};
 
 const DEFAULT_FOR_YOU: ForYouParams = { type: undefined, includeRankingIllusts: true };
 const DEFAULT_FOLLOW: FollowParams = { restrict: "public" };
@@ -61,32 +41,6 @@ function countForYouActive(p: ForYouParams): number {
 
 function countFollowActive(p: FollowParams): number {
     return p.restrict !== DEFAULT_FOLLOW.restrict ? 1 : 0;
-}
-
-function fetchTab(
-    id: TabId,
-    forYou: ForYouParams,
-    follow: FollowParams,
-    offset?: number,
-): Promise<{ data: IllustPage | null; error: IllustApiError | null }> {
-    if (id === "for-you")
-        return listRecommended({
-            type: forYou.type,
-            includeRankingIllusts: forYou.includeRankingIllusts,
-            offset,
-        });
-    if (id === "week") return listRanking({ mode: "week", offset });
-    return listFollowingIllusts({ restrict: follow.restrict, offset });
-}
-
-function toFreshSuccess(data: IllustPage): TabState {
-    return {
-        status: "success",
-        illusts: data.illusts,
-        nextOffset: data.next_offset ?? null,
-        loadingMore: false,
-        refreshing: false,
-    };
 }
 
 type Messages = ReturnType<typeof useMessages>;
@@ -109,15 +63,51 @@ type HomeIllustTabsProps = {
 
 function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
     const m = useMessages();
+    const queryClient = useQueryClient();
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
     const [forYou, setForYou] = useState<ForYouParams>(DEFAULT_FOR_YOU);
     const [follow, setFollow] = useState<FollowParams>(DEFAULT_FOLLOW);
-    const [states, setStates] = useState<Record<TabId, TabState>>(INITIAL);
-    const versionRef = useRef<Record<TabId, number>>({ "for-you": 0, week: 0, follow: 0 });
-    const state = states[activeTab];
 
-    const rawIllusts = state.status === "success" ? state.illusts : undefined;
-    const { filtered, totalBefore, totalAfter } = useFilteredIllusts(rawIllusts);
+    // One infinite query per tab; only the active tab fetches (`enabled`). Inactive tabs
+    // keep their accumulated pages in cache (gcTime), so re-selecting a tab or returning to
+    // home shows its content instantly instead of re-pulling. keepPreviousData keeps the
+    // grid on screen while a same-tab filter change reloads (matching the old refresh-over-
+    // grid). A tab switch reads a different query, so each tab shows its own cache/skeleton
+    // with no cross-tab bleed. TanStack handles dedup/races, replacing the old version refs.
+    const forYouOptions = recommendedInfiniteQueryOptions({
+        type: forYou.type,
+        includeRankingIllusts: forYou.includeRankingIllusts,
+    });
+    const weekOptions = weekRankingInfiniteQueryOptions();
+    const followOptions = followingInfiniteQueryOptions({ restrict: follow.restrict });
+
+    const forYouQuery = useInfiniteQuery({
+        ...forYouOptions,
+        enabled: activeTab === "for-you",
+        placeholderData: keepPreviousData,
+    });
+    const weekQuery = useInfiniteQuery({
+        ...weekOptions,
+        enabled: activeTab === "week",
+        placeholderData: keepPreviousData,
+    });
+    const followQuery = useInfiniteQuery({
+        ...followOptions,
+        enabled: activeTab === "follow",
+        placeholderData: keepPreviousData,
+    });
+
+    // Pick the active tab's query + options from a map instead of parallel ternaries; all
+    // three hooks stay mounted above, only the active one is enabled.
+    const byTab = {
+        "for-you": { options: forYouOptions, query: forYouQuery },
+        week: { options: weekOptions, query: weekQuery },
+        follow: { options: followOptions, query: followQuery },
+    };
+    const { options: activeOptions, query } = byTab[activeTab];
+
+    const illusts = useMemo(() => query.data?.pages.flatMap((p) => p.illusts) ?? [], [query.data?.pages]);
+    const { filtered, totalBefore, totalAfter } = useFilteredIllusts(illusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
 
     const specialFilters: ReactNode | null = useMemo(() => {
@@ -164,95 +154,21 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
         },
     });
 
-    const replaceAll = useCallback((id: TabId, forYouParams: ForYouParams, followParams: FollowParams) => {
-        const version = ++versionRef.current[id];
-        setStates((prev) => {
-            const c = prev[id];
-            if (c.status === "success") return { ...prev, [id]: { ...c, refreshing: true } };
-            return { ...prev, [id]: { status: "loading" } };
-        });
-        fetchTab(id, forYouParams, followParams).then(({ data, error }) => {
-            if (versionRef.current[id] !== version) return;
-            setStates((prev) => ({
-                ...prev,
-                [id]: error ? { status: "error", error } : data ? toFreshSuccess(data) : { status: "idle" },
-            }));
-        });
-    }, []);
-
-    // Initial fetch: only when entering an idle tab.
-    useEffect(() => {
-        if (states[activeTab].status === "idle") replaceAll(activeTab, forYou, follow);
-    }, [activeTab, states, replaceAll, forYou, follow]);
-
-    // Refetch a tab when its server-side params change. Skip the very first render
-    // — initial fetch is handled by the idle-tab effect above.
-    const firstForYou = useRef(true);
-    const firstFollow = useRef(true);
-    // biome-ignore lint/correctness/useExhaustiveDependencies: replaceAll/follow are read at call time
-    useEffect(() => {
-        if (firstForYou.current) {
-            firstForYou.current = false;
-            return;
-        }
-        replaceAll("for-you", forYou, follow);
-    }, [forYou.type, forYou.includeRankingIllusts]);
-    // biome-ignore lint/correctness/useExhaustiveDependencies: replaceAll/forYou are read at call time
-    useEffect(() => {
-        if (firstFollow.current) {
-            firstFollow.current = false;
-            return;
-        }
-        replaceAll("follow", forYou, follow);
-    }, [follow.restrict]);
-
     const handleTabChange = (v: string) => {
         if (v === activeTab) return;
         clearSelection();
         onActiveTabChange(v as TabId);
     };
 
+    // Refresh: drop the active tab to page 1 and refetch fresh (replaces the old replaceAll).
     const handleRefresh = () => {
-        const cur = states[activeTab];
-        if (cur.status === "loading") return;
-        if (cur.status === "success" && (cur.loadingMore || cur.refreshing)) return;
-        replaceAll(activeTab, forYou, follow);
+        if (query.isFetching) return;
+        queryClient.resetQueries({ queryKey: activeOptions.queryKey });
     };
 
-    const handleLoadMore = () => {
-        if (state.status !== "success" || state.nextOffset == null) return;
-        if (state.loadingMore || state.refreshing) return;
-        const id = activeTab;
-        const offset = state.nextOffset;
-        const version = versionRef.current[id];
-
-        setStates((prev) => {
-            const c = prev[id];
-            if (c.status !== "success") return prev;
-            return { ...prev, [id]: { ...c, loadingMore: true } };
-        });
-        fetchTab(id, forYou, follow, offset).then(({ data, error }) => {
-            if (versionRef.current[id] !== version) return;
-            setStates((prev) => {
-                const c = prev[id];
-                if (c.status !== "success") return prev;
-                if (error || !data) return { ...prev, [id]: { ...c, loadingMore: false } };
-                return {
-                    ...prev,
-                    [id]: {
-                        ...c,
-                        illusts: [...c.illusts, ...data.illusts],
-                        nextOffset: data.next_offset ?? null,
-                        loadingMore: false,
-                    },
-                };
-            });
-        });
-    };
-
-    const refreshDisabled =
-        state.status === "loading" || (state.status === "success" && (state.loadingMore || state.refreshing));
-    const refreshSpinning = state.status === "loading" || (state.status === "success" && state.refreshing);
+    // Spin the refresh icon on an initial/refresh fetch, but not while loading more (the
+    // load-more button shows its own spinner) — matching the previous behavior.
+    const refreshSpinning = query.isFetching && !query.isFetchingNextPage;
 
     return (
         <section>
@@ -275,7 +191,7 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
                         variant="ghost"
                         size="icon-xs"
                         onClick={handleRefresh}
-                        disabled={refreshDisabled}
+                        disabled={query.isFetching}
                         aria-label={m.common_refresh()}
                     >
                         <HugeiconsIcon
@@ -287,36 +203,44 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
                 </div>
             </div>
 
-            {(state.status === "idle" || state.status === "loading") && <IllustGridSkeleton />}
-            {state.status === "error" && <SearchError error={state.error} />}
-            {state.status === "success" &&
-                (state.illusts.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 py-20 text-center">
-                        <div className="font-medium text-foreground text-lg">{m.common_no_data()}</div>
-                    </div>
-                ) : filtered.length === 0 ? (
-                    <FilteredEmpty totalBefore={totalBefore} />
-                ) : (
-                    <>
-                        <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
-                        {state.nextOffset != null && (
-                            <div className="flex justify-end pt-6 pb-2">
-                                <button
-                                    type="button"
-                                    className="font-semibold text-4xl text-muted-foreground hover:underline"
-                                    onClick={handleLoadMore}
-                                    disabled={state.loadingMore || state.refreshing}
-                                >
-                                    {state.loadingMore ? (
-                                        <LeapyLoading className="px-3" size={16} />
-                                    ) : (
-                                        m.common_load_more()
-                                    )}
-                                </button>
-                            </div>
-                        )}
-                    </>
-                ))}
+            {query.isPending ? (
+                <IllustGridSkeleton />
+            ) : query.isError && illusts.length === 0 ? (
+                // Only take over the page when the FIRST load failed (nothing to show). A
+                // later fetchNextPage() error keeps query.data (the loaded pages) populated
+                // while flipping isError — fall through so the feed stays visible and the
+                // load-more button returns to a retry state instead of the feed vanishing.
+                <SearchError error={query.error} />
+            ) : illusts.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-20 text-center">
+                    <div className="font-medium text-foreground text-lg">{m.common_no_data()}</div>
+                </div>
+            ) : filtered.length === 0 ? (
+                <FilteredEmpty totalBefore={totalBefore} />
+            ) : (
+                <>
+                    <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
+                    {query.hasNextPage && (
+                        <div className="flex justify-end pt-6 pb-2">
+                            <button
+                                type="button"
+                                className="font-semibold text-4xl text-muted-foreground hover:underline"
+                                onClick={() => query.fetchNextPage()}
+                                // Disable during ANY active fetch, not just next-page fetches: a load-more
+                                // click while the feed is refetching (stale revalidation / invalidation /
+                                // refresh) would overlap that refresh and append from the stale pages' offset.
+                                disabled={query.isFetching}
+                            >
+                                {query.isFetchingNextPage ? (
+                                    <LeapyLoading className="px-3" size={16} />
+                                ) : (
+                                    m.common_load_more()
+                                )}
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
         </section>
     );
 }

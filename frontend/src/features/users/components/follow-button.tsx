@@ -3,6 +3,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { addFollow, deleteFollow } from "@/features/users/api";
 import { useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
+import { useInvalidateIllustLists } from "@/lib/query/use-invalidate-illust-lists";
+import { usePropSyncedState } from "@/lib/use-prop-synced-state";
 import { cn } from "@/lib/utils";
 
 type FollowButtonProps = {
@@ -14,8 +16,14 @@ type FollowButtonProps = {
 function FollowButton({ userId, initialIsFollowed, className }: FollowButtonProps) {
     const m = useMessages();
     const resolveApiError = useApiErrorMessage();
-    const [followed, setFollowed] = useState(initialIsFollowed);
+    // Refresh cached lists after a successful toggle so a return-visit re-seeds the
+    // embedded is_followed state (user-following / search-user lists); the in-view
+    // button is already covered by local state below.
+    const invalidateIllustLists = useInvalidateIllustLists();
     const [pending, setPending] = useState(false);
+    // Seeded from the prop, but re-adopts it when the backing query revalidates (a return-visit
+    // re-seeds is_followed from a fresh refetch); the optimistic value wins while pending.
+    const [followed, setFollowed] = usePropSyncedState(initialIsFollowed, pending);
     const [errorTitle, setErrorTitle] = useState<string | null>(null);
 
     // null means Pixiv didn't tell us (e.g., the viewer is the user themselves);
@@ -43,6 +51,8 @@ function FollowButton({ userId, initialIsFollowed, className }: FollowButtonProp
         if (error) {
             setFollowed(!next);
             setErrorTitle(resolveApiError(error));
+        } else {
+            invalidateIllustLists();
         }
         setPending(false);
     };
