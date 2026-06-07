@@ -1,6 +1,6 @@
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { zhCN } from "date-fns/locale";
-import { useEffect, useState } from "react";
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
 import { Sheet, SheetBody, SheetEmpty, SheetHead } from "@/components/sheet";
@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { type Illust, type IllustApiError, listFollowingIllusts } from "@/features/illusts/api";
+import { followingInfiniteQueryOptions, type Illust } from "@/features/illusts/api";
 import IllustPlaceholderArt from "@/features/search/components/illust-placeholder-art";
 import UserLink from "@/features/users/components/user-link";
 import { useMessages } from "@/i18n";
@@ -21,11 +21,6 @@ import { cn } from "@/lib/utils";
 type User = components["schemas"]["User"];
 
 const THUMB_LIMIT = 3;
-
-type State =
-    | { status: "loading" }
-    | { status: "error"; error: IllustApiError }
-    | { status: "success"; illusts: Illust[] };
 
 type AuthorGroup = { user: User; illusts: Illust[] };
 
@@ -52,21 +47,15 @@ type FollowedAuthorsProps = {
 function FollowedAuthors({ onView }: FollowedAuthorsProps) {
     const m = useMessages();
     const resolveApiError = useApiErrorMessage();
-    const [state, setState] = useState<State>({ status: "loading" });
 
-    useEffect(() => {
-        let cancelled = false;
-        listFollowingIllusts({ restrict: "public" }).then(({ data, error }) => {
-            if (cancelled) return;
-            if (error) setState({ status: "error", error });
-            else if (data) setState({ status: "success", illusts: data.illusts });
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, []);
-
-    const authors: AuthorGroup[] = state.status === "success" ? groupByAuthor(state.illusts) : [];
+    // Reuse the home Follow tab's infinite query (same `/illusts/following` feed, shared
+    // cache key) and read only the first page — this panel is a glance at the authors in
+    // page 1, grouped client-side. Sharing the cache means the feed is fetched once per
+    // home visit (TanStack staleTime/gcTime), so returning to home no longer re-pulls, and
+    // opening the Follow tab hits the cache this panel seeded.
+    const query = useInfiniteQuery(followingInfiniteQueryOptions({ restrict: "public" }));
+    const illusts = query.data?.pages[0]?.illusts ?? [];
+    const authors: AuthorGroup[] = groupByAuthor(illusts);
 
     return (
         <Sheet>
@@ -80,26 +69,25 @@ function FollowedAuthors({ onView }: FollowedAuthorsProps) {
                 }
             />
             <SheetBody>
-                {state.status === "loading" && <LoadingRows />}
-                {state.status === "error" && (
+                {query.isPending ? (
+                    <LoadingRows />
+                ) : query.isError && authors.length === 0 ? (
                     <div className="flex h-full items-center justify-center px-[18px] text-center text-muted-foreground text-sm">
-                        {resolveApiError(state.error)}
+                        {resolveApiError(query.error)}
                     </div>
+                ) : authors.length > 0 ? (
+                    <ScrollArea className="h-full">
+                        {authors.map((group, i) => (
+                            <AuthorRow key={group.user.id} group={group} isFirst={i === 0} />
+                        ))}
+                    </ScrollArea>
+                ) : (
+                    <SheetEmpty
+                        icon={FollowIcon}
+                        title={m.user_followed_authors_empty()}
+                        hint={m.user_followed_authors_empty_hint()}
+                    />
                 )}
-                {state.status === "success" &&
-                    (authors.length > 0 ? (
-                        <ScrollArea className="h-full">
-                            {authors.map((group, i) => (
-                                <AuthorRow key={group.user.id} group={group} isFirst={i === 0} />
-                            ))}
-                        </ScrollArea>
-                    ) : (
-                        <SheetEmpty
-                            icon={FollowIcon}
-                            title={m.user_followed_authors_empty()}
-                            hint={m.user_followed_authors_empty_hint()}
-                        />
-                    ))}
             </SheetBody>
         </Sheet>
     );
