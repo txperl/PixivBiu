@@ -17,6 +17,7 @@ import DownloadsTable from "@/features/downloads/components/downloads-table";
 import { useMessages } from "@/i18n";
 import { DeleteIcon, RefreshIcon } from "@/lib/icons";
 import { patchParams, readPage } from "@/lib/url-params";
+import { useDelayedFlag } from "@/lib/use-delayed-flag";
 import { cn } from "@/lib/utils";
 
 type Filter = "all" | "active" | "done" | "failed";
@@ -84,6 +85,9 @@ function DownloadsPage() {
     const { activeCount } = useDownloadCounts();
     const { clear } = useDownloadMutations();
     const [clearing, setClearing] = useState(false);
+    // Defer the loading text so a fast fetch (localhost) never flashes it; the
+    // delay window renders nothing rather than the empty-state, which would flash too.
+    const showLoading = useDelayedFlag(isLoading);
 
     // The "all" tab's total includes active jobs; terminal count = total - activeCount.
     // For other (non-active) tabs the total itself is already the terminal count.
@@ -186,9 +190,11 @@ function DownloadsPage() {
 
             <Sheet>
                 {isLoading ? (
-                    <div className="px-[18px] py-16 text-center text-muted-foreground text-sm">
-                        {m.common_loading()}
-                    </div>
+                    showLoading ? (
+                        <div className="px-[18px] py-16 text-center text-muted-foreground text-sm">
+                            {m.common_loading()}
+                        </div>
+                    ) : null
                 ) : (
                     <DownloadsTable jobs={items} empty={<DownloadsEmpty filter={filter} />} />
                 )}

@@ -20,6 +20,7 @@ import {
 import { useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
 import { APP_SCROLLER_SELECTOR } from "@/lib/scroll";
+import { useDelayedFlag } from "@/lib/use-delayed-flag";
 import { cn } from "@/lib/utils";
 import { SettingsHeaderActions } from "./components/header-actions";
 import { ABOUT_ID, SettingsAbout } from "./components/settings-about";
@@ -38,6 +39,8 @@ function SettingsPage() {
     const resolveApiError = useApiErrorMessage();
     const { loadState, sections, view, setView, awaitRestart, schemaMismatch } = useConfig();
     const form = useConfigForm({ view, sections, onView: setView });
+    // Defer the loading text so a fast config fetch (localhost) never flashes it.
+    const showLoading = useDelayedFlag(loadState.status === "loading");
 
     const rootRef = useRef<HTMLDivElement>(null);
     const scrollerRef = useRef<HTMLElement | null>(null);
@@ -148,7 +151,7 @@ function SettingsPage() {
             </header>
 
             <div className="px-7 pt-6 pb-7">
-                {loadState.status === "loading" && (
+                {loadState.status === "loading" && showLoading && (
                     <div className="py-24 text-center text-muted-foreground text-sm">{m.settings_loading()}</div>
                 )}
 
