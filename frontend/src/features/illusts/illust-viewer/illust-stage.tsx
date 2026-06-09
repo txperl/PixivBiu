@@ -1,11 +1,11 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import PximgImage from "@/components/pximg-image";
-import { type Illust, illustPageUrls } from "@/features/illusts/api";
+import { type Illust, illustPageUrls, illustZoomUrl } from "@/features/illusts/api";
 import { useMessages } from "@/i18n";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/lib/icons";
-import { rewritePximgUrl } from "@/lib/pixiv-image";
 import { cn } from "@/lib/utils";
+import IllustZoomLayer, { type ZoomAnchor } from "./illust-zoom-layer";
 
 function StageArrow({
     side,
@@ -34,22 +34,58 @@ function StageArrow({
     );
 }
 
+// Fraction (0–1) of a client point within an object-contain image's *painted* area,
+// ignoring the letterbox bars. Lets the zoom layer re-anchor that same point.
+function containFraction(clientX: number, clientY: number, img: HTMLImageElement) {
+    const box = img.getBoundingClientRect();
+    const natAspect = img.naturalWidth / img.naturalHeight;
+    let w = box.width;
+    let h = box.height;
+    if (natAspect > box.width / box.height) h = box.width / natAspect;
+    else w = box.height * natAspect;
+    const clamp = (v: number) => Math.min(1, Math.max(0, v));
+    return {
+        fracX: clamp((clientX - (box.left + (box.width - w) / 2)) / w),
+        fracY: clamp((clientY - (box.top + (box.height - h) / 2)) / h),
+    };
+}
+
 function IllustStage({ illust }: { illust: Illust }) {
     const m = useMessages();
-    // Original-resolution zoom is available only for single-page works
-    // (meta_single_page.original_image_url) — meta_pages carry no original.
     const pages = useMemo(() => illustPageUrls(illust), [illust]);
     const total = pages.length;
-    const original = total === 1 ? illust.meta_single_page?.original_image_url : undefined;
-    const canZoom = !!original;
 
     const [active, setActive] = useState(0);
     const [zoomed, setZoomed] = useState(false);
+    const [anchor, setAnchor] = useState<ZoomAnchor | null>(null);
     const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
+    const stageRef = useRef<HTMLDivElement>(null); // the area the zoom layer overlays
+    const fitImgRef = useRef<HTMLImageElement | null>(null); // current fit-view <img>
+
+    const zoomSrc = useMemo(() => illustZoomUrl(illust, active), [illust, active]);
 
     const go = (next: number) => {
         setActive(Math.min(total - 1, Math.max(0, next)));
         setZoomed(false);
+    };
+
+    // Zoom in anchored on the click: record the focal point (as a fraction of the
+    // painted image) and where the cursor sits in the stage, so the enlarged image
+    // keeps that spot under the cursor. Falls back to no anchor (centered view) for
+    // keyboard/assistive activation — those synthetic clicks report detail 0 and
+    // clientX/Y 0, which aren't real coordinates — or if the image isn't measurable
+    // yet (clicked before it loaded).
+    const openZoom = (e: ReactMouseEvent<HTMLButtonElement>) => {
+        const stage = stageRef.current;
+        const img = fitImgRef.current;
+        if (e.detail > 0 && stage && img?.isConnected && img.naturalWidth > 0) {
+            const view = stage.getBoundingClientRect();
+            const { fracX, fracY } = containFraction(e.clientX, e.clientY, img);
+            setAnchor({ fracX, fracY, cursorX: e.clientX - view.left, cursorY: e.clientY - view.top });
+        } else {
+            setAnchor(null);
+        }
+        setZoomed(true);
     };
 
     // ←/→ navigate pages anywhere inside the open dialog (no text inputs to clash with).
@@ -81,24 +117,23 @@ function IllustStage({ illust }: { illust: Illust }) {
             fit="contain"
             fallback={<div className="size-full bg-foreground/5" />}
             className="size-full"
+            onLoad={(img) => {
+                fitImgRef.current = img;
+            }}
         />
     );
 
     return (
         <div className="relative flex h-[45vh] shrink-0 flex-col overflow-hidden bg-muted md:h-full md:min-w-0 md:flex-1">
-            <div className="relative flex min-h-0 flex-1 items-center justify-center">
-                {canZoom ? (
-                    <button
-                        type="button"
-                        onClick={() => setZoomed(true)}
-                        aria-label={m.illust_zoom_original()}
-                        className="size-full cursor-zoom-in p-2 md:p-4"
-                    >
-                        {imageEl}
-                    </button>
-                ) : (
-                    <div className="size-full p-2 md:p-4">{imageEl}</div>
-                )}
+            <div ref={stageRef} className="relative flex min-h-0 flex-1 items-center justify-center">
+                <button
+                    type="button"
+                    onClick={openZoom}
+                    aria-label={m.illust_zoom_original()}
+                    className="size-full cursor-zoom-in p-2 md:p-4"
+                >
+                    {imageEl}
+                </button>
 
                 {total > 1 && (
                     <>
@@ -120,21 +155,16 @@ function IllustStage({ illust }: { illust: Illust }) {
                     </>
                 )}
 
-                {zoomed && original && (
-                    <button
-                        type="button"
-                        onClick={() => setZoomed(false)}
-                        aria-label={m.illust_zoom_fit()}
-                        className="scrollbar-none absolute inset-0 z-20 flex cursor-zoom-out items-start justify-center overflow-auto bg-muted"
-                    >
-                        <img
-                            src={rewritePximgUrl(original)}
-                            alt={illust.title}
-                            referrerPolicy="no-referrer"
-                            decoding="async"
-                            className="block max-w-none"
-                        />
-                    </button>
+                {zoomed && (
+                    // key remounts on page/source change so a new image re-anchors cleanly.
+                    <IllustZoomLayer
+                        key={zoomSrc}
+                        src={zoomSrc}
+                        alt={illust.title}
+                        label={m.illust_zoom_fit()}
+                        anchor={anchor}
+                        onExit={() => setZoomed(false)}
+                    />
                 )}
             </div>
 

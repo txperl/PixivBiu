@@ -21,6 +21,15 @@ export function illustPageUrls(illust: Illust): string[] {
     return [illust.image_urls.large];
 }
 
+// Best-available "view large" source for one page. Single-page works expose a true
+// original (meta_single_page.original_image_url); multi-page works carry none
+// (pixivgo doesn't surface it), so we fall back to that page's large URL. Co-located
+// with illustPageUrls so the original-vs-large predicate can't drift from it.
+export function illustZoomUrl(illust: Illust, pageIndex: number): string {
+    const pages = illustPageUrls(illust);
+    return pages.length === 1 ? (illust.meta_single_page?.original_image_url ?? pages[0]) : pages[pageIndex];
+}
+
 export type ListRecommendedParams = {
     type?: IllustType;
     includeRankingIllusts?: boolean;
