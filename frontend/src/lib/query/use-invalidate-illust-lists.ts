@@ -9,8 +9,11 @@ import { useCallback } from "react";
 // it without copying the options.
 //
 // refetchType "none" only marks queries stale (refetch deferred to the next
-// mount) rather than immediately re-pulling every active list on each toggle —
-// the in-view card is already covered by the caller's optimistic local state.
+// mount) rather than immediately re-pulling every active list on each toggle.
+// The acting component is covered by its optimistic local state; OTHER cached
+// copies of the same illust (e.g. a grid card behind the viewer) are kept in sync
+// by a write-through patch — see usePatchCachedIllust — so this only needs to
+// schedule the eventual server reconciliation.
 // Every cached query is an illust list today, so the invalidation is unfiltered;
 // narrow it with a queryKey/predicate here if non-list queries ever join the cache.
 export function useInvalidateIllustLists() {

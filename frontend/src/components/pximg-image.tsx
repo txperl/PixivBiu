@@ -7,10 +7,14 @@ type PximgImageProps = {
     alt: string;
     fallback: ReactNode;
     className?: string;
+    // How the <img> fills its box. Defaults to "cover" (thumbnails/cards). The
+    // viewer stage passes "contain" so the whole artwork is visible — note
+    // `className` styles the wrapper, not the <img>, so fit can't be a className.
+    fit?: "cover" | "contain";
     onLoad?: (img: HTMLImageElement) => void;
 };
 
-function PximgImage({ src, alt, fallback, className, onLoad }: PximgImageProps) {
+function PximgImage({ src, alt, fallback, className, fit = "cover", onLoad }: PximgImageProps) {
     const url = rewritePximgUrl(src);
     const imgRef = useRef<HTMLImageElement>(null);
     const [loaded, setLoaded] = useState(false);
@@ -57,7 +61,8 @@ function PximgImage({ src, alt, fallback, className, onLoad }: PximgImageProps) 
                     onLoad={(e) => handleLoaded(e.currentTarget)}
                     onError={() => setErrored(true)}
                     className={cn(
-                        "absolute inset-0 size-full object-cover transition-opacity duration-300",
+                        "absolute inset-0 size-full transition-opacity duration-300",
+                        fit === "contain" ? "object-contain" : "object-cover",
                         loaded ? "opacity-100" : "opacity-0",
                     )}
                 />

@@ -4,6 +4,8 @@ import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import IllustDownloadButton from "@/features/downloads/components/illust-download-button";
+import { illustPageUrls } from "@/features/illusts/api";
+import { useIllustViewer } from "@/features/illusts/illust-viewer";
 import type { Illust } from "@/features/search/api";
 import IllustBookmarkButton from "@/features/search/components/illust-bookmark-button";
 import IllustPlaceholderArt from "@/features/search/components/illust-placeholder-art";
@@ -26,13 +28,11 @@ function IllustCard({ illust, selected = false, selectMode = false, onSelect }: 
     const selectable = onSelect != null;
     const selectActive = selectable && selectMode;
     const hue = hueFromId(illust.id);
+    const { open: openViewer } = useIllustViewer();
 
     const fallbackAspect = illust.width > 0 && illust.height > 0 ? illust.width / illust.height : 1;
 
-    const allPages =
-        illust.page_count > 1 && illust.meta_pages.length > 0
-            ? illust.meta_pages.map((p, i) => ({ key: i, src: p.image_urls.large }))
-            : [{ key: 0, src: illust.image_urls.large }];
+    const allPages = illustPageUrls(illust).map((src, i) => ({ key: i, src }));
     const totalPages = allPages.length;
     const displayedDots = Math.min(totalPages, MAX_DOTS);
 
@@ -59,6 +59,12 @@ function IllustCard({ illust, selected = false, selectMode = false, onSelect }: 
 
     const activeDot = Math.min(displayedDots - 1, Math.floor((activePage / totalPages) * displayedDots));
 
+    // Plain click/Enter/Space either selects (in select mode) or opens the viewer.
+    const activate = () => {
+        if (selectActive) onSelect?.(illust.id);
+        else openViewer(illust);
+    };
+
     return (
         <div
             className={cn(
@@ -66,22 +72,21 @@ function IllustCard({ illust, selected = false, selectMode = false, onSelect }: 
                 selectable && selected && "outline outline-2 outline-primary -outline-offset-2",
             )}
         >
-            {/* biome-ignore lint/a11y/noStaticElementInteractions: role/tabIndex are paired with onClick via selectActive */}
+            {/* biome-ignore lint/a11y/useSemanticElements: a <button> can't wrap the nested bookmark/download/author controls; div+role=button is intentional. Selects in select mode, else opens the viewer. */}
             <div
                 className="relative p-2"
-                onClick={selectActive ? () => onSelect?.(illust.id) : undefined}
-                onKeyDown={
-                    selectActive
-                        ? (e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  onSelect?.(illust.id);
-                              }
-                          }
-                        : undefined
-                }
-                role={selectActive ? "button" : undefined}
-                tabIndex={selectActive ? 0 : undefined}
+                onClick={activate}
+                onKeyDown={(e) => {
+                    // Only the card itself activates; ignore Enter/Space bubbling up from
+                    // nested controls (author link, bookmark/download/select buttons) so
+                    // they keep working from the keyboard.
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    activate();
+                }}
+                role="button"
+                tabIndex={0}
             >
                 <PximgImage
                     src={illust.image_urls.square_medium}
@@ -197,8 +202,8 @@ function IllustCard({ illust, selected = false, selectMode = false, onSelect }: 
                     <IllustBookmarkButton
                         key={illust.id}
                         illustId={illust.id}
-                        initialIsBookmarked={illust.is_bookmarked}
-                        initialBookmarkCount={illust.total_bookmarks}
+                        isBookmarked={illust.is_bookmarked}
+                        bookmarkCount={illust.total_bookmarks}
                     />
                 </div>
             </div>

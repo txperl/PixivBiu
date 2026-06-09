@@ -4,6 +4,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Hide the native scrollbar while keeping the element scrollable (wheel / drag /
+   programmatic scrollIntoView). For surfaces that scroll but shouldn't show a
+   chunky native bar — e.g. the viewer's thumbnail strip and zoom-pan area. */
+@utility scrollbar-none {
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
+
 @theme inline {
     --font-heading: var(--font-sans);
     --color-sidebar-ring: var(--sidebar-ring);

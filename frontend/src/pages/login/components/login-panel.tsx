@@ -7,6 +7,7 @@ import type { AuthApiError } from "@/features/auth/api";
 import type { PasteIssue } from "@/features/auth/utils";
 import { useMessages } from "@/i18n";
 import { PasteIcon } from "@/lib/icons";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 import { cn } from "@/lib/utils";
 import { ErrorBlock } from "./error-block";
 import { useReveal } from "./use-reveal";
@@ -261,7 +262,7 @@ function Strong({ children }: { children: ReactNode }) {
 
 function Code({ className, children, copyable }: { className?: string; children: ReactNode; copyable?: boolean }) {
     const m = useMessages();
-    const [copied, setCopied] = useState(false);
+    const { copied, copy } = useCopyToClipboard();
 
     if (!copyable) {
         return (
@@ -272,16 +273,6 @@ function Code({ className, children, copyable }: { className?: string; children:
     }
 
     const text = typeof children === "string" ? children : "";
-    const handleCopy = async () => {
-        if (!text) return;
-        try {
-            await navigator.clipboard.writeText(text);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-        } catch {
-            // Denied / unsupported (Safari, insecure context).
-        }
-    };
 
     return (
         <Tooltip>
@@ -290,7 +281,9 @@ function Code({ className, children, copyable }: { className?: string; children:
                 render={
                     <button
                         type="button"
-                        onClick={handleCopy}
+                        onClick={() => {
+                            if (text) copy(text);
+                        }}
                         className={cn(
                             "cursor-pointer rounded bg-muted px-1.5 py-0.5 font-mono text-foreground text-xs transition-colors hover:bg-muted/80",
                             className,

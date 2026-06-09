@@ -1,7 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { MouseEvent } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useDownloadMutations, useIllustDownloadStatus } from "@/features/downloads";
+import { useIllustDownload } from "@/features/illusts/use-illust-download";
 import { useMessages } from "@/i18n";
 import { CheckIcon, DownloadIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -19,59 +19,13 @@ const INDETERMINATE_OFFSET = RING_CIRCUM * 0.75;
 
 function IllustDownloadButton({ illustId, className }: IllustDownloadButtonProps) {
     const m = useMessages();
-    const { submit } = useDownloadMutations();
-    const { job, active, percent } = useIllustDownloadStatus(illustId);
-    const jobRef = useRef(job);
-    jobRef.current = job;
-    const [pending, setPending] = useState(false);
-    const [justSent, setJustSent] = useState(false);
-    const [errorTitle, setErrorTitle] = useState<string | null>(null);
-    const sentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const wasActiveRef = useRef(false);
+    const { downloading, justSent, errorTitle, percent, indeterminate, trigger } = useIllustDownload(illustId);
 
-    useEffect(
-        () => () => {
-            if (sentTimerRef.current) clearTimeout(sentTimerRef.current);
-        },
-        [],
-    );
-
-    // useLayoutEffect: react to the active→inactive transition in the same paint,
-    // otherwise the button briefly renders in idle state and flashes.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: m.downloads_btn_failed is read at call time
-    useLayoutEffect(() => {
-        if (wasActiveRef.current && !active) {
-            const terminal = jobRef.current;
-            if (terminal?.status === "completed") {
-                setJustSent(true);
-                if (sentTimerRef.current) clearTimeout(sentTimerRef.current);
-                sentTimerRef.current = setTimeout(() => setJustSent(false), 1400);
-            } else if (terminal?.status === "failed") {
-                const taskError = terminal.tasks.find((t) => t.error)?.error;
-                setErrorTitle(taskError ?? m.downloads_btn_failed());
-            }
-            // cancelled: revert silently to idle
-        }
-        wasActiveRef.current = active;
-    }, [active]);
-
-    const onClick = async (e: MouseEvent<HTMLButtonElement>) => {
+    const onClick = (e: MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation();
-        if (pending || active) return;
-        setErrorTitle(null);
-        setPending(true);
-        const job = await submit(illustId);
-        setPending(false);
-        if (!job) {
-            setErrorTitle(m.downloads_btn_enqueue_failed());
-            return;
-        }
+        trigger();
     };
 
-    // Treat the post-click submit window as part of "downloading" so the button
-    // doesn't dwell on a separate loading state before the SSE active flag flips.
-    const downloading = active || pending;
-    const indeterminate = pending || percent === null;
     const dashOffset = indeterminate ? INDETERMINATE_OFFSET : RING_CIRCUM * (1 - (percent ?? 0));
 
     const colorClasses = errorTitle
@@ -84,7 +38,7 @@ function IllustDownloadButton({ illustId, className }: IllustDownloadButtonProps
         <button
             type="button"
             onClick={onClick}
-            disabled={pending || active}
+            disabled={downloading}
             aria-label={downloading ? m.downloads_btn_downloading() : m.downloads_btn_download()}
             className={cn(
                 "absolute right-3.5 bottom-3.5 flex size-10 scale-90 items-center justify-center opacity-0 shadow-md transition-all duration-300 disabled:cursor-wait group-hover:scale-100 group-hover:opacity-100",

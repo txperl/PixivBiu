@@ -6,6 +6,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ActivityBar, ActivityPanel, useActivityBar } from "@/features/activity-bar";
 import { useAuth } from "@/features/auth";
+import { IllustViewerProvider } from "@/features/illusts/illust-viewer";
 
 const ACTIVITY_PANEL_DEFAULT_SIZE = 20;
 
@@ -57,25 +58,27 @@ function RootLayout() {
     }
 
     return (
-        <div className="flex h-svh overflow-hidden">
-            <ResizablePanelGroup className="min-w-0 flex-1" orientation="horizontal">
-                <ResizablePanel id="sidebar" defaultSize="14%" minSize="10%" maxSize="22%">
-                    <RootSidebar />
-                </ResizablePanel>
-                <ResizableHandle />
-                <ResizablePanel id="main">
-                    {/* The ScrollArea viewport (not <main>) is the real page scroller — see
-                        [data-app-scroller] consumers in settings scroll-spy + pager scroll-to-top. */}
-                    <main className="h-full min-h-0">
-                        <ScrollArea className="h-full" viewportProps={{ "data-app-scroller": "" }}>
-                            <Outlet />
-                        </ScrollArea>
-                    </main>
-                </ResizablePanel>
-                <ActivityPanelSlot />
-            </ResizablePanelGroup>
-            <ActivityBar />
-        </div>
+        <IllustViewerProvider>
+            <div className="flex h-svh overflow-hidden">
+                <ResizablePanelGroup className="min-w-0 flex-1" orientation="horizontal">
+                    <ResizablePanel id="sidebar" defaultSize="14%" minSize="10%" maxSize="22%">
+                        <RootSidebar />
+                    </ResizablePanel>
+                    <ResizableHandle />
+                    <ResizablePanel id="main">
+                        {/* The ScrollArea viewport (not <main>) is the real page scroller — see
+                            [data-app-scroller] consumers in settings scroll-spy + pager scroll-to-top. */}
+                        <main className="h-full min-h-0">
+                            <ScrollArea className="h-full" viewportProps={{ "data-app-scroller": "" }}>
+                                <Outlet />
+                            </ScrollArea>
+                        </main>
+                    </ResizablePanel>
+                    <ActivityPanelSlot />
+                </ResizablePanelGroup>
+                <ActivityBar />
+            </div>
+        </IllustViewerProvider>
     );
 }
 
