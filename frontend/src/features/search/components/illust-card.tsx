@@ -168,7 +168,7 @@ function IllustCard({ illust, selected = false, selectMode = false, onSelect }: 
                                         key={allPages[activePage].src}
                                         src={allPages[activePage].src}
                                         alt={illust.title}
-                                        fallback={<IllustPlaceholderArt hue={hue} ratio="1/1" rounded={6} />}
+                                        fallback={<IllustPlaceholderArt hue={hue} rounded={6} fill />}
                                         className="block h-full w-full object-cover"
                                         onLoad={(img) => {
                                             if (!img.naturalWidth || !img.naturalHeight) return;

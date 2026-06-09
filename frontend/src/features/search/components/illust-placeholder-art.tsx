@@ -4,20 +4,31 @@ type IllustPlaceholderArtProps = {
     hue: number;
     ratio?: "4/5" | "1/1" | "3/4";
     rounded?: number;
+    // Fill the parent on both axes (size-full) instead of imposing `ratio`. Use
+    // when the container already owns the aspect ratio (e.g. the card's preview
+    // popover box), so the placeholder matches the box rather than going square.
+    fill?: boolean;
     className?: string;
     children?: React.ReactNode;
 };
 
 // Stripe-and-blur tile that stands in for real artwork. Hue is data-driven, so
 // inline style is unavoidable here.
-function IllustPlaceholderArt({ hue, ratio = "1/1", rounded = 12, className, children }: IllustPlaceholderArtProps) {
+function IllustPlaceholderArt({
+    hue,
+    ratio = "1/1",
+    rounded = 12,
+    fill = false,
+    className,
+    children,
+}: IllustPlaceholderArtProps) {
     const a = `oklch(0.88 0.05 ${hue})`;
     const b = `oklch(0.93 0.035 ${hue})`;
     return (
         <div
-            className={cn("relative w-full overflow-hidden", className)}
+            className={cn("relative overflow-hidden", fill ? "size-full" : "w-full", className)}
             style={{
-                aspectRatio: ratio,
+                aspectRatio: fill ? undefined : ratio,
                 borderRadius: rounded,
                 background: `repeating-linear-gradient(135deg, ${a} 0 10px, ${b} 10px 20px)`,
             }}
