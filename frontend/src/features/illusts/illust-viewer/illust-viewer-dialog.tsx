@@ -121,10 +121,9 @@ function IllustViewerDialog({
             onOpenChangeComplete={(isOpen) => {
                 // `shown` is retained through the close ANIMATION (so content stays
                 // painted as it fades out); once that animation completes, drop it so
-                // ViewerBody/IllustStage fully unmount — releasing the seed reference,
-                // tearing down the document keydown listener, and guaranteeing a later
-                // open of the same artwork starts fresh (page 1, unzoomed) instead of
-                // reusing hidden stage state.
+                // ViewerBody/IllustStage fully unmount — releasing the seed reference and
+                // guaranteeing a later open of the same artwork starts fresh (page 1,
+                // unzoomed) instead of reusing hidden stage state.
                 if (!isOpen) setShown(null);
             }}
         >

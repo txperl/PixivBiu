@@ -8,23 +8,21 @@ import { useDragScroll } from "@/lib/use-drag-scroll";
 export type ZoomAnchor = { fracX: number; fracY: number; cursorX: number; cursorY: number };
 
 // Full-resolution overlay for the viewer stage: shows the image at natural size,
-// pannable by mouse/touch drag (useDragScroll) and exitable by a plain click or
-// Enter/Space (native button activation). A drag past the threshold is swallowed
-// by the hook's onClickCapture so it doesn't also exit.
+// pannable by mouse/touch drag (useDragScroll) and exitable by a plain click. A drag
+// past the threshold is swallowed by the hook's onClickCapture so it doesn't also exit.
+// Mouse-only by design: a plain div, not a button, so there's no keyboard activation.
 function IllustZoomLayer({
     src,
     alt,
-    label,
     anchor,
     onExit,
 }: {
     src: string; // pixiv URL; rewritten here for the proxy
     alt: string;
-    label: string;
     anchor: ZoomAnchor | null;
     onExit: () => void;
 }) {
-    const { ref, dragProps } = useDragScroll<HTMLButtonElement>();
+    const { ref, dragProps } = useDragScroll<HTMLDivElement>();
     const imgRef = useRef<HTMLImageElement>(null);
 
     // Scroll so the focal point lands back under the cursor's original screen position,
@@ -54,10 +52,10 @@ function IllustZoomLayer({
         // the whole image stays scroll/drag-reachable. (Flex `items/justify-center`
         // would instead push the overflow above/left of the origin, where `overflow-auto`
         // can't scroll to it.)
-        <button
+        // biome-ignore lint/a11y/noStaticElementInteractions: mouse-only overlay by design
+        // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard exit intentionally removed
+        <div
             ref={ref}
-            type="button"
-            aria-label={label}
             onClick={onExit}
             {...dragProps}
             className="scrollbar-none absolute inset-0 z-20 flex cursor-grab touch-none select-none overflow-auto bg-muted p-0 active:cursor-grabbing"
@@ -72,7 +70,7 @@ function IllustZoomLayer({
                 onLoad={positionToAnchor}
                 className="m-auto block max-w-none shrink-0 select-none"
             />
-        </button>
+        </div>
     );
 }
 

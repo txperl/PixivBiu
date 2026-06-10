@@ -71,11 +71,10 @@ function IllustStage({ illust }: { illust: Illust }) {
 
     // Zoom in anchored on the click: record the focal point (as a fraction of the
     // painted image) and where the cursor sits in the stage, so the enlarged image
-    // keeps that spot under the cursor. Falls back to no anchor (centered view) for
-    // keyboard/assistive activation — those synthetic clicks report detail 0 and
-    // clientX/Y 0, which aren't real coordinates — or if the image isn't measurable
-    // yet (clicked before it loaded).
-    const openZoom = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    // keeps that spot under the cursor. Falls back to no anchor (centered view) if the
+    // image isn't measurable yet (clicked before it loaded) or a synthetic click reports
+    // detail 0 / clientX-Y 0, which aren't real coordinates.
+    const openZoom = (e: ReactMouseEvent<HTMLDivElement>) => {
         const stage = stageRef.current;
         const img = fitImgRef.current;
         if (e.detail > 0 && stage && img?.isConnected && img.naturalWidth > 0) {
@@ -87,22 +86,6 @@ function IllustStage({ illust }: { illust: Illust }) {
         }
         setZoomed(true);
     };
-
-    // ←/→ navigate pages anywhere inside the open dialog (no text inputs to clash with).
-    useEffect(() => {
-        if (total <= 1) return;
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === "ArrowLeft") {
-                setActive((a) => Math.max(0, a - 1));
-                setZoomed(false);
-            } else if (e.key === "ArrowRight") {
-                setActive((a) => Math.min(total - 1, a + 1));
-                setZoomed(false);
-            }
-        };
-        document.addEventListener("keydown", onKey);
-        return () => document.removeEventListener("keydown", onKey);
-    }, [total]);
 
     // Keep the active thumbnail in view as pages change.
     useEffect(() => {
@@ -126,14 +109,13 @@ function IllustStage({ illust }: { illust: Illust }) {
     return (
         <div className="relative flex h-[45vh] shrink-0 flex-col overflow-hidden bg-muted md:h-full md:min-w-0 md:flex-1">
             <div ref={stageRef} className="relative flex min-h-0 flex-1 items-center justify-center">
-                <button
-                    type="button"
-                    onClick={openZoom}
-                    aria-label={m.illust_zoom_original()}
-                    className="size-full cursor-zoom-in p-2 md:p-4"
-                >
+                {/* Zoom is mouse-only by design — a plain clickable div, not a button, so it
+                    isn't keyboard-activatable. */}
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: mouse-only zoom by design */}
+                {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard activation intentionally removed */}
+                <div onClick={openZoom} className="size-full cursor-zoom-in p-2 md:p-4">
                     {imageEl}
-                </button>
+                </div>
 
                 {total > 1 && (
                     <>
@@ -161,7 +143,6 @@ function IllustStage({ illust }: { illust: Illust }) {
                         key={zoomSrc}
                         src={zoomSrc}
                         alt={illust.title}
-                        label={m.illust_zoom_fit()}
                         anchor={anchor}
                         onExit={() => setZoomed(false)}
                     />
