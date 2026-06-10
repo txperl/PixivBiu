@@ -1084,6 +1084,7 @@ export interface components {
         ImageUrls: {
             large: string;
             medium: string;
+            original?: string;
             square_medium: string;
         };
         LoginRequest: {

@@ -383,7 +383,7 @@ Behavioral notes the spec carries but are easy to miss:
 
 **Events.** `Publisher` in `download/publisher.go` centralises topic/type naming and throttles `download.task.progress` events (configurable `inbox.progress_throttle`, default 250ms). Terminal task transitions bypass the throttle and also flush one final progress tick so UI progress bars snap to 100%.
 
-**Note on pixivgo limitation.** `pixivgo.ImageUrls` does not expose the `original` field, so multi-page illusts currently download the `large` resolution. Single-page illusts use `meta_single_page.original_image_url` (full quality). Fix requires an upstream pixivgo change.
+**Note on image resolution.** `pixivgo.ImageUrls` exposes `Original` (`*string`, present only on per-page `meta_pages` image_urls; the top-level illust image_urls omits it). Multi-page illusts download and zoom to that per-page original, falling back to `large` when absent; single-page illusts use `meta_single_page.original_image_url`. Both the download manager (`internal/download/manager.go`) and the viewer's `illustZoomUrl` (`frontend/src/features/illusts/api.ts`) prefer the original with a `large` fallback.
 
 ## Inbox / SSE
 

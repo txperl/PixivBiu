@@ -636,11 +636,14 @@ func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseC
 		return nil
 	}
 
-	// Multi-page illust / manga. pixivgo's ImageUrls unfortunately
-	// does not expose `original` for meta_pages entries, so Large is
-	// our best available resolution without patching pixivgo.
+	// Multi-page illust / manga. Pixiv exposes a per-page original via
+	// meta_pages[i].image_urls.original; fall back to Large then Medium when
+	// it's absent. ExtFromURL keys off the chosen URL so naming stays correct.
 	for i, page := range info.MetaPages {
 		url := page.ImageUrls.Large
+		if page.ImageUrls.Original != nil && *page.ImageUrls.Original != "" {
+			url = *page.ImageUrls.Original
+		}
 		if url == "" {
 			url = page.ImageUrls.Medium
 		}

@@ -849,6 +849,9 @@ components:
         square_medium: { type: string }
         medium:        { type: string }
         large:         { type: string }
+        # Only present on per-page image_urls (meta_pages); omitted on the
+        # top-level illust image_urls — hence optional, not required.
+        original:      { type: string }
 
     IllustrationTag:
       x-go-type: pixivgo.IllustrationTag

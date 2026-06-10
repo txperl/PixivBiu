@@ -10,24 +10,33 @@ export type IllustPage = components["schemas"]["IllustPage"];
 export type IllustDetailResponse = components["schemas"]["IllustDetailResponse"];
 export type IllustApiError = components["schemas"]["Error"];
 
-// The large-image URL for each page of a work. A work is multi-page only when
-// page_count > 1 AND meta_pages is populated (some list payloads omit meta_pages);
-// otherwise the single `image_urls.large` is the one page. Shared by the card's
-// hover preview and the viewer stage so the predicate can't drift between them.
+// A work is multi-page only when page_count > 1 AND meta_pages is populated (some
+// list payloads omit meta_pages); otherwise the single top-level image_urls is the
+// one page. The page-URL helpers below share this so the predicate can't drift.
+function isMultiPage(illust: Illust): boolean {
+    return illust.page_count > 1 && illust.meta_pages.length > 0;
+}
+
+// The large-image URL for each page of a work. Shared by the card's hover preview
+// and the viewer stage (fit-view + thumbnail strip).
 export function illustPageUrls(illust: Illust): string[] {
-    if (illust.page_count > 1 && illust.meta_pages.length > 0) {
+    if (isMultiPage(illust)) {
         return illust.meta_pages.map((p) => p.image_urls.large);
     }
     return [illust.image_urls.large];
 }
 
-// Best-available "view large" source for one page. Single-page works expose a true
-// original (meta_single_page.original_image_url); multi-page works carry none
-// (pixivgo doesn't surface it), so we fall back to that page's large URL. Co-located
-// with illustPageUrls so the original-vs-large predicate can't drift from it.
+// Best-available "view large" source for one page, symmetric across single- and
+// multi-page works. Single-page works expose a true original via
+// meta_single_page.original_image_url; multi-page works carry it per page at
+// meta_pages[i].image_urls.original. Either way we fall back to that page's large URL
+// when the original is absent or empty (`||` mirrors the backend's empty-string guard).
 export function illustZoomUrl(illust: Illust, pageIndex: number): string {
-    const pages = illustPageUrls(illust);
-    return pages.length === 1 ? (illust.meta_single_page?.original_image_url ?? pages[0]) : pages[pageIndex];
+    if (isMultiPage(illust)) {
+        const page = illust.meta_pages[pageIndex];
+        return page.image_urls.original || page.image_urls.large;
+    }
+    return illust.meta_single_page?.original_image_url || illust.image_urls.large;
 }
 
 export type ListRecommendedParams = {
