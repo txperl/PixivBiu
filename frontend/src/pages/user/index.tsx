@@ -1,6 +1,6 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
@@ -263,6 +263,20 @@ function UserPage() {
     }
     const cursors = tab === "bookmarks_private" ? cursorsRef.current.bookmarksPrivate : cursorsRef.current.bookmarks;
 
+    // The chain holds a contiguous range of known pages 1..F (the frontier). A forward-only
+    // cursor can't jump, so if the requested page is past the frontier we fetch the frontier
+    // instead — that records the next cursor and advances F by one — and keep walking forward
+    // until the chain reaches `page`. A pager click and a deep URL are the same event
+    // (`?page=N`), so this one mechanism serves both. The walk stops at the real last page
+    // (see the recording effect's clamp), so an over-shot page can't loop forever.
+    const frontier = Math.max(...cursors.keys());
+    const fetchPage = cursors.has(page) ? page : frontier;
+    const isWalking = isBookmarkTab(tab) && fetchPage !== page;
+    // Extending the chain mutates the ref-held Map, which won't re-render on its own. Bump
+    // this when a walk hop records the next cursor so the component recomputes `fetchPage`
+    // and fetches the following hop — repeating until the chain reaches the requested page.
+    const [, bumpWalk] = useState(0);
+
     const offset = (page - 1) * USER_PAGE_SIZE;
     // No placeholderData: a profile has no pages, so the only time it would kick in is a
     // user-id change — and keeping the previous user's header/follow button on screen under
@@ -282,10 +296,11 @@ function UserPage() {
         ...userFollowingQueryOptions({ userId, offset }),
         enabled: validId && tab === "following",
     });
-    // Bookmark tabs keep the numbered, forward-only pager: the current page's cursor comes
-    // from the chain map, and `enabled` waits until that cursor is known (and, for the
-    // owner-only private tab, until auth resolves so we don't fetch public first).
-    const bookmarkCursor = cursors.get(page);
+    // Bookmark tabs keep the numbered, forward-only pager. We fetch `fetchPage` — the
+    // requested page when its cursor is known, otherwise the frontier we're walking from —
+    // so its cursor is always available. `enabled` only waits, for the owner-only private
+    // tab, until auth resolves so we don't fetch public first.
+    const bookmarkCursor = cursors.get(fetchPage);
     const bookmarksQuery = useQuery({
         ...userBookmarksQueryOptions({
             userId,
@@ -293,15 +308,13 @@ function UserPage() {
             tag: bookmarkTag || undefined,
             maxBookmarkId: bookmarkCursor,
         }),
-        enabled:
-            validId &&
-            isBookmarkTab(tab) &&
-            cursors.has(page) &&
-            (rawTab === "bookmarks_private" ? authResolved : true),
+        enabled: validId && isBookmarkTab(tab) && (rawTab === "bookmarks_private" ? authResolved : true),
     });
 
     const list = isBookmarkTab(tab) ? bookmarksQuery : tab === "following" ? followingQuery : userIllustsQuery;
-    const rawTabIllusts = list.data && "illusts" in list.data ? list.data.illusts : undefined;
+    // While walking, `list.data` is an intermediate hop's page — don't surface it (the grid
+    // shows a skeleton; the filter-panel counts shouldn't flicker through it either).
+    const rawTabIllusts = !isWalking && list.data && "illusts" in list.data ? list.data.illusts : undefined;
     const { filtered, totalBefore, totalAfter } = useFilteredIllusts(rawTabIllusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
 
@@ -342,32 +355,29 @@ function UserPage() {
               },
     );
 
-    // Direct navigation to a deep bookmark page has no cached cursor; fall back to page 1
-    // (an undefined cursor would be treated as page 1 and poison the chain). Wait for auth
-    // before deciding for the owner-only private tab.
-    useEffect(() => {
-        if (!validId) return;
-        if (rawTab === "bookmarks_private" && !authResolved) return;
-        if (isBookmarkTab(tab) && !cursors.has(page)) {
-            setSearchParams((sp) => patchParams(sp, { page: undefined }));
-        }
-    }, [validId, rawTab, authResolved, tab, cursors, page, setSearchParams]);
-
     // Record the next page's cursor once a bookmark page resolves (replaces the old fetch
-    // success callback) so the pager can advance to / jump to page+1. Two guards:
-    //  - Skip placeholder data: during a page/tag change keepPreviousPage may still surface the
-    //    previous page's result, and storing its cursor under page+1 would jump with the wrong cursor.
-    //  - Skip when the current page's cursor is unknown (`!cursors.has(page)`): the query is
-    //    disabled then, but its key (maxBookmarkId: undefined) collides with page 1's cache, so
-    //    `bookmarksQuery.data` can leak cached page-1 data. Recording its cursor under page+1 would
-    //    poison the chain before the deep-link fallback below resets the URL to page 1.
+    // success callback), extending the forward-only chain so the pager / deep links can walk
+    // further. `fetchPage` is the page actually fetched (the frontier while walking, the
+    // requested page otherwise). Skip placeholder data: during a maxBookmarkId step
+    // keepPreviousPage surfaces the prior hop's result, whose cursor must not be recorded
+    // under this hop's page+1. If a hop is the last real page yet `page` is still beyond it,
+    // the walk overshot the end (jump / deep link past the list) — clamp the URL to it.
     useEffect(() => {
-        if (bookmarksQuery.isPlaceholderData || !cursors.has(page)) return;
+        if (!isBookmarkTab(tab) || bookmarksQuery.isPlaceholderData) return;
         const d = bookmarksQuery.data;
-        if (isBookmarkTab(tab) && d && "next_max_bookmark_id" in d && d.next_max_bookmark_id != null) {
-            cursors.set(page + 1, d.next_max_bookmark_id);
+        if (!d) return;
+        // Absent on the last page, so treat undefined/null alike as "no further page" —
+        // otherwise a walk past the end never reaches the clamp below and hangs on a skeleton.
+        const next = d.next_max_bookmark_id ?? null;
+        if (next != null) {
+            cursors.set(fetchPage + 1, next);
+            if (page > fetchPage) bumpWalk((n) => n + 1); // still walking — advance to the next hop
+        } else if (page > fetchPage) {
+            // Walked to the last real page before reaching the requested one (jump / deep link
+            // past the end): clamp the URL to the last page so the walk stops and shows it.
+            setSearchParams((sp) => patchParams(sp, { page: fetchPage === 1 ? undefined : String(fetchPage) }));
         }
-    }, [bookmarksQuery.data, bookmarksQuery.isPlaceholderData, tab, page, cursors]);
+    }, [bookmarksQuery.data, bookmarksQuery.isPlaceholderData, tab, page, fetchPage, cursors, setSearchParams]);
 
     // Reset selection whenever the list identity (user/tab/page/tag) changes.
     // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on navigation, not on body deps.
@@ -386,7 +396,6 @@ function UserPage() {
     };
 
     const onJumpPage = (p: number) => {
-        if (isBookmarkTab(tab) && !cursors.has(p)) return;
         updateParams({ page: p === 1 ? undefined : String(p) });
         scrollAppToTop();
     };
@@ -399,7 +408,7 @@ function UserPage() {
         );
     }
 
-    const hasNext = list.data != null && tabHasNext(list.data);
+    const hasNext = !isWalking && list.data != null && tabHasNext(list.data);
 
     return (
         <div className="relative flex flex-col gap-4 px-7 pt-7 pb-7">
@@ -426,7 +435,7 @@ function UserPage() {
 
             <TabBody
                 tab={tab}
-                isPending={list.isPending}
+                isPending={!list.isError && (list.isPending || isWalking)}
                 isError={list.isError}
                 error={list.error}
                 data={list.data}
@@ -436,7 +445,7 @@ function UserPage() {
                 totalBefore={totalBefore}
             />
 
-            {list.isSuccess && <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />}
+            {list.isSuccess && !isWalking && <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />}
         </div>
     );
 }
