@@ -46,7 +46,6 @@ export interface FieldSpec {
 
 export interface SectionSpec {
     category: string;
-    title: string;
     icon: IconSvgElement;
     fields: FieldSpec[];
 }

@@ -1,9 +1,8 @@
-import { InformationCircleIcon } from "@hugeicons/core-free-icons";
 import { type ReactNode, useState } from "react";
 import LeapyOverlay from "@/components/series-leapy/leapy-overlay";
 import { Sheet, SheetHead } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
-import { type FieldSpec, SCROLL_OFFSET } from "@/features/settings";
+import { type FieldSpec, SCROLL_OFFSET, SECTION_ICONS } from "@/features/settings";
 import { type UpdateApiError, useUpdate } from "@/features/system";
 import { useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
@@ -91,7 +90,7 @@ export function SettingsAbout({
         <section id={`section-${ABOUT_ID}`} data-section-id={ABOUT_ID} style={{ scrollMarginTop: SCROLL_OFFSET }}>
             <Sheet>
                 <SheetHead
-                    icon={InformationCircleIcon}
+                    icon={SECTION_ICONS.about}
                     title={m.settings_about_title()}
                     actions={
                         <Button variant="outline" size="sm" onClick={onCheck} disabled={checking}>

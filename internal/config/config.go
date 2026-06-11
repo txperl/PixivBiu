@@ -22,13 +22,13 @@ const SchemaVersion = "1"
 
 type Config struct {
 	App      AppConfig      `koanf:"app"      cfg:"category=app"`      // general application settings
-	Server   ServerConfig   `koanf:"server"   cfg:"category=server"`   // HTTP server
-	Log      LogConfig      `koanf:"log"      cfg:"category=log"`      // log output
+	Server   ServerConfig   `koanf:"server"   cfg:"category=system"`   // HTTP server (UI: System)
+	Log      LogConfig      `koanf:"log"      cfg:"category=system"`   // log output (UI: System)
 	Pixiv    PixivConfig    `koanf:"pixiv"    cfg:"category=pixiv"`    // Pixiv upstream & auth
 	Download DownloadConfig `koanf:"download" cfg:"category=download"` // download behavior & templates
-	Inbox    InboxConfig    `koanf:"inbox"    cfg:"category=inbox"`    // event bus / SSE
+	Inbox    InboxConfig    `koanf:"inbox"    cfg:"category=system"`   // event bus / SSE (UI: System)
 	Image    ImageConfig    `koanf:"image"    cfg:"category=image"`    // image proxy & disk cache
-	Search   SearchConfig   `koanf:"search"   cfg:"category=search"`   // search behavior
+	Search   SearchConfig   `koanf:"search"   cfg:"category=pixiv"`    // search behavior (UI: Pixiv)
 }
 
 // AppConfig holds settings that don't belong to any single subsystem.

@@ -27,7 +27,7 @@ export function SettingsNav({ sections, activeId, onSelect }: SettingsNavProps) 
                         className={cn(baseClass, active ? activeClass : inactiveClass)}
                     >
                         <HugeiconsIcon icon={section.icon} size={18} strokeWidth={active ? 2 : 1.5} />
-                        <span className="flex-1">{sectionTitle(section.category, section.title)}</span>
+                        <span className="flex-1">{sectionTitle(section.category)}</span>
                     </button>
                 );
             })}

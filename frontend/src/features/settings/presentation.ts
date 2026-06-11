@@ -3,8 +3,8 @@ import {
     Download04Icon,
     GlobalIcon,
     Image01Icon,
-    InboxIcon,
-    Note01Icon,
+    InformationCircleIcon,
+    PaintBoardIcon,
     Settings03Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
@@ -29,23 +29,24 @@ export const CONTENT_TOP_GAP = 24;
 export const SCROLL_OFFSET = HEADER_HEIGHT + CONTENT_TOP_GAP;
 export const NAV_TOP = HEADER_HEIGHT + CONTENT_TOP_GAP;
 
-interface SectionMeta {
-    icon: IconSvgElement;
-    order: number;
-}
-
-// Frontend presentation overlay: section icons and order only. Titles and
-// descriptions are i18n keys resolved at render time via useSectionTitle() /
-// useSectionDescription() (keyed by the section id). Everything else (fields,
-// types, constraints) comes from GET /config/schema.
-export const SECTION_META: Record<string, SectionMeta> = {
-    app: { icon: GlobalIcon, order: 0 },
-    server: { icon: CloudServerIcon, order: 1 },
-    log: { icon: Note01Icon, order: 2 },
-    pixiv: { icon: Image01Icon, order: 3 },
-    download: { icon: Download04Icon, order: 4 },
-    inbox: { icon: InboxIcon, order: 5 },
-    image: { icon: Image01Icon, order: 6 },
+// Frontend presentation overlay: one section-id → icon registry. Section ORDER
+// is no longer carried here — it's derived from the schema (each category's
+// earliest x-cfg-order, see compileSchema), so the struct declaration order is
+// the single source of truth and this map can't drift out of sync with it.
+// Titles and descriptions are i18n keys resolved at render time via
+// useSectionTitle() / useSectionDescription() (keyed by the section id);
+// everything else (fields, types, constraints) comes from GET /config/schema.
+// `about` is rendered by a bespoke card (SettingsAbout) rather than as a normal
+// section, but its icon lives here too so every section icon has one home.
+// Section ids mirror the backend cfg:"category=..." tags: `system` groups the
+// server/log/inbox runtime internals, and the search knob rides under `pixiv`.
+export const SECTION_ICONS: Record<string, IconSvgElement> = {
+    app: GlobalIcon,
+    pixiv: PaintBoardIcon,
+    download: Download04Icon,
+    image: Image01Icon,
+    system: CloudServerIcon,
+    about: InformationCircleIcon,
 };
 
 export const FALLBACK_SECTION_ICON: IconSvgElement = Settings03Icon;

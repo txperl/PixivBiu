@@ -113,19 +113,21 @@ export function useNamingFieldLabel(): (id: string) => string {
     return (id: string) => map[id]?.() ?? id;
 }
 
-export function useSectionTitle(): (sectionId: string, fallback?: string) => string {
+// Resolves a section id to its localized title. `about` resolves here too
+// (to the About-card title) so the synthetic About nav entry goes through the
+// same path as every real section — no per-section title carried on SectionSpec.
+// Unknown ids fall back to the raw section id.
+export function useSectionTitle(): (sectionId: string) => string {
     const m = useMessages();
     const map: Record<string, () => string> = {
         app: () => m.settings_section_app(),
-        server: () => m.settings_section_server(),
-        log: () => m.settings_section_log(),
         pixiv: () => m.settings_section_pixiv(),
         download: () => m.settings_section_download(),
-        inbox: () => m.settings_section_inbox(),
         image: () => m.settings_section_image(),
-        search: () => m.settings_section_search(),
+        system: () => m.settings_section_system(),
+        about: () => m.settings_about_title(),
     };
-    return (sectionId: string, fallback?: string) => map[sectionId]?.() ?? fallback ?? sectionId;
+    return (sectionId: string) => map[sectionId]?.() ?? sectionId;
 }
 
 // useFieldEnumLabel renders a friendlier label for select-control enum
@@ -167,13 +169,10 @@ export function useSectionDescription(): (sectionId: string) => string | undefin
     const m = useMessages();
     const map: Record<string, () => string> = {
         app: () => m.settings_section_app_desc(),
-        server: () => m.settings_section_server_desc(),
-        log: () => m.settings_section_log_desc(),
         pixiv: () => m.settings_section_pixiv_desc(),
         download: () => m.settings_section_download_desc(),
-        inbox: () => m.settings_section_inbox_desc(),
         image: () => m.settings_section_image_desc(),
-        search: () => m.settings_section_search_desc(),
+        system: () => m.settings_section_system_desc(),
     };
     return (sectionId: string) => map[sectionId]?.();
 }

@@ -38,7 +38,7 @@ export function SettingsSection({
             <Sheet>
                 <SheetHead
                     icon={section.icon}
-                    title={sectionTitle(section.category, section.title)}
+                    title={sectionTitle(section.category)}
                     actions={
                         hasOverride ? (
                             <ConfirmPopover

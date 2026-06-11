@@ -22,7 +22,7 @@ export {
     useTemplatePreview,
 } from "./naming-preview-context";
 export { type DatePreset, menuForField } from "./naming-tokens";
-export { isAdvanced, isFieldVisible, NAV_TOP, SCROLL_OFFSET } from "./presentation";
+export { isAdvanced, isFieldVisible, NAV_TOP, SCROLL_OFFSET, SECTION_ICONS } from "./presentation";
 export { type SettingsSaveState, settingsSaveState } from "./save-state";
 export type { FieldSpec, SectionSpec } from "./types";
 export { useConfig } from "./use-config";

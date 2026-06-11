@@ -1,4 +1,4 @@
-import { Alert02Icon, InformationCircleIcon } from "@hugeicons/core-free-icons";
+import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import LeapyOverlay from "@/components/series-leapy/leapy-overlay";
@@ -10,6 +10,7 @@ import {
     NAV_TOP,
     NamingValuesProvider,
     restartConfig,
+    SECTION_ICONS,
     type SectionSpec,
     type SettingsSaveState,
     settingsSaveState,
@@ -52,7 +53,7 @@ function SettingsPage() {
     const [showAdvanced, setShowAdvanced] = useState(false);
 
     // Sections with nothing to show under the current toggle are dropped
-    // entirely (e.g. the all-internal "server" section when advanced is off),
+    // entirely (e.g. the all-advanced "system" section when advanced is off),
     // so the nav, scroll-spy, and content stay in sync and free of empty cards.
     // The `about` category is excluded here: its fields (the update settings)
     // render inside the custom About card, which is always shown regardless of
@@ -68,11 +69,8 @@ function SettingsPage() {
 
     // The About card is a synthetic section pinned first in the nav/scroll-spy.
     const navSections = useMemo<SectionSpec[]>(
-        () => [
-            { category: ABOUT_ID, title: m.settings_about_title(), icon: InformationCircleIcon, fields: [] },
-            ...visibleSections,
-        ],
-        [m, visibleSections],
+        () => [{ category: ABOUT_ID, icon: SECTION_ICONS.about, fields: [] }, ...visibleSections],
+        [visibleSections],
     );
 
     const sectionIds = useMemo(() => navSections.map((s) => s.category), [navSections]);

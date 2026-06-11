@@ -1,4 +1,4 @@
-import { CONTROL_OVERRIDE, FALLBACK_SECTION_ICON, isAdvanced, SECTION_META } from "./presentation";
+import { CONTROL_OVERRIDE, FALLBACK_SECTION_ICON, isAdvanced, SECTION_ICONS } from "./presentation";
 import type { CfgType, ConfigSchema, ControlKind, FieldSpec, JsonSchemaNode, SectionSpec } from "./types";
 
 function deriveControl(node: JsonSchemaNode, key: string, type: CfgType, isDuration: boolean): ControlKind {
@@ -60,8 +60,12 @@ export function compileSchema(schema: ConfigSchema): SectionSpec[] {
 
     const sections: SectionSpec[] = [];
     const byOrder = (a: FieldSpec, b: FieldSpec) => a.order - b.order;
+    // A category's position mirrors its earliest field: x-cfg-order is a
+    // monotonic struct-declaration index, so a category's minimum field order
+    // is where it sits in the Go config struct. Deriving section order this way
+    // keeps it in lockstep with the backend — no hand-maintained order list.
+    const minOrder = new Map<string, number>();
     for (const [category, sectionFields] of byCategory) {
-        const meta = SECTION_META[category];
         // Within a section, the advanced/internal tier sinks below the everyday
         // fields. Each group is sorted by x-cfg-order so it follows the Go
         // struct declaration order rather than the alphabetical order the
@@ -70,24 +74,21 @@ export function compileSchema(schema: ConfigSchema): SectionSpec[] {
             ...sectionFields.filter((f) => !isAdvanced(f)).sort(byOrder),
             ...sectionFields.filter((f) => isAdvanced(f)).sort(byOrder),
         ];
+        minOrder.set(category, Math.min(...sectionFields.map((f) => f.order)));
         sections.push({
             category,
-            // Stable section id; the human-readable title is resolved at render
-            // time via useSectionTitle(section.category).
-            title: category,
-            icon: meta?.icon ?? FALLBACK_SECTION_ICON,
+            icon: SECTION_ICONS[category] ?? FALLBACK_SECTION_ICON,
             fields,
         });
     }
 
     // A wholly advanced/internal section sinks below the rest; same-tier ties
-    // keep the presentation `order`.
-    const order = (c: string) => SECTION_META[c]?.order ?? 99;
+    // order by the category's earliest field (struct declaration order).
     sections.sort((a, b) => {
         const advA = a.fields.every(isAdvanced);
         const advB = b.fields.every(isAdvanced);
         if (advA !== advB) return advA ? 1 : -1;
-        return order(a.category) - order(b.category);
+        return (minOrder.get(a.category) ?? 0) - (minOrder.get(b.category) ?? 0);
     });
     return sections;
 }
