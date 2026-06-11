@@ -7,8 +7,9 @@ import { useFilterPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
 import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
 import {
-    DEFAULT_SEARCH_SORT,
+    DEFAULT_SEARCH_ILLUST_SORT,
     DEFAULT_SEARCH_TARGET,
+    DEFAULT_SEARCH_USER_SORT,
     isRankedSearchSort,
     SEARCH_DURATIONS,
     SEARCH_ILLUST_SORTS,
@@ -45,11 +46,11 @@ function readTarget(sp: URLSearchParams): SearchTarget {
     return (SEARCH_TARGETS as readonly string[]).includes(v ?? "") ? (v as SearchTarget) : DEFAULT_SEARCH_TARGET;
 }
 
-function readSort(sp: URLSearchParams): SearchSort {
+function readSortParam(sp: URLSearchParams): SearchSort | undefined {
     const v = sp.get("sort");
     // Validate against the illust superset (includes the synthetic ranked sorts);
-    // user search ignores the illust-only values server-side.
-    return (SEARCH_ILLUST_SORTS as readonly string[]).includes(v ?? "") ? (v as SearchSort) : DEFAULT_SEARCH_SORT;
+    // returns undefined when absent/invalid so the caller applies the per-mode default.
+    return (SEARCH_ILLUST_SORTS as readonly string[]).includes(v ?? "") ? (v as SearchSort) : undefined;
 }
 
 function readDuration(sp: URLSearchParams): SearchDuration | undefined {
@@ -76,7 +77,7 @@ function countIllustSpecialActive(
 ): number {
     let n = 0;
     if (target !== DEFAULT_SEARCH_TARGET) n++;
-    if (sort !== DEFAULT_SEARCH_SORT) n++;
+    if (sort !== DEFAULT_SEARCH_ILLUST_SORT) n++;
     if (duration !== undefined) n++;
     if (startDate !== undefined) n++;
     if (endDate !== undefined) n++;
@@ -94,12 +95,16 @@ function SearchResults({ keyword }: SearchResultsProps) {
 
     const type = readType(searchParams);
     const target = readTarget(searchParams);
-    // bookmarks_desc / views_desc are illust-only synthetic sorts. In user mode
-    // normalize them to the default so the user query/cache key, the active-filter
-    // count, and the sort control all agree; the raw URL param is left untouched so
-    // it stays active when switching back to the illust tab.
-    const rawSort = readSort(searchParams);
-    const sort = type === "user" && isRankedSearchSort(rawSort) ? DEFAULT_SEARCH_SORT : rawSort;
+    // Illust defaults to "Most bookmarked" (ranked, works for any account); user
+    // search has no ranked sorts and defaults to newest-first.
+    const defaultSort = type === "user" ? DEFAULT_SEARCH_USER_SORT : DEFAULT_SEARCH_ILLUST_SORT;
+    // bookmarks_desc / views_desc are illust-only synthetic sorts: in user mode a
+    // ranked sort from the URL is normalized to the mode default so the user
+    // query/cache key, the active-filter count, and the sort control all agree; the
+    // raw URL param is left untouched so it stays active when switching back to illust.
+    const rawSort = readSortParam(searchParams);
+    const sort: SearchSort =
+        type === "user" && rawSort && isRankedSearchSort(rawSort) ? defaultSort : (rawSort ?? defaultSort);
     const duration = readDuration(searchParams);
     const startDate = readDateParam(searchParams, "start_date");
     const endDate = readDateParam(searchParams, "end_date");
@@ -156,7 +161,7 @@ function SearchResults({ keyword }: SearchResultsProps) {
                     endDate={endDate}
                     excludeAi={excludeAi}
                     onTargetChange={(v) => patch({ target: v === DEFAULT_SEARCH_TARGET ? undefined : v })}
-                    onSortChange={(v) => patch({ sort: v === DEFAULT_SEARCH_SORT ? undefined : v })}
+                    onSortChange={(v) => patch({ sort: v === defaultSort ? undefined : v })}
                     onDurationChange={(v) => patch({ duration: v })}
                     onStartDateChange={(v) => patch({ start_date: v })}
                     onEndDateChange={(v) => patch({ end_date: v })}
@@ -168,16 +173,16 @@ function SearchResults({ keyword }: SearchResultsProps) {
             <SearchUserSpecialFilters
                 sort={sort}
                 duration={duration}
-                onSortChange={(v) => patch({ sort: v === DEFAULT_SEARCH_SORT ? undefined : v })}
+                onSortChange={(v) => patch({ sort: v === defaultSort ? undefined : v })}
                 onDurationChange={(v) => patch({ duration: v })}
             />
         );
-    }, [type, target, sort, duration, startDate, endDate, excludeAi, patch]);
+    }, [type, target, sort, defaultSort, duration, startDate, endDate, excludeAi, patch]);
 
     const specialFiltersActiveCount =
         type === "illust"
             ? countIllustSpecialActive(target, sort, duration, startDate, endDate, excludeAi)
-            : (sort !== DEFAULT_SEARCH_SORT ? 1 : 0) + (duration !== undefined ? 1 : 0);
+            : (sort !== defaultSort ? 1 : 0) + (duration !== undefined ? 1 : 0);
 
     const resetSpecialFilters = useCallback(() => {
         if (type === "illust") {

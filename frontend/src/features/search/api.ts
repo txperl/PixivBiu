@@ -45,7 +45,11 @@ export const SEARCH_DURATIONS: readonly SearchDuration[] = [
 ] as const;
 
 export const DEFAULT_SEARCH_TARGET: SearchTarget = "partial_match_for_tags";
-export const DEFAULT_SEARCH_SORT: SearchSort = "date_desc";
+// Illust search defaults to bookmarks_desc — the synthetic "Most bookmarked"
+// ranked sort that works for any account (Pixiv's popular_desc is Premium-only).
+export const DEFAULT_SEARCH_ILLUST_SORT: SearchSort = "bookmarks_desc";
+// User search has no ranked sorts; it stays on Pixiv's native newest-first.
+export const DEFAULT_SEARCH_USER_SORT: SearchSort = "date_desc";
 
 // URL query keys that scope the search page's state (the search-illust /
 // search-user pages read these). `page` is intentionally absent: a new

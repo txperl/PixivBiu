@@ -6,8 +6,9 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import FilterRow from "@/features/filter/components/filter-row";
 import Segmented from "@/features/filter/components/segmented";
 import {
-    DEFAULT_SEARCH_SORT,
+    DEFAULT_SEARCH_ILLUST_SORT,
     DEFAULT_SEARCH_TARGET,
+    DEFAULT_SEARCH_USER_SORT,
     SEARCH_DURATIONS,
     SEARCH_ILLUST_SORTS,
     SEARCH_SORTS,
@@ -213,7 +214,7 @@ export function SearchIllustSpecialFilters(props: SearchIllustSpecialFiltersProp
                 value={props.sort}
                 options={sortItems}
                 onChange={props.onSortChange}
-                inactive={props.sort === DEFAULT_SEARCH_SORT}
+                inactive={props.sort === DEFAULT_SEARCH_ILLUST_SORT}
             />
             <LabeledSelect
                 label={m.search_filter_time_window()}
@@ -273,7 +274,7 @@ export function SearchUserSpecialFilters(props: SearchUserSpecialFiltersProps) {
                 value={props.sort}
                 options={sortItems}
                 onChange={props.onSortChange}
-                inactive={props.sort === DEFAULT_SEARCH_SORT}
+                inactive={props.sort === DEFAULT_SEARCH_USER_SORT}
             />
             <LabeledSelect
                 label={m.search_filter_time_window()}
