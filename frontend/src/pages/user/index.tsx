@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router";
 import Avatar from "@/components/avatar";
+import ListLoadingOverlay from "@/components/list-loading-overlay";
 import PximgImage from "@/components/pximg-image";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -433,17 +434,19 @@ function UserPage() {
                 </div>
             </Tabs>
 
-            <TabBody
-                tab={tab}
-                isPending={!list.isError && (list.isPending || isWalking)}
-                isError={list.isError}
-                error={list.error}
-                data={list.data}
-                selected={selected}
-                onToggle={toggle}
-                filteredIllusts={filtered}
-                totalBefore={totalBefore}
-            />
+            <ListLoadingOverlay active={list.isPlaceholderData && !isWalking}>
+                <TabBody
+                    tab={tab}
+                    isPending={!list.isError && (list.isPending || isWalking)}
+                    isError={list.isError}
+                    error={list.error}
+                    data={list.data}
+                    selected={selected}
+                    onToggle={toggle}
+                    filteredIllusts={filtered}
+                    totalBefore={totalBefore}
+                />
+            </ListLoadingOverlay>
 
             {list.isSuccess && !isWalking && <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />}
         </div>

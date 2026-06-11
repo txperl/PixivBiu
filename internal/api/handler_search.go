@@ -6,9 +6,17 @@ import (
 	"slices"
 
 	"github.com/txperl/pixivgo"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/txperl/PixivBiu/internal/pixiv"
 )
+
+// upstreamSearchPageSize is Pixiv's fixed search page size: every search response
+// carries at most this many works and its next_url advances the offset by exactly
+// this amount. The ranked window relies on that determinism to fan its upstream
+// pages out (offset = base + i*upstreamSearchPageSize) instead of walking next_url
+// one page at a time; the client's fixed-stride pager assumes the same size.
+const upstreamSearchPageSize = 30
 
 func (h *APIHandler) SearchIllusts(w http.ResponseWriter, r *http.Request, params SearchIllustsParams) {
 	if err := h.requireAuth(); err != nil {
@@ -45,33 +53,60 @@ func (h *APIHandler) SearchIllusts(w http.ResponseWriter, r *http.Request, param
 // disjoint ranked windows (page 2 = the next sample.pages*30 works, re-ranked);
 // it is null only at the true end of results.
 //
-// Sequential by necessity: each upstream page's offset comes from the previous
-// page's next_url. Any page failing surfaces the error rather than returning a
-// short window: the client paginates by a fixed offset stride (page *
-// sample.pages * 30), not by following next_offset, so a partial window would
-// silently skip the un-fetched offsets on the next page.
+// The window is fetched in parallel, bounded by search.sample.concurrency. Pixiv
+// search offsets are deterministic (next_url just advances by upstreamSearchPageSize),
+// so each upstream page's offset is base + i*upstreamSearchPageSize — there's no
+// need to walk next_url one page at a time. Results are merged in offset order, so
+// dedupe order (and thus the stable ranking) matches the old sequential walk. Any
+// page failing surfaces the error rather than returning a short window: the client
+// paginates by a fixed offset stride (page * sample.pages * 30), not by following
+// next_offset, so a partial window would silently skip offsets on the next page —
+// errgroup cancels the siblings and returns the first error for the same reason.
 func (h *APIHandler) searchIllustsRanked(w http.ResponseWriter, r *http.Request, params SearchIllustsParams, sort string) {
-	pages := int(h.searchSamplePages.Load())
-	if pages < 1 {
-		pages = 1
+	pages := max(int(h.searchSamplePages.Load()), 1)
+	// Both live via atomic (Manager.Config() is boot-pinned). Clamp concurrency to
+	// [1, pages]: a wider limit can't help a window smaller than it.
+	concurrency := min(max(int(h.searchSampleConcurrency.Load()), 1), pages)
+
+	base := 0
+	if params.Offset != nil {
+		base = int(*params.Offset)
 	}
 
-	seen := make(map[int]struct{}, pages*30)
-	all := make([]pixivgo.IllustrationInfo, 0, pages*30)
-	offset := i64OptToIntOpt(params.Offset)
-	var nextWindow *int64 // upstream offset where the next window starts; nil = end of results
-
-	for range pages {
-		p := searchIllustParams(params, pixivgo.SortDateDesc, offset)
-		resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.SearchIllustrations, error) {
-			return c.SearchIllust(r.Context(), p)
+	// Fan the window out into pre-sized slots so each goroutine writes its own index
+	// without locking; the order is preserved for the in-order merge below.
+	results := make([]*pixivgo.SearchIllustrations, pages)
+	g, ctx := errgroup.WithContext(r.Context())
+	g.SetLimit(concurrency)
+	for i := range pages {
+		off := base + i*upstreamSearchPageSize
+		g.Go(func() error {
+			p := searchIllustParams(params, pixivgo.SortDateDesc, &off)
+			resp, err := pixiv.Call(ctx, h.svc, func(c *pixivgo.Client) (*pixivgo.SearchIllustrations, error) {
+				return c.SearchIllust(ctx, p)
+			})
+			if err != nil {
+				return err
+			}
+			results[i] = resp
+			return nil
 		})
-		if err != nil {
-			// A partial window misaligns the client's fixed-stride pagination
-			// (see the doc comment), so fail the whole page rather than return
-			// fewer works than the window the next page assumes was consumed.
-			WriteError(w, r, err)
-			return
+	}
+	if err := g.Wait(); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+
+	seen := make(map[int]struct{}, pages*upstreamSearchPageSize)
+	all := make([]pixivgo.IllustrationInfo, 0, pages*upstreamSearchPageSize)
+	// reachedEnd mirrors the old sequential break: a page that comes back empty or
+	// without a next_url is the tail of results. Pages fanned out past that tail just
+	// return empty (offsets are monotonic), so merging them adds nothing — but it
+	// means next_offset must be nil so the client's "next page" closes.
+	reachedEnd := false
+	for _, resp := range results {
+		if len(resp.Illusts) == 0 || pixiv.NextOffset(resp.NextURL) == nil {
+			reachedEnd = true
 		}
 		for _, il := range resp.Illusts {
 			id := il.ID.Int()
@@ -81,11 +116,11 @@ func (h *APIHandler) searchIllustsRanked(w http.ResponseWriter, r *http.Request,
 			seen[id] = struct{}{}
 			all = append(all, il)
 		}
-		nextWindow = pixiv.NextOffset(resp.NextURL)
-		if nextWindow == nil || len(resp.Illusts) == 0 {
-			break // last page of results reached
-		}
-		offset = i64OptToIntOpt(nextWindow)
+	}
+	var nextWindow *int64 // upstream offset where the next window starts; nil = end of results
+	if !reachedEnd {
+		nw := int64(base + pages*upstreamSearchPageSize)
+		nextWindow = &nw
 	}
 
 	field := func(il pixivgo.IllustrationInfo) int { return il.TotalBookmarks }

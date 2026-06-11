@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
+import ListLoadingOverlay from "@/components/list-loading-overlay";
 import { useFilterPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
 import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
@@ -62,7 +63,9 @@ function RankingPage() {
     // (no skeleton flash) while a mode/date change correctly shows a skeleton for the new
     // list. The skeleton (isPending) otherwise shows only on the first load with an empty
     // cache; returning within gcTime renders cached data instantly, then revalidates.
-    const { data, isPending, isError, error } = useQuery(rankingQueryOptions({ mode, date, offset }));
+    const { data, isPending, isError, error, isPlaceholderData } = useQuery(
+        rankingQueryOptions({ mode, date, offset }),
+    );
 
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
 
@@ -128,17 +131,19 @@ function RankingPage() {
                 onVariantChange={onVariantChange}
             />
 
-            {isPending ? (
-                <IllustGridSkeleton />
-            ) : isError ? (
-                <SearchError error={error} />
-            ) : data.illusts.length === 0 ? (
-                <RankingEmpty date={date} />
-            ) : filtered.length === 0 ? (
-                <FilteredEmpty totalBefore={totalBefore} />
-            ) : (
-                <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
-            )}
+            <ListLoadingOverlay active={isPlaceholderData}>
+                {isPending ? (
+                    <IllustGridSkeleton />
+                ) : isError ? (
+                    <SearchError error={error} />
+                ) : data.illusts.length === 0 ? (
+                    <RankingEmpty date={date} />
+                ) : filtered.length === 0 ? (
+                    <FilteredEmpty totalBefore={totalBefore} />
+                ) : (
+                    <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
+                )}
+            </ListLoadingOverlay>
 
             {!isPending && !isError && data.illusts.length > 0 && (
                 <SearchPager currentPage={page} hasNext={data.next_offset != null} onJump={onJumpPage} />

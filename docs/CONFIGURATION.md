@@ -86,6 +86,7 @@ built-in defaults  →  ./usr/settings.json  →  environment variables  (env wi
 | Variable | Default | Values / notes | Flags |
 |---|---|---|---|
 | `PIXIVBIU_SEARCH_SAMPLE_PAGES` | `5` | `1`–`20` — page size for the bookmark-count / view-count illust-search sorts. Pixiv's popularity sort is Premium-only, so these sorts rank locally: each search page samples this many upstream pages (≈30 works each) and re-ranks them by bookmarks/views. Higher = more works per page, but more upstream requests (and latency) per page. | — |
+| `PIXIVBIU_SEARCH_SAMPLE_CONCURRENCY` | `3` | `1`–`8` — how many of those upstream sample pages are fetched in parallel per bookmark/view-count search page (capped at `PAGES`). Higher cuts the per-page wait roughly proportionally; keep it conservative to avoid hammering Pixiv (rate limits). | — |
 
 ## Path templates
 

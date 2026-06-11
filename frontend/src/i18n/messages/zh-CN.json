@@ -355,6 +355,8 @@
     "cfg_image_cache_max_size_mb_hint": "缓存图片占用的最大磁盘空间；0 表示不限",
     "cfg_search_sample_pages": "收藏 / 浏览量排序页大小",
     "cfg_search_sample_pages_hint": "按收藏数 / 浏览量排序时，每页 = 此值 × 30 张并重新排序；越大每页越多，但越慢",
+    "cfg_search_sample_concurrency": "收藏 / 浏览量排序并发数",
+    "cfg_search_sample_concurrency_hint": "上面每页的多张分页并行拉取的数量；越大翻页越快，但对 Pixiv 压力越大",
     "settings_section_app": "应用",
     "settings_section_server": "服务器",
     "settings_section_log": "日志",

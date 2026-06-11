@@ -355,6 +355,8 @@
     "cfg_image_cache_max_size_mb_hint": "Max disk space for cached images; 0 = unlimited",
     "cfg_search_sample_pages": "Bookmark/view sort page size",
     "cfg_search_sample_pages_hint": "Each bookmarks/views page is this × 30 works, re-ranked; higher = more per page but slower",
+    "cfg_search_sample_concurrency": "Bookmark/view sort fetch concurrency",
+    "cfg_search_sample_concurrency_hint": "How many of those × 30 pages to fetch in parallel; higher = faster paging but more load on Pixiv",
     "settings_section_app": "App",
     "settings_section_server": "Server",
     "settings_section_log": "Log",

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
+import ListLoadingOverlay from "@/components/list-loading-overlay";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFilterPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
@@ -257,27 +258,29 @@ function SearchResults({ keyword }: SearchResultsProps) {
                 </div>
             </Tabs>
 
-            {type === "illust" ? (
-                illustQuery.isPending ? (
-                    <IllustGridSkeleton />
-                ) : illustQuery.isError ? (
-                    <SearchError error={illustQuery.error} />
-                ) : illustQuery.data.illusts.length === 0 ? (
+            <ListLoadingOverlay active={activeQuery.isPlaceholderData}>
+                {type === "illust" ? (
+                    illustQuery.isPending ? (
+                        <IllustGridSkeleton />
+                    ) : illustQuery.isError ? (
+                        <SearchError error={illustQuery.error} />
+                    ) : illustQuery.data.illusts.length === 0 ? (
+                        <SearchNoResults word={keyword} />
+                    ) : filtered.length === 0 ? (
+                        <FilteredEmpty totalBefore={totalBefore} />
+                    ) : (
+                        <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
+                    )
+                ) : userQuery.isPending ? (
+                    <UserListSkeleton />
+                ) : userQuery.isError ? (
+                    <SearchError error={userQuery.error} />
+                ) : userQuery.data.user_previews.length === 0 ? (
                     <SearchNoResults word={keyword} />
-                ) : filtered.length === 0 ? (
-                    <FilteredEmpty totalBefore={totalBefore} />
                 ) : (
-                    <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
-                )
-            ) : userQuery.isPending ? (
-                <UserListSkeleton />
-            ) : userQuery.isError ? (
-                <SearchError error={userQuery.error} />
-            ) : userQuery.data.user_previews.length === 0 ? (
-                <SearchNoResults word={keyword} />
-            ) : (
-                <UserList previews={userQuery.data.user_previews} />
-            )}
+                    <UserList previews={userQuery.data.user_previews} />
+                )}
+            </ListLoadingOverlay>
 
             {activeQuery.isSuccess && <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />}
         </>

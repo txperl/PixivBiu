@@ -55,6 +55,7 @@ export function useFieldText(): (field: FieldSpec) => string {
         cfg_inbox_heartbeat: () => m.cfg_inbox_heartbeat(),
         cfg_image_cache_max_size_mb: () => m.cfg_image_cache_max_size_mb(),
         cfg_search_sample_pages: () => m.cfg_search_sample_pages(),
+        cfg_search_sample_concurrency: () => m.cfg_search_sample_concurrency(),
     };
     return (field: FieldSpec) => {
         const key = cfgMessageKey(field);
@@ -82,6 +83,7 @@ export function useFieldHint(): (field: FieldSpec) => string | undefined {
         cfg_inbox_buffer_size: () => m.cfg_inbox_buffer_size_hint(),
         cfg_image_cache_max_size_mb: () => m.cfg_image_cache_max_size_mb_hint(),
         cfg_search_sample_pages: () => m.cfg_search_sample_pages_hint(),
+        cfg_search_sample_concurrency: () => m.cfg_search_sample_concurrency_hint(),
     };
     return (field: FieldSpec) => {
         const key = cfgMessageKey(field);

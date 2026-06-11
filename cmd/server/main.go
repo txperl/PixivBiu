@@ -154,10 +154,13 @@ func run() error {
 	hbAtomic := new(atomic.Int64)
 	hbAtomic.Store(int64(cfg.Inbox.Heartbeat))
 
-	// searchPagesAtomic lets the reload hook adjust search.sample.pages live;
-	// the handler reads it per bookmarks_desc/views_desc search.
+	// searchPagesAtomic / searchConcurrencyAtomic let the reload hook adjust
+	// search.sample.pages and .concurrency live; the handler reads them per
+	// bookmarks_desc/views_desc search.
 	searchPagesAtomic := new(atomic.Int64)
 	searchPagesAtomic.Store(int64(cfg.Search.Sample.Pages))
+	searchConcurrencyAtomic := new(atomic.Int64)
+	searchConcurrencyAtomic.Store(int64(cfg.Search.Sample.Concurrency))
 
 	// restart triggers a graceful self-restart. Closing the channel is
 	// guarded by Once so repeated POST /config/restart calls are safe.
@@ -191,7 +194,7 @@ func run() error {
 	imgProxy.Start(ctx)
 
 	pkceStore := auth.NewStore()
-	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, hbAtomic, searchPagesAtomic, cfgMgr, restart, updSvc, imgProxy, version)
+	handler := api.NewHandler(svc, hub, dlMgr, pkceStore, hbAtomic, searchPagesAtomic, searchConcurrencyAtomic, cfgMgr, restart, updSvc, imgProxy, version)
 
 	// Reload hooks each take the whole *Config because some keys cross
 	// service boundaries — pixiv.proxy is reused by the download client.
@@ -220,6 +223,7 @@ func run() error {
 	})
 	cfgMgr.OnReload(func(n *config.Config) {
 		searchPagesAtomic.Store(int64(n.Search.Sample.Pages))
+		searchConcurrencyAtomic.Store(int64(n.Search.Sample.Concurrency))
 	})
 	cfgMgr.OnReload(func(n *config.Config) {
 		updSvc.Reload(n.App.Update, n.Pixiv.Proxy)

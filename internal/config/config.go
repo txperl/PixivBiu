@@ -132,15 +132,19 @@ func (c ImageCacheConfig) MaxBytes() int64 { return c.MaxSizeMB << 20 }
 // approximate it for any account by ranking date-sorted results locally on the
 // already-present total_bookmarks / total_view counts. Sample.Pages is the
 // window size: one search page shows Sample.Pages*30 date_desc works re-ranked,
-// and the pager steps to the next disjoint window. Hot-reloadable: the search
-// handler reads the live value per request (via an atomic seeded + updated by an
-// OnReload hook in cmd/server/main.go), so there's no restart tag.
+// and the pager steps to the next disjoint window. Sample.Concurrency bounds how
+// many of those upstream pages the ranked handler fetches in parallel (the page
+// offsets are deterministic +30 steps, so the window can be fanned out instead of
+// walked one-by-one). Hot-reloadable: the search handler reads both live per
+// request, via atomics seeded + updated by an OnReload hook in
+// cmd/server/main.go (Manager.Config() is boot-pinned), so there's no restart tag.
 type SearchConfig struct {
-	Sample SearchSampleConfig `koanf:"sample"` // ranked-sort window size
+	Sample SearchSampleConfig `koanf:"sample"` // ranked-sort window size + fan-out
 }
 
 type SearchSampleConfig struct {
-	Pages int `koanf:"pages" cfg:"min=1,max=20"` // upstream pages (~30 works each) per ranked search page for bookmarks_desc/views_desc
+	Pages       int `koanf:"pages" cfg:"min=1,max=20"`      // upstream pages (~30 works each) per ranked search page for bookmarks_desc/views_desc
+	Concurrency int `koanf:"concurrency" cfg:"min=1,max=8"` // max upstream pages fetched in parallel per ranked search (capped at Pages)
 }
 
 // defaultUpdateChannel is the build-derived default for app.update.channel,
@@ -199,7 +203,8 @@ var baseDefaults = sync.OnceValue(func() map[string]any {
 
 		"image.cache.max_size_mb": int64(2048), // 2 GiB
 
-		"search.sample.pages": 5, // ~150 works sampled for bookmarks_desc/views_desc local sort
+		"search.sample.pages":       5, // ~150 works sampled for bookmarks_desc/views_desc local sort
+		"search.sample.concurrency": 3, // upstream pages fetched in parallel per ranked search (conservative vs Pixiv rate limits)
 	}
 })
 
