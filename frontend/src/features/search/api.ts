@@ -21,7 +21,22 @@ export const SEARCH_TARGETS: readonly SearchTarget[] = [
     "keyword",
 ] as const;
 
+// User search offers only Pixiv-native sorts.
 export const SEARCH_SORTS: readonly SearchSort[] = ["date_desc", "date_asc", "popular_desc"] as const;
+
+// bookmarks_desc / views_desc are synthetic: the backend samples date_desc results
+// and ranks them locally, so they work for any account (Pixiv's popular_desc is
+// Premium-only). They paginate in disjoint windows of SEARCH_PAGE_SIZE *
+// sample.pages — each page is re-ranked and next_offset advances to the next
+// window (see useRankedPageSize + the backend's searchIllustsRanked).
+const RANKED_SEARCH_SORTS: readonly SearchSort[] = ["bookmarks_desc", "views_desc"] as const;
+
+// Illust search offers the native sorts plus the synthetic ranked ones.
+export const SEARCH_ILLUST_SORTS: readonly SearchSort[] = [...SEARCH_SORTS, ...RANKED_SEARCH_SORTS];
+
+export function isRankedSearchSort(sort: SearchSort): boolean {
+    return (RANKED_SEARCH_SORTS as readonly string[]).includes(sort);
+}
 
 export const SEARCH_DURATIONS: readonly SearchDuration[] = [
     "within_last_day",

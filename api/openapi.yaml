@@ -441,7 +441,14 @@ components:
 
     SearchSort:
       type: string
-      enum: [date_desc, date_asc, popular_desc]
+      # date_*/popular_desc map straight to Pixiv. bookmarks_desc/views_desc are
+      # illust-only synthetic sorts: Pixiv's popularity sort is Premium-only, so
+      # the server ranks locally by total_bookmarks/total_view (works for any
+      # account). Each response page is a window of search.sample.pages*30
+      # date_desc results re-ranked by the chosen count; next_offset advances to
+      # the next disjoint window. User search ignores the two synthetic values
+      # (normalized to date_desc).
+      enum: [date_desc, date_asc, popular_desc, bookmarks_desc, views_desc]
       default: date_desc
 
     LoginRequest:

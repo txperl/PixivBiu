@@ -54,6 +54,7 @@ export function useFieldText(): (field: FieldSpec) => string {
         cfg_inbox_progress_throttle: () => m.cfg_inbox_progress_throttle(),
         cfg_inbox_heartbeat: () => m.cfg_inbox_heartbeat(),
         cfg_image_cache_max_size_mb: () => m.cfg_image_cache_max_size_mb(),
+        cfg_search_sample_pages: () => m.cfg_search_sample_pages(),
     };
     return (field: FieldSpec) => {
         const key = cfgMessageKey(field);
@@ -80,6 +81,7 @@ export function useFieldHint(): (field: FieldSpec) => string | undefined {
         cfg_download_store_file: () => m.cfg_download_store_file_hint(),
         cfg_inbox_buffer_size: () => m.cfg_inbox_buffer_size_hint(),
         cfg_image_cache_max_size_mb: () => m.cfg_image_cache_max_size_mb_hint(),
+        cfg_search_sample_pages: () => m.cfg_search_sample_pages_hint(),
     };
     return (field: FieldSpec) => {
         const key = cfgMessageKey(field);
@@ -119,6 +121,7 @@ export function useSectionTitle(): (sectionId: string, fallback?: string) => str
         download: () => m.settings_section_download(),
         inbox: () => m.settings_section_inbox(),
         image: () => m.settings_section_image(),
+        search: () => m.settings_section_search(),
     };
     return (sectionId: string, fallback?: string) => map[sectionId]?.() ?? fallback ?? sectionId;
 }
@@ -168,6 +171,7 @@ export function useSectionDescription(): (sectionId: string) => string | undefin
         download: () => m.settings_section_download_desc(),
         inbox: () => m.settings_section_inbox_desc(),
         image: () => m.settings_section_image_desc(),
+        search: () => m.settings_section_search_desc(),
     };
     return (sectionId: string) => map[sectionId]?.();
 }

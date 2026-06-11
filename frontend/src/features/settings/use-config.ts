@@ -1,8 +1,9 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { useRefreshOnReconnect } from "@/features/events";
 import type { FetchState } from "@/lib/fetch-state";
 import { pollUntil } from "@/lib/poll";
-import { type ConfigApiError, type ConfigView, getConfig, getConfigSchema } from "./api";
+import { CONFIG_QUERY_KEY, type ConfigApiError, type ConfigView, getConfig, getConfigSchema } from "./api";
 import { compileSchema } from "./compile-schema";
 import { EXPECTED_SCHEMA_VERSION } from "./presentation";
 import type { SectionSpec } from "./types";
@@ -33,6 +34,7 @@ export function useConfig(): UseConfigResult {
     const [sections, setSections] = useState<SectionSpec[]>([]);
     const [view, setView] = useState<ConfigView | null>(null);
     const [schemaMismatch, setSchemaMismatch] = useState(false);
+    const queryClient = useQueryClient();
 
     const load = useCallback(async () => {
         setLoadState({ status: "loading" });
@@ -59,9 +61,20 @@ export function useConfig(): UseConfigResult {
     // reconnect/poll that returns identical data must not re-run the form's
     // reconcile effect — that would, among other things, wipe an in-progress
     // sensitive-field edit.
-    const applyView = useCallback((next: ConfigView) => {
-        setView((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
-    }, []);
+    //
+    // Also write the authoritative view into the shared ["config"] query cache
+    // so non-settings readers (search sizes its ranked-sort window from
+    // search.sample.pages via useRankedPageSize) see the new value immediately
+    // after a save/reset — a PATCH/reset here doesn't otherwise touch that cache,
+    // so it would serve a stale window size until staleTime elapsed and produce
+    // wrong ranked-search offsets.
+    const applyView = useCallback(
+        (next: ConfigView) => {
+            setView((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+            queryClient.setQueryData<ConfigView>(CONFIG_QUERY_KEY, next);
+        },
+        [queryClient],
+    );
 
     // Re-pull only the values (schema is static) after a reconnect/resync.
     const refetch = useCallback(async () => {

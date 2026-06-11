@@ -9,6 +9,7 @@ import {
     DEFAULT_SEARCH_SORT,
     DEFAULT_SEARCH_TARGET,
     SEARCH_DURATIONS,
+    SEARCH_ILLUST_SORTS,
     SEARCH_SORTS,
     SEARCH_TARGETS,
     type SearchDuration,
@@ -40,6 +41,10 @@ function sortLabel(m: Messages, sort: SearchSort): string {
             return m.search_sort_date_asc();
         case "popular_desc":
             return m.search_sort_popular_desc();
+        case "bookmarks_desc":
+            return m.search_sort_bookmarks_desc();
+        case "views_desc":
+            return m.search_sort_views_desc();
     }
 }
 
@@ -186,7 +191,7 @@ export type SearchIllustSpecialFiltersProps = {
 export function SearchIllustSpecialFilters(props: SearchIllustSpecialFiltersProps) {
     const m = useMessages();
     const targetItems = SEARCH_TARGETS.map((t) => ({ value: t, label: targetLabel(m, t) }));
-    const sortItems = SEARCH_SORTS.map((s) => ({ value: s, label: sortLabel(m, s) }));
+    const sortItems = SEARCH_ILLUST_SORTS.map((s) => ({ value: s, label: sortLabel(m, s) }));
     const durationItems = [
         { value: "__any__", label: m.search_duration_any() },
         ...SEARCH_DURATIONS.map((d) => ({ value: d, label: durationLabel(m, d) })),

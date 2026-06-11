@@ -1264,7 +1264,7 @@ export interface components {
          * @default date_desc
          * @enum {string}
          */
-        SearchSort: "date_desc" | "date_asc" | "popular_desc";
+        SearchSort: "date_desc" | "date_asc" | "popular_desc" | "bookmarks_desc" | "views_desc";
         /**
          * @default partial_match_for_tags
          * @enum {string}

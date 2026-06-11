@@ -8,9 +8,10 @@ import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
 import {
     DEFAULT_SEARCH_SORT,
     DEFAULT_SEARCH_TARGET,
+    isRankedSearchSort,
     SEARCH_DURATIONS,
+    SEARCH_ILLUST_SORTS,
     SEARCH_PAGE_SIZE,
-    SEARCH_SORTS,
     SEARCH_TARGETS,
     type SearchDuration,
     type SearchSort,
@@ -26,6 +27,7 @@ import {
 } from "@/features/search/components/search-special-filters";
 import { SearchError, SearchNoResults } from "@/features/search/components/search-states";
 import UserList, { UserListSkeleton } from "@/features/search/components/user-list";
+import { useRankedPageSize } from "@/features/search/hooks/use-ranked-page-size";
 import { useSearchHistory } from "@/features/search/hooks/use-search-history";
 import { useMessages } from "@/i18n";
 import { scrollAppToTop } from "@/lib/scroll";
@@ -44,7 +46,9 @@ function readTarget(sp: URLSearchParams): SearchTarget {
 
 function readSort(sp: URLSearchParams): SearchSort {
     const v = sp.get("sort");
-    return (SEARCH_SORTS as readonly string[]).includes(v ?? "") ? (v as SearchSort) : DEFAULT_SEARCH_SORT;
+    // Validate against the illust superset (includes the synthetic ranked sorts);
+    // user search ignores the illust-only values server-side.
+    return (SEARCH_ILLUST_SORTS as readonly string[]).includes(v ?? "") ? (v as SearchSort) : DEFAULT_SEARCH_SORT;
 }
 
 function readDuration(sp: URLSearchParams): SearchDuration | undefined {
@@ -89,14 +93,23 @@ function SearchResults({ keyword }: SearchResultsProps) {
 
     const type = readType(searchParams);
     const target = readTarget(searchParams);
-    const sort = readSort(searchParams);
+    // bookmarks_desc / views_desc are illust-only synthetic sorts. In user mode
+    // normalize them to the default so the user query/cache key, the active-filter
+    // count, and the sort control all agree; the raw URL param is left untouched so
+    // it stays active when switching back to the illust tab.
+    const rawSort = readSort(searchParams);
+    const sort = type === "user" && isRankedSearchSort(rawSort) ? DEFAULT_SEARCH_SORT : rawSort;
     const duration = readDuration(searchParams);
     const startDate = readDateParam(searchParams, "start_date");
     const endDate = readDateParam(searchParams, "end_date");
     const excludeAi = readExcludeAi(searchParams);
     const page = readPage(searchParams);
-
-    const offset = (page - 1) * SEARCH_PAGE_SIZE;
+    // bookmarks_desc / views_desc paginate in disjoint ranked windows of
+    // SEARCH_PAGE_SIZE * sample.pages (the backend re-ranks each window and
+    // returns the next window's offset); a normal sort uses the plain page size.
+    const ranked = type === "illust" && isRankedSearchSort(sort);
+    const rankedPageSize = useRankedPageSize(ranked);
+    const offset = (page - 1) * (ranked ? rankedPageSize : SEARCH_PAGE_SIZE);
     // Two queries, one per mode; only the active mode fetches (`enabled`). The factories bake
     // in keepPreviousPage, so paging keeps the prior page (no skeleton flash) while a new
     // keyword/filter shows a skeleton instead of stale results.

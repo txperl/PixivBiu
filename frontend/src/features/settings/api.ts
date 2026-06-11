@@ -1,4 +1,5 @@
-import { api, type components } from "@/lib/api";
+import { queryOptions } from "@tanstack/react-query";
+import { api, type components, unwrap } from "@/lib/api";
 import type { ConfigSchema } from "./types";
 
 export type ConfigView = components["schemas"]["ConfigView"];
@@ -12,6 +13,20 @@ type Result<T> = { data: T | null; error: ConfigApiError | null };
 export async function getConfig(): Promise<Result<ConfigView>> {
     const { data, error } = await api.GET("/config");
     return { data: data ?? null, error: error ?? null };
+}
+
+// Cached read of the live config for non-settings consumers (e.g. search sizing
+// its ranked-sort windows from search.sample.pages). The settings page keeps its
+// own FetchState loader, so this is a separate, lighter cache; it may briefly lag
+// a settings PATCH until it refetches on the next mount/focus.
+export const CONFIG_QUERY_KEY = ["config"] as const;
+
+export function configQueryOptions() {
+    return queryOptions<ConfigView, ConfigApiError>({
+        queryKey: CONFIG_QUERY_KEY,
+        queryFn: () => getConfig().then(unwrap),
+        staleTime: 60_000,
+    });
 }
 
 export async function getConfigSchema(): Promise<Result<ConfigSchema>> {

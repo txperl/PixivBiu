@@ -30,7 +30,11 @@ type APIHandler struct {
 	// heartbeat is the SSE keep-alive interval in nanoseconds, read per
 	// connection so a hot-reload of inbox.heartbeat affects new streams.
 	heartbeat *atomic.Int64
-	cfgMgr    *config.Manager
+	// searchSamplePages is search.sample.pages, read per request so a
+	// hot-reload affects the next bookmarks_desc/views_desc search. Same
+	// live-via-atomic pattern as heartbeat (Manager.Config() is boot-pinned).
+	searchSamplePages *atomic.Int64
+	cfgMgr            *config.Manager
 	// restart triggers a graceful self-restart of the process; nil-safe
 	// (RestartConfig guards against a nil trigger).
 	restart func()
@@ -42,8 +46,8 @@ type APIHandler struct {
 	img *imgcache.Proxy
 }
 
-func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat *atomic.Int64, cfgMgr *config.Manager, restart func(), upd *update.Service, img *imgcache.Proxy, version string) *APIHandler {
-	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, cfgMgr: cfgMgr, restart: restart, upd: upd, version: version, img: img}
+func NewHandler(svc *pixiv.Service, hub *inbox.Hub, dl *download.Manager, pkce *auth.Store, heartbeat *atomic.Int64, searchSamplePages *atomic.Int64, cfgMgr *config.Manager, restart func(), upd *update.Service, img *imgcache.Proxy, version string) *APIHandler {
+	return &APIHandler{svc: svc, hub: hub, dl: dl, pkce: pkce, heartbeat: heartbeat, searchSamplePages: searchSamplePages, cfgMgr: cfgMgr, restart: restart, upd: upd, version: version, img: img}
 }
 
 var _ ServerInterface = (*APIHandler)(nil)

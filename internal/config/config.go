@@ -28,6 +28,7 @@ type Config struct {
 	Download DownloadConfig `koanf:"download" cfg:"category=download"` // download behavior & templates
 	Inbox    InboxConfig    `koanf:"inbox"    cfg:"category=inbox"`    // event bus / SSE
 	Image    ImageConfig    `koanf:"image"    cfg:"category=image"`    // image proxy & disk cache
+	Search   SearchConfig   `koanf:"search"   cfg:"category=search"`   // search behavior
 }
 
 // AppConfig holds settings that don't belong to any single subsystem.
@@ -126,6 +127,22 @@ type ImageCacheConfig struct {
 // duration fields reach services already decoded.
 func (c ImageCacheConfig) MaxBytes() int64 { return c.MaxSizeMB << 20 }
 
+// SearchConfig groups search-behavior settings. Pixiv's native popularity sort
+// (popular_desc) is Premium-only, so the bookmarks_desc / views_desc sorts
+// approximate it for any account by ranking date-sorted results locally on the
+// already-present total_bookmarks / total_view counts. Sample.Pages is the
+// window size: one search page shows Sample.Pages*30 date_desc works re-ranked,
+// and the pager steps to the next disjoint window. Hot-reloadable: the search
+// handler reads the live value per request (via an atomic seeded + updated by an
+// OnReload hook in cmd/server/main.go), so there's no restart tag.
+type SearchConfig struct {
+	Sample SearchSampleConfig `koanf:"sample"` // ranked-sort window size
+}
+
+type SearchSampleConfig struct {
+	Pages int `koanf:"pages" cfg:"min=1,max=20"` // upstream pages (~30 works each) per ranked search page for bookmarks_desc/views_desc
+}
+
 // defaultUpdateChannel is the build-derived default for app.update.channel,
 // seeded once at startup by SetDefaultUpdateChannel from the running binary's
 // maturity (a pre-release build defaults to its own channel). An explicit user
@@ -181,6 +198,8 @@ var baseDefaults = sync.OnceValue(func() map[string]any {
 		"inbox.heartbeat":         "15s",
 
 		"image.cache.max_size_mb": int64(2048), // 2 GiB
+
+		"search.sample.pages": 5, // ~150 works sampled for bookmarks_desc/views_desc local sort
 	}
 })
 
