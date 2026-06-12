@@ -8,6 +8,8 @@ The settings file lives at `./usr/settings.json` by default (override with the `
 built-in defaults  →  ./usr/settings.json  →  environment variables  (env wins)
 ```
 
+**Data root (`-data-dir` / `PIXIVBIU_DATA_DIR`).** All runtime files — `usr/settings.json`, `usr/state.json`, `usr/downloads.json`, the `usr/cache/img/` image cache, and a **relative** `download.output_dir` (the `./downloads/<date>` default) — anchor to one base directory. By default that is the **executable's directory**, so the single binary keeps everything beside itself regardless of launch CWD (portable). Pass `-data-dir <path>` (or set `PIXIVBIU_DATA_DIR`; the flag wins) to relocate the whole tree at once — a relative value is made absolute once at startup. This is process-level, not a config key, so it isn't in the tables below. The Electron desktop build sets it to the OS user-data dir (`app.getPath('userData')`, e.g. `~/Library/Application Support/PixivBiu`) so state lives outside the read-only `.app` bundle. Note: an explicitly passed `-config <path>` and an **absolute** `download.output_dir` keep their own paths and are unaffected by the data root.
+
 **Key ↔ env mapping.** Every setting has a dotted config key and a matching env var: uppercase the key, replace `.` with `_`, and prepend `PIXIVBIU_`. For example `download.ugoira.format` → `PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT`, `server.timeouts.shutdown` → `PIXIVBIU_SERVER_TIMEOUTS_SHUTDOWN`. Duration values accept Go duration strings (`15s`, `1m30s`, `250ms`). An env-set value also overrides the Settings UI: it's written to disk on a `PATCH` but the effective value stays pinned to the env until you unset it.
 
 **Flags** (shown in the last column):

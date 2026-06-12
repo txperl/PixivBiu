@@ -32,6 +32,31 @@ func Root() string {
 	return resolveRoot(exe, cwd)
 }
 
+// DataRoot returns the base directory for all runtime files: the
+// config/state/index files, the image cache, and the default download
+// output_dir — every path that anchors through Root(). An explicit
+// override relocates the whole tree at once: the -data-dir flag value,
+// or the PIXIVBIU_DATA_DIR env var when that flag is empty. The override
+// is made absolute so a relative value doesn't drift with the launch CWD.
+//
+// With no override it falls back to Root() (the executable's directory),
+// preserving the portable single-binary layout. Desktop builds point the
+// override at the OS user-data dir (Electron's app.getPath("userData")),
+// so state lives under e.g. ~/Library/Application Support/PixivBiu instead
+// of inside the read-only .app bundle.
+func DataRoot(override string) string {
+	if override == "" {
+		override = os.Getenv("PIXIVBIU_DATA_DIR")
+	}
+	if override == "" {
+		return Root()
+	}
+	if abs, err := filepath.Abs(override); err == nil {
+		return abs
+	}
+	return override
+}
+
 // goBuildTempRE matches Go's temp-build directory segment:
 // `os.MkdirTemp(..., "go-build")` produces `go-build` + decimal digits.
 // Anchoring on the bare prefix would catch install paths like

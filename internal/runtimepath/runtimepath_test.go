@@ -53,6 +53,35 @@ func TestResolveRoot_GoBuildTempFallsBackToCWD(t *testing.T) {
 	}
 }
 
+func TestDataRoot(t *testing.T) {
+	// A relative override resolves against the test's CWD; capture the
+	// expected absolute form here so the table stays declarative.
+	relAbs, err := filepath.Abs(filepath.FromSlash("scratch/data"))
+	if err != nil {
+		t.Fatalf("filepath.Abs: %v", err)
+	}
+	cases := []struct {
+		name string
+		flag string // -data-dir flag value (DataRoot's argument)
+		env  string // PIXIVBIU_DATA_DIR ("" = unset)
+		want string
+	}{
+		{"no override falls back to Root", "", "", Root()},
+		{"relative override is absolutized", filepath.FromSlash("scratch/data"), "", relAbs},
+		{"absolute override returned unchanged", filepath.FromSlash("/var/lib/pixivbiu"), "", filepath.FromSlash("/var/lib/pixivbiu")},
+		{"env used when flag arg empty", "", filepath.FromSlash("/opt/pixivbiu-data"), filepath.FromSlash("/opt/pixivbiu-data")},
+		{"flag arg takes precedence over env", filepath.FromSlash("/opt/from-flag"), filepath.FromSlash("/opt/from-env"), filepath.FromSlash("/opt/from-flag")},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Setenv("PIXIVBIU_DATA_DIR", c.env)
+			if got := DataRoot(c.flag); got != c.want {
+				t.Errorf("DataRoot(%q) with PIXIVBIU_DATA_DIR=%q = %q, want %q", c.flag, c.env, got, c.want)
+			}
+		})
+	}
+}
+
 func TestAnchor(t *testing.T) {
 	root := filepath.FromSlash("/opt/app/bin")
 

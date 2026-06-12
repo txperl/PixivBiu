@@ -55,13 +55,16 @@ func main() {
 func run() error {
 	configPath := flag.String("config", "./usr/settings.json", "path to runtime settings file (managed via API)")
 	openFlag := flag.Bool("open", false, "open the web UI in the default browser at startup (overrides app.open_browser)")
+	dataDir := flag.String("data-dir", "", "base directory for runtime files (settings, auth state, image cache, default downloads); defaults to the executable's directory. Also settable via PIXIVBIU_DATA_DIR; desktop builds point this at the OS user-data dir.")
 	flag.Parse()
 
-	// Relative runtime paths anchor to the executable's directory so the
-	// same binary reads/writes the same files regardless of launch CWD
-	// (matching download.output_dir). Under `make dev` (go run) Root()
-	// falls back to the repo root. See internal/runtimepath.
-	root := runtimepath.Root()
+	// Anchor for every runtime path below — the config/state/index files,
+	// the image cache, and a relative download.output_dir all derive from
+	// this one root, so a single override relocates the whole tree. With no
+	// override it's the executable's dir (portable single-binary layout;
+	// under `make dev` it falls back to the repo root). See DataRoot for the
+	// -data-dir / PIXIVBIU_DATA_DIR precedence and the desktop use case.
+	root := runtimepath.DataRoot(*dataDir)
 
 	// The -config DEFAULT is anchored to the binary dir; a value the user
 	// passed explicitly keeps normal shell/CWD semantics.
