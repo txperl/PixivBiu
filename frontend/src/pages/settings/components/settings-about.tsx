@@ -1,3 +1,5 @@
+import { GithubIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { type ReactNode, useState } from "react";
 import LeapyOverlay from "@/components/series-leapy/leapy-overlay";
 import { Sheet, SheetHead } from "@/components/sheet";
@@ -102,7 +104,7 @@ export function SettingsAbout({
                     {/* Version is the first item under About. */}
                     <div className="flex items-center justify-between gap-3">
                         <span className="text-muted-foreground">{m.settings_about_version_label()}</span>
-                        <span className="font-mono text-foreground">{currentVersion}</span>
+                        <span className="font-mono text-muted-foreground text-xs">{currentVersion}</span>
                     </div>
 
                     {systemVersion && (
@@ -114,14 +116,46 @@ export function SettingsAbout({
                         </div>
                     )}
 
-                    {statusNode}
+                    {/* Authorship + open-source link — a static "Official" row that
+                        sits directly under Runtime. */}
+                    <div className="flex items-start justify-between gap-3">
+                        <span className="text-muted-foreground">{m.settings_about_official_label()}</span>
+                        <div className="flex items-end gap-2 text-muted-foreground text-xs">
+                            <a
+                                href="https://github.com/txperl/PixivBiu"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-1.5 underline"
+                            >
+                                <HugeiconsIcon icon={GithubIcon} size={12} strokeWidth={2} />
+                                {m.settings_about_open_source()}
+                            </a>
+                            <span>/</span>
+                            {/* Authorship line is brand copy, intentionally not i18n'd. */}
+                            <span>
+                                Created by{" "}
+                                <a
+                                    href="https://github.com/txperl"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="underline"
+                                >
+                                    Trii Hsia
+                                </a>{" "}
+                                with ❤️
+                            </span>
+                        </div>
+                    </div>
 
-                    <p className="text-muted-foreground text-xs">
-                        {checkFailed
-                            ? m.settings_about_check_failed()
-                            : lastChecked
-                              ? m.settings_about_last_checked({ time: new Date(lastChecked).toLocaleString() })
-                              : m.settings_about_never_checked()}
+                    <p className="flex flex-col gap-0.5 text-muted-foreground text-xs">
+                        {statusNode && <div>{statusNode}</div>}
+                        <div>
+                            {checkFailed
+                                ? m.settings_about_check_failed()
+                                : lastChecked
+                                  ? m.settings_about_last_checked({ time: new Date(lastChecked).toLocaleString() })
+                                  : m.settings_about_never_checked()}
+                        </div>
                     </p>
                 </div>
 

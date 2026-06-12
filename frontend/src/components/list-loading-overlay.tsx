@@ -28,7 +28,7 @@ function ListLoadingOverlay({ active, children }: ListLoadingOverlayProps) {
             </div>
             {show && (
                 <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
-                    <span className="rounded-full bg-card/95 px-4 py-2 text-muted-foreground shadow-lg ring-1 ring-black/5 backdrop-blur">
+                    <span className="rounded-full bg-card/95 px-4 py-3 text-muted-foreground shadow-lg ring-1 ring-black/5 backdrop-blur">
                         <LeapyLoading size={8} />
                     </span>
                 </div>
