@@ -18,6 +18,7 @@ built-in defaults  →  ./usr/settings.json  →  environment variables  (env wi
 - **internal** — ops/program-only: not writable through the runtime API/UI (the Settings page renders it read-only, `PATCH`/keyed reset are rejected). Change it only via an env var or by hand-editing `settings.json`.
 - **sensitive** — stored in cleartext on disk but masked as `***` in `GET /config`; a `PATCH` of `***` or `""` is a no-op.
 - **advanced** — de-prioritised in the Settings UI (sorted/folded behind the "advanced" toggle).
+- **hidden** — dropped from the Settings page schema, so it never appears there (not even under the "advanced" toggle); still changeable via the API, an env var, or by hand-editing `settings.json`.
 
 ## app
 
@@ -51,7 +52,7 @@ built-in defaults  →  ./usr/settings.json  →  environment variables  (env wi
 | Variable | Default | Values / notes | Flags |
 |---|---|---|---|
 | `PIXIVBIU_PIXIV_PROXY` | *(empty)* | HTTP/SOCKS proxy URL `scheme://host` (empty = direct) | sensitive |
-| `PIXIVBIU_PIXIV_BYPASS_SNI` | `false` | bool — DoH + alternative SNI for the API (restricted networks only) | restart |
+| `PIXIVBIU_PIXIV_BYPASS_SNI` | `false` | bool — DoH + alternative SNI for the API (restricted networks only) | restart, hidden |
 | `PIXIVBIU_PIXIV_STATE_FILE` | `./usr/state.json` | auth-token persistence path | restart, internal |
 
 ## download

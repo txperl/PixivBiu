@@ -42,6 +42,11 @@ type FieldMeta struct {
 	// the keyed Reset reject it, Reset(all) preserves it, and the frontend
 	// renders it read-only.
 	Internal bool
+	// Hidden drops a setting from the JSON Schema handed to the frontend, so
+	// it never renders in the UI at all (unlike Advanced/Internal, which only
+	// sink behind the "advanced options" toggle). It stays in s.Fields and so
+	// remains patchable/validated via the API — this is purely a UI concern.
+	Hidden bool
 }
 
 // Schema is the cached, reflected view of Config.
@@ -166,6 +171,7 @@ func (s *Schema) addLeaf(key, category string, goType GoType, meta cfgTag, def a
 		RestartRequired: meta.restart,
 		Advanced:        meta.advanced,
 		Internal:        meta.internal,
+		Hidden:          meta.hidden,
 	}
 	switch goType {
 	case GoTypeInt:
@@ -178,6 +184,12 @@ func (s *Schema) addLeaf(key, category string, goType GoType, meta cfgTag, def a
 		fm.JSONType = "string"
 	}
 	s.Fields[key] = fm
+
+	// Hidden leaves stay in s.Fields (still patchable/validated) but are not
+	// advertised in the JSON Schema, so the frontend never renders them.
+	if fm.Hidden {
+		return
+	}
 
 	js := map[string]any{"type": fm.JSONType}
 	if def != nil {
@@ -233,6 +245,7 @@ type cfgTag struct {
 	restart   bool
 	advanced  bool
 	internal  bool
+	hidden    bool
 }
 
 func parseTag(raw string) cfgTag {
@@ -269,6 +282,8 @@ func parseTag(raw string) cfgTag {
 			t.advanced = val == "" || strings.EqualFold(val, "true")
 		case "internal":
 			t.internal = val == "" || strings.EqualFold(val, "true")
+		case "hidden":
+			t.hidden = val == "" || strings.EqualFold(val, "true")
 		}
 	}
 	return t

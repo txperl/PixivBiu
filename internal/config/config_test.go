@@ -369,7 +369,7 @@ func TestReset_RejectsInternalKey(t *testing.T) {
 // Reset(all) clears ordinary overrides but preserves internal ones, since
 // they may only be changed by editing the config file.
 func TestReset_AllPreservesInternal(t *testing.T) {
-	mgr := newMgr(t, `{"server":{"port":9090},"pixiv":{"proxy":"http://x:1"}}`)
+	mgr := newMgr(t, `{"server":{"port":9090},"pixiv":{"proxy":"http://x:1","bypass_sni":true}}`)
 	if _, err := mgr.Reset(nil, true); err != nil {
 		t.Fatalf("Reset all: %v", err)
 	}
@@ -378,6 +378,10 @@ func TestReset_AllPreservesInternal(t *testing.T) {
 	_ = json.Unmarshal(data, &nested)
 	if nestedGet(nested, "server", "port") != float64(9090) {
 		t.Errorf("internal server.port should survive reset-all, got: %s", data)
+	}
+	// Hidden keys aren't shown in the UI, so a UI reset-all must not wipe them.
+	if nestedGet(nested, "pixiv", "bypass_sni") != true {
+		t.Errorf("hidden pixiv.bypass_sni should survive reset-all, got: %s", data)
 	}
 	if nestedGet(nested, "pixiv", "proxy") != nil {
 		t.Errorf("ordinary pixiv.proxy should be cleared by reset-all, got: %s", data)
@@ -627,6 +631,27 @@ func TestSchema_FlagsInternal(t *testing.T) {
 	port := server["port"].(map[string]any)
 	if port["x-cfg-internal"] != true {
 		t.Errorf("server.port JSON node missing x-cfg-internal: %+v", port)
+	}
+}
+
+// Hidden keys stay in the field table (so they remain patchable/validated via
+// the API) but must not appear in the JSON Schema, so the frontend never
+// renders them — unlike Internal, which only sinks behind the advanced toggle.
+func TestSchema_HiddenDroppedFromJSON(t *testing.T) {
+	sc := newMgr(t, "").Schema()
+
+	if fm := sc.Fields["pixiv.bypass_sni"]; fm == nil || !fm.Hidden {
+		t.Errorf("pixiv.bypass_sni should be in Fields and flagged hidden: %+v", fm)
+	}
+
+	props := sc.JSON["properties"].(map[string]any)
+	pixiv := props["pixiv"].(map[string]any)["properties"].(map[string]any)
+	if _, present := pixiv["bypass_sni"]; present {
+		t.Error("pixiv.bypass_sni must be absent from the JSON Schema")
+	}
+	// A sibling user-facing key in the same section is still advertised.
+	if _, present := pixiv["proxy"]; !present {
+		t.Error("pixiv.proxy should remain in the JSON Schema")
 	}
 }
 

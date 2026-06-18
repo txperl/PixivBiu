@@ -256,7 +256,10 @@ func (m *Manager) Patch(patch map[string]any) (*View, error) {
 //
 // Internal keys are program-only: a keyed Reset of one is rejected, and
 // Reset(all) preserves their existing file overrides — they may only be
-// changed by editing the config file directly.
+// changed by editing the config file directly. Reset(all) also preserves
+// hidden keys: they're absent from the UI's rendered schema, so a blanket
+// reset must not wipe a setting the user was never shown (a keyed Reset of a
+// hidden key, which only the API can issue, is still honoured).
 func (m *Manager) Reset(keys []string, all bool) (*View, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -274,16 +277,17 @@ func (m *Manager) Reset(keys []string, all bool) (*View, error) {
 
 	var fileLayer map[string]any
 	if all {
-		// `all` clears the override layer but preserves internal keys:
-		// those are program-only and may only be changed by editing the
-		// file, so a UI "reset all" must not silently wipe them.
+		// `all` clears the override layer but preserves keys the UI can't
+		// manage: internal keys are program-only (file-edit only), and hidden
+		// keys are absent from the rendered schema entirely. A UI "reset all"
+		// must not silently wipe a setting it never showed the user.
 		current, err := m.store.Load()
 		if err != nil {
 			return nil, err
 		}
 		fileLayer = map[string]any{}
 		for k, v := range current {
-			if fm, ok := m.schema.Fields[k]; ok && fm.Internal {
+			if fm, ok := m.schema.Fields[k]; ok && (fm.Internal || fm.Hidden) {
 				fileLayer[k] = v
 			}
 		}

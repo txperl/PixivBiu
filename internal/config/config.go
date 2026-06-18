@@ -80,7 +80,7 @@ type LogConfig struct {
 
 type PixivConfig struct {
 	Proxy     string `koanf:"proxy"      cfg:"sensitive=true"`             // HTTP/SOCKS proxy URL (empty = direct)
-	BypassSNI bool   `koanf:"bypass_sni" cfg:"restart=true"`               // use DoH + alternative SNI for the API (restricted networks only)
+	BypassSNI bool   `koanf:"bypass_sni" cfg:"restart=true,hidden=true"`   // use DoH + alternative SNI for the API (restricted networks only); hidden from UI, file/API only
 	StateFile string `koanf:"state_file" cfg:"restart=true,internal=true"` // auth-token persistence file path
 }
 
