@@ -69,8 +69,10 @@ ENV PIXIVBIU_SERVER_HOST=0.0.0.0 \
     PIXIVBIU_SERVER_PORT=4001 \
     PIXIVBIU_SERVER_PORT_FALLBACK=false \
     PIXIVBIU_DATA_DIR=/data \
-    PIXIVBIU_DOWNLOAD_OUTPUT_DIR=/downloads/{{.Now | date "2006-01-02"}} \
     PIXIVBIU_APP_OPEN_BROWSER=false
+# Its own quoted line: the value has spaces + quotes (a Go template), which the
+# multi-var `ENV key=value \` form mis-splits (each space would start a new pair).
+ENV PIXIVBIU_DOWNLOAD_OUTPUT_DIR="/downloads/{{.Now | date \"2006-01-02\"}}"
 
 EXPOSE 4001
 VOLUME ["/data", "/downloads"]
