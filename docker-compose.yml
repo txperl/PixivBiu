@@ -1,0 +1,44 @@
+# PixivBiu — self-host with Docker Compose.
+#
+#   docker compose up -d          # pull the published image and run
+#   docker compose up -d --build  # build the image locally from source instead
+#
+# Then open http://localhost:4001
+#
+# The image already bakes the container defaults (host 0.0.0.0, port 4001,
+# data dir /data, downloads /downloads), so this file only maps the port,
+# mounts the volumes, and exposes the knobs you'll typically tune.
+services:
+  pixivbiu:
+    image: ghcr.io/txperl/pixivbiu:latest
+    # Uncomment to build locally instead of pulling the published image.
+    # build:
+    #   context: .
+    #   args:
+    #     VERSION: docker
+    container_name: pixivbiu
+    restart: unless-stopped
+    ports:
+      - "4001:4001"
+    environment:
+      # Reaching Pixiv usually needs a proxy. On Docker Desktop, point at the
+      # host via host.docker.internal; on Linux also enable extra_hosts below.
+      PIXIVBIU_PIXIV_PROXY: ""              # e.g. http://host.docker.internal:7890
+      # PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT: webp   # webp | gif | none
+      # PIXIVBIU_LOG_LEVEL: info               # debug | info | warn | error
+      # PIXIVBIU_APP_LANGUAGE: auto            # auto | en | zh-CN | ja
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"  # Linux only — for the proxy above
+    volumes:
+      # Config + auth token + image cache. A named volume "just works" with the
+      # non-root (uid 65532) container — Docker initialises ownership from the image.
+      - pixivbiu-data:/data
+      # Downloaded files, on the host for easy access. NOTE: a host bind mount
+      # keeps host-side ownership, so this directory must be writable by uid
+      # 65532 — run once:  mkdir -p downloads && sudo chown 65532:65532 downloads
+      # Or swap it for a named volume: replace the line below with
+      #   - pixivbiu-downloads:/downloads     (and add it under `volumes:`).
+      - ./downloads:/downloads
+
+volumes:
+  pixivbiu-data:

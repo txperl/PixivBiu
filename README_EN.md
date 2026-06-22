@@ -41,6 +41,26 @@ Common environment variables:
 
 For full configuration details, see [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
+## Docker
+
+You can also run PixivBiu straight from the Docker image.
+
+```bash
+docker run -d --name pixivbiu -p 4001:4001 \
+  -v pixivbiu-data:/data -v "$PWD/downloads:/downloads" \
+  ghcr.io/txperl/pixivbiu:latest
+```
+
+Or run it with Docker Compose.
+
+```bash
+git clone https://github.com/txperl/PixivBiu.git
+cd PixivBiu
+docker compose up -d
+```
+
+For the full Docker guide, see [docs/DOCKER.md](docs/DOCKER.md).
+
 ## Development
 
 Building and developing requires `Go 1.26+`, `bun`, and `make`.

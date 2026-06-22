@@ -1,0 +1,35 @@
+# Keep the build context small and reproducible. The image rebuilds the
+# frontend (web stage) and the binary (build stage) from source, so local
+# build/runtime artifacts must not leak in.
+
+# VCS — also why the Dockerfile passes -buildvcs=false.
+.git
+.gitignore
+.gitattributes
+
+# Build outputs
+bin/
+dist/
+internal/web/dist/
+
+# Runtime data (config, auth token, image cache, downloads)
+usr/
+downloads/
+
+# WIP Electron wrapper — a committed-locally 52 MB binary + node_modules.
+desktop/
+
+# Node / bun
+**/node_modules
+frontend/dist/
+
+# OS clutter
+**/.DS_Store
+
+# Editor / CI / docs not needed to build the image
+.github/
+.claude/
+*.md
+docs/
+LICENSE
+.goreleaser.yaml

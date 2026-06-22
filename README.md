@@ -41,6 +41,26 @@ PixivBiu，一款不错的 Pixiv 辅助工具。
 
 具体的配置说明，可参见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md) 文档。
 
+## Docker
+
+你也可以直接通过 Docker Image 运行 PixivBiu。
+
+```bash
+docker run -d --name pixivbiu -p 4001:4001 \
+  -v pixivbiu-data:/data -v "$PWD/downloads:/downloads" \
+  ghcr.io/txperl/pixivbiu:latest
+```
+
+亦或是通过 Docker Compose 运行。
+
+```bash
+git clone https://github.com/txperl/PixivBiu.git
+cd PixivBiu
+docker compose up -d
+```
+
+完整的 Docker 相关说明，可参见 [docs/DOCKER.md](docs/DOCKER.md) 文档。
+
 ## 开发
 
 构建与开发需要 `Go 1.26+`、`bun`、`make` 环境。

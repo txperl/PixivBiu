@@ -60,6 +60,7 @@ PixivBiu-go/
 │   │   └── proxy.yaml            #     /proxy/img (i.pximg.net image proxy + disk cache)
 │   └── cfg.yaml                  #   oapi-codegen configuration (self-mapping for cross-file $refs)
 ├── cmd/server/main.go            # Entry point: load config → init logger → wire pixiv/inbox/download → HTTP
+├── cmd/healthcheck/main.go       # Tiny static HTTP probe for the Docker HEALTHCHECK (distroless has no shell/curl)
 ├── internal/
 │   ├── api/
 │   │   ├── gen.go                #   //go:generate directive (oapi-codegen)
@@ -100,9 +101,11 @@ PixivBiu-go/
 │   │   └── styles/               #   globals.css + material-you.css
 │   ├── package.json              #   `bun run dev | build | check`. `build` runs `paraglide-js compile` before tsc.
 │   └── vite.config.ts            #   `paraglideVitePlugin` + Tailwind + React; `build.outDir` → ../internal/web/dist
-├── .github/workflows/            # CI (push/PR) + Release (v* tag → GoReleaser)
+├── .github/workflows/            # CI (push/PR) + Release & Docker (v* tag → GoReleaser / GHCR multi-arch)
 ├── .goreleaser.yaml              # Cross-platform release build (frontend embedded)
 ├── Makefile                      # gen / dev / build / build-web / dist / test / tidy / fmt / vet / clean
+├── Dockerfile                    # 3-stage build → distroless nonroot image (bun SPA + Go cross-compile); see docs/DOCKER.md
+├── docker-compose.yml            # Self-host: /data named volume + /downloads bind mount
 ├── go.mod / go.sum
 ```
 
@@ -151,9 +154,10 @@ The frontend is **embedded into the Go binary**, so a release is a single self-c
 
 - **Embed.** `frontend`'s Vite build emits to `internal/web/dist` (`vite.config.ts` → `build.outDir`, `emptyOutDir:false`); `internal/web/web.go` bakes it in via `//go:embed all:dist`. Only `internal/web/dist/.gitkeep` is committed (the build output is gitignored), so a backend-only `go build` still compiles — the handler then serves a "frontend not built" notice instead of the SPA.
 - **Serving.** `internal/server/server.go` mounts the SPA as the chi `NotFound` catch-all: unmapped `/api/v1/*` → structured JSON 404 (`api.RouteNotFoundError`), everything else → SPA with `index.html` fallback for client-side routes (hashed `assets/*` get an immutable `Cache-Control`).
-- **Version.** Injected via `-ldflags -X main.version=` (git-describe locally, the tag in releases); printed in the boot banner.
+- **Version.** Injected via `-ldflags -X main.version=` (git-describe locally, the tag in releases; the Docker build passes it as the `VERSION` build-arg — `docker` if unset); printed in the boot banner.
 - **CI** (`.github/workflows/ci.yml`, push to master / PR): backend `gofmt` + `go vet` + `go test -race` + `go build`; frontend Biome + `bun run build` (which type-checks via `tsc -b`).
 - **Release** (`.github/workflows/release.yml`, on `v*` tag): [GoReleaser](https://goreleaser.com) (`.goreleaser.yaml`) builds the frontend (via `make build-web`), cross-compiles linux/macOS/windows × amd64/arm64 (`CGO_ENABLED=0`), and publishes archives + SHA-256 checksums + a grouped changelog as a GitHub Release. **Tags must be strict semver** (`v3.0.0`, prerelease `v3.0.0-beta.1`) — legacy `v2.x.ya/b` suffixes are rejected by GoReleaser. Dry-run with `goreleaser release --snapshot --clean`. Channels and the full tag→audience mapping live in [docs/RELEASE.md](docs/RELEASE.md).
+- **Docker** (`.github/workflows/docker.yml`, on `v*` tag — additive to GoReleaser): `Dockerfile` runs a 3-stage build (bun SPA → `CGO_ENABLED=0` Go cross-compile, no QEMU via `--platform=$BUILDPLATFORM` + `GOOS/GOARCH` → `gcr.io/distroless/static:nonroot`), and buildx publishes multi-arch (amd64/arm64) images to `ghcr.io/txperl/pixivbiu`. The image runs non-root (uid 65532), roots all state under `/data` (`PIXIVBIU_DATA_DIR`) with downloads split to `/downloads`, and bundles a **Docker-only** `cmd/healthcheck` binary for `HEALTHCHECK` (distroless has no shell/curl) — `make`/GoReleaser build only `./cmd/server`, so that helper ships nowhere else. Self-host via `docker-compose.yml`; full guide in [docs/DOCKER.md](docs/DOCKER.md).
 
 ## Key Development Rules
 

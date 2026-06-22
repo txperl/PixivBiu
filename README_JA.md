@@ -41,6 +41,26 @@ PixivBiu、Pixiv のための便利な補助ツール。
 
 設定の詳細は [docs/CONFIGURATION.md](docs/CONFIGURATION.md) を参照してください。
 
+## Docker
+
+Docker イメージから直接 PixivBiu を実行することもできます。
+
+```bash
+docker run -d --name pixivbiu -p 4001:4001 \
+  -v pixivbiu-data:/data -v "$PWD/downloads:/downloads" \
+  ghcr.io/txperl/pixivbiu:latest
+```
+
+あるいは Docker Compose で実行します。
+
+```bash
+git clone https://github.com/txperl/PixivBiu.git
+cd PixivBiu
+docker compose up -d
+```
+
+Docker に関する詳しい説明は [docs/DOCKER.md](docs/DOCKER.md) を参照してください。
+
 ## 開発
 
 ビルドと開発には `Go 1.26+`、`bun`、`make` が必要です。
