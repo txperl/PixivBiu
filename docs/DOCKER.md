@@ -74,7 +74,7 @@ container-appropriate defaults:
 | `PIXIVBIU_SERVER_PORT`          | `4001`                                     | change → also remap `-p`                |
 | `PIXIVBIU_SERVER_PORT_FALLBACK` | `false`                                    | fail loud on a busy port                |
 | `PIXIVBIU_DATA_DIR`             | `/data`                                    | runtime root                            |
-| `PIXIVBIU_DOWNLOAD_OUTPUT_DIR`  | `/downloads/{{.Now \| date "2006-01-02"}}` | date-foldered output                    |
+| `PIXIVBIU_DOWNLOAD_OUTPUT_DIR`  | `/downloads`                               | downloads volume root                   |
 | `PIXIVBIU_APP_OPEN_BROWSER`     | `false`                                    | headless                                |
 
 Commonly tuned at runtime: `PIXIVBIU_PIXIV_PROXY`, `PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT`,

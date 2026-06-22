@@ -96,7 +96,7 @@ built-in defaults  →  ./usr/settings.json  →  environment variables  (env wi
 The three download templates are Go [`text/template`](https://pkg.go.dev/text/template) strings. Defaults:
 
 ```text
-output_dir          ./downloads/{{.Now | date "2006-01-02"}}
+output_dir          ./downloads
 file_template       {{.IllustID}}_{{.Title | trunc 80}}{{.Ext}}
 file_group_template {{.IllustID}}_{{.Title | trunc 80}}/{{.Index | pad 2}}{{.Ext}}
 ```

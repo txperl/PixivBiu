@@ -63,16 +63,15 @@ COPY --from=build --chown=65532:65532 /out/downloads /downloads
 
 # Container-appropriate config. Overrides of internal/config/config.go defaults:
 # host 127.0.0.1→0.0.0.0, port_fallback true→false, open_browser true→false, and
-# output_dir → the split /downloads volume. DATA_DIR roots all state under /data;
-# PORT restates the default so the server and /healthcheck share one declared value.
+# output_dir → the split /downloads volume (no date subfolder). DATA_DIR roots all
+# state under /data; PORT restates the default so the server and /healthcheck share
+# one declared value.
 ENV PIXIVBIU_SERVER_HOST=0.0.0.0 \
     PIXIVBIU_SERVER_PORT=4001 \
     PIXIVBIU_SERVER_PORT_FALLBACK=false \
     PIXIVBIU_DATA_DIR=/data \
+    PIXIVBIU_DOWNLOAD_OUTPUT_DIR=/downloads \
     PIXIVBIU_APP_OPEN_BROWSER=false
-# Its own quoted line: the value has spaces + quotes (a Go template), which the
-# multi-var `ENV key=value \` form mis-splits (each space would start a new pair).
-ENV PIXIVBIU_DOWNLOAD_OUTPUT_DIR="/downloads/{{.Now | date \"2006-01-02\"}}"
 
 EXPOSE 4001
 VOLUME ["/data", "/downloads"]

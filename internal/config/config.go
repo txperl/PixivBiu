@@ -186,7 +186,7 @@ var baseDefaults = sync.OnceValue(func() map[string]any {
 		"pixiv.bypass_sni":         false,
 		"pixiv.state_file":         "./usr/state.json",
 
-		"download.output_dir":            `./downloads/{{.Now | date "2006-01-02"}}`,
+		"download.output_dir":            `./downloads`,
 		"download.file_template":         `{{.IllustID}}_{{.Title | trunc 80}}{{.Ext}}`,
 		"download.file_group_template":   `{{.IllustID}}_{{.Title | trunc 80}}/{{.Index | pad 2}}{{.Ext}}`,
 		"download.max_concurrent":        4,
