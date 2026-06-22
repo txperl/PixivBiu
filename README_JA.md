@@ -54,8 +54,14 @@ docker run -d --name pixivbiu -p 4001:4001 \
 あるいは Docker Compose で実行します。
 
 ```bash
+# clone repo and move to
 git clone https://github.com/txperl/PixivBiu.git
 cd PixivBiu
+
+# (host bind mount for downloads) make the dir writable by the container's uid
+mkdir -p downloads && sudo chown 65532:65532 downloads
+
+# start it
 docker compose up -d
 ```
 
