@@ -48,6 +48,10 @@ const (
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "fatal:", err)
+		// On Windows a double-clicked console window closes the instant we
+		// exit, so without this the error above just flashes past. No-op when
+		// run from a terminal/CI or on other OSes.
+		pauseOnExit()
 		os.Exit(1)
 	}
 }
@@ -355,10 +359,10 @@ const maxPortFallback = 10
 // use — a common desktop case (a previous instance, or another app squatting
 // the port). When false a busy port fails immediately, which is what the dev
 // backend wants (its Vite proxy / gen:api are pinned to the configured port).
-// Only EADDRINUSE triggers a walk; a bad host or permission error fails right
-// away so a real misconfiguration isn't silently masked. (Go defines
-// syscall.EADDRINUSE on Windows too, mapped to WSAEADDRINUSE, so errors.Is is
-// cross-platform.)
+// Only a "port unavailable" error triggers a walk (see isPortUnavailable, which
+// is platform-specific because Windows also reports WSAEACCES for reserved
+// ports); a bad host or other failure fails right away so a real
+// misconfiguration isn't silently masked.
 func listenWithFallback(host string, port int, fallback bool) (net.Listener, error) {
 	// The config's min/max only gates PATCH, not the startup file/env layers,
 	// so a hand-set settings.json / PIXIVBIU_SERVER_PORT can arrive out of
@@ -381,7 +385,7 @@ func listenWithFallback(host string, port int, fallback bool) (net.Listener, err
 		if err == nil {
 			return ln, nil
 		}
-		if !errors.Is(err, syscall.EADDRINUSE) {
+		if !isPortUnavailable(err) {
 			return nil, err
 		}
 		lastErr = err
