@@ -1,6 +1,8 @@
 import { GithubIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type ReactNode, useState } from "react";
+import Markdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import LeapyOverlay from "@/components/series-leapy/leapy-overlay";
 import { Sheet, SheetHead } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
@@ -9,6 +11,38 @@ import { type UpdateApiError, useUpdate } from "@/features/system";
 import { useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
 import { type FieldRowProps, SettingsFieldList } from "./settings-field-list";
+
+// Element styles for the GitHub-generated release-notes markdown. react-markdown
+// (v10) does not render raw HTML by default, so the body is safe to render inline.
+// The project ships no @tailwindcss/typography plugin, so each element is mapped
+// here to the same muted, small scale as the rest of the About card.
+// All heading levels render the same here: one compact, bold line at the card's
+// scale (the notes are short, so distinct h1…h4 sizes add nothing).
+const ReleaseNotesHeading = ({ children }: { children?: ReactNode }) => (
+    <p className="mt-3 mb-1 font-semibold text-foreground first:mt-0">{children}</p>
+);
+
+// Hoisted so the plugin list keeps a stable identity across renders.
+const releaseNotesPlugins = [remarkGfm];
+
+const releaseNotesComponents: Components = {
+    h1: ReleaseNotesHeading,
+    h2: ReleaseNotesHeading,
+    h3: ReleaseNotesHeading,
+    h4: ReleaseNotesHeading,
+    p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
+    ul: ({ children }) => <ul className="my-1 list-disc space-y-0.5 pl-4">{children}</ul>,
+    ol: ({ children }) => <ol className="my-1 list-decimal space-y-0.5 pl-4">{children}</ol>,
+    li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+    a: ({ href, children }) => (
+        <a href={href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
+            {children}
+        </a>
+    ),
+    code: ({ children }) => <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]">{children}</code>,
+    strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+    hr: () => <hr className="my-2 border-border/60" />,
+};
 
 // Section id for the About card; shared with the settings page so the nav and
 // scroll-spy (which key off data-section-id) treat it like a real section.
@@ -77,10 +111,22 @@ export function SettingsAbout({
                             rel="noreferrer"
                             className="text-muted-foreground text-xs underline-offset-4 hover:underline"
                         >
-                            {m.settings_about_release_notes()}
+                            {m.settings_about_release_notes_view_github()}
                         </a>
                     )}
                 </div>
+                {status?.release_notes && (
+                    <div className="space-y-1">
+                        <p className="font-medium text-[0.7rem] text-muted-foreground uppercase tracking-wide">
+                            {m.settings_about_release_notes()}
+                        </p>
+                        <div className="max-h-64 overflow-y-auto rounded-lg border border-border/60 bg-background/40 p-3 text-muted-foreground text-xs">
+                            <Markdown remarkPlugins={releaseNotesPlugins} components={releaseNotesComponents}>
+                                {status.release_notes}
+                            </Markdown>
+                        </div>
+                    </div>
+                )}
                 {applyError && <p className="text-destructive text-xs">{resolveApiError(applyError)}</p>}
             </div>
         );
@@ -147,7 +193,7 @@ export function SettingsAbout({
                         </div>
                     </div>
 
-                    <p className="flex flex-col gap-0.5 text-muted-foreground text-xs">
+                    <div className="flex flex-col gap-0.5 text-muted-foreground text-xs">
                         {statusNode && <div>{statusNode}</div>}
                         <div>
                             {checkFailed
@@ -156,7 +202,7 @@ export function SettingsAbout({
                                   ? m.settings_about_last_checked({ time: new Date(lastChecked).toLocaleString() })
                                   : m.settings_about_never_checked()}
                         </div>
-                    </p>
+                    </div>
                 </div>
 
                 {/* Update settings (enabled / channel) — advanced tier, so they

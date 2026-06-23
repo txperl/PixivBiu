@@ -28,6 +28,62 @@ jobs:
       # so bun must be on PATH for the release run.
       - uses: oven-sh/setup-bun@v2
 
+      # Pick the changelog base so each release aggregates everything since the
+      # last release its channel could have received — not just since the prior
+      # tag. GoReleaser otherwise diffs against the immediately-preceding tag, so
+      # a stable cut right after a -beta/-alpha would have a near-empty changelog
+      # (all the work was "eaten" by the pre-releases). We override
+      # GORELEASER_PREVIOUS_TAG with the most recent ancestor tag a consumer of
+      # this release would have already received: stable -> last stable, beta/rc
+      # -> last beta/rc/stable, alpha -> last release. This mirrors the cumulative
+      # channel model in internal/update/checker.go (releaseRank + channelFloor),
+      # including DefaultChannel folding rc into the beta channel.
+      - name: Compute previous tag for changelog
+        shell: bash
+        run: |
+          cur="${GITHUB_REF_NAME}"
+          # rank = a tag's true maturity, in sync with checker.go's releaseRank:
+          # stable=3 / rc=2 / beta=1 / alpha=0 / non-semver or unknown suffix
+          # (legacy v2.6.4a, -dev, …) = -1 so they are never used as a base.
+          rank() {
+            local t="$1"
+            if   [[ "$t" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha(\.|$) ]]; then echo 0
+            elif [[ "$t" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta(\.|$)  ]]; then echo 1
+            elif [[ "$t" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc(\.|$)    ]]; then echo 2
+            elif [[ "$t" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$            ]]; then echo 3
+            else echo -1
+            fi
+          }
+          # floor = the channel floor of the *current* tag's audience: the lowest
+          # maturity that audience accepts. rc has no channel of its own, so it
+          # folds into beta (floor 1) like checker.go's channelFloor. A candidate
+          # tag qualifies as the base iff its rank >= this floor (i.e. that
+          # audience would already have it).
+          floor() {
+            local r; r="$(rank "$1")"
+            case "$r" in
+              2) echo 1 ;;   # rc -> beta channel floor
+              *) echo "$r" ;;
+            esac
+          }
+          fl="$(floor "$cur")"
+          prev=""
+          # Walk ancestor tags newest-first (semver order, prerelease-aware) and
+          # take the first whose rank >= the current tag's channel floor.
+          while read -r t; do
+            [ "$t" = "$cur" ] && continue
+            if [ "$(rank "$t")" -ge "$fl" ]; then prev="$t"; break; fi
+          done < <(git -c versionsort.suffix=-alpha \
+                       -c versionsort.suffix=-beta \
+                       -c versionsort.suffix=-rc \
+                       tag --list 'v*' --merged "${cur}^{commit}" --sort=-version:refname)
+          if [ -n "$prev" ]; then
+            echo "GORELEASER_PREVIOUS_TAG=$prev" >> "$GITHUB_ENV"
+            echo "changelog base: $prev -> $cur"
+          else
+            echo "no qualifying previous tag; GoReleaser uses its default"
+          fi
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"

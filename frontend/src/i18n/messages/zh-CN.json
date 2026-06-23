@@ -433,6 +433,7 @@
     "settings_about_apply": "更新并重启",
     "settings_about_updating": "正在更新…完成后应用将自动重新加载。",
     "settings_about_release_notes": "更新日志",
+    "settings_about_release_notes_view_github": "在 GitHub 查看",
     "settings_about_dev_build": "开发版本——已禁用自动更新。",
     "settings_about_last_checked": "上次检查：{time}",
     "settings_about_never_checked": "尚未检查",

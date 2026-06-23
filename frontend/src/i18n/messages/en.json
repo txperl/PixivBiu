@@ -433,6 +433,7 @@
     "settings_about_apply": "Update & restart",
     "settings_about_updating": "Updating… the app will reload automatically when it's done.",
     "settings_about_release_notes": "Release notes",
+    "settings_about_release_notes_view_github": "View on GitHub",
     "settings_about_dev_build": "Development build — automatic updates are disabled.",
     "settings_about_last_checked": "Last checked {time}",
     "settings_about_never_checked": "Not checked yet",

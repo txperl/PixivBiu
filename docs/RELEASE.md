@@ -55,7 +55,7 @@ The only user-facing knob is `app.update.channel` (`stable` / `beta` / `alpha`),
 
 ## Changelog
 
-The release notes are auto-generated from the commits since the previous tag — there is no hand-written changelog. Commit subjects are grouped by their [Conventional Commits](https://www.conventionalcommits.org) prefix:
+Release notes are auto-generated from the commit history — there is no hand-written changelog. Commit subjects are grouped by their [Conventional Commits](https://www.conventionalcommits.org) prefix:
 
 | Group     | Commit prefix                    |
 | --------- | -------------------------------- |
@@ -64,7 +64,19 @@ The release notes are auto-generated from the commits since the previous tag —
 | Refactors | `refactor:`                      |
 | Others    | anything else not excluded below |
 
-`docs:`, `test:`, `chore:`, `ci:`, `style:`, `build:`, and merge commits are dropped. A clean, prefixed commit history is therefore all it takes to get readable release notes — nothing to edit at release time.
+`docs:`, `test:`, `chore:`, `ci:`, `style:`, `build:`, and merge commits are dropped. A clean, prefixed commit history is all it takes to get readable release notes — nothing to edit at release time.
+
+**The commit range is channel-aware.** GoReleaser defaults to "since the immediately preceding tag," which would make a stable cut right after a run of pre-releases nearly empty — all the work was already itemized in the `-alpha`/`-beta` notes. To avoid that, the release workflow computes `GORELEASER_PREVIOUS_TAG` so each release's changelog spans everything since the **last release its channel's audience would already have received**:
+
+| Releasing       | Changelog base (previous tag)        |
+| --------------- | ------------------------------------ |
+| stable          | the last stable                      |
+| `-beta` / `-rc` | the last beta / rc / stable          |
+| `-alpha`        | the last release (plain incremental) |
+
+So a stable aggregates its whole pre-release cycle, while each pre-release still shows just what changed for the users who track that channel. The selection step (`.github/workflows/release.yml`, "Compute previous tag for changelog") mirrors the maturity ranking in `internal/update/checker.go` (`releaseRank` + `channelFloor`, including the rc→beta fold) — **keep the two in sync** if those ranks ever change.
+
+The full release body (this generated changelog) is also rendered inline in the app's **Settings → About** card when an update is available, so users see what's new without leaving for GitHub.
 
 ## Validate before tagging
 
