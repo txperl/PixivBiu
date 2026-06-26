@@ -4,6 +4,8 @@ export type AuthStatus = components["schemas"]["AuthStatus"];
 export type AuthApiError = components["schemas"]["Error"];
 export type OAuthStartResponse = components["schemas"]["OAuthStartResponse"];
 export type ConnectivityStatus = components["schemas"]["ConnectivityStatus"];
+export type DetectedProxies = components["schemas"]["DetectedProxies"];
+export type ProxyCandidate = components["schemas"]["ProxyCandidate"];
 
 // The empty/non-2xx/thrown-response guard lives in the lib/api/client.ts
 // middleware, so a failed request can never read back as success here.
@@ -46,5 +48,15 @@ export async function checkConnectivity(
     const { data, error } = await api.POST("/auth/connectivity", {
         body: proxy === undefined ? undefined : { proxy },
     });
+    return { data: data ?? null, error: error ?? null };
+}
+
+// detectProxies asks the backend what proxy it can find in the OS configuration
+// (GUI system proxy + HTTP(S)_PROXY/ALL_PROXY env vars), ordered system-first.
+// Onboarding calls it after a direct probe fails so it can offer — and
+// auto-test via checkConnectivity — a system proxy the user enabled without TUN
+// mode (which env vars never expose). Nothing is persisted by this call.
+export async function detectProxies(): Promise<{ data: DetectedProxies | null; error: AuthApiError | null }> {
+    const { data, error } = await api.GET("/auth/proxy/detect");
     return { data: data ?? null, error: error ?? null };
 }

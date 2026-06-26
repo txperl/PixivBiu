@@ -1,15 +1,18 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/txperl/PixivBiu/internal/pixiv"
 	"github.com/txperl/PixivBiu/internal/state"
+	"github.com/txperl/PixivBiu/internal/sysproxy"
 )
 
 func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +129,35 @@ func (h *APIHandler) CheckConnectivity(w http.ResponseWriter, r *http.Request) {
 
 	ms := int(latency.Milliseconds())
 	writeJSON(w, http.StatusOK, ConnectivityStatus{Reachable: reachable, LatencyMs: &ms})
+}
+
+// detectProxyTimeout bounds the OS proxy lookup so a wedged `scutil` subprocess
+// (macOS) can't hang the request. Detection is local and normally returns in
+// milliseconds; the rest of the budget is slack.
+const detectProxyTimeout = 3 * time.Second
+
+// DetectProxies reports the proxy candidates discovered from the operating
+// system — the GUI system proxy (macOS scutil / Windows registry) plus the
+// HTTP(S)_PROXY / ALL_PROXY env vars — ordered system-first. Login onboarding
+// calls it after a direct connectivity probe fails, so it can offer and
+// auto-test a system proxy the user enabled without TUN mode (which env vars
+// never expose) instead of making them type it. This reads local config only:
+// no network I/O and nothing persisted — testing/persisting a candidate is the
+// job of CheckConnectivity. Unauthenticated, matching CheckConnectivity, since
+// it's part of the pre-login flow.
+func (h *APIHandler) DetectProxies(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), detectProxyTimeout)
+	defer cancel()
+
+	found := sysproxy.Detect(ctx)
+	candidates := make([]ProxyCandidate, 0, len(found))
+	for _, c := range found {
+		candidates = append(candidates, ProxyCandidate{
+			Url:    c.URL,
+			Source: ProxyCandidateSource(c.Source),
+		})
+	}
+	writeJSON(w, http.StatusOK, DetectedProxies{Candidates: candidates})
 }
 
 // persistOnboardingProxy records a proxy the connectivity probe just proved

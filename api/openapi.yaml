@@ -54,6 +54,8 @@ paths:
     $ref: './paths/auth.yaml#/oauthExchange'
   /auth/connectivity:
     $ref: './paths/auth.yaml#/connectivity'
+  /auth/proxy/detect:
+    $ref: './paths/auth.yaml#/proxyDetect'
 
   /illusts/ranking:
     $ref: './paths/illusts.yaml#/ranking'
@@ -529,6 +531,32 @@ components:
         latency_ms:
           type: integer
           description: Round-trip time of the probe request, in milliseconds.
+
+    ProxyCandidate:
+      type: object
+      required: [url, source]
+      properties:
+        url:
+          type: string
+          description: Normalized proxy URL (`scheme://host[:port]`), ready to test or save.
+          example: http://127.0.0.1:7890
+        source:
+          type: string
+          enum: [system, env]
+          description: |
+            Where the candidate was discovered — `system` (the OS GUI proxy
+            settings) or `env` (a proxy environment variable).
+
+    DetectedProxies:
+      type: object
+      required: [candidates]
+      properties:
+        candidates:
+          type: array
+          items: { $ref: '#/components/schemas/ProxyCandidate' }
+          description: |
+            Proxy candidates ordered most-specific first (system before env),
+            deduplicated. Empty when nothing usable was detected.
 
     BookmarkRequest:
       type: object

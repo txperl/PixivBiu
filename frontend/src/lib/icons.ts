@@ -28,6 +28,7 @@ export {
     Layers01Icon as PagesIcon,
     Loading03Icon as LoaderIcon,
     MagnetIcon,
+    MapsSearchIcon,
     Medal01Icon as RankIcon,
     MoreVerticalIcon as MoreIcon,
     PauseIcon,

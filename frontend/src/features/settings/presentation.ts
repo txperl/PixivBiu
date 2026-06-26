@@ -54,10 +54,13 @@ export const FALLBACK_SECTION_ICON: IconSvgElement = Settings03Icon;
 // Per-key control override where the schema type alone is insufficient.
 // The Go text/template path/filename fields get the dedicated "template"
 // control: a monospace box plus a token-insertion palette and a live preview.
+// pixiv.proxy gets the "proxy" control: its secret input plus a button that
+// fills in the OS system proxy (overrides the sensitive→password default).
 export const CONTROL_OVERRIDE: Record<string, ControlKind> = {
     [OUTPUT_DIR_KEY]: "template",
     [FILE_KEY]: "template",
     [GROUP_KEY]: "template",
+    "pixiv.proxy": "proxy",
 };
 
 // Advanced and internal (program-only) fields form one lower-priority tier:

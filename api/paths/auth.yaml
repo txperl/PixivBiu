@@ -111,3 +111,26 @@ connectivity:
           application/json:
             schema: { $ref: '../openapi.yaml#/components/schemas/ConnectivityStatus' }
       '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+
+proxyDetect:
+  get:
+    operationId: detectProxies
+    summary: Detect proxy candidates from the OS configuration
+    description: |
+      Reads the operating system's configured proxy — macOS system proxy via
+      `scutil`, Windows via the registry — plus the HTTP(S)_PROXY / ALL_PROXY
+      environment variables, and returns the candidates ordered system-first.
+      Login onboarding calls this after a direct connectivity probe fails, so
+      it can offer (and auto-test) a system proxy the user enabled without
+      TUN mode — a setting that's invisible to env vars. Reads local config
+      only: no network I/O, nothing persisted (test/persist a candidate via
+      `/auth/connectivity`). A PAC-only (auto-config URL) setup is not
+      evaluated and yields no candidates. Deliberately unauthenticated, like
+      `/auth/connectivity`.
+    tags: [auth]
+    responses:
+      '200':
+        description: Detection completed; `candidates` may be empty.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/DetectedProxies' }

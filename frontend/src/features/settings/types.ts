@@ -19,7 +19,9 @@ export type ControlKind =
     | "textarea"
     | "password"
     // Go text/template field with a token-insertion palette + live preview.
-    | "template";
+    | "template"
+    // Secret input plus a button that fills in the detected OS system proxy.
+    | "proxy";
 
 // A single leaf setting, flattened to its dotted key.
 export interface FieldSpec {

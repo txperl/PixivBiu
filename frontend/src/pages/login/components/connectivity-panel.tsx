@@ -2,7 +2,7 @@ import { animate } from "animejs";
 import { type SyntheticEvent, useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { type AuthApiError, checkConnectivity } from "@/features/auth/api";
+import { type AuthApiError, checkConnectivity, detectProxies } from "@/features/auth/api";
 import { useMessages } from "@/i18n";
 import { ErrorBlock } from "./error-block";
 import { useReveal } from "./use-reveal";
@@ -69,21 +69,64 @@ export function ConnectivityPanel({
     const [busy, setBusy] = useState(false);
     const [probeError, setProbeError] = useState<AuthApiError | null>(null);
     const [proxyMiss, setProxyMiss] = useState(false);
+    // okProxy: set to the proxy URL when we reach "ok" through a proxy (detected
+    // or user-tested), so OkView can say "connected via …" instead of the plain
+    // direct-success message. null on a direct hit.
+    const [okProxy, setOkProxy] = useState<string | null>(null);
+    // autoDetected: true when we dropped to "failed" after auto-detecting a
+    // system proxy and pre-filling it — FailedView then explains the input was
+    // filled for the user rather than left blank.
+    const [autoDetected, setAutoDetected] = useState(false);
 
-    // Probe the current configuration (no proxy override). Any failure — a real
-    // API error or just "unreachable" — lands on the failed state so the proxy
-    // input is offered either way.
+    // Probe the current configuration (direct). On failure, try to auto-detect
+    // the OS system proxy and test it before falling back to manual entry — so a
+    // user who enabled a system proxy (but not TUN mode) sails through without
+    // typing anything. Any hard API error still lands on the failed state with
+    // the manual input offered.
     const runInitialCheck = useCallback(async () => {
         setPhase("checking");
         setProbeError(null);
         setProxyMiss(false);
-        const { data, error: err } = await probeWithDwell();
-        if (err) {
-            setProbeError(err);
+        setOkProxy(null);
+        setAutoDetected(false);
+
+        const direct = await probeWithDwell();
+        if (direct.error) {
+            setProbeError(direct.error);
             setPhase("failed");
             return;
         }
-        setPhase(data?.reachable ? "ok" : "failed");
+        if (direct.data?.reachable) {
+            setPhase("ok"); // direct connection works (e.g. TUN mode) — done
+            return;
+        }
+
+        // Direct failed: ask the backend what proxy the OS has configured.
+        const detected = await detectProxies();
+        const candidate = detected.data?.candidates?.[0]?.url;
+        if (!candidate) {
+            setPhase("failed"); // nothing to auto-try — manual entry, blank input
+            return;
+        }
+
+        // Prefill the candidate either way, then auto-test it. No dwell here: the
+        // direct probe already gave the perceptible "checking" beat.
+        setProxy(candidate);
+        const { data, error: err } = await checkConnectivity(candidate);
+        if (err) {
+            setProbeError(err);
+            setAutoDetected(true);
+            setPhase("failed");
+            return;
+        }
+        if (data?.reachable) {
+            setOkProxy(candidate); // already persisted server-side by the probe
+            setPhase("ok");
+            return;
+        }
+        // Detected proxy didn't reach Pixiv — drop to manual, prefilled.
+        setAutoDetected(true);
+        setPhase("failed");
     }, []);
 
     useEffect(() => {
@@ -104,6 +147,7 @@ export function ConnectivityPanel({
             return;
         }
         if (data?.reachable) {
+            setOkProxy(candidate);
             setPhase("ok"); // proxy now persisted server-side; the live client uses it
             return;
         }
@@ -125,7 +169,7 @@ export function ConnectivityPanel({
                 giving the same "flow in" cadence as the other panels. */}
             <div key={phase} aria-live="polite">
                 {phase === "checking" && <CheckingView />}
-                {phase === "ok" && <OkView pending={pending} error={error} onProceed={onProceed} />}
+                {phase === "ok" && <OkView viaProxy={okProxy} pending={pending} error={error} onProceed={onProceed} />}
                 {phase === "failed" && (
                     <FailedView
                         proxy={proxy}
@@ -133,6 +177,7 @@ export function ConnectivityPanel({
                         onSubmit={onTestProxy}
                         busy={busy}
                         proxyMiss={proxyMiss}
+                        autoDetected={autoDetected}
                         probeError={probeError}
                         onRetryDirect={onRetryDirect}
                         pending={pending}
@@ -161,10 +206,12 @@ function CheckingView() {
 }
 
 function OkView({
+    viaProxy,
     pending,
     error,
     onProceed,
 }: {
+    viaProxy: string | null;
     pending: boolean;
     error: AuthApiError | null;
     onProceed: () => void;
@@ -179,7 +226,7 @@ function OkView({
                 🔌
             </div>
             <p ref={textRef} className="max-w-lg text-muted-foreground text-xl">
-                {m.login_connectivity_ok()}
+                {viaProxy ? m.login_connectivity_ok_via_proxy({ proxy: viaProxy }) : m.login_connectivity_ok()}
             </p>
             <div ref={ctaRef} className="mt-2 space-y-3">
                 <Button type="button" size="lg" onClick={onProceed} disabled={pending}>
@@ -197,6 +244,7 @@ function FailedView({
     onSubmit,
     busy,
     proxyMiss,
+    autoDetected,
     probeError,
     onRetryDirect,
     pending,
@@ -208,6 +256,7 @@ function FailedView({
     onSubmit: (e: SyntheticEvent<HTMLFormElement, SubmitEvent>) => void;
     busy: boolean;
     proxyMiss: boolean;
+    autoDetected: boolean;
     probeError: AuthApiError | null;
     onRetryDirect: () => void;
     pending: boolean;
@@ -222,7 +271,9 @@ function FailedView({
         <div className="flex flex-col gap-4">
             <div ref={hintRef} className="max-w-lg space-y-1">
                 <p className="text-foreground text-xl">{m.login_connectivity_failed_title()}</p>
-                <p className="text-muted-foreground">{m.login_connectivity_failed_hint()}</p>
+                <p className="text-muted-foreground">
+                    {autoDetected ? m.login_connectivity_detected_hint() : m.login_connectivity_failed_hint()}
+                </p>
             </div>
 
             <form ref={formRef} onSubmit={onSubmit} className="max-w-md space-y-2.5">

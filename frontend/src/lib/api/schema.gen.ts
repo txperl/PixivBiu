@@ -120,6 +120,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/proxy/detect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Detect proxy candidates from the OS configuration
+         * @description Reads the operating system's configured proxy — macOS system proxy via
+         *     `scutil`, Windows via the registry — plus the HTTP(S)_PROXY / ALL_PROXY
+         *     environment variables, and returns the candidates ordered system-first.
+         *     Login onboarding calls this after a direct connectivity probe fails, so
+         *     it can offer (and auto-test) a system proxy the user enabled without
+         *     TUN mode — a setting that's invisible to env vars. Reads local config
+         *     only: no network I/O, nothing persisted (test/persist a candidate via
+         *     `/auth/connectivity`). A PAC-only (auto-config URL) setup is not
+         *     evaluated and yields no candidates. Deliberately unauthenticated, like
+         *     `/auth/connectivity`.
+         */
+        get: operations["DetectProxies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/status": {
         parameters: {
             query?: never;
@@ -889,6 +918,13 @@ export interface components {
             /** @description Whether any HTTP response came back from Pixiv over the tested path. */
             reachable: boolean;
         };
+        DetectedProxies: {
+            /**
+             * @description Proxy candidates ordered most-specific first (system before env),
+             *     deduplicated. Empty when nothing usable was detected.
+             */
+            candidates: components["schemas"]["ProxyCandidate"][];
+        };
         /**
          * @description Pixiv artwork type the job was created for.
          * @enum {string}
@@ -1250,6 +1286,19 @@ export interface components {
             job: string;
             pawoo: boolean;
             region: string;
+        };
+        ProxyCandidate: {
+            /**
+             * @description Where the candidate was discovered — `system` (the OS GUI proxy
+             *     settings) or `env` (a proxy environment variable).
+             * @enum {string}
+             */
+            source: "system" | "env";
+            /**
+             * @description Normalized proxy URL (`scheme://host[:port]`), ready to test or save.
+             * @example http://127.0.0.1:7890
+             */
+            url: string;
         };
         /** @enum {string} */
         RankingMode: "day" | "week" | "month" | "day_male" | "day_female" | "week_original" | "week_rookie" | "day_manga" | "day_r18" | "day_male_r18" | "day_female_r18" | "week_r18" | "week_r18g";
@@ -1627,6 +1676,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OAuthStartResponse"];
+                };
+            };
+        };
+    };
+    DetectProxies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Detection completed; `candidates` may be empty. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetectedProxies"];
                 };
             };
         };
