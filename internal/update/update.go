@@ -41,7 +41,7 @@ type Status struct {
 	UpdateAvailable bool      // a newer release exists AND this is a real release build
 	IsDev           bool      // running a dev/non-release build; updates are never offered
 	ReleaseURL      string    // GitHub release page for LatestVersion
-	ReleaseNotes    string    // release body (markdown), as published
+	ReleaseNotes    string    // release notes (markdown), cleaned for display; multi-version updates stitched (see aggregateNotes)
 	PublishedAt     time.Time // when LatestVersion was published
 	AssetName       string    // archive asset matching this OS/arch in the latest release
 	LastChecked     time.Time // when this status was produced; zero if never checked

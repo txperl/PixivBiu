@@ -7,6 +7,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -206,14 +208,8 @@ func (s *Service) resolveLatest(ctx context.Context) (*releaseInfo, error) {
 	var bestVer string
 	for i := range releases {
 		r := &releases[i]
-		if r.Draft {
-			continue
-		}
-		v := normalizeVersion(r.TagName)
-		if !semver.IsValid(v) {
-			continue
-		}
-		if releaseRank(v) < floor {
+		v, ok := applicableVersion(r, floor)
+		if !ok {
 			continue
 		}
 		if best == nil || semver.Compare(v, bestVer) > 0 {
@@ -232,15 +228,122 @@ func (s *Service) resolveLatest(ctx context.Context) (*releaseInfo, error) {
 	return &releaseInfo{
 		tag:         normalizeVersion(best.TagName),
 		version:     bestVer,
-		notes:       best.Body,
+		notes:       aggregateNotes(releases, floor, s.current),
 		htmlURL:     best.HTMLURL,
 		publishedAt: best.PublishedAt,
 		assets:      assets,
 	}, nil
 }
 
-// fetchReleases pulls the most recent releases (newest first). A modest
-// per_page is plenty: we only need enough to find the newest applicable tag.
+// applicableVersion reports whether r is a release this channel can offer — not a
+// draft, a valid semver tag, and at or above the channel's maturity floor — and
+// returns its normalized version so callers reuse it without re-parsing. Shared by
+// resolveLatest (which picks the single newest) and aggregateNotes (which collects
+// the whole in-range set) so the predicate can't drift between them.
+func applicableVersion(r *ghRelease, floor int) (string, bool) {
+	if r.Draft {
+		return "", false
+	}
+	v := normalizeVersion(r.TagName)
+	if !semver.IsValid(v) || releaseRank(v) < floor {
+		return "", false
+	}
+	return v, true
+}
+
+// Patterns that turn a GoReleaser release body into display-ready markdown. The
+// app is the single authority for this normalization (see sanitizeReleaseBody);
+// the frontend only renders.
+var (
+	// changelogHeadingRe matches GoReleaser's top-of-body "## Changelog" line.
+	changelogHeadingRe = regexp.MustCompile(`(?im)^[ \t]*##[ \t]+Changelog[ \t]*$`)
+	// bulletRe splits a list item into its "* " marker and the rest.
+	bulletRe = regexp.MustCompile(`^(\s*[-*]\s+)(.*)$`)
+	// commitShaRe matches a bullet's leading commit SHA, e.g. "12d8eaa…<hex>: ".
+	commitShaRe = regexp.MustCompile(`(?i)^[0-9a-f]{7,40}:\s*`)
+	// authorSuffixRe matches the trailing " (@handle)" GoReleaser appends.
+	authorSuffixRe = regexp.MustCompile(`\s*\(@[\w-]+\)\s*$`)
+)
+
+// sanitizeReleaseBody turns a GoReleaser release body into display-ready markdown:
+// it drops the leading "## Changelog" heading and, from each changelog bullet, the
+// leading commit SHA and trailing "(@author)" — leaving the conventional
+// "feat(scope): …" prose. The "View on GitHub" link still points at the raw body.
+func sanitizeReleaseBody(body string) string {
+	body = strings.TrimLeft(body, "\n")
+	if loc := changelogHeadingRe.FindStringIndex(body); loc != nil && loc[0] == 0 {
+		body = body[loc[1]:]
+	}
+	lines := strings.Split(body, "\n")
+	for i, line := range lines {
+		m := bulletRe.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		rest := commitShaRe.ReplaceAllString(m[2], "")
+		rest = authorSuffixRe.ReplaceAllString(rest, "")
+		lines[i] = m[1] + rest
+	}
+	return strings.TrimLeft(strings.Join(lines, "\n"), "\n")
+}
+
+// aggregateNotes builds the display-ready release-notes markdown for an update
+// that may span several versions. It gathers every applicable release strictly
+// newer than current, newest-first, sanitizes each body (sanitizeReleaseBody),
+// and — when more than one version is in range — stitches them under per-version
+// "## <tag>" headings, so a user who skipped intermediate versions sees all of
+// their changelogs, not just the newest hop.
+//
+// When current is not valid semver (a dev build, where updates are never offered
+// anyway) the lower bound is meaningless, so only the newest applicable release
+// is kept.
+func aggregateNotes(releases []ghRelease, floor int, current string) string {
+	cur := normalizeVersion(current)
+
+	var inRange []*ghRelease
+	for i := range releases {
+		r := &releases[i]
+		v, ok := applicableVersion(r, floor)
+		if !ok {
+			continue
+		}
+		if semver.IsValid(cur) && semver.Compare(v, cur) <= 0 {
+			continue
+		}
+		inRange = append(inRange, r)
+	}
+	if len(inRange) == 0 {
+		return ""
+	}
+	sort.Slice(inRange, func(i, j int) bool {
+		return semver.Compare(normalizeVersion(inRange[i].TagName), normalizeVersion(inRange[j].TagName)) > 0
+	})
+
+	// Nothing to stitch — one release, or a dev build with no usable lower bound:
+	// just the newest body, sanitized, with no per-version heading.
+	if len(inRange) == 1 || !semver.IsValid(cur) {
+		return sanitizeReleaseBody(inRange[0].Body)
+	}
+
+	var b strings.Builder
+	for i, r := range inRange {
+		if i > 0 {
+			b.WriteString("\n\n")
+		}
+		// "##" nests above GoReleaser's "### <group>" titles (Features / Bug fixes,
+		// configured in .goreleaser.yaml); the frontend maps h2 -> version heading,
+		// h3 -> group heading. Keep these three in sync.
+		b.WriteString("## ")
+		b.WriteString(normalizeVersion(r.TagName))
+		b.WriteString("\n\n")
+		b.WriteString(sanitizeReleaseBody(r.Body))
+	}
+	return b.String()
+}
+
+// fetchReleases pulls the most recent releases (newest first). The page also
+// bounds how far back aggregateNotes can stitch changelogs for a multi-version
+// jump; 20 covers any realistic gap between checks for this project's cadence.
 func (s *Service) fetchReleases(ctx context.Context) ([]ghRelease, error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()

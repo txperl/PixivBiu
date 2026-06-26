@@ -1,3 +1,6 @@
+import { formatDistanceToNow } from "date-fns";
+import { ja, zhCN } from "date-fns/locale";
+
 export function formatCount(n: number): string {
     if (n >= 10000) return `${(n / 10000).toFixed(1).replace(/\.0$/, "")}w`;
     if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
@@ -28,6 +31,23 @@ export function formatDate(iso: string, locale?: string): string {
         day: "numeric",
         timeZone: "UTC",
     }).format(wall);
+}
+
+// date-fns locales for relative-time formatting; "en" uses the library default
+// (enUS), so it isn't listed here.
+const RELATIVE_LOCALES = { "zh-CN": zhCN, ja } as const;
+
+// Localized "3 days ago" for an ISO timestamp, or null when it's missing or
+// unparseable (so callers can omit the line). Pass the active UI locale so the
+// phrasing tracks language switches.
+export function formatRelativeTime(iso: string | null | undefined, locale: string): string | null {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return formatDistanceToNow(d, {
+        addSuffix: true,
+        locale: RELATIVE_LOCALES[locale as keyof typeof RELATIVE_LOCALES],
+    });
 }
 
 export function formatBytes(n: number): string {

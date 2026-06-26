@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/txperl/PixivBiu/internal/config"
@@ -230,6 +232,77 @@ func TestCheckOnlyOffersApplicableReleases(t *testing.T) {
 				t.Errorf("AssetName = %q, want non-empty=%v", st.AssetName, c.wantAvailable)
 			}
 		})
+	}
+}
+
+// An update that skips intermediate versions should surface every skipped
+// version's changelog, newest-first, each under its own "## <tag>" heading — not
+// just the newest hop — with each body sanitized (commit SHA + "(@author)" + the
+// per-release "## Changelog" heading stripped).
+func TestCheckAggregatesNotesAcrossVersions(t *testing.T) {
+	ts := mockReleases(t, []ghRelease{
+		{TagName: "v3.1.0", Body: "## Changelog\n### Features\n* 12d8eaacc0b65e76dede78bc67252c8f3be31827: feat: thing one (@txperl)"},
+		{TagName: "v3.2.0", Body: "## Changelog\n### Bug fixes\n* a6f4c52a5b4900fef85a47c7eaf523c758d0c4c3: fix: thing two (@txperl)"},
+		withAssets(ghRelease{TagName: "v3.3.0", HTMLURL: "https://example/v3.3.0", Body: "## Changelog\n### Features\n* fbb56ddb997b8608aae3cd048f3ecae5b6543025: feat: thing three (@txperl)"}),
+	})
+	defer ts.Close()
+
+	s := newTestService(t, "3.0.0", "stable", ts.URL)
+	st, err := s.Check(context.Background())
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+
+	notes := st.ReleaseNotes
+	for _, want := range []string{"## v3.3.0", "## v3.2.0", "## v3.1.0", "thing one", "thing two", "thing three"} {
+		if !strings.Contains(notes, want) {
+			t.Errorf("aggregated notes missing %q\n%s", want, notes)
+		}
+	}
+	assertCleanedNotes(t, notes)
+	// Newest-first ordering.
+	i3, i2, i1 := strings.Index(notes, "## v3.3.0"), strings.Index(notes, "## v3.2.0"), strings.Index(notes, "## v3.1.0")
+	if !(i3 < i2 && i2 < i1) {
+		t.Errorf("versions not newest-first: v3.3.0@%d v3.2.0@%d v3.1.0@%d", i3, i2, i1)
+	}
+}
+
+// A single-version jump carries no synthetic "## <tag>" heading, but the body is
+// still sanitized for display (SHA + "(@author)" + "## Changelog" stripped).
+func TestCheckSingleVersionNotesCleaned(t *testing.T) {
+	ts := mockReleases(t, []ghRelease{
+		{TagName: "v3.0.0"},
+		withAssets(ghRelease{TagName: "v3.1.0", HTMLURL: "https://example/v3.1.0", Body: "## Changelog\n### Features\n* 12d8eaacc0b65e76dede78bc67252c8f3be31827: feat: only hop (@txperl)"}),
+	})
+	defer ts.Close()
+
+	s := newTestService(t, "3.0.0", "stable", ts.URL)
+	st, err := s.Check(context.Background())
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	notes := st.ReleaseNotes
+	if !strings.Contains(notes, "only hop") {
+		t.Errorf("single-version notes lost the changelog text\n%s", notes)
+	}
+	if strings.Contains(notes, "## v3.1.0") {
+		t.Errorf("single-version notes should not get a synthetic version heading\n%s", notes)
+	}
+	assertCleanedNotes(t, notes)
+}
+
+// assertCleanedNotes fails if display-ready notes still carry a commit SHA, an
+// "(@author)" suffix, or a "## Changelog" heading.
+func assertCleanedNotes(t *testing.T, notes string) {
+	t.Helper()
+	if strings.Contains(notes, "## Changelog") {
+		t.Errorf("notes still contain a \"## Changelog\" heading\n%s", notes)
+	}
+	if strings.Contains(notes, "(@txperl)") {
+		t.Errorf("notes still contain an \"(@author)\" suffix\n%s", notes)
+	}
+	if regexp.MustCompile(`[0-9a-f]{40}`).MatchString(notes) {
+		t.Errorf("notes still contain a commit SHA\n%s", notes)
 	}
 }
 

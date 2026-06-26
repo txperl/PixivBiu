@@ -1,48 +1,17 @@
 import { GithubIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type ReactNode, useState } from "react";
-import Markdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
 import LeapyOverlay from "@/components/series-leapy/leapy-overlay";
 import { Sheet, SheetHead } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
 import { type FieldSpec, SCROLL_OFFSET, SECTION_ICONS } from "@/features/settings";
 import { type UpdateApiError, useUpdate } from "@/features/system";
-import { useMessages } from "@/i18n";
+import { useLocale, useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
+import { formatRelativeTime } from "@/lib/format";
+import { CheckIcon, ExternalLinkIcon, SystemUpdateIcon } from "@/lib/icons";
+import { ReleaseNotesDialog } from "./release-notes-dialog";
 import { type FieldRowProps, SettingsFieldList } from "./settings-field-list";
-
-// Element styles for the GitHub-generated release-notes markdown. react-markdown
-// (v10) does not render raw HTML by default, so the body is safe to render inline.
-// The project ships no @tailwindcss/typography plugin, so each element is mapped
-// here to the same muted, small scale as the rest of the About card.
-// All heading levels render the same here: one compact, bold line at the card's
-// scale (the notes are short, so distinct h1…h4 sizes add nothing).
-const ReleaseNotesHeading = ({ children }: { children?: ReactNode }) => (
-    <p className="mt-3 mb-1 font-semibold text-foreground first:mt-0">{children}</p>
-);
-
-// Hoisted so the plugin list keeps a stable identity across renders.
-const releaseNotesPlugins = [remarkGfm];
-
-const releaseNotesComponents: Components = {
-    h1: ReleaseNotesHeading,
-    h2: ReleaseNotesHeading,
-    h3: ReleaseNotesHeading,
-    h4: ReleaseNotesHeading,
-    p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
-    ul: ({ children }) => <ul className="my-1 list-disc space-y-0.5 pl-4">{children}</ul>,
-    ol: ({ children }) => <ol className="my-1 list-decimal space-y-0.5 pl-4">{children}</ol>,
-    li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-    a: ({ href, children }) => (
-        <a href={href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
-            {children}
-        </a>
-    ),
-    code: ({ children }) => <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]">{children}</code>,
-    strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-    hr: () => <hr className="my-2 border-border/60" />,
-};
 
 // Section id for the About card; shared with the settings page so the nav and
 // scroll-spy (which key off data-section-id) treat it like a real section.
@@ -71,6 +40,7 @@ export function SettingsAbout({
     onResetField,
 }: SettingsAboutProps) {
     const m = useMessages();
+    const { locale } = useLocale();
     const resolveApiError = useApiErrorMessage();
     const { status, systemVersion, checking, applying, updateAvailable, checkNow, apply } = useUpdate();
     const [checkFailed, setCheckFailed] = useState(false);
@@ -80,6 +50,8 @@ export function SettingsAbout({
     const currentVersion = status?.current_version ?? systemVersion?.version ?? "—";
     const latest = status?.latest_version ?? "";
     const lastChecked = status?.last_checked;
+    const released = formatRelativeTime(status?.published_at, locale);
+    const releasedLabel = released ? m.settings_about_released({ time: released }) : undefined;
 
     const onCheck = async () => {
         setCheckFailed(false);
@@ -95,43 +67,70 @@ export function SettingsAbout({
     // Precomputed to avoid a nested ternary in JSX.
     let statusNode: ReactNode;
     if (isDev) {
-        statusNode = <p className="text-muted-foreground">{m.settings_about_dev_build()}</p>;
+        statusNode = <p className="m-0 text-muted-foreground">{m.settings_about_dev_build()}</p>;
     } else if (updateAvailable) {
         statusNode = (
-            <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
-                <p className="font-medium text-foreground">{m.settings_about_update_available({ version: latest })}</p>
-                <div className="flex items-center gap-3">
-                    <Button onClick={onApply} disabled={applying}>
+            <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+                {/* Headline */}
+                <div className="flex items-center gap-2">
+                    <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-primary">
+                        <HugeiconsIcon icon={SystemUpdateIcon} size={12} strokeWidth={1.8} />
+                    </span>
+                    <p className="m-0 font-medium text-foreground text-sm">
+                        {m.settings_about_update_available_title()}
+                    </p>
+                </div>
+
+                {/* Version delta: current → new · released … */}
+                <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs">
+                    <span className="rounded-md bg-primary/15 px-1.5 py-0.5 font-medium font-mono text-primary">
+                        {latest}
+                    </span>
+                    {releasedLabel && (
+                        <>
+                            <span className="font-bold">·</span>
+                            <span className="text-muted-foreground">{releasedLabel}</span>
+                        </>
+                    )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button onClick={onApply} disabled={applying} size="sm">
                         {m.settings_about_apply()}
                     </Button>
+                    {status?.release_notes && (
+                        <ReleaseNotesDialog
+                            version={latest}
+                            notes={status.release_notes}
+                            releasedLabel={releasedLabel}
+                            releaseUrl={status.release_url ?? undefined}
+                            applying={applying}
+                            onApply={onApply}
+                        />
+                    )}
                     {status?.release_url && (
                         <a
                             href={status.release_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-muted-foreground text-xs underline-offset-4 hover:underline"
+                            className="ml-auto inline-flex items-center gap-1 self-center text-muted-foreground text-xs underline-offset-4 hover:text-foreground hover:underline"
                         >
+                            <HugeiconsIcon icon={ExternalLinkIcon} size={12} strokeWidth={2} />
                             {m.settings_about_release_notes_view_github()}
                         </a>
                     )}
                 </div>
-                {status?.release_notes && (
-                    <div className="space-y-1">
-                        <p className="font-medium text-[0.7rem] text-muted-foreground uppercase tracking-wide">
-                            {m.settings_about_release_notes()}
-                        </p>
-                        <div className="max-h-64 overflow-y-auto rounded-lg border border-border/60 bg-background/40 p-3 text-muted-foreground text-xs">
-                            <Markdown remarkPlugins={releaseNotesPlugins} components={releaseNotesComponents}>
-                                {status.release_notes}
-                            </Markdown>
-                        </div>
-                    </div>
-                )}
-                {applyError && <p className="text-destructive text-xs">{resolveApiError(applyError)}</p>}
+                {applyError && <p className="m-0 text-destructive text-xs">{resolveApiError(applyError)}</p>}
             </div>
         );
     } else {
-        statusNode = <p className="text-muted-foreground">{m.settings_about_up_to_date()}</p>;
+        statusNode = (
+            <p className="m-0 flex items-center gap-1.5 text-muted-foreground">
+                <HugeiconsIcon icon={CheckIcon} size={14} strokeWidth={2} className="text-primary" />
+                {m.settings_about_up_to_date()}
+            </p>
+        );
     }
 
     return (
@@ -146,7 +145,7 @@ export function SettingsAbout({
                         </Button>
                     }
                 />
-                <div className="space-y-4 px-[18px] py-4 text-sm">
+                <div className="space-y-3 px-[18px] py-4 text-sm">
                     {/* Version is the first item under About. */}
                     <div className="flex items-center justify-between gap-3">
                         <span className="text-muted-foreground">{m.settings_about_version_label()}</span>
@@ -192,16 +191,13 @@ export function SettingsAbout({
                             </span>
                         </div>
                     </div>
-
-                    <div className="flex flex-col gap-0.5 text-muted-foreground text-xs">
-                        {statusNode && <div>{statusNode}</div>}
-                        <div>
-                            {checkFailed
-                                ? m.settings_about_check_failed()
-                                : lastChecked
-                                  ? m.settings_about_last_checked({ time: new Date(lastChecked).toLocaleString() })
-                                  : m.settings_about_never_checked()}
-                        </div>
+                    {statusNode && <div className="text-muted-foreground text-xs">{statusNode}</div>}
+                    <div className="text-muted-foreground text-xs">
+                        {checkFailed
+                            ? m.settings_about_check_failed()
+                            : lastChecked
+                              ? m.settings_about_last_checked({ time: new Date(lastChecked).toLocaleString() })
+                              : m.settings_about_never_checked()}
                     </div>
                 </div>
 

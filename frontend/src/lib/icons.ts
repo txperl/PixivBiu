@@ -36,6 +36,7 @@ export {
     Search01Icon as SearchIcon,
     Settings03Icon as SettingsIcon,
     SparklesIcon as AiIcon,
+    SystemUpdate01Icon as SystemUpdateIcon,
     Tag01Icon as TagIcon,
     Tick02Icon as CheckIcon,
     UserMultiple03Icon as FollowIcon,
