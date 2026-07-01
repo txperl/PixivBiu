@@ -1,0 +1,26 @@
+{
+    "name": "pixivbiu-desktop",
+    "productName": "PixivBiu",
+    "version": "0.0.0",
+    "description": "PixivBiu desktop shell — a thin Electron wrapper around the single-binary core",
+    "private": true,
+    "author": "txperl",
+    "license": "MIT",
+    "main": "dist/main.js",
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "start": "npm run build && electron .",
+        "dist": "npm run build && electron-builder",
+        "dist:dir": "npm run build && electron-builder --dir",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
+    },
+    "dependencies": {
+        "electron-updater": "^6.3.9"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.0",
+        "electron": "^34.0.0",
+        "electron-builder": "^25.1.8",
+        "typescript": "^5.7.3"
+    }
+}

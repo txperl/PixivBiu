@@ -1,10 +1,15 @@
-.PHONY: help gen-backend gen-frontend dev build build-web dist test tidy fmt vet vuln clean
+.PHONY: help gen-backend gen-frontend dev build build-web dist test tidy fmt vet vuln clean desktop-stage desktop-dev desktop-dist
 
-BIN       := bin/pixivbiu
+# Windows `go build` emits a .exe; keep BIN in sync so `make build` and the
+# `make desktop-*` targets (which stage / spawn the core) resolve the same name
+# the Electron shell looks for (pixivbiu.exe on Windows).
+EXE       := $(if $(filter Windows_NT,$(OS)),.exe,)
+BIN       := bin/pixivbiu$(EXE)
 PKG       := ./cmd/server
 OAPI_CFG  := api/cfg.yaml
 OAPI_SPEC := api/openapi.yaml
 WEB_DIST  := internal/web/dist
+DESKTOP   := desktop
 
 # Version stamped into the binary via -ldflags. Mirrors what GoReleaser injects
 # for releases; falls back to the git description (or "dev") for local builds.
@@ -42,6 +47,16 @@ build-web:  ## Build the frontend into the embed dir (internal/web/dist)
 	cd frontend && bun install --frozen-lockfile && bun run build
 
 dist: build-web build  ## Full self-contained build: frontend embedded into the binary
+
+desktop-stage: dist  ## Stage the freshly built core binary into desktop/resources for packaging
+	mkdir -p $(DESKTOP)/resources
+	cp $(BIN) $(DESKTOP)/resources/
+
+desktop-dev: dist  ## Run the Electron shell against the freshly built core (dev; spawns ../bin/pixivbiu)
+	cd $(DESKTOP) && npm install && npm start
+
+desktop-dist: desktop-stage  ## Package the desktop app for the host platform (electron-builder)
+	cd $(DESKTOP) && npm install && npm run dist
 
 test:  ## Run tests
 	go test ./...

@@ -1,0 +1,80 @@
+# electron-builder packaging for the PixivBiu desktop shell.
+#
+# The version is read from package.json — CI rewrites it to the release tag
+# before packaging. The Go core binary is staged into ./resources by CI and
+# embedded via extraResources; it is NOT bundled into the asar (see files).
+appId: moe.tls.pixivbiu
+productName: PixivBiu
+copyright: Copyright © txperl
+
+directories:
+  output: out
+  buildResources: build
+
+# Default file set, minus things that don't belong inside app.asar. The Go
+# binary ships through extraResources instead, so exclude it from the asar to
+# avoid shipping it twice.
+files:
+  - "**/*"
+  - "!resources/**"
+  - "!src/**"
+  - "!tsconfig.json"
+  - "!electron-builder.yml"
+  - "!**/*.map"
+  - "!**/*.md"
+
+# Stage the matching platform binary (pixivbiu / pixivbiu.exe — lowercase, the
+# core's release binary name) into the app's resources directory; core-process.ts
+# resolves it from process.resourcesPath.
+extraResources:
+  - from: resources/
+    to: .
+    filter:
+      - pixivbiu
+      - pixivbiu.exe
+
+# electron-updater reads its feed from the same GitHub Release that GoReleaser
+# already publishes for the tag. (Alternative to evaluate later: a `generic`
+# provider pointed at the Cloudflare R2/CDN to consolidate bandwidth.)
+publish:
+  provider: github
+  owner: txperl
+  repo: PixivBiu
+
+mac:
+  category: public.app-category.entertainment
+  # Hardened runtime + notarization (requires APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD
+  # / APPLE_TEAM_ID and a Developer ID cert via CSC_LINK / CSC_KEY_PASSWORD).
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
+  # A universal (arm64 + x64) app so one build covers both Macs; CI stages a
+  # universal Go binary (lipo) into resources to match.
+  target:
+    - target: dmg
+      arch: [universal]
+    # zip is what electron-updater downloads for macOS auto-update.
+    - target: zip
+      arch: [universal]
+
+win:
+  # Unsigned in v1 (SmartScreen warns on first run). Add a cert later via
+  # win.signtoolOptions / Azure Trusted Signing.
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  category: Graphics
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]

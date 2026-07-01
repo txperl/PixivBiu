@@ -1,0 +1,113 @@
+name: Desktop
+
+# Builds the Electron desktop packages (macOS / Windows / Linux) and publishes
+# them to the same GitHub Release the GoReleaser workflow creates for the tag.
+# Additive to release.yml / docker.yml — the standalone single binary is
+# unchanged; this only wraps it. Triggered by pushing a semver tag:
+#   git tag v3.0.0 && git push origin v3.0.0
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # electron-builder uploads the installers to the GitHub Release
+
+jobs:
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # bun builds the embedded SPA (same output as `make build-web`).
+      - uses: oven-sh/setup-bun@v2
+
+      # node + npm drive the Electron build / electron-builder.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build frontend (embedded SPA)
+        run: cd frontend && bun install --frozen-lockfile && bun run build
+
+      # Stage the core binary into desktop/resources with the platform-correct
+      # name. macOS gets a universal (arm64 + amd64) binary so the universal app
+      # runs natively on both architectures.
+      - name: Build core — macOS (universal)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p desktop/resources
+          LDFLAGS="-s -w -X main.version=${GITHUB_REF_NAME}"
+          CGO_ENABLED=0 GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o /tmp/pb-amd64 ./cmd/server
+          CGO_ENABLED=0 GOARCH=arm64 go build -trimpath -ldflags "$LDFLAGS" -o /tmp/pb-arm64 ./cmd/server
+          lipo -create -output desktop/resources/pixivbiu /tmp/pb-amd64 /tmp/pb-arm64
+
+      - name: Build core — Linux
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p desktop/resources
+          CGO_ENABLED=0 GOARCH=amd64 go build -trimpath \
+            -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
+            -o desktop/resources/pixivbiu ./cmd/server
+
+      - name: Build core — Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p desktop/resources
+          CGO_ENABLED=0 GOARCH=amd64 go build -trimpath \
+            -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
+            -o desktop/resources/pixivbiu.exe ./cmd/server
+
+      # electron-updater compares the app's package.json version against the feed.
+      # Pin it to the release tag (drop the leading v) so updates resolve.
+      - name: Sync desktop version to tag
+        shell: bash
+        run: cd desktop && npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+
+      - name: Install desktop deps
+        run: cd desktop && npm install
+
+      # electron-builder publishes INTO the Release that GoReleaser creates for
+      # this tag — it must never create the release itself, or a slow/failed
+      # GoReleaser would leave a desktop-only release with no core archives / R2
+      # feed. So wait for GoReleaser's release, and FAIL if it never appears
+      # (GoReleaser runs on ubuntu and is much faster than a signed+notarized mac
+      # build, so this normally returns immediately).
+      - name: Wait for the GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for i in $(seq 1 60); do
+            if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+              echo "release ${GITHUB_REF_NAME} is present"; exit 0
+            fi
+            echo "waiting for release ${GITHUB_REF_NAME} (GoReleaser)… ($i/60)"; sleep 10
+          done
+          echo "::error::release ${GITHUB_REF_NAME} not found after 10 min — GoReleaser missing or failed; refusing to publish desktop-only assets" >&2
+          exit 1
+
+      # Compile main/preload, then package + publish for the host platform.
+      # macOS signs + notarizes (requires the secrets below); Windows/Linux ship
+      # unsigned in v1.
+      - name: Package & publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS Developer ID cert (.p12) + notarization credentials.
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: cd desktop && npm run build && npx electron-builder --publish always

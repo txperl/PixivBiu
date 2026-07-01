@@ -1,0 +1,10 @@
+node_modules/
+dist/
+out/
+
+# Staged at build time by CI / `make desktop-dist` — never committed.
+resources/pixivbiu
+resources/pixivbiu.exe
+
+# Provide real icons here; electron-builder auto-detects build/icon.{icns,ico,png}.
+# (build/entitlements.mac.plist IS committed.)

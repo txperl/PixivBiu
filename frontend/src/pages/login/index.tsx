@@ -4,6 +4,7 @@ import type { AuthApiError } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/use-auth";
 import { detectPasteIssue } from "@/features/auth/utils";
 import { useMessages } from "@/i18n";
+import { desktopBridge, isDesktop } from "@/lib/desktop";
 import { cn } from "@/lib/utils";
 import { ConnectivityPanel } from "./components/connectivity-panel";
 import { LoginPanel } from "./components/login-panel";
@@ -36,6 +37,8 @@ function openPixivPopup(url: string) {
 
 function LoginPage() {
     const { status, pending, startOAuth, exchangeOAuth, login } = useAuth();
+    const m = useMessages();
+    const desktop = isDesktop();
     const location = useLocation();
     const navigate = useNavigate();
 
@@ -49,6 +52,9 @@ function LoginPage() {
     const [pastedCode, setPastedCode] = useState("");
     const [refreshTokenInput, setRefreshTokenInput] = useState("");
     const [error, setError] = useState<AuthApiError | null>(null);
+    // Desktop only: covers the automated start → capture → exchange round-trip,
+    // which isn't reflected in the auth hook's `pending`.
+    const [desktopBusy, setDesktopBusy] = useState(false);
     const popupRef = useRef<Window | null>(null);
     // Once the user takes any login action, suppress the "already authenticated
     // → redirect" guard, so the flip from unauth → auth (which happens *inside*
@@ -149,6 +155,47 @@ function LoginPage() {
         setStage("ready");
     };
 
+    // Desktop: the Electron shell opens the Pixiv login window and intercepts the
+    // OAuth callback, so there's no popup and no manual paste — start, capture,
+    // exchange in one go.
+    const onDesktopLogin = async () => {
+        interactedRef.current = true;
+        setError(null);
+        setDesktopBusy(true);
+        try {
+            const { data, error: err } = await startOAuth();
+            if (err || !data) {
+                setError(err ?? { code: "internal_error", kind: "app", message: "Failed to start OAuth" });
+                return;
+            }
+            const code = await desktopBridge().captureOAuthCode(data.login_url);
+            const exErr = await exchangeOAuth(data.state, code);
+            if (exErr) {
+                setError(exErr);
+                return;
+            }
+            setStage("ready");
+        } catch {
+            // Window closed, timed out, or IPC failure — let the user retry.
+            setError({ code: "bad_request", kind: "app", message: m.login_desktop_cancelled() });
+        } finally {
+            setDesktopBusy(false);
+        }
+    };
+
+    // Connectivity's "continue" advances to the login step. On the web that opens
+    // the OAuth popup synchronously (it must ride the click); in desktop there is
+    // no popup, so we just reveal the login step and trigger capture from there.
+    const onProceed = () => {
+        if (desktop) {
+            interactedRef.current = true;
+            setError(null);
+            setStage("login");
+            return;
+        }
+        void onClickPixivLogin();
+    };
+
     return (
         <div
             className={cn(
@@ -159,14 +206,16 @@ function LoginPage() {
             <div className="max-w-xl">
                 {stage === "welcome" && <WelcomePanel onContinue={onStart} sessionExpired={sessionExpired} />}
                 {stage === "connectivity" && (
-                    <ConnectivityPanel pending={pending} error={error} onProceed={onClickPixivLogin} />
+                    <ConnectivityPanel pending={pending || desktopBusy} error={error} onProceed={onProceed} />
                 )}
                 {stage === "login" && (
                     <LoginPanel
+                        desktop={desktop}
+                        onDesktopLogin={onDesktopLogin}
                         pastedCode={pastedCode}
                         onPastedCodeChange={setPastedCode}
                         pasteIssue={pasteIssue}
-                        pending={pending}
+                        pending={pending || desktopBusy}
                         error={error}
                         onPasteFromClipboard={onPasteFromClipboard}
                         onReopenPopup={onReopenPopup}

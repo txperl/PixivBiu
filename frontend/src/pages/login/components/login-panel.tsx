@@ -13,6 +13,8 @@ import { ErrorBlock } from "./error-block";
 import { useReveal } from "./use-reveal";
 
 export function LoginPanel({
+    desktop = false,
+    onDesktopLogin,
     pastedCode,
     onPastedCodeChange,
     pasteIssue,
@@ -25,6 +27,10 @@ export function LoginPanel({
     onRefreshTokenChange,
     onSubmitRefreshToken,
 }: {
+    // Desktop build: the OAuth callback is captured automatically, so the
+    // DevTools steps + paste field are replaced by a single sign-in button.
+    desktop?: boolean;
+    onDesktopLogin?: () => void;
     pastedCode: string;
     onPastedCodeChange: (v: string) => void;
     pasteIssue: PasteIssue | null;
@@ -41,6 +47,46 @@ export function LoginPanel({
     const titleRef = useReveal<HTMLHeadingElement>(200);
     const subtitleRef = useReveal<HTMLParagraphElement>(300);
     const formRef = useReveal<HTMLFormElement>(450);
+    const desktopFormRef = useReveal<HTMLDivElement>(450);
+
+    // Title + subtitle are identical across the desktop and web layouts (only the
+    // subtitle copy differs), so build the header once and reuse it in both.
+    const header = (
+        <div className="space-y-1">
+            <h1 ref={titleRef} className="font-heading font-normal text-2xl text-foreground leading-tight">
+                {m.login_title()}
+            </h1>
+            <p ref={subtitleRef} className="max-w-lg text-muted-foreground">
+                {desktop ? m.login_desktop_subtitle() : m.login_subtitle()}
+            </p>
+        </div>
+    );
+
+    if (desktop) {
+        return (
+            <>
+                {header}
+
+                <div ref={desktopFormRef} className="mt-10 space-y-3.5">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Button type="button" onClick={onDesktopLogin} disabled={pending}>
+                            {pending ? m.login_submitting() : m.login_desktop_cta()}
+                        </Button>
+                    </div>
+                    {error && <ErrorBlock error={error} />}
+                </div>
+
+                <div className="my-10">
+                    <RefreshTokenFooter
+                        value={refreshTokenInput}
+                        onChange={onRefreshTokenChange}
+                        onSubmit={onSubmitRefreshToken}
+                        pending={pending}
+                    />
+                </div>
+            </>
+        );
+    }
 
     const pasteHint =
         pasteIssue === "intermediate"
@@ -53,14 +99,7 @@ export function LoginPanel({
 
     return (
         <>
-            <div className="space-y-1">
-                <h1 ref={titleRef} className="font-heading font-normal text-2xl text-foreground leading-tight">
-                    {m.login_title()}
-                </h1>
-                <p ref={subtitleRef} className="max-w-lg text-muted-foreground">
-                    {m.login_subtitle()}
-                </p>
-            </div>
+            {header}
 
             <form ref={formRef} onSubmit={onSubmit} className="mt-10 space-y-3.5">
                 <PopupSteps />
