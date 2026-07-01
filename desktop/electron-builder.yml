@@ -33,13 +33,16 @@ extraResources:
       - pixivbiu
       - pixivbiu.exe
 
-# electron-updater reads its feed from the same GitHub Release that GoReleaser
-# already publishes for the tag. (Alternative to evaluate later: a `generic`
-# provider pointed at the Cloudflare R2/CDN to consolidate bandwidth.)
+# electron-updater reads its feed from the desktop app's own Cloudflare R2 path
+# (a `generic` provider), fully isolated from the core `v*` GitHub Releases so
+# the updater never mistakes a core release for a desktop one. Symmetric with the
+# core self-updater's R2 feed. The URL below is the local/default feed base;
+# CI overrides it via `-c.publish.url` from vars.DESKTOP_FEED_BASE (see
+# .github/workflows/desktop.yml). CI builds with `--publish never` and uploads
+# the installers + latest*.yml to `<url>` itself.
 publish:
-  provider: github
-  owner: txperl
-  repo: PixivBiu
+  provider: generic
+  url: https://dl.biu.tls.moe/desktop
 
 mac:
   category: public.app-category.entertainment
@@ -50,8 +53,9 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   notarize: true
-  # A universal (arm64 + x64) app so one build covers both Macs; CI stages a
-  # universal Go binary (lipo) into resources to match.
+  # A universal (arm64 + x64) app so one build covers both Macs; CI stages the
+  # core's `darwin_all` universal archive (GoReleaser universal_binaries) into
+  # resources to match.
   target:
     - target: dmg
       arch: [universal]

@@ -1,4 +1,4 @@
-.PHONY: help gen-backend gen-frontend dev build build-web dist test tidy fmt vet vuln clean desktop-stage desktop-dev desktop-dist
+.PHONY: help gen-backend gen-frontend dev build build-web dist test tidy fmt vet vuln clean desktop-stage desktop-dev desktop-dist desktop-fetch-core
 
 # Windows `go build` emits a .exe; keep BIN in sync so `make build` and the
 # `make desktop-*` targets (which stage / spawn the core) resolve the same name
@@ -57,6 +57,15 @@ desktop-dev: dist  ## Run the Electron shell against the freshly built core (dev
 
 desktop-dist: desktop-stage  ## Package the desktop app for the host platform (electron-builder)
 	cd $(DESKTOP) && npm install && npm run dist
+
+# CI (.github/workflows/desktop.yml) doesn't build the core — it downloads the
+# pinned release in desktop/.core-version and bundles that exact binary. This
+# target reproduces that locally (needs the gh CLI). Use it instead of
+# desktop-stage when you want to test the same core CLI users get, e.g.:
+#   make desktop-fetch-core && cd desktop && npm run dist
+desktop-fetch-core:  ## Stage the pinned core release (desktop/.core-version) into desktop/resources — mirrors CI (needs gh)
+	@command -v gh >/dev/null || { echo "gh CLI required"; exit 1; }
+	bash scripts/stage-core.sh "$$(tr -d '[:space:]' < $(DESKTOP)/.core-version)" $(DESKTOP)/resources
 
 test:  ## Run tests
 	go test ./...

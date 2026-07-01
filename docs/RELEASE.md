@@ -4,6 +4,8 @@ How to cut a PixivBiu release and how update channels work.
 
 A release is a single self-contained binary (frontend embedded). You publish one by pushing a strict-semver `v*` git tag — everything else is automated.
 
+There are **two independent release trains**: the **core** train (`v*`, this document's main subject — the CLI/server binary, Docker image, and in-app self-updater feed) and the **desktop** train (`desktop-v*`, the Electron app), which ships on its own cadence and bundles a *pinned* core. See [Desktop release train](#desktop-release-train) at the end. Frontend changes ride the **core** train — the SPA is `go:embed`-ed into the core binary and never shipped on its own.
+
 ## How a release happens
 
 Pushing a `v*` tag triggers `.github/workflows/release.yml`, which runs [GoReleaser](https://goreleaser.com) (`.goreleaser.yaml`):
@@ -181,3 +183,48 @@ goreleaser release --snapshot --clean  # full dry run, no tag; artifacts land in
 This exercises the build, archives, and changelog only — the **R2 upload, manifest signing, and cache purge run solely in CI** (they need the secrets above).
 
 To rehearse the whole pipeline once it's wired up, push a throwaway pre-release tag (e.g. `v0.0.0-rc.test`) and confirm: R2 has `releases/<tag>/…` plus a fresh `manifest.json` (+ `.minisig`), the GitHub Release exists, and the purge step logged success or skipped. Then point a real build at the feed — build it with a lower version (`-ldflags -X main.version=…`) — and run `POST /system/update/check` → `…/apply`. Delete the test tag and its R2 objects afterwards.
+
+## Desktop release train
+
+The desktop Electron app (`desktop/`) ships on its **own** train — tag `desktop-v*` — decoupled from the core `v*` train above. This is deliberate: the desktop app **bundles a pinned core** (Docker-Desktop style), so a shell-only change never forces a core release and a core-only change never forces a desktop one — no "phantom" updates on either side. The core train (and everything documented above) is unchanged.
+
+### How a desktop release happens
+
+Pushing a `desktop-v*` tag triggers `.github/workflows/desktop.yml`. It does **not** rebuild the core or the SPA — `scripts/stage-core.sh` downloads the core release pinned in [`desktop/.core-version`](../desktop/.core-version) (macOS prefers the `darwin_all` universal archive from GoReleaser's `universal_binaries`, falling back to lipo-ing the two per-arch archives when a pinned older core predates it), stages the binary into `desktop/resources/`, packages with `electron-builder --publish never`, and uploads the installers + `latest*.yml` to the desktop R2 feed.
+
+```bash
+# (optional) ship a newer core to desktop users first:
+#   edit desktop/.core-version -> v3.0.2, commit
+git tag desktop-v1.0.0
+git push origin desktop-v1.0.0
+```
+
+The desktop version is the tag minus `desktop-v` (`desktop-v1.0.0` → `package.json` `1.0.0`), which `electron-updater` compares against the feed. If the pinned core release is missing, the download step fails loudly (it never ships a desktop package around an absent core).
+
+### Feed & downloads (R2)
+
+`electron-updater` reads a **desktop-only** feed via the `generic` provider — a separate R2 path from the core self-updater's signed manifest, and fully isolated from the core `v*` GitHub Releases so the updater never mistakes a core release for a desktop one:
+
+```
+<feed>/desktop/latest-mac.yml | latest.yml | latest-linux.yml   # electron-updater metadata (mutable, short TTL)
+<feed>/desktop/PixivBiu-<ver>-*.{dmg,zip,exe,AppImage,deb} + .blockmap   # version-named installers (immutable)
+<feed>/desktop/PixivBiu-latest-{macos.dmg,windows.exe,linux.AppImage}    # stable download aliases for the README (mutable)
+```
+
+The feed base is `<DESKTOP_FEED_BASE>/desktop` (default `https://dl.biu.tls.moe/desktop`, set in `desktop/electron-builder.yml`; CI overrides via `-c.publish.url` when `vars.DESKTOP_FEED_BASE` is set). Integrity rides electron-updater's native `latest*.yml` sha512 + the macOS code signature — there is **no** minisign here (that's the core train's model). The stable `PixivBiu-latest-*` aliases are what the README links for first-time installs (auto-update handles everything after).
+
+### Secrets & variables (desktop)
+
+Reuses the core train's `R2_*` secrets (the [one-time setup](#one-time-setup) table above) for the upload, plus:
+
+| Kind                | Name                                                             | Value                                            |
+| ------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
+| secret              | `MAC_CSC_LINK` / `MAC_CSC_KEY_PASSWORD`                          | macOS Developer ID cert (.p12, base64) + password |
+| secret              | `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`     | notarization credentials                         |
+| variable _(opt.)_   | `DESKTOP_FEED_BASE`                                              | desktop feed base; defaults to the `electron-builder.yml` value |
+
+macOS is signed + notarized; Windows / Linux ship **unsigned** in v1 (electron-updater still works via `latest*.yml` sha512).
+
+### Bump the bundled core / local repro
+
+To ship a newer core to desktop users: bump `desktop/.core-version` and cut a `desktop-v*` tag. To test the exact CI-staged core locally, `make desktop-fetch-core` runs the same `scripts/stage-core.sh` (needs `gh`); `make desktop-dev` / `desktop-dist` instead build the core from the working tree. Full shell/architecture notes: [desktop/README.md](../desktop/README.md).

@@ -1,17 +1,25 @@
 name: Desktop
 
-# Builds the Electron desktop packages (macOS / Windows / Linux) and publishes
-# them to the same GitHub Release the GoReleaser workflow creates for the tag.
-# Additive to release.yml / docker.yml — the standalone single binary is
-# unchanged; this only wraps it. Triggered by pushing a semver tag:
-#   git tag v3.0.0 && git push origin v3.0.0
+# The desktop release train — independent from the core `v*` train.
+#
+# The core (Go binary + embedded SPA) ships on its own cadence via release.yml
+# (`v*` → GoReleaser + signed R2 manifest). The desktop app is a thin Electron
+# shell that BUNDLES a pinned, already-released core binary; it versions and
+# ships on its own cadence here, so a shell-only change never forces a core
+# release (and vice-versa — no "phantom" updates on either side).
+#
+# Cut a desktop release by pushing a `desktop-v*` tag:
+#   git tag desktop-v1.0.0 && git push origin desktop-v1.0.0
+#
+# The core version this build bundles is pinned in desktop/.core-version. Bump
+# that file (+ cut a new desktop-v* tag) to ship a newer core to desktop users.
 on:
   push:
     tags:
-      - "v*"
+      - "desktop-v*"
 
 permissions:
-  contents: write # electron-builder uploads the installers to the GitHub Release
+  contents: read # only needs to download the pinned core release archive
 
 jobs:
   desktop:
@@ -20,94 +28,115 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      # bun builds the embedded SPA (same output as `make build-web`).
-      - uses: oven-sh/setup-bun@v2
-
-      # node + npm drive the Electron build / electron-builder.
+      # node + npm drive the Electron build / electron-builder. No Go or Bun:
+      # this train never rebuilds the core or the SPA — it downloads the core
+      # release the `v*` train already published.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Build frontend (embedded SPA)
-        run: cd frontend && bun install --frozen-lockfile && bun run build
-
-      # Stage the core binary into desktop/resources with the platform-correct
-      # name. macOS gets a universal (arm64 + amd64) binary so the universal app
-      # runs natively on both architectures.
-      - name: Build core — macOS (universal)
-        if: runner.os == 'macOS'
-        run: |
-          mkdir -p desktop/resources
-          LDFLAGS="-s -w -X main.version=${GITHUB_REF_NAME}"
-          CGO_ENABLED=0 GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o /tmp/pb-amd64 ./cmd/server
-          CGO_ENABLED=0 GOARCH=arm64 go build -trimpath -ldflags "$LDFLAGS" -o /tmp/pb-arm64 ./cmd/server
-          lipo -create -output desktop/resources/pixivbiu /tmp/pb-amd64 /tmp/pb-arm64
-
-      - name: Build core — Linux
-        if: runner.os == 'Linux'
-        run: |
-          mkdir -p desktop/resources
-          CGO_ENABLED=0 GOARCH=amd64 go build -trimpath \
-            -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
-            -o desktop/resources/pixivbiu ./cmd/server
-
-      - name: Build core — Windows
-        if: runner.os == 'Windows'
+      - name: Read pinned core version
         shell: bash
-        run: |
-          mkdir -p desktop/resources
-          CGO_ENABLED=0 GOARCH=amd64 go build -trimpath \
-            -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
-            -o desktop/resources/pixivbiu.exe ./cmd/server
+        run: echo "CORE_VERSION=$(tr -d '[:space:]' < desktop/.core-version)" >> "$GITHUB_ENV"
+
+      # Download the pinned core release's host-platform archive and stage the
+      # binary into desktop/resources (electron-builder embeds it via
+      # extraResources). This is the SAME binary CLI users run — no rebuild, no
+      # drift. The shared script auto-detects the platform and, on macOS, prefers
+      # the universal darwin_all archive but falls back to lipo when a pinned
+      # older core release predates it. Fails loudly if the release is missing.
+      - name: Download & stage the pinned core binary
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CORE_REPO: ${{ github.repository }}
+        run: bash scripts/stage-core.sh "$CORE_VERSION" desktop/resources
 
       # electron-updater compares the app's package.json version against the feed.
-      # Pin it to the release tag (drop the leading v) so updates resolve.
-      - name: Sync desktop version to tag
+      # Pin it to the desktop tag (drop the leading `desktop-v`) so updates resolve.
+      - name: Sync desktop version to the tag
         shell: bash
-        run: cd desktop && npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+        run: cd desktop && npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#desktop-v}"
 
       - name: Install desktop deps
-        run: cd desktop && npm install
+        # npm ci (not install): clean, lockfile-exact, faster in CI. The version
+        # bump above updates package-lock.json too, so the two stay in sync.
+        run: cd desktop && npm ci
 
-      # electron-builder publishes INTO the Release that GoReleaser creates for
-      # this tag — it must never create the release itself, or a slow/failed
-      # GoReleaser would leave a desktop-only release with no core archives / R2
-      # feed. So wait for GoReleaser's release, and FAIL if it never appears
-      # (GoReleaser runs on ubuntu and is much faster than a signed+notarized mac
-      # build, so this normally returns immediately).
-      - name: Wait for the GitHub Release
+      # Compile main/preload, then package for the host platform. Build only
+      # (--publish never); the R2 upload below is the publish step so the feed
+      # is a single, CDN-backed source. macOS signs + notarizes (secrets below);
+      # Windows/Linux ship unsigned in v1. The generic feed URL is baked into
+      # app-update.yml / latest*.yml here from DESKTOP_FEED_BASE (falls back to
+      # the electron-builder.yml default when the var is unset).
+      - name: Build & package
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          for i in $(seq 1 60); do
-            if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-              echo "release ${GITHUB_REF_NAME} is present"; exit 0
-            fi
-            echo "waiting for release ${GITHUB_REF_NAME} (GoReleaser)… ($i/60)"; sleep 10
-          done
-          echo "::error::release ${GITHUB_REF_NAME} not found after 10 min — GoReleaser missing or failed; refusing to publish desktop-only assets" >&2
-          exit 1
-
-      # Compile main/preload, then package + publish for the host platform.
-      # macOS signs + notarizes (requires the secrets below); Windows/Linux ship
-      # unsigned in v1.
-      - name: Package & publish
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # macOS Developer ID cert (.p12) + notarization credentials.
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: cd desktop && npm run build && npx electron-builder --publish always
+          DESKTOP_FEED_BASE: ${{ vars.DESKTOP_FEED_BASE }}
+        run: |
+          set -euo pipefail
+          cd desktop
+          npm run build
+          if [ -n "${DESKTOP_FEED_BASE:-}" ]; then
+            npx electron-builder --publish never -c.publish.url="${DESKTOP_FEED_BASE%/}/desktop"
+          else
+            npx electron-builder --publish never
+          fi
+
+      # Publish INTO the desktop R2 feed (electron-updater reads it via the
+      # generic provider). Symmetric with the core's R2 feed, and fully isolated
+      # from the core `v*` GitHub Releases so the updater never mistakes a core
+      # release for a desktop one. Each runner uploads only its own platform's
+      # artifacts + latest*.yml, so the parallel matrix never collides.
+      - name: Publish to the desktop R2 feed
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # R2 historically rejected aws-cli v2's default integrity checksums;
+          # only send them when an operation requires them.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          AWS_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          : "${R2_BUCKET:?R2_BUCKET must be set to the target bucket}"
+          out=desktop/out
+          # Fail loudly if electron-builder didn't emit update metadata: an empty
+          # --include below would upload nothing and silently ship a feed with no
+          # latest*.yml, breaking auto-update. (Each runner emits exactly one:
+          # latest-mac.yml / latest.yml / latest-linux.yml.)
+          ls "$out"/latest*.yml >/dev/null 2>&1 || {
+            echo "::error::no latest*.yml in $out — electron-builder produced no update metadata; refusing to publish a broken feed" >&2
+            exit 1
+          }
+          # Installers + blockmaps are version-named and immutable — cache forever.
+          aws s3 cp "$out" "s3://${R2_BUCKET}/desktop/" --recursive \
+            --exclude "*" \
+            --include "*.dmg" --include "*.zip" --include "*.exe" \
+            --include "*.AppImage" --include "*.deb" --include "*.blockmap" \
+            --cache-control "public, max-age=31536000, immutable"
+          # Update metadata is mutable — short TTL so a stale edge copy self-heals
+          # within ~5 min even without an explicit cache purge.
+          aws s3 cp "$out" "s3://${R2_BUCKET}/desktop/" --recursive \
+            --exclude "*" --include "latest*.yml" \
+            --cache-control "public, max-age=300, must-revalidate"
+          # Stable "latest" download aliases so the README can link a fixed URL
+          # (mutable → short TTL). Each runner only has its own platform's
+          # installer; nullglob skips the extensions that don't apply here.
+          shopt -s nullglob
+          for f in "$out"/*.dmg;      do aws s3 cp "$f" "s3://${R2_BUCKET}/desktop/PixivBiu-latest-macos.dmg"     --cache-control "public, max-age=300, must-revalidate"; done
+          for f in "$out"/*.exe;      do aws s3 cp "$f" "s3://${R2_BUCKET}/desktop/PixivBiu-latest-windows.exe"    --cache-control "public, max-age=300, must-revalidate"; done
+          for f in "$out"/*.AppImage; do aws s3 cp "$f" "s3://${R2_BUCKET}/desktop/PixivBiu-latest-linux.AppImage" --cache-control "public, max-age=300, must-revalidate"; done

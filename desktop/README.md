@@ -11,8 +11,9 @@ What the shell adds:
   `…/auth/pixiv/callback?code=…` redirect automatically (captcha / 2FA render
   natively). The captured code goes straight into the existing
   `POST /auth/oauth/exchange`. See `src/oauth-window.ts`.
-- **Whole-app updates** via `electron-updater` (the core's own self-updater is
-  disabled in desktop builds). See `src/updater.ts`.
+- **Whole-app updates** via `electron-updater`, off the desktop app's own
+  Cloudflare R2 feed (`generic` provider) — the core's own self-updater is
+  disabled in desktop builds. See `src/updater.ts` and [../docs/RELEASE.md](../docs/RELEASE.md#desktop-release-train).
 
 ## Layout
 
@@ -54,13 +55,24 @@ The download default is seeded on first run only and stays editable in Settings
 
 ## Package
 
-CI (`.github/workflows/desktop.yml`) builds per-platform on a tag. Locally:
+The desktop app is its **own** release train (`desktop-v*` tag), decoupled from the
+core `v*` train. CI (`.github/workflows/desktop.yml`) does not rebuild the core — it
+downloads the core release pinned in [`.core-version`](.core-version) and bundles that
+exact binary. Bump `.core-version` (+ cut a new `desktop-v*` tag) to ship a newer core
+to desktop users. Full flow + secrets in [../docs/RELEASE.md](../docs/RELEASE.md#desktop-release-train).
+
+Locally, either build the core from the working tree (fast iteration):
 
 ```bash
-# Stage the host-platform core binary first:
-make build-web && make build
-cp ../bin/pixivbiu resources/            # or pixivbiu.exe on Windows
+make build-web && make build            # -> bin/pixivbiu
+cp ../bin/pixivbiu resources/           # or pixivbiu.exe on Windows
+cd desktop && npm install && npm run dist
+```
 
+…or reproduce CI exactly by staging the pinned, already-released core (needs `gh`):
+
+```bash
+make desktop-fetch-core                 # downloads .core-version's release into resources/
 cd desktop && npm install && npm run dist
 ```
 

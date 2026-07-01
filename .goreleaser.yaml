@@ -43,6 +43,20 @@ builds:
       - amd64
       - arm64
 
+# Fuse the two macOS per-arch builds into one universal (arm64 + amd64) binary.
+# The desktop train (scripts/stage-core.sh) prefers this darwin_all archive so a
+# single Mac app runs natively on both architectures without lipo-ing at package
+# time (it falls back to lipo for older core releases that predate this). Also a
+# convenience for macOS CLI users who want one binary. replace: false keeps the
+# per-arch darwin archives too — CLI users get the smaller, arch-specific download
+# and the in-app self-updater keeps matching by os_arch as before.
+universal_binaries:
+  - id: pixivbiu-universal
+    ids:
+      - pixivbiu
+    replace: false
+    name_template: pixivbiu
+
 archives:
   - id: pixivbiu
     formats:

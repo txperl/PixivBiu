@@ -18,9 +18,20 @@ PixivBiu、Pixiv のための便利な補助ツール。
 
 ## 使い方
 
-1. [Releases](https://github.com/txperl/PixivBiu/releases) からお使いのシステム向けのパッケージをダウンロード
-2. 展開して `pixivbiu` を実行
-3. ブラウザで [http://127.0.0.1:4001](http://127.0.0.1:4001) を開く
+### デスクトップアプリ
+
+お使いのシステム向けのインストーラーをダウンロードして開くだけです。アプリが自動でアップデートを確認します：
+
+- **macOS** — [PixivBiu-latest-macos.dmg](https://dl.biu.tls.moe/desktop/PixivBiu-latest-macos.dmg)
+- **Windows** — [PixivBiu-latest-windows.exe](https://dl.biu.tls.moe/desktop/PixivBiu-latest-windows.exe)
+- **Linux** — [PixivBiu-latest-linux.AppImage](https://dl.biu.tls.moe/desktop/PixivBiu-latest-linux.AppImage)
+
+### サーバー / CLI
+
+[Releases](https://github.com/txperl/PixivBiu/releases) からお使いのシステム向けのアーカイブをダウンロード：
+
+1. 展開して `pixivbiu` を実行
+2. ブラウザで [http://127.0.0.1:4001](http://127.0.0.1:4001) を開く
 
 ## 設定
 
