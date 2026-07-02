@@ -4,12 +4,16 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -221,5 +225,88 @@ func TestConvertUgoira_CancelBeforeStart(t *testing.T) {
 	outPath := replaceExt(zipPath, ".webp")
 	if _, statErr := os.Stat(outPath); !os.IsNotExist(statErr) {
 		t.Errorf("partial output should be removed on cancel, stat err: %v", statErr)
+	}
+}
+
+// pngHeaderWithDims builds a minimal, CRC-valid PNG consisting of only the
+// signature and an IHDR chunk that declares the given dimensions.
+// image.DecodeConfig parses IHDR and reports the (potentially huge) size
+// without allocating any pixel buffer — exactly the decode-bomb shape the
+// pixel-budget guard must reject before it ever reaches image.Decode.
+func pngHeaderWithDims(w, h uint32) []byte {
+	var out bytes.Buffer
+	out.Write([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a})
+	data := make([]byte, 0, 13)
+	data = binary.BigEndian.AppendUint32(data, w)
+	data = binary.BigEndian.AppendUint32(data, h)
+	data = append(data, 8, 6, 0, 0, 0) // bit depth 8, colour type 6 (RGBA), default compression/filter/interlace
+	_ = binary.Write(&out, binary.BigEndian, uint32(len(data)))
+	out.WriteString("IHDR")
+	out.Write(data)
+	_ = binary.Write(&out, binary.BigEndian, crc32.ChecksumIEEE(append([]byte("IHDR"), data...)))
+	return out.Bytes()
+}
+
+func TestDecodeFrame(t *testing.T) {
+	var validPNG bytes.Buffer
+	if err := png.Encode(&validPNG, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatalf("encode png: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		input   []byte
+		wantErr string // substring to match; "" means the frame must decode
+	}{
+		{"valid png decodes", validPNG.Bytes(), ""},
+		{"oversized dimensions rejected", pngHeaderWithDims(100000, 100000), "pixel budget"},
+		{"unknown format rejected", []byte("this is not an image"), "unknown format"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			img, err := decodeFrame(bytes.NewReader(tc.input))
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if img == nil {
+					t.Fatal("expected a decoded image, got nil")
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("want error containing %q, got nil (img=%v)", tc.wantErr, img)
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("error %q does not contain %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+// An input larger than maxFrameBytes must be rejected by the bounded read
+// before any decode is attempted. The byte values are irrelevant (the cap
+// fires on length), so a plain zeroed buffer is the simplest oversized input.
+func TestDecodeFrame_RejectsOversizedInput(t *testing.T) {
+	r := bytes.NewReader(make([]byte, maxFrameBytes+64))
+	if _, err := decodeFrame(r); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("want size-cap error, got %v", err)
+	}
+}
+
+// TestDecodeFrame_RejectsDisallowedFormat registers a throwaway decoder so
+// we can exercise the allowlist's default branch: a format image.Decode
+// would happily dispatch to but which is not one of png/jpeg/gif/webp.
+func TestDecodeFrame_RejectsDisallowedFormat(t *testing.T) {
+	const magic = "PIXIVBIUTESTFMT"
+	image.RegisterFormat("pixivbiu-test", magic,
+		func(io.Reader) (image.Image, error) { return image.NewGray(image.Rect(0, 0, 1, 1)), nil },
+		func(io.Reader) (image.Config, error) {
+			return image.Config{ColorModel: color.GrayModel, Width: 1, Height: 1}, nil
+		},
+	)
+	_, err := decodeFrame(strings.NewReader(magic + "payload"))
+	if err == nil || !strings.Contains(err.Error(), "unsupported frame format") {
+		t.Fatalf("want unsupported-format error, got %v", err)
 	}
 }

@@ -2,6 +2,8 @@ module github.com/txperl/PixivBiu
 
 go 1.26.1
 
+toolchain go1.26.4
+
 require (
 	aead.dev/minisign v0.2.0
 	github.com/HugoSmits86/nativewebp v1.2.1
@@ -15,9 +17,9 @@ require (
 	github.com/minio/selfupdate v0.6.0
 	github.com/oapi-codegen/runtime v1.4.0
 	github.com/txperl/pixivgo v0.1.1
-	golang.org/x/mod v0.30.0
-	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.39.0
+	golang.org/x/mod v0.37.0
+	golang.org/x/sync v0.21.0
+	golang.org/x/sys v0.46.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
@@ -43,11 +45,16 @@ require (
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
-	golang.org/x/image v0.24.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
-	golang.org/x/tools v0.39.0 // indirect
+	golang.org/x/image v0.43.0 // indirect
+	golang.org/x/telemetry v0.0.0-20260625142307-59b4966ccb57 // indirect
+	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/tools v0.47.0 // indirect
+	golang.org/x/vuln v1.5.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
+tool (
+	github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
+	golang.org/x/vuln/cmd/govulncheck
+)

@@ -49,6 +49,14 @@ jobs:
       - name: Build
         run: go build ./...
 
+      # Reachability-aware vulnerability scan. Unlike Dependabot's
+      # dependency-graph alerts, govulncheck does call-graph analysis and
+      # only fails on vulnerabilities that are actually reachable from this
+      # binary. The tool is version-pinned via the go.mod `tool` directive;
+      # the vulnerability database is fetched from vuln.go.dev at run time.
+      - name: Vulnerability scan (govulncheck)
+        run: go tool govulncheck ./...
+
   frontend:
     name: Frontend (React)
     runs-on: ubuntu-latest

@@ -1,4 +1,4 @@
-.PHONY: help gen-backend gen-frontend dev build build-web dist test tidy fmt vet clean
+.PHONY: help gen-backend gen-frontend dev build build-web dist test tidy fmt vet vuln clean
 
 BIN       := bin/pixivbiu
 PKG       := ./cmd/server
@@ -42,6 +42,9 @@ fmt:  ## Format code
 
 vet:  ## Run go vet
 	go vet ./...
+
+vuln:  ## Scan for known vulnerabilities (reachability-aware, via govulncheck)
+	go tool govulncheck ./...
 
 clean:  ## Remove build artifacts (keeps the embed-dir .gitkeep)
 	rm -rf bin dist

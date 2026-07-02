@@ -2,6 +2,7 @@ package download
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"fmt"
 	"image"
@@ -159,13 +160,61 @@ func loadFrames(ctx context.Context, zipPath string, frames []UgoiraFrame) ([]im
 	return images, durations, nil
 }
 
+// Bounds on a single decoded ugoira frame. Frames come from Pixiv's own
+// CDN, but decoding image bytes can allocate memory proportional to the
+// dimensions declared in the header, so we cap both the compressed input
+// and the pixel budget. This neutralises the whole decode/decompression-
+// bomb OOM class — the same class as the golang.org/x/image TIFF-decoder
+// advisory — independently of which decoder is linked in.
+const (
+	maxFrameBytes  = 32 << 20 // 32 MiB per frame (bounded read)
+	maxFramePixels = 64 << 20 // 64 megapixels (width*height) decode cap
+)
+
 func decodeZipFrame(zf *zip.File) (image.Image, error) {
+	// Cheap pre-check: reject an absurd *declared* size before reading.
+	// The real cap is still enforced by decodeFrame, since this value
+	// is attacker-controlled zip metadata and can lie.
+	if zf.UncompressedSize64 > maxFrameBytes {
+		return nil, fmt.Errorf("frame too large: %d bytes", zf.UncompressedSize64)
+	}
 	rc, err := zf.Open()
 	if err != nil {
 		return nil, err
 	}
 	defer rc.Close()
-	img, _, err := image.Decode(io.Reader(rc))
+	return decodeFrame(rc)
+}
+
+// decodeFrame reads at most maxFrameBytes from r, then does a header-only
+// pass (image.DecodeConfig) to reject non-allowlisted formats and over-
+// budget dimensions before any pixel buffer is allocated, and only then
+// decodes the frame.
+func decodeFrame(r io.Reader) (image.Image, error) {
+	buf, err := io.ReadAll(io.LimitReader(r, maxFrameBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(buf) > maxFrameBytes {
+		return nil, fmt.Errorf("frame exceeds %d bytes", maxFrameBytes)
+	}
+	// Header-only decode: no pixel memory is allocated yet.
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(buf))
+	if err != nil {
+		return nil, err
+	}
+	// Explicit allowlist. Only png/jpeg/gif/webp decoders are linked in
+	// today; this switch keeps that guarantee even if another decoder
+	// (e.g. tiff/bmp) is blank-imported by accident in the future.
+	switch format {
+	case "png", "jpeg", "gif", "webp":
+	default:
+		return nil, fmt.Errorf("unsupported frame format %q", format)
+	}
+	if int64(cfg.Width)*int64(cfg.Height) > maxFramePixels {
+		return nil, fmt.Errorf("frame %dx%d exceeds pixel budget", cfg.Width, cfg.Height)
+	}
+	img, _, err := image.Decode(bytes.NewReader(buf))
 	return img, err
 }
 
