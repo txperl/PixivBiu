@@ -43,12 +43,12 @@ jobs:
         shell: bash
         run: echo "CORE_VERSION=$(tr -d '[:space:]' < desktop/.core-version)" >> "$GITHUB_ENV"
 
-      # Download the pinned core release's host-platform archive and stage the
-      # binary into desktop/resources (electron-builder embeds it via
-      # extraResources). This is the SAME binary CLI users run — no rebuild, no
-      # drift. The shared script auto-detects the platform and, on macOS, prefers
-      # the universal darwin_all archive but falls back to lipo when a pinned
-      # older core release predates it. Fails loudly if the release is missing.
+      # Download the pinned core release's host-platform archive(s) and stage the
+      # binary per-arch into desktop/resources/<arch> (electron-builder embeds the
+      # matching slice via extraResources). This is the SAME binary CLI users run —
+      # no rebuild, no drift. The shared script auto-detects the platform and, on
+      # macOS, stages both the x64 and arm64 slices for the per-arch split. Fails
+      # loudly if the release is missing.
       - name: Download & stage the pinned core binary
         shell: bash
         env:
@@ -67,12 +67,13 @@ jobs:
         # bump above updates package-lock.json too, so the two stay in sync.
         run: cd desktop && npm ci
 
-      # Compile main/preload, then package for the host platform. Build only
-      # (--publish never); the R2 upload below is the publish step so the feed
-      # is a single, CDN-backed source. macOS signs + notarizes (secrets below);
-      # Windows/Linux ship unsigned in v1. The generic feed URL is baked into
-      # app-update.yml / latest*.yml here from DESKTOP_FEED_BASE (falls back to
-      # the electron-builder.yml default when the var is unset).
+      # Compile main/preload, then package for the host platform (macOS builds
+      # both arches: dmg+zip for x64 and arm64). Build only (--publish never); the
+      # R2 upload below is the publish step so the feed is a single, CDN-backed
+      # source. macOS signs + notarizes; Windows signs via Azure Trusted Signing
+      # when provisioned (falls back to unsigned otherwise); Linux is unsigned.
+      # The generic feed URL is baked into app-update.yml / latest*.yml here from
+      # DESKTOP_FEED_BASE (falls back to the electron-builder.yml default when unset).
       - name: Build & package
         shell: bash
         env:
@@ -83,15 +84,38 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           DESKTOP_FEED_BASE: ${{ vars.DESKTOP_FEED_BASE }}
+          # Windows Azure Trusted Signing. Non-secret account config as repo vars;
+          # the service-principal auth as secrets. Signing is skipped (build stays
+          # unsigned) unless WIN_AZURE_ENDPOINT is set — provisioning is external
+          # and takes ~days, so this stays inert until then.
+          WIN_AZURE_ENDPOINT: ${{ vars.WIN_AZURE_ENDPOINT }}
+          WIN_AZURE_PUBLISHER_NAME: ${{ vars.WIN_AZURE_PUBLISHER_NAME }}
+          WIN_AZURE_ACCOUNT: ${{ vars.WIN_AZURE_ACCOUNT }}
+          WIN_AZURE_CERT_PROFILE: ${{ vars.WIN_AZURE_CERT_PROFILE }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         run: |
           set -euo pipefail
           cd desktop
           npm run build
+          args=(--publish never)
           if [ -n "${DESKTOP_FEED_BASE:-}" ]; then
-            npx electron-builder --publish never -c.publish.url="${DESKTOP_FEED_BASE%/}/desktop"
-          else
-            npx electron-builder --publish never
+            args+=(-c.publish.url="${DESKTOP_FEED_BASE%/}/desktop")
           fi
+          # Inject Azure Trusted Signing only on Windows and only when provisioned.
+          if [ "${RUNNER_OS:-}" = "Windows" ] && [ -n "${WIN_AZURE_ENDPOINT:-}" ]; then
+            # publisherName is a top-level win option; only endpoint/account/profile
+            # belong under azureSignOptions (any extra key there is forwarded
+            # verbatim to Invoke-TrustedSigning and would fail as an unknown param).
+            args+=(
+              -c.win.publisherName="${WIN_AZURE_PUBLISHER_NAME}"
+              -c.win.azureSignOptions.endpoint="${WIN_AZURE_ENDPOINT}"
+              -c.win.azureSignOptions.codeSigningAccountName="${WIN_AZURE_ACCOUNT}"
+              -c.win.azureSignOptions.certificateProfileName="${WIN_AZURE_CERT_PROFILE}"
+            )
+          fi
+          npx electron-builder "${args[@]}"
 
       # Publish INTO the desktop R2 feed (electron-updater reads it via the
       # generic provider). Symmetric with the core's R2 feed, and fully isolated
@@ -126,17 +150,23 @@ jobs:
           aws s3 cp "$out" "s3://${R2_BUCKET}/desktop/" --recursive \
             --exclude "*" \
             --include "*.dmg" --include "*.zip" --include "*.exe" \
-            --include "*.AppImage" --include "*.deb" --include "*.blockmap" \
+            --include "*.AppImage" --include "*.deb" --include "*.rpm" --include "*.blockmap" \
             --cache-control "public, max-age=31536000, immutable"
-          # Update metadata is mutable — short TTL so a stale edge copy self-heals
-          # within ~5 min even without an explicit cache purge.
+          # Mutable objects (update metadata + the "latest" aliases below) share a
+          # short TTL so a stale edge copy self-heals within ~5 min even without an
+          # explicit cache purge.
+          mut_cc="public, max-age=300, must-revalidate"
           aws s3 cp "$out" "s3://${R2_BUCKET}/desktop/" --recursive \
             --exclude "*" --include "latest*.yml" \
-            --cache-control "public, max-age=300, must-revalidate"
-          # Stable "latest" download aliases so the README can link a fixed URL
-          # (mutable → short TTL). Each runner only has its own platform's
-          # installer; nullglob skips the extensions that don't apply here.
+            --cache-control "$mut_cc"
+          # Stable "latest" download aliases so the README can link a fixed URL.
+          # Each runner only has its own platform's installer; nullglob skips the
+          # globs that don't apply here. macOS is a per-arch split, so it gets one
+          # alias per arch (arch-tagged artifactName from electron-builder.yml makes
+          # the match unambiguous).
           shopt -s nullglob
-          for f in "$out"/*.dmg;      do aws s3 cp "$f" "s3://${R2_BUCKET}/desktop/PixivBiu-latest-macos.dmg"     --cache-control "public, max-age=300, must-revalidate"; done
-          for f in "$out"/*.exe;      do aws s3 cp "$f" "s3://${R2_BUCKET}/desktop/PixivBiu-latest-windows.exe"    --cache-control "public, max-age=300, must-revalidate"; done
-          for f in "$out"/*.AppImage; do aws s3 cp "$f" "s3://${R2_BUCKET}/desktop/PixivBiu-latest-linux.AppImage" --cache-control "public, max-age=300, must-revalidate"; done
+          alias_latest() { for f in "$out"/$1; do aws s3 cp "$f" "s3://${R2_BUCKET}/desktop/$2" --cache-control "$mut_cc"; done; }
+          alias_latest '*-arm64.dmg' PixivBiu-latest-macos-arm64.dmg
+          alias_latest '*-x64.dmg'   PixivBiu-latest-macos-x64.dmg
+          alias_latest '*.exe'       PixivBiu-latest-windows.exe
+          alias_latest '*.AppImage'  PixivBiu-latest-linux.AppImage

@@ -28,6 +28,13 @@ UPDATE_PUBLIC_KEYS_NORM := $(shell printf '%s' '$(UPDATE_PUBLIC_KEYS)' | tr -s '
 LDFLAGS   += -X main.updateTrustedKeysRaw=$(UPDATE_PUBLIC_KEYS_NORM)
 endif
 
+# electron-builder's arch dir name (x64 / arm64) for the host, matching
+# resources/${arch}/ in desktop/electron-builder.yml. Used to stage the core into
+# the host arch's dir and to pass `--$(HOST_ARCH)` to electron-builder so the local
+# `make desktop-dist` packages only the host arch (electron-builder.yml lists both
+# x64 and arm64 for macOS, but we only staged the one host core).
+HOST_ARCH := $(shell uname -m | sed -e 's/^x86_64$$/x64/' -e 's/^amd64$$/x64/' -e 's/^aarch64$$/arm64/')
+
 help:  ## Show this help
 	@awk 'BEGIN{FS=":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
@@ -48,15 +55,15 @@ build-web:  ## Build the frontend into the embed dir (internal/web/dist)
 
 dist: build-web build  ## Full self-contained build: frontend embedded into the binary
 
-desktop-stage: dist  ## Stage the freshly built core binary into desktop/resources for packaging
-	mkdir -p $(DESKTOP)/resources
-	cp $(BIN) $(DESKTOP)/resources/
+desktop-stage: dist  ## Stage the freshly built core binary into desktop/resources/<host-arch> for packaging
+	mkdir -p $(DESKTOP)/resources/$(HOST_ARCH)
+	cp $(BIN) $(DESKTOP)/resources/$(HOST_ARCH)/
 
 desktop-dev: dist  ## Run the Electron shell against the freshly built core (dev; spawns ../bin/pixivbiu)
 	cd $(DESKTOP) && npm install && npm start
 
-desktop-dist: desktop-stage  ## Package the desktop app for the host platform (electron-builder)
-	cd $(DESKTOP) && npm install && npm run dist
+desktop-dist: desktop-stage  ## Package the desktop app for the host platform+arch (electron-builder)
+	cd $(DESKTOP) && npm install && npm run dist -- --$(HOST_ARCH)
 
 # CI (.github/workflows/desktop.yml) doesn't build the core — it downloads the
 # pinned release in desktop/.core-version and bundles that exact binary. This

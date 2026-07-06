@@ -6,11 +6,13 @@
 #
 #   stage-core.sh <core-version-tag> <dest-dir>
 #
-# Detects the host platform via `uname` and downloads the matching archive from
-# the core GitHub release with the gh CLI (needs gh auth / GH_TOKEN). On macOS it
-# prefers the universal `darwin_all` archive but falls back to lipo-ing the two
-# per-arch archives, so a pinned core release cut *before* GoReleaser's
-# universal_binaries config (which has no darwin_all asset) still works.
+# Detects the host platform via `uname` and downloads the matching archive(s)
+# from the core GitHub release with the gh CLI (needs gh auth / GH_TOKEN).
+# Binaries are staged per-arch into <dest-dir>/<arch>/ (x64 / arm64), matching
+# electron-builder.yml's `extraResources: from: resources/${arch}/`, so each
+# per-arch desktop package embeds only its own core slice. On macOS this stages
+# BOTH slices (x64 + arm64) from the per-arch release archives — no lipo, no
+# reliance on the `darwin_all` universal asset.
 set -euo pipefail
 
 ver="${1:?usage: stage-core.sh <core-version-tag> <dest-dir>}"
@@ -49,25 +51,20 @@ extract() {
 
 case "$(uname -s)" in
   Darwin)
-    d="$(mktemp -d "$tmproot/XXXXXX")"
-    if gh release download "$ver" --repo "$repo" \
-         --pattern '*_darwin_all.tar.gz' --dir "$d" 2>/dev/null; then
-      tar -xf "$(find "$d" -maxdepth 1 -type f | head -n1)" -C "$d"
-      cp "$d/pixivbiu" "$dest/pixivbiu"
-    else
-      echo "note: $ver has no darwin_all archive — assembling universal via lipo" >&2
-      amd="$(extract '*_darwin_amd64.tar.gz' pixivbiu)"
-      arm="$(extract '*_darwin_arm64.tar.gz' pixivbiu)"
-      lipo -create -output "$dest/pixivbiu" "$amd" "$arm"
-    fi
-    chmod +x "$dest/pixivbiu"
+    # Stage both slices so electron-builder can package arm64 and x64 from one run.
+    mkdir -p "$dest/x64" "$dest/arm64"
+    cp "$(extract '*_darwin_amd64.tar.gz' pixivbiu)" "$dest/x64/pixivbiu"
+    cp "$(extract '*_darwin_arm64.tar.gz' pixivbiu)" "$dest/arm64/pixivbiu"
+    chmod +x "$dest/x64/pixivbiu" "$dest/arm64/pixivbiu"
     ;;
   Linux)
-    cp "$(extract '*_linux_amd64.tar.gz' pixivbiu)" "$dest/pixivbiu"
-    chmod +x "$dest/pixivbiu"
+    mkdir -p "$dest/x64"
+    cp "$(extract '*_linux_amd64.tar.gz' pixivbiu)" "$dest/x64/pixivbiu"
+    chmod +x "$dest/x64/pixivbiu"
     ;;
   *) # Windows (git bash reports MINGW*/MSYS*)
-    cp "$(extract '*_windows_amd64.zip' pixivbiu.exe)" "$dest/pixivbiu.exe"
+    mkdir -p "$dest/x64"
+    cp "$(extract '*_windows_amd64.zip' pixivbiu.exe)" "$dest/x64/pixivbiu.exe"
     ;;
 esac
 

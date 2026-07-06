@@ -188,9 +188,19 @@ To rehearse the whole pipeline once it's wired up, push a throwaway pre-release 
 
 The desktop Electron app (`desktop/`) ships on its **own** train — tag `desktop-v*` — decoupled from the core `v*` train above. This is deliberate: the desktop app **bundles a pinned core** (Docker-Desktop style), so a shell-only change never forces a core release and a core-only change never forces a desktop one — no "phantom" updates on either side. The core train (and everything documented above) is unchanged.
 
+### Support matrix
+
+| OS | Arch | Installer (user download) | Auto-update artifact | Signing |
+| --- | --- | --- | --- | --- |
+| macOS | arm64 **and** x64 (separate) | `.dmg` (per arch) | `.zip` + `.blockmap` (per arch) | Developer ID + notarized |
+| Windows | x64 | NSIS `.exe` | `.exe` + `.blockmap` | Azure Trusted Signing when provisioned, else unsigned |
+| Linux | x64 | AppImage, `.deb`, `.rpm` | AppImage + `.blockmap` | unsigned |
+
+Only the AppImage / dmg-zip / nsis artifacts carry auto-update metadata (`latest*.yml`); `.deb` / `.rpm` are install-only (the system package manager owns updates). macOS ships **per-arch** rather than a universal binary: universal doubles the bundled ~85 MB Go core (and the Electron runtime), so a split roughly halves each user's download/disk. Both mac arches build in one run and share a single `latest-mac.yml`; electron-updater picks the slice matching `process.arch`.
+
 ### How a desktop release happens
 
-Pushing a `desktop-v*` tag triggers `.github/workflows/desktop.yml`. It does **not** rebuild the core or the SPA — `scripts/stage-core.sh` downloads the core release pinned in [`desktop/.core-version`](../desktop/.core-version) (macOS prefers the `darwin_all` universal archive from GoReleaser's `universal_binaries`, falling back to lipo-ing the two per-arch archives when a pinned older core predates it), stages the binary into `desktop/resources/`, packages with `electron-builder --publish never`, and uploads the installers + `latest*.yml` to the desktop R2 feed.
+Pushing a `desktop-v*` tag triggers `.github/workflows/desktop.yml`. It does **not** rebuild the core or the SPA — `scripts/stage-core.sh` downloads the core release pinned in [`desktop/.core-version`](../desktop/.core-version) and stages the per-arch binary into `desktop/resources/<arch>/` (macOS stages **both** `darwin_amd64` and `darwin_arm64` slices — one per arch, no lipo; Linux/Windows stage `*_amd64` into `x64/`). electron-builder embeds the slice matching each package via `extraResources: from: resources/${arch}/`, packages with `--publish never`, and the workflow uploads the installers + `latest*.yml` to the desktop R2 feed.
 
 ```bash
 # (optional) ship a newer core to desktop users first:
@@ -207,8 +217,8 @@ The desktop version is the tag minus `desktop-v` (`desktop-v1.0.0` → `package.
 
 ```
 <feed>/desktop/latest-mac.yml | latest.yml | latest-linux.yml   # electron-updater metadata (mutable, short TTL)
-<feed>/desktop/PixivBiu-<ver>-*.{dmg,zip,exe,AppImage,deb} + .blockmap   # version-named installers (immutable)
-<feed>/desktop/PixivBiu-latest-{macos.dmg,windows.exe,linux.AppImage}    # stable download aliases for the README (mutable)
+<feed>/desktop/PixivBiu-<ver>-<arch>.{dmg,zip,exe,AppImage,deb,rpm} + .blockmap   # version-named installers (immutable)
+<feed>/desktop/PixivBiu-latest-{macos-arm64.dmg,macos-x64.dmg,windows.exe,linux.AppImage}   # stable download aliases for the README (mutable)
 ```
 
 The feed base is `<DESKTOP_FEED_BASE>/desktop` (default `https://dl.biu.tls.moe/desktop`, set in `desktop/electron-builder.yml`; CI overrides via `-c.publish.url` when `vars.DESKTOP_FEED_BASE` is set). Integrity rides electron-updater's native `latest*.yml` sha512 + the macOS code signature — there is **no** minisign here (that's the core train's model). The stable `PixivBiu-latest-*` aliases are what the README links for first-time installs (auto-update handles everything after).
@@ -221,9 +231,11 @@ Reuses the core train's `R2_*` secrets (the [one-time setup](#one-time-setup) ta
 | ------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
 | secret              | `MAC_CSC_LINK` / `MAC_CSC_KEY_PASSWORD`                          | macOS Developer ID cert (.p12, base64) + password |
 | secret              | `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`     | notarization credentials                         |
+| secret _(opt.)_     | `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET`    | Azure Trusted Signing service principal (Windows signing) |
+| variable _(opt.)_   | `WIN_AZURE_ENDPOINT` / `WIN_AZURE_PUBLISHER_NAME` / `WIN_AZURE_ACCOUNT` / `WIN_AZURE_CERT_PROFILE` | Trusted Signing account config; **Windows signs only when `WIN_AZURE_ENDPOINT` is set** — unset ⇒ unsigned build |
 | variable _(opt.)_   | `DESKTOP_FEED_BASE`                                              | desktop feed base; defaults to the `electron-builder.yml` value |
 
-macOS is signed + notarized; Windows / Linux ship **unsigned** in v1 (electron-updater still works via `latest*.yml` sha512).
+macOS is signed + notarized. Windows signs via **Azure Trusted Signing** once the `WIN_AZURE_*` variables + `AZURE_*` secrets are provisioned (the build stays unsigned until then — the workflow injects `-c.win.azureSignOptions.*` only when `WIN_AZURE_ENDPOINT` is set). Linux ships unsigned. electron-updater works regardless via `latest*.yml` sha512.
 
 ### Bump the bundled core / local repro
 

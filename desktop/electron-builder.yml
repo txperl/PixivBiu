@@ -7,6 +7,11 @@ appId: moe.tls.pixivbiu
 productName: PixivBiu
 copyright: Copyright © txperl
 
+# Deterministic, arch-tagged artifact names. macOS ships a per-arch split (see
+# mac.target), so every artifact must carry its arch to avoid collisions and to
+# let the R2 "latest" aliases (.github/workflows/desktop.yml) match by arch.
+artifactName: ${productName}-${version}-${arch}.${ext}
+
 directories:
   output: out
   buildResources: build
@@ -23,11 +28,13 @@ files:
   - "!**/*.map"
   - "!**/*.md"
 
-# Stage the matching platform binary (pixivbiu / pixivbiu.exe — lowercase, the
-# core's release binary name) into the app's resources directory; core-process.ts
-# resolves it from process.resourcesPath.
+# Stage the matching platform+arch binary (pixivbiu / pixivbiu.exe — lowercase,
+# the core's release binary name) into the app's resources directory;
+# core-process.ts resolves it from process.resourcesPath. `${arch}` selects the
+# per-arch staging dir (resources/x64 or resources/arm64) that scripts/stage-core.sh
+# populates, so each per-arch package embeds only its own core slice — no lipo.
 extraResources:
-  - from: resources/
+  - from: resources/${arch}/
     to: .
     filter:
       - pixivbiu
@@ -53,19 +60,33 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   notarize: true
-  # A universal (arm64 + x64) app so one build covers both Macs; CI stages the
-  # core's `darwin_all` universal archive (GoReleaser universal_binaries) into
-  # resources to match.
+  # Per-arch split (arm64 + x64) instead of a universal binary: a universal build
+  # doubles the bundled 85 MB Go core (~171 MB fat) and ~doubles the Electron
+  # runtime, so ~45% of a universal download is CPU code the user can't run.
+  # Splitting halves per-user download/disk. Both arches build in one run on the
+  # macos runner, producing a single latest-mac.yml that electron-updater filters
+  # by process.arch. CI stages each core slice into resources/{x64,arm64}.
   target:
     - target: dmg
-      arch: [universal]
+      arch: [x64, arm64]
     # zip is what electron-updater downloads for macOS auto-update.
     - target: zip
-      arch: [universal]
+      arch: [x64, arm64]
 
 win:
-  # Unsigned in v1 (SmartScreen warns on first run). Add a cert later via
-  # win.signtoolOptions / Azure Trusted Signing.
+  # Signing: Azure Trusted Signing (cloud, EV-grade SmartScreen reputation, no
+  # hardware token). Left OUT of this file so an unprovisioned build still
+  # succeeds unsigned; CI injects it via `-c.win.azureSignOptions.*` from repo
+  # vars only when WIN_AZURE_ENDPOINT is set (see .github/workflows/desktop.yml).
+  # To sign locally instead, add here + set AZURE_TENANT_ID/CLIENT_ID/CLIENT_SECRET.
+  # publisherName is a top-level win option; azureSignOptions takes ONLY endpoint /
+  # codeSigningAccountName / certificateProfileName (extra keys are forwarded
+  # verbatim to Invoke-TrustedSigning and fail as unknown params):
+  #   publisherName: <CN from your Trusted Signing cert profile>
+  #   azureSignOptions:
+  #     endpoint: https://<region>.codesigning.azure.net
+  #     codeSigningAccountName: <trusted-signing-account>
+  #     certificateProfileName: <cert-profile>
   target:
     - target: nsis
       arch: [x64]
@@ -77,8 +98,14 @@ nsis:
 
 linux:
   category: Graphics
+  # AppImage is the auto-updating format (electron-updater); deb + rpm are
+  # install-only (managed by the system package manager). rpm covers
+  # Fedora/RHEL/openSUSE — same x64 core, no extra infra (ubuntu runner has
+  # rpmbuild via electron-builder's fpm).
   target:
     - target: AppImage
       arch: [x64]
     - target: deb
+      arch: [x64]
+    - target: rpm
       arch: [x64]

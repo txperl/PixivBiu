@@ -26,7 +26,7 @@ What the shell adds:
 | `src/updater.ts` | `electron-updater` wiring + IPC to the renderer |
 | `electron-builder.yml` | Packaging / signing / publish config |
 | `build/entitlements.mac.plist` | Hardened-runtime entitlements |
-| `resources/` | The Go core binary, staged at build time (gitignored) |
+| `resources/<arch>/` | The Go core binary per arch (`x64` / `arm64`), staged at build time (gitignored) |
 
 ## Develop
 
@@ -61,18 +61,22 @@ downloads the core release pinned in [`.core-version`](.core-version) and bundle
 exact binary. Bump `.core-version` (+ cut a new `desktop-v*` tag) to ship a newer core
 to desktop users. Full flow + secrets in [../docs/RELEASE.md](../docs/RELEASE.md#desktop-release-train).
 
-Locally, either build the core from the working tree (fast iteration):
+Packaging is **per-arch** (`resources/<arch>/pixivbiu`): macOS ships separate
+arm64 + x64 builds (not a universal binary — see Signing below); Windows/Linux are
+x64. For fast local iteration, `make desktop-dist` builds the working-tree core and
+packages **the host arch only** (it stages that one core and passes
+`--<host-arch>` to electron-builder, which otherwise builds both macOS arches):
 
 ```bash
-make build-web && make build            # -> bin/pixivbiu
-cp ../bin/pixivbiu resources/           # or pixivbiu.exe on Windows
-cd desktop && npm install && npm run dist
+make desktop-dist                       # stage host-arch core -> electron-builder --<host-arch>
 ```
 
-…or reproduce CI exactly by staging the pinned, already-released core (needs `gh`):
+…or reproduce CI exactly by staging the pinned, already-released core (needs `gh`).
+On macOS `stage-core.sh` stages **both** arch slices, so a plain `npm run dist`
+packages both x64 and arm64:
 
 ```bash
-make desktop-fetch-core                 # downloads .core-version's release into resources/
+make desktop-fetch-core                 # -> resources/x64/ (+ resources/arm64/ on macOS)
 cd desktop && npm install && npm run dist
 ```
 
@@ -83,12 +87,23 @@ cd desktop && npm install && npm run dist
 - `CSC_LINK` / `CSC_KEY_PASSWORD` — Developer ID Application cert (.p12)
 - `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID` — notarization
 
-The embedded Go binary under `Contents/Resources` is signed as part of the app's
-deep signing. Verify with `codesign --verify --deep --strict` and
-`spctl -a -vvv <App>.app`.
+macOS ships a **per-arch split** (arm64 + x64), not a universal binary: universal
+would double the bundled ~85 MB Go core (plus the Electron runtime), so ~45% of a
+universal download is CPU code the user can't run. Both arches build in one
+`electron-builder` run and share one `latest-mac.yml`; the updater picks the slice
+matching `process.arch`. The embedded Go binary under `Contents/Resources` is
+signed as part of the app's deep signing. Verify with
+`codesign --verify --deep --strict` and `spctl -a -vvv <App>.app`.
 
-Windows/Linux ship unsigned in v1; add a Windows cert later via
-`win.signtoolOptions`.
+### Signing (Windows)
+
+Windows uses **Azure Trusted Signing** (cloud, EV-grade SmartScreen reputation, no
+hardware token). It's kept out of `electron-builder.yml` so an unprovisioned build
+still succeeds unsigned; CI injects `-c.win.azureSignOptions.*` from the
+`WIN_AZURE_*` repo vars (auth via `AZURE_TENANT_ID`/`_CLIENT_ID`/`_CLIENT_SECRET`
+secrets) only when `WIN_AZURE_ENDPOINT` is set. See
+[../docs/RELEASE.md](../docs/RELEASE.md#secrets--variables-desktop). Linux ships
+unsigned.
 
 ### Icons
 
