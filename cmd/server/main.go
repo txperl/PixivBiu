@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/txperl/PixivBiu/internal/runtimepath"
@@ -20,18 +21,42 @@ var version = "0.1.0-dev"
 // updateFeedURL is the base URL of the signed release feed (manifest.json and the
 // per-version archives) served from Cloudflare R2 behind a CDN. The updater
 // fetches <updateFeedURL>/manifest.json (+ .minisig) instead of the GitHub API.
-// It MUST match the UPDATE_FEED_BASE variable the release workflow uploads against.
-const updateFeedURL = "https://dl.biu.tls.moe"
+//
+// It is the trust anchor's *where*, stamped at link time from the release
+// environment (empty by default → the updater fails closed). Keeping it out of
+// source is what lets a fork self-publish without editing code:
+//
+//	go build -ldflags "-X main.updateFeedURL=https://dl.example"
+//
+// It MUST match the UPDATE_FEED_BASE variable the release workflow uploads
+// against — the release build and the workflow read the same value.
+var updateFeedURL string
 
-// updateTrustedKeys are the minisign (Ed25519) public keys the updater accepts as
-// signers of manifest.json. The matching secret key lives only in CI (the
-// MINISIGN_SECRET_KEY secret) and signs the feed at release time; the client
-// verifies the signature before trusting the feed (see internal/update). It is a
-// slice so a key can be rotated by shipping the next public key in a release
-// before switching the signing key. An empty set makes verification fail closed.
-var updateTrustedKeys = []string{
-	// minisign public key 7B42715250FFCA0E
-	"RWQOyv9QUnFCe8RY2/0hY1ng/4zammgmWt0Vo1Jz2XkfpXQGfJiyZBvT",
+// updateTrustedKeysRaw holds the minisign (Ed25519) public keys the updater
+// accepts as signers of manifest.json, stamped at link time (empty → verification
+// fails closed). It is a plain string because -X can only set strings; multiple
+// keys are comma- (or whitespace-) separated to allow forward-only rotation —
+// ship the next public key before switching the signing key:
+//
+//	go build -ldflags "-X main.updateTrustedKeysRaw=RWQ…,RWZ…"
+//
+// The matching secret key lives only in CI (the MINISIGN_SECRET_KEY secret) and
+// signs the feed at release time; the client verifies the signature before
+// trusting the feed (see internal/update).
+var updateTrustedKeysRaw string
+
+// updateTrustedKeys is the parsed trusted-key set. -X sets updateTrustedKeysRaw at
+// link time, before package initializers run, so this sees the stamped value.
+// An empty set makes verification fail closed.
+var updateTrustedKeys = parseTrustedKeys(updateTrustedKeysRaw)
+
+// parseTrustedKeys splits a stamped key string into individual minisign public
+// keys, tolerating comma, whitespace, or newline separators and dropping empties.
+// Validation (and silent drop of malformed entries) happens downstream in
+// update.parsePublicKeys; here we only tokenize. strings.Fields already splits on
+// whitespace runs and drops empties, so mapping commas to spaces first covers both.
+func parseTrustedKeys(raw string) []string {
+	return strings.Fields(strings.ReplaceAll(raw, ",", " "))
 }
 
 func main() {

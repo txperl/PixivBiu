@@ -29,7 +29,7 @@ The in-app updater does **not** call the GitHub API. It fetches a static, signed
 
 Only the archives and the signed manifest live on the CDN — the per-release `checksums.txt` is **not** uploaded there (the GitHub Release still carries it). Each archive's SHA-256 travels inside the signed manifest, so an unsigned `checksums.txt` on the CDN would add nothing but a misleadingly authoritative-looking artifact.
 
-**Trust model.** The client verifies the manifest's minisign signature against a public key **compiled into the binary** before trusting any field; the manifest carries each archive's SHA-256 inline, so a verified manifest transitively authenticates every download (there is no separate `checksums.txt` fetch). The signing **secret key lives only in CI** — so even if the R2 write credentials leak, a tampered manifest or binary is rejected. The release workflow reinforces this by **verifying the existing feed's signature before extending it** (`MINISIGN_PUBLIC_KEY`): a tampered `manifest.json` on R2 is discarded and rebuilt fresh, never re-signed with the CI key. This is strictly stronger than the old "HTTPS to GitHub + checksums" model. If the signature doesn't verify, the check is **refused** (`bad_request`/400), not silently trusted.
+**Trust model.** The client verifies the manifest's minisign signature against a public key **compiled into the binary** before trusting any field; the manifest carries each archive's SHA-256 inline, so a verified manifest transitively authenticates every download (there is no separate `checksums.txt` fetch). The signing **secret key lives only in CI** — so even if the R2 write credentials leak, a tampered manifest or binary is rejected. The release workflow reinforces this by **verifying the existing feed's signature before extending it** (against the trusted `UPDATE_PUBLIC_KEYS`): a tampered `manifest.json` on R2 is discarded and rebuilt fresh, never re-signed with the CI key. This is strictly stronger than the old "HTTPS to GitHub + checksums" model. If the signature doesn't verify, the check is **refused** (`bad_request`/400), not silently trusted.
 
 **Caching.** Archives live under an immutable, version-pinned path and are cached forever; `manifest.json` (+ `.minisig`) get a short TTL and are **explicitly cache-purged** on every release, so a new version reaches users within seconds.
 
@@ -37,7 +37,7 @@ Only the archives and the signed manifest live on the CDN — the per-release `c
 
 ## One-time setup
 
-Do these once; afterwards a release is just `git push`. Until they're done, `cmd/server/main.go` ships placeholders and the updater **fails closed** (no trusted key → no update is ever offered — the safe default).
+Do these once; afterwards a release is just `git push`. Until they're done, the trust anchor is unset (the source ships it empty and no repo variable fills it) and the updater **fails closed** — no trusted key → no update is ever offered, the safe default.
 
 ### 1 · Cloudflare R2
 
@@ -45,7 +45,7 @@ Do these once; afterwards a release is just `git push`. Until they're done, `cmd
 - **Bind a custom domain** (e.g. `dl.pixivbiu.example`) under bucket → Settings → Custom Domains — this is the public CDN base.
 - **Create an R2 API token** (**Object Read & Write**) → `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and the S3 endpoint `https://<account-id>.r2.cloudflarestorage.com` → `R2_ENDPOINT`.
 
-Two URLs, don't mix them up: `R2_ENDPOINT` (`*.r2.cloudflarestorage.com`) is the authenticated **S3 API the workflow uploads to**; the custom domain (`dl.…`) is the public **CDN users download from** — it is the `UPDATE_FEED_BASE` variable below and the `updateFeedURL` constant baked into the binary (§3). The endpoint does not include the bucket name; the workflow appends it.
+Two URLs, don't mix them up: `R2_ENDPOINT` (`*.r2.cloudflarestorage.com`) is the authenticated **S3 API the workflow uploads to**; the custom domain (`dl.…`) is the public **CDN users download from** — it is the `UPDATE_FEED_BASE` variable below, which is also stamped into the binary as `updateFeedURL` (§3). The endpoint does not include the bucket name; the workflow appends it.
 
 **Cache rule** (optional belt-and-suspenders, so a stale manifest can't mask a new release): zone → Caching → Cache Rules → Create rule. Match `(http.host eq "dl.…" and starts_with(http.request.uri.path, "/manifest.json"))`, action **Edge TTL → Override origin → 5 minutes**. The one `starts_with` covers both `/manifest.json` and `/manifest.json.minisig` in a single flat condition the visual builder accepts — a nested `… or …` is valid Wirefilter but the builder rejects it (use "Edit expression" text mode if you prefer the explicit form). The workflow already sets a short `Cache-Control` on both files (and tags the immutable `releases/<tag>/*` archives long-cache), so this rule only matters if you want the edge TTL pinned independently of the origin header.
 
@@ -59,12 +59,14 @@ minisign -G -W -p minisign.pub -s minisign.key   # -W = unencrypted key, so CI s
 
 The public key is the base64 line in `minisign.pub`; the private key (`minisign.key`) is a CI secret only — never upload it to R2 or commit it. One keypair covers all versions — **back it up**, or installed clients can't verify future updates (see [key rotation](#key-rotation) for why losing it is painful).
 
-### 3 · Trust anchor in the binary (`cmd/server/main.go`)
+### 3 · Trust anchor (stamped at build time — no source edit)
 
-- `updateFeedURL` → the custom domain from §1, e.g. `https://dl.pixivbiu.example` — **must equal** the `UPDATE_FEED_BASE` variable.
-- `updateTrustedKeys` → add the `minisign.pub` base64 line. It's a slice, so the next key can be added ahead of a [rotation](#key-rotation).
+The feed URL and the trusted public key are the **trust anchor** — together they decide what code the updater installs on every user's machine — so they're compiled into the binary and can't be overridden at runtime. But they are **not** hardcoded in source: the release build stamps them in via `-ldflags` (exactly like `main.version`), sourced from two repo variables (§4):
 
-This is the trust anchor compiled into every build — the public key clients pin. With an empty/placeholder key the updater fails closed, which is why a fresh checkout offers no updates until you fill these in.
+- `UPDATE_FEED_BASE` → `main.updateFeedURL` (the custom domain from §1, e.g. `https://dl.pixivbiu.example`).
+- `UPDATE_PUBLIC_KEYS` → `main.updateTrustedKeysRaw` (the `minisign.pub` base64 line; comma-separate multiple keys to stage a [rotation](#key-rotation)).
+
+`cmd/server/main.go` ships these empty, so a fresh checkout — or any build without the variables set — **fails closed** (no trusted key → no update ever offered, the safe default). Set the variables once and every release stamps the anchor automatically. This is why publishing your own builds (a [fork](#forking--self-publishing)) needs no code change, and why the old "`updateFeedURL` must equal `UPDATE_FEED_BASE`" hand-sync is gone: the binary and the workflow read the same value.
 
 ### 4 · GitHub secrets & variables
 
@@ -76,14 +78,33 @@ Settings → Secrets and variables → Actions:
 | secret              | `R2_ENDPOINT`                                 | `https://<account-id>.r2.cloudflarestorage.com` — §1          |
 | secret              | `R2_BUCKET`                                    | bucket name — §1                                              |
 | secret              | `MINISIGN_SECRET_KEY`                          | the unencrypted `minisign.key` file contents — §2            |
-| variable            | `UPDATE_FEED_BASE`                            | public CDN base — **must equal** `updateFeedURL` in `main.go` |
+| variable            | `UPDATE_FEED_BASE`                            | public CDN base — §1; stamped into the binary as `updateFeedURL` |
+| variable            | `UPDATE_PUBLIC_KEYS`                          | trusted `minisign.pub` key(s), comma-separated — §2; public, stamped into the binary and used to verify the feed |
 | secret _(optional)_ | `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ZONE_ID`  | manifest cache purge — §1                                     |
 
 **Repository vs Environment secrets:** plain repository secrets work as-is. For tighter scoping, put them in an **Environment** named `release` restricted to tag `v*` (Settings → Environments) and add `environment: release` to the workflow's job — then the signing key is only reachable from a real release run, with an optional manual-approval gate.
 
+### Forking / self-publishing
+
+Publishing your own updates from a fork takes **no code change** — everything above is driven by repo variables and secrets:
+
+- Do §1 (your own R2 bucket + custom domain) and §2 (your own `minisign` keypair).
+- Set the variables and secrets in §4 for your repo: `UPDATE_FEED_BASE` (your domain), `UPDATE_PUBLIC_KEYS` (your `minisign.pub`), the R2 secrets, and `MINISIGN_SECRET_KEY`. The release build stamps your feed URL and key into the binary; the workflow signs against them. Multiple keys go in `UPDATE_PUBLIC_KEYS` comma-separated (incidental spaces are normalized away before stamping).
+- GoReleaser infers the GitHub Release target from your fork's git remote (`.goreleaser.yaml` no longer pins `owner`/`name`), so the release lands in your repo automatically.
+- **Docker images** (`docker.yml`) get the same anchor: they read the same `UPDATE_FEED_BASE` / `UPDATE_PUBLIC_KEYS` repo variables as build args, so container builds surface the "update available" banner too (applying an update is a no-op in an immutable image — you pull a new tag). No extra setup beyond the variables above.
+
+The only source-level knob is `project_name: PixivBiu` in `.goreleaser.yaml` — it names the archives and **must** match the asset-name prefix in `internal/update/update.go`. Leave it as-is, or change **both** if you rebrand.
+
 ### Key rotation
 
-A client can only verify with a key already compiled into it, so rotation is forward-only: ship a release whose `updateTrustedKeys` includes the **new** public key, wait for it to become widespread, then switch CI's `MINISIGN_SECRET_KEY` to the new secret. Drop the old key from the slice only once no in-field build still needs it. The release workflow also pins the public key (`MINISIGN_PUBLIC_KEY`, used to verify the existing feed before re-signing it — see below); update it together with `MINISIGN_SECRET_KEY` so the workflow can still verify the manifest it last signed.
+A client can only verify with a key already compiled into it, so rotation is forward-only and needs **no source edit**:
+
+1. Add the **new** public key to `UPDATE_PUBLIC_KEYS` alongside the old one (comma-separated). The next release bakes both into the binary as trusted, and the release workflow (which verifies the existing feed with the same variable) accepts a feed still signed by the old key.
+2. Wait for that release to become widespread.
+3. Switch CI's `MINISIGN_SECRET_KEY` to the new secret. Releases now sign with the new key, which fielded clients already trust.
+4. Drop the old key from `UPDATE_PUBLIC_KEYS` only once no in-field build still needs it.
+
+Because one variable is both the trusted set and the feed-verification key, there's nothing else to keep in sync.
 
 ## Channels
 

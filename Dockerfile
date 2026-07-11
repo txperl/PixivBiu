@@ -36,12 +36,22 @@ COPY --from=web /src/internal/web/dist ./internal/web/dist
 ARG VERSION=docker
 ARG TARGETOS
 ARG TARGETARCH
+# Self-updater trust anchor, stamped like the GoReleaser build (see .goreleaser.yaml)
+# so container images can still surface the "update available" banner — applying an
+# update is a no-op in an immutable image (you pull a new tag), but the check is
+# useful. Empty by default → updater fails closed; docker.yml passes the same
+# UPDATE_FEED_BASE / UPDATE_PUBLIC_KEYS repo variables the release uses, and a fork
+# sets those variables to light up the banner in its own images.
+ARG UPDATE_FEED_BASE=
+ARG UPDATE_PUBLIC_KEYS=
 # CGO_ENABLED=0 → fully static, portable binary. -buildvcs=false because the
 # build context excludes .git (see .dockerignore), so VCS stamping would error.
-# Both binaries build in one layer; they share the warm module cache.
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+# Both binaries build in one layer; they share the warm module cache. `keys`
+# normalizes the trusted-key list to a single -X-safe token (see release.yml for why).
+RUN keys="$(printf '%s' "${UPDATE_PUBLIC_KEYS}" | tr -s '[:space:],' ',')"; keys="${keys#,}"; keys="${keys%,}"; \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
       go build -trimpath -buildvcs=false \
-        -ldflags "-s -w -X main.version=${VERSION}" -o /out/pixivbiu ./cmd/server \
+        -ldflags "-s -w -X main.version=${VERSION} -X main.updateFeedURL=${UPDATE_FEED_BASE} -X main.updateTrustedKeysRaw=${keys}" -o /out/pixivbiu ./cmd/server \
  && CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
       go build -trimpath -buildvcs=false -ldflags "-s -w" -o /out/healthcheck ./cmd/healthcheck
 

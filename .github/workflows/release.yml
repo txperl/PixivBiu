@@ -86,18 +86,85 @@ jobs:
             echo "no qualifying previous tag; GoReleaser uses its default"
           fi
 
+      # Validate and normalize the self-updater trust anchor BEFORE GoReleaser
+      # publishes anything — its own guards would run too late. Two hazards:
+      #  - GoReleaser creates a public, non-draft GitHub Release and stamps the
+      #    binaries. An empty anchor here means shipping un-updatable binaries and
+      #    only failing afterwards, where a corrected rerun collides with the
+      #    already-published release.
+      #  - minisign public keys are base64 with no internal whitespace, but a fork
+      #    might write "KEY1, KEY2". A space inside a `-X` ldflag value makes the Go
+      #    linker treat the tail as a separate argument and the build fails, so we
+      #    collapse any comma/whitespace runs to single commas — one safe token that
+      #    is stamped into the binary AND used to sign/verify the feed.
+      # Downstream steps consume these normalized outputs, never the raw variables.
+      # minisign (upstream jedisct1/minisign) verifies the key/secret pairing in the
+      # next step and signs the manifest in the R2 step below.
+      - name: Install minisign
+        run: sudo apt-get update && sudo apt-get install -y minisign
+
+      - name: Validate & normalize update trust anchor
+        id: anchor
+        env:
+          FEED_BASE_IN: ${{ vars.UPDATE_FEED_BASE }}
+          PUBLIC_KEYS_IN: ${{ vars.UPDATE_PUBLIC_KEYS }}
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${FEED_BASE_IN:?set the UPDATE_FEED_BASE repo variable to the public CDN base (e.g. https://dl.example)}"
+          : "${PUBLIC_KEYS_IN:?set the UPDATE_PUBLIC_KEYS repo variable to the trusted minisign public key(s)}"
+          : "${MINISIGN_SECRET_KEY:?set the MINISIGN_SECRET_KEY secret to the feed's signing key}"
+
+          # The feed base must be an absolute HTTPS URL the client can append
+          # "/manifest.json" (and asset paths) to. Parse it and require an https
+          # scheme, a real host, and no query/fragment/space — an empty host
+          # (https:///x) or a query/fragment would yield URLs the updater can't fetch.
+          python3 -c 'import sys,urllib.parse as u; url=sys.argv[1]; p=u.urlsplit(url); sys.exit(0 if (p.scheme=="https" and p.hostname and not p.query and not p.fragment and not any(c.isspace() for c in url)) else 1)' "$FEED_BASE_IN" \
+            || { echo "UPDATE_FEED_BASE must be an absolute https://<host>[/path] URL with no query, fragment, or spaces; got: $FEED_BASE_IN" >&2; exit 1; }
+
+          # Collapse comma/whitespace runs to single commas: one token safe for -X.
+          keys="$(printf '%s' "$PUBLIC_KEYS_IN" | tr -s '[:space:],' ',')"
+          keys="${keys#,}"; keys="${keys%,}"
+          [ -n "$keys" ] || { echo "UPDATE_PUBLIC_KEYS has no key content" >&2; exit 1; }
+          # Each entry must have the minisign public-key shape (base64 "RW" + 54).
+          IFS=',' read -ra _ks <<< "$keys"
+          for k in "${_ks[@]}"; do
+            [[ "$k" =~ ^RW[A-Za-z0-9+/]{54}$ ]] \
+              || { echo "UPDATE_PUBLIC_KEYS entry is not a well-formed minisign public key: $k" >&2; exit 1; }
+          done
+
+          # Pairing: sign a probe with the secret and confirm it verifies under one of
+          # the trusted keys. Catches a MINISIGN_SECRET_KEY that doesn't correspond to
+          # UPDATE_PUBLIC_KEYS BEFORE GoReleaser publishes — otherwise we'd ship a
+          # GitHub release whose signed feed every updated client rejects.
+          printf '%s\n' "$MINISIGN_SECRET_KEY" > sk.key
+          echo probe > probe.txt
+          minisign -S -s sk.key -m probe.txt >/dev/null 2>&1 \
+            || { rm -f sk.key; echo "MINISIGN_SECRET_KEY is not a usable minisign secret key" >&2; exit 1; }
+          rm -f sk.key
+          paired=0
+          for k in "${_ks[@]}"; do
+            if minisign -Vm probe.txt -P "$k" >/dev/null 2>&1; then paired=1; break; fi
+          done
+          [ "$paired" = 1 ] \
+            || { echo "MINISIGN_SECRET_KEY does not match any key in UPDATE_PUBLIC_KEYS (signer would be untrusted by clients)" >&2; exit 1; }
+          rm -f probe.txt probe.txt.minisig
+
+          echo "feed_base=${FEED_BASE_IN}" >> "$GITHUB_OUTPUT"
+          echo "public_keys=${keys}" >> "$GITHUB_OUTPUT"
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # minisign signs the manifest below. The Ubuntu package is the upstream
-      # jedisct1/minisign; its signature format is verified by the in-app updater
-      # (aead.dev/minisign), so the two interoperate.
-      - name: Install minisign
-        run: sudo apt-get update && sudo apt-get install -y minisign
+          # The self-updater trust anchor, stamped into the binary via ldflags
+          # (see .goreleaser.yaml). Same normalized values the R2 publish step below
+          # uploads against, so the baked-in feed URL/key can't drift from what's served.
+          UPDATE_FEED_BASE: ${{ steps.anchor.outputs.feed_base }}
+          UPDATE_PUBLIC_KEYS: ${{ steps.anchor.outputs.public_keys }}
 
       # Publish to Cloudflare R2 — the source the self-updater reads. Uploads the
       # archives under an immutable, version-pinned path, then assembles, signs,
@@ -109,8 +176,13 @@ jobs:
       #   secrets.R2_ENDPOINT   — https://<accountid>.r2.cloudflarestorage.com
       #   secrets.R2_BUCKET     — target bucket name
       #   secrets.MINISIGN_SECRET_KEY — unencrypted minisign secret key (file body)
-      #   vars.UPDATE_FEED_BASE — public CDN base, MUST equal updateFeedURL in
-      #                           cmd/server/main.go (e.g. https://dl.pixivbiu.example)
+      #   vars.UPDATE_FEED_BASE — public CDN base (e.g. https://dl.pixivbiu.example).
+      #                           Also stamped into the binary as updateFeedURL by
+      #                           the GoReleaser step above, so the two can't drift.
+      #   vars.UPDATE_PUBLIC_KEYS — the trusted minisign public key(s), comma-separated.
+      #                           Public (non-secret); same value baked into the binary
+      #                           as updateTrustedKeys. Used below to verify the existing
+      #                           feed before re-signing it.
       # Optional:
       #   secrets.CLOUDFLARE_API_TOKEN / CLOUDFLARE_ZONE_ID — enable the cache purge;
       #     without them the manifest's max-age=300 expires a stale edge copy on its
@@ -128,13 +200,17 @@ jobs:
           # call below targets R2 without repeating --endpoint-url.
           AWS_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          FEED_BASE: ${{ vars.UPDATE_FEED_BASE }}
+          # Normalized by the "Validate & normalize update trust anchor" step, so
+          # these match exactly what GoReleaser stamped into the binary.
+          FEED_BASE: ${{ steps.anchor.outputs.feed_base }}
           MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
-          # Public half of MINISIGN_SECRET_KEY (also baked into cmd/server/main.go's
-          # updateTrustedKeys). Used to verify the existing R2 feed before re-signing
-          # it, so a tampered manifest can't be blessed with the CI key. Public — safe
-          # to commit; on key rotation, update this alongside main.go.
-          MINISIGN_PUBLIC_KEY: "RWQOyv9QUnFCe8RY2/0hY1ng/4zammgmWt0Vo1Jz2XkfpXQGfJiyZBvT"
+          # The trusted public key(s) — the same value baked into the binary as
+          # updateTrustedKeys (single source of truth). Used to verify the existing
+          # R2 feed before re-signing it (and the freshly-signed manifest after), so
+          # a tampered manifest can't be blessed with the CI key and a signer/key
+          # mismatch can't publish a feed clients reject. During a forward-only
+          # rotation this holds both keys; the verify step accepts a feed signed by any.
+          UPDATE_PUBLIC_KEYS: ${{ steps.anchor.outputs.public_keys }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -142,10 +218,8 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
-          # Fail loudly on an empty UPDATE_FEED_BASE: it's a defined-but-empty env var
-          # (set -u won't catch it), and an empty base would sign asset URLs like
-          # "/releases/<tag>/<file>" — uploaded and signed fine, but undownloadable.
-          : "${FEED_BASE:?UPDATE_FEED_BASE variable must be set to the public CDN base (e.g. https://dl.example)}"
+          # FEED_BASE / UPDATE_PUBLIC_KEYS are already validated non-empty and
+          # normalized by the "Validate & normalize update trust anchor" step above.
           base="${FEED_BASE%/}"
           now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"   # one publish instant for the whole run
 
@@ -193,9 +267,22 @@ jobs:
           #    note history is lost, never the release). Then drop any same-tag entry
           #    (idempotent re-runs), prepend the new one, keep the most recent 20
           #    (array order is cosmetic — the client re-sorts by semver).
+          # verify_feed <manifest> succeeds if ANY trusted key verifies that manifest's
+          # detached signature. UPDATE_PUBLIC_KEYS is normalized to a comma-separated
+          # list, so a forward-only rotation (feed still signed by the previous key,
+          # new key already in the trusted set) doesn't wedge the pipeline.
+          verify_feed() {
+            local file="$1" key
+            IFS=',' read -ra _keys <<< "$UPDATE_PUBLIC_KEYS"
+            for key in "${_keys[@]}"; do
+              [ -n "$key" ] || continue
+              if minisign -Vm "$file" -P "$key" >/dev/null 2>&1; then return 0; fi
+            done
+            return 1
+          }
           if ! { aws s3 cp "s3://${R2_BUCKET}/manifest.json" old.json 2>/dev/null \
               && aws s3 cp "s3://${R2_BUCKET}/manifest.json.minisig" old.json.minisig 2>/dev/null \
-              && minisign -Vm old.json -P "$MINISIGN_PUBLIC_KEY" >/dev/null 2>&1; }; then
+              && verify_feed old.json; }; then
             echo "no verifiable existing manifest; starting a fresh feed" >&2
             echo '{"releases":[]}' > old.json
           fi
@@ -208,6 +295,9 @@ jobs:
 
           # 4) Sign the manifest (unencrypted CI key; the secret lives only in the
           #    GitHub secret). The client verifies this before trusting any field.
+          #    set -e aborts on a signing failure, and the anchor step already proved
+          #    this secret matches a trusted key before GoReleaser published — so the
+          #    resulting signature is guaranteed to verify; no re-check needed here.
           printf '%s\n' "$MINISIGN_SECRET_KEY" > minisign.key
           minisign -S -s minisign.key -m manifest.json
           rm -f minisign.key

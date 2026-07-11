@@ -11,6 +11,18 @@ WEB_DIST  := internal/web/dist
 VERSION   ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS   := -s -w -X main.version=$(VERSION)
 
+# Optional self-updater trust anchor, mirroring the GoReleaser stamping (unset →
+# empty anchor → updater fails closed; fine since dev builds never self-update).
+# Test against a real feed with: UPDATE_FEED_BASE=… UPDATE_PUBLIC_KEYS=… make build
+ifdef UPDATE_FEED_BASE
+LDFLAGS   += -X main.updateFeedURL=$(UPDATE_FEED_BASE)
+endif
+ifdef UPDATE_PUBLIC_KEYS
+# Normalize the trusted-key list to a single -X-safe token (see release.yml for why).
+UPDATE_PUBLIC_KEYS_NORM := $(shell printf '%s' '$(UPDATE_PUBLIC_KEYS)' | tr -s '[:space:],' ',' | sed 's/^,//;s/,$$//')
+LDFLAGS   += -X main.updateTrustedKeysRaw=$(UPDATE_PUBLIC_KEYS_NORM)
+endif
+
 help:  ## Show this help
 	@awk 'BEGIN{FS=":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 

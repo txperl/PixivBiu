@@ -26,7 +26,13 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X main.version={{ .Version }}
+      - -s -w
+      - -X main.version={{ .Version }}
+      # Self-updater trust anchor, from the UPDATE_FEED_BASE / UPDATE_PUBLIC_KEYS repo
+      # variables (see release.yml). envOrDefault lets `--snapshot`/local runs (vars
+      # unset) build with an empty anchor → updater fails closed. Forks set their own.
+      - -X main.updateFeedURL={{ envOrDefault "UPDATE_FEED_BASE" "" }}
+      - -X main.updateTrustedKeysRaw={{ envOrDefault "UPDATE_PUBLIC_KEYS" "" }}
     # Reproducible builds: stamp binaries with the commit time, not build time.
     mod_timestamp: "{{ .CommitTimestamp }}"
     goos:
@@ -85,9 +91,12 @@ changelog:
       - "Merge "
 
 release:
-  github:
-    owner: txperl
-    name: PixivBiu
+  # owner/name are intentionally omitted: GoReleaser infers the GitHub release
+  # target from the repo's git remote, so a fork publishes to its own repo with
+  # no config edit. (project_name above stays "PixivBiu" — it's the binary/archive
+  # brand and must match the asset-name prefix in internal/update/update.go; a
+  # fork that rebrands changes both.)
+  #
   # Tags with a prerelease suffix (e.g. v3.0.0-beta.1) are flagged as
   # pre-releases on GitHub automatically.
   prerelease: auto
