@@ -16,8 +16,21 @@ function App() {
 
     return (
         <AppProviders>
+            <WindowDragStrip />
             <RouterProvider router={router} />
         </AppProviders>
+    );
+}
+
+// Frameless desktop shell: an invisible full-width strip that drags the window
+// from the top band on every route. Negative z-index makes it paint before the
+// app UI, so the global no-drag rule in styles/desktop.css can punch holes for
+// interactive elements — empty band pixels drag, UI stays clickable. Chromium
+// computes drag regions in paint order; a strip painted last would cover the
+// holes. Height is 0 in the browser — renders as nothing.
+function WindowDragStrip() {
+    return (
+        <div className="app-drag -z-10 fixed inset-x-0 top-0" style={{ height: "var(--titlebar-inset, 0px)" }} />
     );
 }
 

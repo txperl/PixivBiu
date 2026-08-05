@@ -20,7 +20,15 @@ export interface DesktopBridge {
         downloadAndInstall(): Promise<void>;
         onStatus(cb: (status: DesktopUpdateStatus) => void): () => void;
     };
-    platform: { os: string; arch: string };
+    platform: {
+        os: string;
+        arch: string;
+        // Shell-declared window chrome (desktop/src/window-chrome.ts). Optional
+        // because old shells don't send them; absent means framed + opaque, so
+        // the SPA draws no drag regions and keeps solid backgrounds.
+        frameless?: boolean;
+        frost?: boolean;
+    };
 }
 
 declare global {

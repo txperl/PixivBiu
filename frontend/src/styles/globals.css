@@ -4,6 +4,21 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Desktop-shell variant, gated on the <html> data attribute set by
+   applyDesktopChrome() (lib/desktop-chrome.ts). Inert in the browser. */
+@custom-variant frost (&:is([data-frost] *));
+
+/* Window drag regions for the frameless desktop shell. */
+@utility app-drag {
+    -webkit-app-region: drag;
+    app-region: drag;
+    user-select: none;
+}
+@utility app-no-drag {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+}
+
 /* Hide the native scrollbar while keeping the element scrollable (wheel / drag /
    programmatic scrollIntoView). For surfaces that scroll but shouldn't show a
    chunky native bar — e.g. the viewer's thumbnail strip and zoom-pan area. */

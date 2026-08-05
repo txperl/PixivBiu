@@ -51,6 +51,8 @@ function extractCode(rawUrl: string): string | null {
 export function captureOAuthCode(loginUrl: string, parent?: BrowserWindow): Promise<string> {
     return new Promise<string>((resolve, reject) => {
         const ses = session.fromPartition(LOGIN_PARTITION);
+        // Pixiv sign-in needs no device permissions; deny everything.
+        ses.setPermissionRequestHandler((_wc, _permission, cb) => cb(false));
         const filter = { urls: [`${CALLBACK_PREFIX}*`] };
 
         const win = new BrowserWindow({

@@ -53,7 +53,7 @@ function ActivityBar() {
     const filterDot = !isGeneralFiltersDefault(filters) || (filterData?.specialFiltersActiveCount ?? 0) > 0;
 
     return (
-        <aside className="flex h-full w-8 shrink-0 flex-col items-center gap-1 border-border border-l bg-sidebar py-2">
+        <aside className="app-drag flex h-full w-8 shrink-0 flex-col items-center gap-1 border-border border-l bg-sidebar py-2">
             {ITEM_DEFS.map((def) => (
                 <ActivityBarButton key={def.id} def={def} indicator={def.id === FILTER_ID && filterDot} />
             ))}

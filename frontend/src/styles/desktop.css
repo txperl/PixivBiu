@@ -1,0 +1,84 @@
+/*
+ * Desktop-shell chrome. Every rule is gated on html[data-frost] set by
+ * applyDesktopChrome() (lib/desktop-chrome.ts), so browser rendering is
+ * untouched.
+ *
+ * Ordering contract vs lib/theme/dynamic-color.ts: setColorScheme() appends
+ * <style id="dynamic-color-scheme"> to <head> (always AFTER this sheet), but
+ * it only writes --md-sys-color-* tokens on :root/.dark. These overrides (a)
+ * redefine the mapping variable (--sidebar), never the tokens, and (b) derive
+ * from the tokens via color-mix(), so they re-resolve live on every
+ * setColorScheme() call. Selector :root[data-frost] is (0,2,0), beating both
+ * material-you.css's :root (0,1,0) and the injected :root rules regardless of
+ * source order.
+ */
+
+/* Height of the frameless shell's full-width drag band (the App.tsx strip).
+   The strip paints first (negative z-index), so the no-drag rule below can
+   punch holes for everything interactive painted after it: empty top-band
+   pixels drag the window, UI on top stays clickable, nothing moves.
+   0px in the browser and under old framed shells. */
+:root {
+    --titlebar-inset: 0px;
+    --traffic-lights-inset: 0px;
+}
+:root[data-frameless][data-desktop="darwin"] {
+    --titlebar-inset: 44px;
+    /* Sidebar-only top padding clearing the traffic lights at y=16
+       (window-chrome.ts); other surfaces keep their normal layout. */
+    --traffic-lights-inset: 44px;
+}
+:root[data-frameless][data-desktop="win32"] {
+    /* Filled by Chromium while titleBarOverlay is active; fallback matches
+       WCO_HEIGHT in desktop/src/window-chrome.ts. */
+    --titlebar-inset: env(titlebar-area-height, 36px);
+}
+
+/* Punch no-drag holes in the drag band for anything interactive. Inert
+   outside drag regions, so applying it globally is safe. [data-app-no-drag]
+   is the escape hatch for custom widgets the list misses. */
+:root[data-frameless]
+    :is(
+        button,
+        a,
+        input,
+        select,
+        textarea,
+        label,
+        [role="button"],
+        [role="tab"],
+        [role="menuitem"],
+        [role="option"],
+        [role="slider"],
+        [role="checkbox"],
+        [role="switch"],
+        [role="separator"],
+        [contenteditable="true"],
+        [data-slot="scroll-area-scrollbar"],
+        [data-slot="resizable-handle"],
+        [data-app-no-drag]
+    ) {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+}
+
+:root[data-frost] {
+    /* Sidebar (and the right activity rail — both consume bg-sidebar) become
+       a frost tint the window material (macOS vibrancy / Win11 mica) shows
+       through. */
+    --sidebar: color-mix(in srgb, var(--md-sys-color-surface-container) 55%, transparent);
+    background: transparent;
+}
+
+:root[data-frost] body {
+    /* globals.css paints body bg-background in @layer base; this unlayered
+       rule wins. The window shows pure material until the SPA paints its
+       opaque content surface. */
+    background: transparent;
+}
+
+.dark:root[data-frost] {
+    /* Dark frost needs a stronger tint or text contrast collapses over bright
+       wallpapers. Unused today (light-only app) but future-proof. */
+    --sidebar: color-mix(in srgb, var(--md-sys-color-surface-container) 65%, transparent);
+}

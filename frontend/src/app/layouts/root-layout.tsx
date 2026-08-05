@@ -42,7 +42,7 @@ function RootLayout() {
     // doesn't flash a half-loaded app before we know where the user belongs.
     if (status === null) {
         return (
-            <div className="flex h-svh items-center justify-center bg-background">
+            <div className="flex h-svh items-center justify-center bg-background frost:bg-transparent">
                 <span
                     className="fade-in animate-in text-muted-foreground/70 text-sm duration-500"
                     style={{ animationFillMode: "backwards" }}
@@ -68,7 +68,7 @@ function RootLayout() {
                     <ResizablePanel id="main">
                         {/* The ScrollArea viewport (not <main>) is the real page scroller — see
                             [data-app-scroller] consumers in settings scroll-spy + pager scroll-to-top. */}
-                        <main className="h-full min-h-0">
+                        <main className="h-full min-h-0 bg-background">
                             <ScrollArea className="h-full" viewportProps={{ "data-app-scroller": "" }}>
                                 <Outlet />
                             </ScrollArea>

@@ -1,8 +1,11 @@
 import path from "node:path";
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, session, shell } from "electron";
 import { startCore, stopCore, type CoreHandle } from "./core-process";
+import { installMenu } from "./menu";
 import { captureOAuthCode } from "./oauth-window";
 import { initUpdater } from "./updater";
+import { chromeArgs, chromeOptions } from "./window-chrome";
+import { restoreWindowState, trackWindowState } from "./window-state";
 
 // One window, one core. A second launch focuses the existing window rather than
 // starting a second sidecar against the same user-data dir.
@@ -13,6 +16,8 @@ if (!gotInstanceLock) {
 
 let mainWindow: BrowserWindow | null = null;
 let core: CoreHandle | null = null;
+let coreError: string | null = null;
+let coreStarting: Promise<void> | null = null;
 
 const PRELOAD = path.join(__dirname, "preload.js");
 
@@ -25,54 +30,92 @@ function failurePage(detail: string): string {
     return `data:text/html;charset=utf-8,${encodeURIComponent(body)}`;
 }
 
-async function createMainWindow(): Promise<void> {
-    mainWindow = new BrowserWindow({
-        width: 1280,
-        height: 860,
+// ensureCore starts the sidecar once per app run; a failed start is retried on
+// the next call (macOS dock re-activate can heal a transient failure).
+function ensureCore(): Promise<void> {
+    if (core) return Promise.resolve();
+    coreStarting ??= startCore()
+        .then((handle) => {
+            core = handle;
+            coreError = null;
+        })
+        .catch((err) => {
+            coreError = String(err);
+        })
+        .finally(() => {
+            coreStarting = null;
+        });
+    return coreStarting;
+}
+
+// createMainWindow is re-entrant: on macOS the window is recreated on dock
+// activate against the already-running core. One-time wiring (core, updater,
+// IPC, menu) lives in app.whenReady below.
+function createMainWindow(): void {
+    const state = restoreWindowState();
+    const win = new BrowserWindow({
+        ...state.bounds,
         minWidth: 960,
         minHeight: 600,
-        backgroundColor: "#0b0b0c",
         show: false,
         title: "PixivBiu",
+        ...chromeOptions(),
         webPreferences: {
             preload: PRELOAD,
             contextIsolation: true,
             nodeIntegration: false,
             sandbox: true,
+            additionalArguments: chromeArgs(),
         },
     });
+    mainWindow = win;
+    trackWindowState(win);
+    if (state.isMaximized) win.maximize();
 
     // External links (target=_blank, "View on GitHub", etc.) open in the OS
     // browser; the window only ever hosts the loopback SPA.
-    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    win.webContents.setWindowOpenHandler(({ url }) => {
         if (url.startsWith("http://") || url.startsWith("https://")) {
             void shell.openExternal(url);
         }
         return { action: "deny" };
     });
 
-    mainWindow.once("ready-to-show", () => mainWindow?.show());
+    // Page-initiated navigation is locked to the core origin. loadURL from the
+    // main process (including the data: failure page) doesn't fire this event.
+    win.webContents.on("will-navigate", (e, url) => {
+        if (!core || !url.startsWith(core.baseUrl)) e.preventDefault();
+    });
 
-    try {
-        core = await startCore();
-    } catch (err) {
-        await mainWindow.loadURL(failurePage(String(err)));
-        mainWindow.show();
-        return;
-    }
+    win.once("ready-to-show", () => win.show());
+    win.on("closed", () => {
+        if (mainWindow === win) mainWindow = null;
+    });
 
-    initUpdater(() => mainWindow);
-    await mainWindow.loadURL(core.baseUrl);
+    void win.loadURL(core ? core.baseUrl : failurePage(coreError ?? "unknown error"));
 }
 
 if (gotInstanceLock) {
     app.on("second-instance", () => {
-        if (!mainWindow) return;
+        if (!mainWindow) {
+            createMainWindow();
+            return;
+        }
         if (mainWindow.isMinimized()) mainWindow.restore();
         mainWindow.focus();
     });
 
-    app.whenReady().then(() => {
+    app.whenReady().then(async () => {
+        installMenu();
+
+        // Renderer permission policy: deny everything except the clipboard
+        // access the SPA actually uses (login paste, copy buttons), scoped to
+        // the core origin.
+        session.defaultSession.setPermissionRequestHandler((_wc, permission, cb, details) => {
+            const allowed = permission === "clipboard-read" || permission === "clipboard-sanitized-write";
+            cb(allowed && !!core && details.requestingUrl.startsWith(core.baseUrl));
+        });
+
         // Automated Pixiv OAuth: validate the URL is the Pixiv host we expect,
         // then open the capture window and return the authorization code.
         ipcMain.handle("pixivbiu:oauth-capture", (_e, loginUrl: unknown) => {
@@ -82,16 +125,26 @@ if (gotInstanceLock) {
             return captureOAuthCode(loginUrl, mainWindow ?? undefined);
         });
 
-        void createMainWindow();
+        await ensureCore();
+        initUpdater(() => mainWindow);
+        createMainWindow();
 
         app.on("activate", () => {
-            if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
+            if (BrowserWindow.getAllWindows().length === 0) {
+                void ensureCore().then(createMainWindow);
+            }
         });
     });
 }
 
+// macOS: closing the window keeps the app (and the core sidecar) alive in the
+// dock — activate recreates the window against the same core, so downloads
+// keep running. Elsewhere the last window ends the app.
+app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") app.quit();
+});
+
 // The core is a child tied to this app — never leave it orphaned.
-app.on("window-all-closed", () => app.quit());
 app.on("before-quit", () => {
     if (core) {
         stopCore(core);

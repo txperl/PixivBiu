@@ -33,6 +33,11 @@ const pixivbiu = {
     platform: {
         os: process.platform,
         arch: process.arch,
+        // Shell-declared window chrome (see window-chrome.ts). Absent flags —
+        // e.g. an old shell hosting a newer frontend — mean framed + opaque,
+        // so the SPA draws no drag regions and keeps solid backgrounds.
+        frameless: process.argv.includes("--pixivbiu-frameless"),
+        frost: process.argv.includes("--pixivbiu-frost"),
     },
 };
 
