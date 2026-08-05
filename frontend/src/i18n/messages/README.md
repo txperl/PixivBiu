@@ -1,6 +1,7 @@
 # i18n message conventions
 
-Messages live in `en.json`, `zh-CN.json`, and `ja.json` (inlang message-format).
+Messages live in `en.json`, `zh-CN.json`, `zh-TW.json`, and `ja.json` (inlang
+message-format).
 `en` is the base locale. After editing any of them, regenerate the compiled
 output with:
 
@@ -26,8 +27,8 @@ cd frontend && bun run paraglide:compile
 
 ## Key-completeness
 
-- Every key MUST exist in all three files (`en`, `zh-CN`, `ja`) with the same
-  param shape. The `en` entry is authoritative for the param set.
+- Every key MUST exist in all four files (`en`, `zh-CN`, `zh-TW`, `ja`) with
+  the same param shape. The `en` entry is authoritative for the param set.
 
 ## React usage
 

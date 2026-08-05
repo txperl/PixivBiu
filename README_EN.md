@@ -36,7 +36,7 @@ Common environment variables:
 | `PIXIVBIU_SERVER_PORT`            | Listen port (default `4001`)                              |
 | `PIXIVBIU_LOG_LEVEL`              | Log level `debug` / `info` / `warn` / `error`             |
 | `PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT` | Ugoira output `webp` / `gif` / `none`                     |
-| `PIXIVBIU_APP_LANGUAGE`           | UI language `auto` / `en` / `zh-CN` / `ja`                |
+| `PIXIVBIU_APP_LANGUAGE`           | UI language `auto` / `en` / `zh-CN` / `zh-TW` / `ja`                |
 | `PIXIVBIU_PIXIV_PROXY`            | Proxy URL (`scheme://host`, empty = direct)               |
 
 For full configuration details, see [docs/CONFIGURATION.md](docs/CONFIGURATION.md).

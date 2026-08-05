@@ -26,7 +26,7 @@ services:
       PIXIVBIU_PIXIV_PROXY: ""              # e.g. http://host.docker.internal:7890
       # PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT: webp   # webp | gif | none
       # PIXIVBIU_LOG_LEVEL: info               # debug | info | warn | error
-      # PIXIVBIU_APP_LANGUAGE: auto            # auto | en | zh-CN | ja
+      # PIXIVBIU_APP_LANGUAGE: auto            # auto | en | zh-CN | zh-TW | ja
     # extra_hosts:
     #   - "host.docker.internal:host-gateway"  # Linux only — for the proxy above
     volumes:

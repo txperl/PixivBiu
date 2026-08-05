@@ -36,7 +36,7 @@ PixivBiu，一款不错的 Pixiv 辅助工具。
 | `PIXIVBIU_SERVER_PORT`            | 监听端口（默认 `4001`）                      |
 | `PIXIVBIU_LOG_LEVEL`              | 日志级别 `debug` / `info` / `warn` / `error` |
 | `PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT` | 动图输出 `webp` / `gif` / `none`             |
-| `PIXIVBIU_APP_LANGUAGE`           | 界面语言 `auto` / `en` / `zh-CN` / `ja`      |
+| `PIXIVBIU_APP_LANGUAGE`           | 界面语言 `auto` / `en` / `zh-CN` / `zh-TW` / `ja`      |
 | `PIXIVBIU_PIXIV_PROXY`            | 代理 URL（`scheme://host`，空 = 直连）       |
 
 具体的配置说明，可参见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md) 文档。

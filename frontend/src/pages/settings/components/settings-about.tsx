@@ -196,7 +196,7 @@ export function SettingsAbout({
                         {checkFailed
                             ? m.settings_about_check_failed()
                             : lastChecked
-                              ? m.settings_about_last_checked({ time: new Date(lastChecked).toLocaleString() })
+                              ? m.settings_about_last_checked({ time: new Date(lastChecked).toLocaleString(locale) })
                               : m.settings_about_never_checked()}
                     </div>
                 </div>

@@ -37,7 +37,7 @@ type Config struct {
 // GET /config, resolving `auto` against navigator.language. Backend
 // logs/banner are always in English.
 type AppConfig struct {
-	Language    string       `koanf:"language"     cfg:"enum=auto|en|zh-CN|ja"` // UI language (auto = follow browser)
+	Language    string       `koanf:"language"     cfg:"enum=auto|en|zh-CN|zh-TW|ja"` // UI language (auto = follow browser)
 	OpenBrowser bool         `koanf:"open_browser" cfg:"restart=true"`          // open the web UI in the default browser at startup
 	Update      UpdateConfig `koanf:"update"       cfg:"category=about"`        // update-check settings
 }

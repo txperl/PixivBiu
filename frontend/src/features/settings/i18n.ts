@@ -149,6 +149,8 @@ export function useFieldEnumLabel(): (field: FieldSpec, value: string) => string
                     return "English";
                 case "zh-CN":
                     return "简体中文";
+                case "zh-TW":
+                    return "繁體中文";
                 case "ja":
                     return "日本語";
             }

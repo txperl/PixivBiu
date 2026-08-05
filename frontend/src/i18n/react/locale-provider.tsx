@@ -8,7 +8,7 @@ interface LocaleContextValue {
     // locale is the concrete locale currently rendering the UI.
     locale: Locale;
     // applyLanguage re-resolves the UI locale from a raw `app.language`
-    // value (`auto`/`en`/`zh-CN`/`ja`).
+    // value (`auto`/`en`/`zh-CN`/`zh-TW`/`ja`).
     applyLanguage: (configured: string) => void;
     // applyLanguageFromView extracts `app.language` from a ConfigView and
     // applies it. Used by the Settings form after PATCH/RESET and by the
@@ -46,6 +46,16 @@ function resolveFromNavigator(): Locale {
     const langs = navigator.languages?.length ? navigator.languages : [navigator.language];
     for (const lang of langs) {
         const lower = (lang ?? "").toLowerCase();
+        // Traditional-script tags (region or explicit Hant script) must win
+        // before the generic zh prefix swallows them into Simplified.
+        if (
+            lower.startsWith("zh-tw") ||
+            lower.startsWith("zh-hant") ||
+            lower.startsWith("zh-hk") ||
+            lower.startsWith("zh-mo")
+        ) {
+            return "zh-TW";
+        }
         if (lower.startsWith("zh")) return "zh-CN";
         if (lower.startsWith("ja")) return "ja";
         if (lower.startsWith("en")) return "en";

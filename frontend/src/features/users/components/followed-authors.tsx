@@ -1,6 +1,4 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { formatDistanceToNow } from "date-fns";
-import { zhCN } from "date-fns/locale";
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
 import { Sheet, SheetBody, SheetEmpty, SheetHead } from "@/components/sheet";
@@ -11,10 +9,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { followingInfiniteQueryOptions, type Illust } from "@/features/illusts/api";
 import IllustPlaceholderArt from "@/features/search/components/illust-placeholder-art";
 import UserLink from "@/features/users/components/user-link";
-import { useMessages } from "@/i18n";
+import { useLocale, useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api/error-message";
 import type { components } from "@/lib/api/schema.gen";
-import { hueFromId } from "@/lib/format";
+import { formatRelativeTime, hueFromId } from "@/lib/format";
 import { FollowIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -32,12 +30,6 @@ function groupByAuthor(illusts: Illust[]): AuthorGroup[] {
         else groups.set(il.user.id, { user: il.user, illusts: [il] });
     }
     return Array.from(groups.values());
-}
-
-function formatRelative(dateStr: string): string {
-    const d = new Date(dateStr);
-    if (!Number.isFinite(d.getTime())) return "";
-    return formatDistanceToNow(d, { addSuffix: true, locale: zhCN });
 }
 
 type FollowedAuthorsProps = {
@@ -94,10 +86,11 @@ function FollowedAuthors({ onView }: FollowedAuthorsProps) {
 }
 
 function AuthorRow({ group, isFirst }: { group: AuthorGroup; isFirst: boolean }) {
+    const { locale } = useLocale();
     const { user, illusts } = group;
     const thumbs = illusts.slice(0, THUMB_LIMIT);
     const count = illusts.length;
-    const latestCreate = illusts[0]?.create_date;
+    const latestRelative = formatRelativeTime(illusts[0]?.create_date, locale);
 
     return (
         <UserLink
@@ -143,8 +136,8 @@ function AuthorRow({ group, isFirst }: { group: AuthorGroup; isFirst: boolean })
             </div>
             <div className="flex flex-col items-end gap-1">
                 <Badge className="font-mono">+{count}</Badge>
-                {latestCreate && (
-                    <span className="font-mono text-[10px] text-muted-foreground">{formatRelative(latestCreate)}</span>
+                {latestRelative && (
+                    <span className="font-mono text-[10px] text-muted-foreground">{latestRelative}</span>
                 )}
             </div>
         </UserLink>

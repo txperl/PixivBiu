@@ -36,7 +36,7 @@ PixivBiu、Pixiv のための便利な補助ツール。
 | `PIXIVBIU_SERVER_PORT`            | 待ち受けポート（既定 `4001`）                              |
 | `PIXIVBIU_LOG_LEVEL`              | ログレベル `debug` / `info` / `warn` / `error`             |
 | `PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT` | うごイラ出力 `webp` / `gif` / `none`                       |
-| `PIXIVBIU_APP_LANGUAGE`           | UI 言語 `auto` / `en` / `zh-CN` / `ja`                     |
+| `PIXIVBIU_APP_LANGUAGE`           | UI 言語 `auto` / `en` / `zh-CN` / `zh-TW` / `ja`                     |
 | `PIXIVBIU_PIXIV_PROXY`            | プロキシ URL（`scheme://host`、空 = 直結）                 |
 
 設定の詳細は [docs/CONFIGURATION.md](docs/CONFIGURATION.md) を参照してください。
