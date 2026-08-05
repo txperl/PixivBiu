@@ -15,17 +15,25 @@ import (
 	"os/exec"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 // isPortUnavailable reports whether a net.Listen error means the port is taken
 // and the caller should walk to the next one. Windows surfaces an unusable port
-// two ways: WSAEADDRINUSE (== syscall.EADDRINUSE) for a plain conflict, and
-// WSAEACCES when the port lands in an OS-excluded range (Hyper-V/WSL2/Docker
-// "winnat" reservations) or is held with SO_EXCLUSIVEADDRUSE. Treat both as
-// "try the next port" — otherwise a reserved configured port aborts boot
-// instead of falling back, which is exactly the Windows symptom we're fixing.
+// two ways: WSAEADDRINUSE (10048) for a plain conflict, and WSAEACCES (10013)
+// when the port lands in an OS-excluded range (Hyper-V/WSL2/Docker "winnat"
+// reservations) or is held with SO_EXCLUSIVEADDRUSE. Treat both as "try the
+// next port". The comparison must use x/sys/windows constants: on Windows the
+// stdlib's syscall.EADDRINUSE is an invented portable value (APPLICATION_ERROR
+// based, never returned by the OS) and Errno.Is does not bridge it to 10048 —
+// matching against it silently disabled the fallback walk for the ordinary
+// port-conflict case. It is kept only as a defensive term for library code
+// that returns the portable errno directly.
 func isPortUnavailable(err error) bool {
-	return errors.Is(err, syscall.EADDRINUSE) || errors.Is(err, syscall.WSAEACCES)
+	return errors.Is(err, windows.WSAEADDRINUSE) ||
+		errors.Is(err, windows.WSAEACCES) ||
+		errors.Is(err, syscall.EADDRINUSE)
 }
 
 var procGetConsoleProcessList = syscall.NewLazyDLL("kernel32.dll").NewProc("GetConsoleProcessList")

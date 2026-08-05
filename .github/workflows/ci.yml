@@ -18,8 +18,16 @@ permissions:
 
 jobs:
   backend:
-    name: Backend (Go)
-    runs-on: ubuntu-latest
+    name: Backend (Go, ${{ matrix.os }})
+    # Windows is in the matrix because the platform_windows.go shims carry real
+    # logic (port-busy classification, console pause, reexec) that a Linux-only
+    # run never compiles, let alone executes — a broken WSAEADDRINUSE check
+    # once shipped precisely because of that gap.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +36,10 @@ jobs:
           go-version-file: go.mod # single source of truth for the Go version
           # setup-go@v5 caches the build and module cache automatically.
 
+      # gofmt output is platform-independent; run it once on Linux (the step
+      # is a bash script anyway).
       - name: Check gofmt
+        if: matrix.os == 'ubuntu-latest'
         run: |
           unformatted=$(gofmt -l .)
           if [ -n "$unformatted" ]; then
@@ -49,12 +60,25 @@ jobs:
       - name: Build
         run: go build ./...
 
+      # Fast compile-only gate for platforms without a runner in the matrix:
+      # darwin shares platform_unix.go with linux but its release cross-build
+      # would otherwise only be exercised at tag time. windows/amd64 vet also
+      # gives PRs a red light in seconds without waiting on the Windows runner.
+      - name: Cross-compile check
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          GOOS=windows GOARCH=amd64 go vet ./...
+          GOOS=windows GOARCH=amd64 go build ./...
+          GOOS=darwin GOARCH=arm64 go build ./...
+
       # Reachability-aware vulnerability scan. Unlike Dependabot's
       # dependency-graph alerts, govulncheck does call-graph analysis and
       # only fails on vulnerabilities that are actually reachable from this
       # binary. The tool is version-pinned via the go.mod `tool` directive;
       # the vulnerability database is fetched from vuln.go.dev at run time.
+      # Findings are platform-independent, so once on Linux is enough.
       - name: Vulnerability scan (govulncheck)
+        if: matrix.os == 'ubuntu-latest'
         run: go tool govulncheck ./...
 
   frontend:

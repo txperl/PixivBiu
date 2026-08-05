@@ -8,15 +8,26 @@ import (
 	"os"
 	"syscall"
 	"testing"
+
+	"golang.org/x/sys/windows"
 )
 
-// TestIsPortUnavailable_Windows locks in the Windows-only classification that
-// the cross-platform integration tests can't exercise on non-Windows CI: a
-// WSAEACCES bind error (an OS-excluded/reserved port) must count as "port taken"
-// so listenWithFallback walks to the next port, while an unrelated error must
-// not. WSAEADDRINUSE (== syscall.EADDRINUSE) is already covered by
-// TestListenWithFallback_WalksPastBusyPort.
+// TestIsPortUnavailable_Windows locks in the Windows-only classification.
+// The WSAEADDRINUSE case reproduces the exact error chain net.Listen yields
+// for a busy port (OpError → SyscallError → Errno 10048) — the chain that a
+// syscall.EADDRINUSE comparison silently failed to match, disabling the
+// fallback walk. TestListenWithFallback_WalksPastBusyPort complements this
+// with a real double-listen once CI runs the suite on Windows.
 func TestIsPortUnavailable_Windows(t *testing.T) {
+	wsaeAddrInUse := &net.OpError{
+		Op:  "listen",
+		Net: "tcp",
+		Err: &os.SyscallError{Syscall: "bind", Err: windows.WSAEADDRINUSE},
+	}
+	if !isPortUnavailable(wsaeAddrInUse) {
+		t.Errorf("WSAEADDRINUSE bind error: want isPortUnavailable=true, got false")
+	}
+
 	wsaeAccess := &net.OpError{
 		Op:  "listen",
 		Net: "tcp",
