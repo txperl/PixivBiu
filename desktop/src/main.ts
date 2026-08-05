@@ -1,6 +1,8 @@
+import fs from "node:fs";
 import path from "node:path";
 import { app, BrowserWindow, ipcMain, session, shell } from "electron";
 import { startCore, stopCore, type CoreHandle } from "./core-process";
+import { CORE_BASE_URL, CORE_ORIGIN, installCoreProtocol, registerCoreScheme } from "./core-protocol";
 import { installMenu } from "./menu";
 import { captureOAuthCode } from "./oauth-window";
 import { initUpdater } from "./updater";
@@ -13,6 +15,8 @@ const gotInstanceLock = app.requestSingleInstanceLock();
 if (!gotInstanceLock) {
     app.quit();
 }
+
+registerCoreScheme();
 
 let mainWindow: BrowserWindow | null = null;
 let core: CoreHandle | null = null;
@@ -46,6 +50,23 @@ function ensureCore(): Promise<void> {
             coreStarting = null;
         });
     return coreStarting;
+}
+
+// Builds that predate the pixivbiu:// scheme loaded the SPA from a random
+// loopback port per launch, stranding web storage under dead
+// http://127.0.0.1:<port> origins. Clear those once; the stable core origin is
+// excluded and the login window uses its own persist: partition, so neither is
+// touched. If the marker write fails, re-running is harmless for the same
+// reason.
+function clearLegacyOriginStorage(): void {
+    const marker = path.join(app.getPath("userData"), "storage-cleaned");
+    if (fs.existsSync(marker)) return;
+    void session.defaultSession
+        .clearData({ excludeOrigins: [CORE_ORIGIN] })
+        .then(() => fs.promises.writeFile(marker, ""))
+        .catch(() => {
+            // Non-fatal: stale origins are only disk garbage; retried next launch.
+        });
 }
 
 // createMainWindow is re-entrant: on macOS the window is recreated on dock
@@ -84,7 +105,7 @@ function createMainWindow(): void {
     // Page-initiated navigation is locked to the core origin. loadURL from the
     // main process (including the data: failure page) doesn't fire this event.
     win.webContents.on("will-navigate", (e, url) => {
-        if (!core || !url.startsWith(core.baseUrl)) e.preventDefault();
+        if (!core || !url.startsWith(CORE_BASE_URL)) e.preventDefault();
     });
 
     win.once("ready-to-show", () => win.show());
@@ -92,7 +113,7 @@ function createMainWindow(): void {
         if (mainWindow === win) mainWindow = null;
     });
 
-    void win.loadURL(core ? core.baseUrl : failurePage(coreError ?? "unknown error"));
+    void win.loadURL(core ? CORE_BASE_URL : failurePage(coreError ?? "unknown error"));
 }
 
 if (gotInstanceLock) {
@@ -107,13 +128,15 @@ if (gotInstanceLock) {
 
     app.whenReady().then(async () => {
         installMenu();
+        installCoreProtocol(() => core?.port ?? null);
+        clearLegacyOriginStorage();
 
         // Renderer permission policy: deny everything except the clipboard
         // access the SPA actually uses (login paste, copy buttons), scoped to
         // the core origin.
         session.defaultSession.setPermissionRequestHandler((_wc, permission, cb, details) => {
             const allowed = permission === "clipboard-read" || permission === "clipboard-sanitized-write";
-            cb(allowed && !!core && details.requestingUrl.startsWith(core.baseUrl));
+            cb(allowed && !!core && details.requestingUrl.startsWith(CORE_BASE_URL));
         });
 
         // Automated Pixiv OAuth: validate the URL is the Pixiv host we expect,

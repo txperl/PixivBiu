@@ -6,15 +6,18 @@ import { app } from "electron";
 
 // The PixivBiu core is the existing single Go binary. The desktop shell runs it
 // as a child ("sidecar"): it serves the embedded SPA + REST API on a loopback
-// port, and the window simply loads that URL. Keeping the core untouched is the
-// whole point — every knob we set here is a pre-existing flag/env var. The core
-// never computes OS paths itself (it stays portable); the shell owns OS
-// placement and passes it in.
+// port, and the pixivbiu:// protocol handler (core-protocol.ts) proxies the
+// window to it. Keeping the core untouched is the whole point — every knob we
+// set here is a pre-existing flag/env var. The core never computes OS paths
+// itself (it stays portable); the shell owns OS placement and passes it in.
 
+// No loopback URL in the handle on purpose: the port changes every launch and
+// web storage is keyed by origin including the port, so the renderer must only
+// ever load CORE_BASE_URL — the protocol handler dereferences `port` per
+// request (a future respawn on a new port is picked up automatically).
 export type CoreHandle = {
     child: ChildProcess;
     port: number;
-    baseUrl: string;
 };
 
 // How long to wait for the core to bind + answer /health before giving up on
@@ -180,7 +183,7 @@ export async function startCore(): Promise<CoreHandle> {
 
         try {
             await waitForHealth(port, () => exited);
-            return { child, port, baseUrl: `http://127.0.0.1:${port}/` };
+            return { child, port };
         } catch (err) {
             lastErr = err;
             try {
