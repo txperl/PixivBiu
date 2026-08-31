@@ -11,8 +11,7 @@
 # Binaries are staged per-arch into <dest-dir>/<arch>/ (x64 / arm64), matching
 # electron-builder.yml's `extraResources: from: resources/${arch}/`, so each
 # per-arch desktop package embeds only its own core slice. On macOS this stages
-# BOTH slices (x64 + arm64) from the per-arch release archives — no lipo, no
-# reliance on the `darwin_all` universal asset.
+# BOTH slices (x64 + arm64) from the per-arch release archives — no lipo.
 set -euo pipefail
 
 ver="${1:?usage: stage-core.sh <core-version-tag> <dest-dir>}"

@@ -7,10 +7,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/rand"
-	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -23,7 +20,7 @@ import (
 // rejected as a conflict instead of racing two binary swaps on the same
 // executable.
 func TestApplyRejectsConcurrent(t *testing.T) {
-	s := NewService("3.0.0", "https://dl.invalid", nil, config.UpdateConfig{}, "")
+	s := NewService("3.0.0", testOwner, testRepo, nil, config.UpdateConfig{}, "")
 	s.applying.Store(true) // simulate an apply already running
 	err := s.Apply(context.Background())
 	var ue *Error
@@ -32,50 +29,162 @@ func TestApplyRejectsConcurrent(t *testing.T) {
 	}
 }
 
-// Apply must refuse to install an archive whose SHA-256 doesn't match the value
-// in the (verified) manifest — the download is authenticated by the signed
-// manifest, so a mismatch means corruption or tampering. This drives the full
-// path: fetch + verify manifest, resolve the asset, download it, compare hashes.
+// applyTag is the release every Apply fixture serves; current is pinned to
+// 3.0.0 so the release is always a strict upgrade.
+const applyTag = "v3.1.0"
+
+// newApplyService wires a Service to a fake GitHub API serving one v3.1.0
+// release carrying the platform archive and checksums.txt with the given
+// bodies. sig == nil omits the signature asset entirely (an unsigned release);
+// otherwise it is served as checksums.txt.minisig. keys select the trust mode,
+// as in newTestService.
+func newApplyService(t *testing.T, archive, sums, sig []byte, keys ...string) *Service {
+	t.Helper()
+	name := assetName(applyTag)
+	assets := map[string][]byte{
+		"/dl/" + name:               archive,
+		"/dl/" + checksumsAssetName: sums,
+	}
+	rel := ghRelease{TagName: applyTag, Assets: []ghAsset{
+		{Name: name, BrowserDownloadURL: "/dl/" + name},
+		{Name: checksumsAssetName, BrowserDownloadURL: "/dl/" + checksumsAssetName},
+	}}
+	if sig != nil {
+		assets["/dl/"+checksumsSigAssetName] = sig
+		rel.Assets = append(rel.Assets, ghAsset{
+			Name: checksumsSigAssetName, BrowserDownloadURL: "/dl/" + checksumsSigAssetName,
+		})
+	}
+	serveGitHub(t, []ghRelease{rel}, assets)
+	return NewService("3.0.0", testOwner, testRepo, keys, config.UpdateConfig{Enabled: true, Channel: "stable"}, "")
+}
+
+// wrongSums claims an all-zero SHA-256 for the platform archive — valid-length
+// hex that can never match real bytes.
+func wrongSums() []byte {
+	return []byte(strings.Repeat("0", 64) + "  " + assetName(applyTag) + "\n")
+}
+
+// Apply must refuse to install an archive whose SHA-256 doesn't match
+// checksums.txt — a mismatch means corruption or tampering. This drives the
+// full unsigned-mode path: list releases, resolve the asset, fetch checksums,
+// download the archive, compare hashes.
 func TestApplyChecksumMismatch(t *testing.T) {
-	pub, priv, err := minisign.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
-
-	name := assetName("v3.1.0")
-	const archivePath = "/dl/archive"
-
-	var data, sig []byte
-	mux := http.NewServeMux()
-	mux.HandleFunc("/manifest.json", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(data) })
-	mux.HandleFunc("/manifest.json.minisig", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(sig) })
-	mux.HandleFunc(archivePath, func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("not a real archive")) // sha256 won't match the manifest's claim
-	})
-	srv := httptest.NewServer(mux)
-	defer srv.Close()
-
-	data, err = json.Marshal(manifest{Schema: 1, Releases: []releaseEntry{{
-		Tag: "v3.1.0",
-		Assets: []asset{{
-			Name:   name,
-			URL:    srv.URL + archivePath,
-			SHA256: strings.Repeat("0", 64), // valid-length hex, deliberately wrong
-		}},
-	}}})
-	if err != nil {
-		t.Fatalf("marshal manifest: %v", err)
-	}
-	sig = minisign.Sign(priv, data)
-
-	s := NewService("3.0.0", srv.URL, []string{pub.String()}, config.UpdateConfig{Enabled: true, Channel: "stable"}, "")
-	err = s.Apply(context.Background())
+	s := newApplyService(t, []byte("not a real archive"), wrongSums(), nil)
+	err := s.Apply(context.Background())
 	var ue *Error
 	if !errors.As(err, &ue) || ue.Kind != KindRefused {
 		t.Fatalf("Apply with a checksum mismatch = %v, want a KindRefused *Error", err)
 	}
 	if !strings.Contains(strings.ToLower(ue.Message), "checksum mismatch") {
 		t.Errorf("message = %q, want it to mention a checksum mismatch", ue.Message)
+	}
+}
+
+// checksums.txt without an entry for the platform archive is a refusal: there
+// is nothing to verify the download against.
+func TestApplyChecksumsMissingEntry(t *testing.T) {
+	sums := []byte(strings.Repeat("0", 64) + "  some-other-file.tar.gz\n")
+	s := newApplyService(t, []byte("irrelevant"), sums, nil)
+	err := s.Apply(context.Background())
+	var ue *Error
+	if !errors.As(err, &ue) || ue.Kind != KindRefused {
+		t.Fatalf("Apply with no checksum entry = %v, want a KindRefused *Error", err)
+	}
+	if !strings.Contains(ue.Message, "no entry") {
+		t.Errorf("message = %q, want it to mention the missing entry", ue.Message)
+	}
+}
+
+// On a signature-enforcing build, a validly-signed checksums.txt is accepted
+// and Apply proceeds to the download — proven by failing later on the checksum
+// mismatch, past the signature gate.
+func TestApplySignedChecksumsVerify(t *testing.T) {
+	pub, priv, err := minisign.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	sums := wrongSums()
+	s := newApplyService(t, []byte("not a real archive"), sums, minisign.Sign(priv, sums), pub.String())
+	aerr := s.Apply(context.Background())
+	var ue *Error
+	if !errors.As(aerr, &ue) || ue.Kind != KindRefused {
+		t.Fatalf("Apply = %v, want a KindRefused *Error", aerr)
+	}
+	if !strings.Contains(strings.ToLower(ue.Message), "checksum mismatch") {
+		t.Errorf("message = %q, want the checksum mismatch (i.e. the signature verified)", ue.Message)
+	}
+}
+
+// A signature-enforcing build must refuse a release that carries no checksums
+// signature at all — this is the official-build guarantee.
+func TestApplyRefusesUnsignedRelease(t *testing.T) {
+	pub, _, err := minisign.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	s := newApplyService(t, []byte("irrelevant"), wrongSums(), nil, pub.String())
+	aerr := s.Apply(context.Background())
+	var ue *Error
+	if !errors.As(aerr, &ue) || ue.Kind != KindRefused {
+		t.Fatalf("Apply of an unsigned release = %v, want a KindRefused *Error", aerr)
+	}
+	if !strings.Contains(ue.Message, "unsigned") {
+		t.Errorf("message = %q, want it to mention the release is unsigned", ue.Message)
+	}
+}
+
+// A checksums signature by an untrusted key must be refused — tampering with
+// the checksums (even with a well-formed signature) cannot push an update.
+func TestApplyRejectsInvalidSignature(t *testing.T) {
+	trustedPub, _, err := minisign.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate trusted key: %v", err)
+	}
+	_, signingPriv, err := minisign.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate signing key: %v", err)
+	}
+	sums := wrongSums()
+	s := newApplyService(t, []byte("irrelevant"), sums, minisign.Sign(signingPriv, sums), trustedPub.String())
+	aerr := s.Apply(context.Background())
+	var ue *Error
+	if !errors.As(aerr, &ue) || ue.Kind != KindRefused {
+		t.Fatalf("Apply with a bad signature = %v, want a KindRefused *Error", aerr)
+	}
+	if !strings.Contains(ue.Message, "signature is invalid") {
+		t.Errorf("message = %q, want it to mention the invalid signature", ue.Message)
+	}
+}
+
+// A stamped-but-malformed trusted key still fails closed: the build is
+// signature-enforcing (requireSig comes from the raw stamped strings) but no
+// key parsed, so nothing can ever verify — a typo must never silently demote an
+// official build to unsigned mode.
+func TestApplyMalformedTrustedKeyFailsClosed(t *testing.T) {
+	_, priv, err := minisign.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	sums := wrongSums()
+	s := newApplyService(t, []byte("irrelevant"), sums, minisign.Sign(priv, sums), "not-a-valid-minisign-key")
+	aerr := s.Apply(context.Background())
+	var ue *Error
+	if !errors.As(aerr, &ue) || ue.Kind != KindRefused {
+		t.Fatalf("Apply with a malformed trusted key = %v, want a KindRefused *Error", aerr)
+	}
+	if !strings.Contains(ue.Message, "no usable update signing key") {
+		t.Errorf("message = %q, want the fail-closed no-usable-key refusal", ue.Message)
+	}
+}
+
+func TestParseChecksum(t *testing.T) {
+	sums := []byte("aaaa  first.tar.gz\nBBBB  second.zip\nmalformed line\n")
+	if got, err := parseChecksum(sums, "second.zip"); err != nil || got != "bbbb" {
+		t.Errorf("parseChecksum = (%q, %v), want (bbbb, nil) — lowercased hex", got, err)
+	}
+	if _, err := parseChecksum(sums, "missing.tar.gz"); err == nil {
+		t.Error("parseChecksum for an absent entry = nil error; want a refusal")
 	}
 }
 

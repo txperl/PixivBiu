@@ -98,23 +98,34 @@ func (s *Service) loop(ctx context.Context, logger *slog.Logger) {
 }
 
 // releaseInfo is the resolved "newest applicable release" shared by Check and
-// Apply. Assets are indexed by name for archive lookup.
+// Apply. Assets are indexed by name for asset/checksums lookup.
 type releaseInfo struct {
 	tag         string
 	version     string // normalized semver with leading "v"
 	notes       string
 	htmlURL     string
 	publishedAt time.Time
-	assets      map[string]asset
+	assets      map[string]ghAsset
 }
 
-// hasBinaryForThisPlatform reports whether the release carries the archive built
-// for the running OS/arch (its SHA-256 travels inline in the signed manifest, so
-// no separate checksums file is needed). Check gates UpdateAvailable on this so
-// it never advertises an update Apply would immediately refuse.
-func (ri *releaseInfo) hasBinaryForThisPlatform() bool {
-	_, ok := ri.assets[assetName(ri.version)]
-	return ok
+// installable reports whether the release carries everything Apply needs for
+// the running OS/arch: the archive built for this platform, the checksums.txt
+// used to verify it, and — on signature-enforcing builds — the detached
+// minisign signature of that checksums file. Check gates UpdateAvailable on
+// this so it never advertises an update Apply would immediately refuse.
+func (ri *releaseInfo) installable(requireSig bool) bool {
+	if _, ok := ri.assets[assetName(ri.version)]; !ok {
+		return false
+	}
+	if _, ok := ri.assets[checksumsAssetName]; !ok {
+		return false
+	}
+	if requireSig {
+		if _, ok := ri.assets[checksumsSigAssetName]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // Check fetches the newest applicable release, recomputes the cached Status,
@@ -144,10 +155,11 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 	// An update is offered only when it is strictly newer, a real release build
 	// (not a dev/`go run`/local build, which is meaningless to swap), and
 	// actually installable on this platform — the release must carry the archive
-	// for this OS/arch (its SHA-256 is inline in the signed manifest). Otherwise
-	// Apply would refuse it, leaving the user a badge/button that can never
-	// succeed. The latest version is still recorded above for display regardless.
-	applicable := ri.hasBinaryForThisPlatform()
+	// for this OS/arch plus the (signed, on official builds) checksums.txt that
+	// verifies it. Otherwise Apply would refuse it, leaving the user a
+	// badge/button that can never succeed. The latest version is still recorded
+	// above for display regardless.
+	applicable := ri.installable(s.requireSig)
 	s.status.AssetName = ""
 	if applicable {
 		s.status.AssetName = assetName(ri.version)
@@ -166,7 +178,7 @@ func (s *Service) Check(ctx context.Context) (Status, error) {
 // unknown prerelease suffixes (releaseRank -1). An unknown channel falls back to
 // the stable floor.
 func (s *Service) resolveLatest(ctx context.Context) (*releaseInfo, error) {
-	releases, err := s.fetchManifest(ctx)
+	releases, err := s.fetchReleases(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +187,7 @@ func (s *Service) resolveLatest(ctx context.Context) (*releaseInfo, error) {
 	if !ok {
 		floor = channelFloor["stable"]
 	}
-	var best *releaseEntry
+	var best *ghRelease
 	var bestVer string
 	for i := range releases {
 		r := &releases[i]
@@ -192,12 +204,12 @@ func (s *Service) resolveLatest(ctx context.Context) (*releaseInfo, error) {
 		return nil, refusedf("no applicable release found")
 	}
 
-	assets := make(map[string]asset, len(best.Assets))
+	assets := make(map[string]ghAsset, len(best.Assets))
 	for _, a := range best.Assets {
 		assets[a.Name] = a
 	}
 	return &releaseInfo{
-		tag:         normalizeVersion(best.Tag),
+		tag:         normalizeVersion(best.TagName),
 		version:     bestVer,
 		notes:       aggregateNotes(releases, floor, s.current),
 		htmlURL:     best.HTMLURL,
@@ -206,14 +218,16 @@ func (s *Service) resolveLatest(ctx context.Context) (*releaseInfo, error) {
 	}, nil
 }
 
-// applicableVersion reports whether r is a release this channel can offer — a
-// valid semver tag at or above the channel's maturity floor — and returns its
-// normalized version so callers reuse it without re-parsing. Shared by
+// applicableVersion reports whether r is a release this channel can offer — not a
+// draft, a valid semver tag, and at or above the channel's maturity floor — and
+// returns its normalized version so callers reuse it without re-parsing. Shared by
 // resolveLatest (which picks the single newest) and aggregateNotes (which collects
-// the whole in-range set) so the predicate can't drift between them. The feed is
-// built from published releases only, so there is no draft state to filter here.
-func applicableVersion(r *releaseEntry, floor int) (string, bool) {
-	v := normalizeVersion(r.Tag)
+// the whole in-range set) so the predicate can't drift between them.
+func applicableVersion(r *ghRelease, floor int) (string, bool) {
+	if r.Draft {
+		return "", false
+	}
+	v := normalizeVersion(r.TagName)
 	if !semver.IsValid(v) || releaseRank(v) < floor {
 		return "", false
 	}
@@ -266,10 +280,10 @@ func sanitizeReleaseBody(body string) string {
 // When current is not valid semver (a dev build, where updates are never offered
 // anyway) the lower bound is meaningless, so only the newest applicable release
 // is kept.
-func aggregateNotes(releases []releaseEntry, floor int, current string) string {
+func aggregateNotes(releases []ghRelease, floor int, current string) string {
 	cur := normalizeVersion(current)
 
-	var inRange []*releaseEntry
+	var inRange []*ghRelease
 	for i := range releases {
 		r := &releases[i]
 		v, ok := applicableVersion(r, floor)
@@ -285,13 +299,13 @@ func aggregateNotes(releases []releaseEntry, floor int, current string) string {
 		return ""
 	}
 	sort.Slice(inRange, func(i, j int) bool {
-		return semver.Compare(normalizeVersion(inRange[i].Tag), normalizeVersion(inRange[j].Tag)) > 0
+		return semver.Compare(normalizeVersion(inRange[i].TagName), normalizeVersion(inRange[j].TagName)) > 0
 	})
 
 	// Nothing to stitch — one release, or a dev build with no usable lower bound:
 	// just the newest body, sanitized, with no per-version heading.
 	if len(inRange) == 1 || !semver.IsValid(cur) {
-		return sanitizeReleaseBody(inRange[0].Notes)
+		return sanitizeReleaseBody(inRange[0].Body)
 	}
 
 	var b strings.Builder
@@ -303,9 +317,9 @@ func aggregateNotes(releases []releaseEntry, floor int, current string) string {
 		// configured in .goreleaser.yaml); the frontend maps h2 -> version heading,
 		// h3 -> group heading. Keep these three in sync.
 		b.WriteString("## ")
-		b.WriteString(normalizeVersion(r.Tag))
+		b.WriteString(normalizeVersion(r.TagName))
 		b.WriteString("\n\n")
-		b.WriteString(sanitizeReleaseBody(r.Notes))
+		b.WriteString(sanitizeReleaseBody(r.Body))
 	}
 	return b.String()
 }

@@ -11,8 +11,9 @@ What the shell adds:
   `…/auth/pixiv/callback?code=…` redirect automatically (captcha / 2FA render
   natively). The captured code goes straight into the existing
   `POST /auth/oauth/exchange`. See `src/oauth-window.ts`.
-- **Whole-app updates** via `electron-updater`, off the desktop app's own
-  Cloudflare R2 feed (`generic` provider) — the core's own self-updater is
+- **Whole-app updates** via `electron-updater`, off the dedicated
+  [PixivBiu-Desktop](https://github.com/txperl/PixivBiu-Desktop) GitHub
+  Releases repo (`github` provider) — the core's own self-updater is
   disabled in desktop builds. See `src/updater.ts` and [../docs/RELEASE.md](../docs/RELEASE.md#desktop-release-train).
 
 ## Layout

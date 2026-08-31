@@ -18,8 +18,8 @@ update:
     operationId: getUpdateStatus
     summary: Get the cached update-check result
     description: |
-      Returns the result of the most recent update check without contacting the
-      release feed. `is_dev` is true for local/dev builds, where updates are never
+      Returns the result of the most recent update check without contacting
+      GitHub. `is_dev` is true for local/dev builds, where updates are never
       offered. Use `POST /system/update/check` to force a fresh check.
     tags: [system]
     responses:
@@ -32,14 +32,13 @@ update:
 updateCheck:
   post:
     operationId: checkForUpdate
-    summary: Force an immediate update check against the release feed
+    summary: Force an immediate update check against GitHub Releases
     description: |
-      Fetches the signed release feed (manifest.json) now, recomputes the status,
-      and returns it. Honors the `app.update.channel` setting (stable / beta / alpha).
+      Fetches the project's GitHub Releases now, recomputes the status, and
+      returns it. Honors the `app.update.channel` setting (stable / beta / alpha).
 
       Refused with 400 when no release applies to the current channel/platform
-      (e.g. no semver release yet) or the feed fails signature verification; the
-      feed being unreachable is a 502.
+      (e.g. no semver release yet); GitHub being unreachable is a 502.
     tags: [system]
     responses:
       '200':
@@ -57,7 +56,8 @@ updateApply:
     summary: Download, verify, and apply the latest update, then restart
     description: |
       Downloads the release archive built for this OS/arch, verifies its
-      SHA-256 against the signed manifest, swaps the running binary in
+      SHA-256 against the release's checksums.txt (whose minisign signature is
+      verified first on official builds), swaps the running binary in
       place, and triggers a graceful self-restart. The 202 is flushed before
       the restart begins, so the client should expect the connection (and any
       SSE streams) to drop shortly after — the same flow as `POST /config/restart`.

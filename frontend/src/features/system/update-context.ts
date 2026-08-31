@@ -17,7 +17,7 @@ export interface UpdateContextValue {
     // Convenience: status?.update_available ?? false. Drives the sidebar dot.
     updateAvailable: boolean;
 
-    // Forces a fresh update-feed check and adopts the result. Returns an error to
+    // Forces a fresh update check and adopts the result. Returns an error to
     // surface inline, or null on success.
     checkNow: () => Promise<UpdateApiError | null>;
     // Applies the update; on success the page reloads once the new binary is

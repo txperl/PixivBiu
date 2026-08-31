@@ -650,7 +650,8 @@ export interface paths {
         /**
          * Download, verify, and apply the latest update, then restart
          * @description Downloads the release archive built for this OS/arch, verifies its
-         *     SHA-256 against the release's checksums.txt, swaps the running binary in
+         *     SHA-256 against the release's checksums.txt (whose minisign signature is
+         *     verified first on official builds), swaps the running binary in
          *     place, and triggers a graceful self-restart. The 202 is flushed before
          *     the restart begins, so the client should expect the connection (and any
          *     SSE streams) to drop shortly after — the same flow as `POST /config/restart`.
@@ -677,12 +678,12 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Force an immediate update check against GitHub
-         * @description Contacts the GitHub Releases API now, recomputes the status, and returns
-         *     it. Honors the `app.update.channel` setting (stable / beta / alpha).
+         * Force an immediate update check against GitHub Releases
+         * @description Fetches the project's GitHub Releases now, recomputes the status, and
+         *     returns it. Honors the `app.update.channel` setting (stable / beta / alpha).
          *
          *     Refused with 400 when no release applies to the current channel/platform
-         *     (e.g. the repo has no semver release yet); GitHub being unreachable is a 502.
+         *     (e.g. no semver release yet); GitHub being unreachable is a 502.
          */
         post: operations["CheckForUpdate"];
         delete?: never;

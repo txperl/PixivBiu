@@ -4,7 +4,7 @@ How to cut a PixivBiu release and how update channels work.
 
 A release is a single self-contained binary (frontend embedded). You publish one by pushing a strict-semver `v*` git tag — everything else is automated.
 
-There are **two independent release trains**: the **core** train (`v*`, this document's main subject — the CLI/server binary, Docker image, and in-app self-updater feed) and the **desktop** train (`desktop-v*`, the Electron app), which ships on its own cadence and bundles a *pinned* core. See [Desktop release train](#desktop-release-train) at the end. Frontend changes ride the **core** train — the SPA is `go:embed`-ed into the core binary and never shipped on its own.
+There are **two independent release trains**: the **core** train (`v*`, this document's main subject — the CLI/server binary, Docker image, and in-app self-updater) and the **desktop** train (`desktop-v*`, the Electron app), which ships on its own cadence, bundles a *pinned* core, and publishes into a dedicated releases repo. See [Desktop release train](#desktop-release-train) at the end. Frontend changes ride the **core** train — the SPA is `go:embed`-ed into the core binary and never shipped on its own.
 
 ## How a release happens
 
@@ -15,98 +15,81 @@ git tag v3.0.0
 git push origin v3.0.0
 ```
 
-GoReleaser builds the frontend (`make build-web`), cross-compiles linux/macOS/windows × amd64/arm64 (`CGO_ENABLED=0`, SPA baked in), and publishes a GitHub Release with the archives, `checksums.txt` (SHA-256), and a grouped changelog. The version is injected at link time via `-ldflags -X main.version={{ .Version }}` (GoReleaser strips the leading `v`, so the binary reports `3.0.0`).
+GoReleaser builds the frontend (`make build-web`), cross-compiles linux/macOS/windows × amd64/arm64 (`CGO_ENABLED=0`, SPA baked in), and publishes a GitHub Release with the archives, `checksums.txt` (SHA-256), its detached minisign signature `checksums.txt.minisig`, and a grouped changelog. The version is injected at link time via `-ldflags -X main.version={{ .Version }}` (GoReleaser strips the leading `v`, so the binary reports `3.0.0`).
 
-A following workflow step then **dual-publishes to Cloudflare R2** — the source the in-app updater actually reads (see [Distribution & signing](#distribution--signing) below). The GitHub Release stays as the human-readable notes page and a download mirror; the R2 feed is what `POST /system/update/check` and `…/apply` consume. This needs [one-time setup](#one-time-setup) (R2 bucket, signing key, secrets) — **until that's done the updater fails closed** (no update offered), which is the safe default.
+That GitHub Release **is** the update source: `POST /system/update/check` lists releases via the GitHub API and `…/apply` downloads the platform archive from the release's assets. Signing needs [one-time setup](#one-time-setup) (minisign key + secrets) — until that's done, pushing a tag fails the workflow up front rather than publishing an unsigned release.
 
 ## Distribution & signing
 
-The in-app updater does **not** call the GitHub API. It fetches a static, signed feed from the Cloudflare R2 bucket (behind a CDN custom domain):
+Everything ships as assets on the GitHub Release — there is no separate CDN or feed:
 
 ```
-<feed>/manifest.json            # the feed: recent releases, each with notes + per-platform archives (name, url, size, sha256)
-<feed>/manifest.json.minisig    # detached minisign (Ed25519) signature of manifest.json
-<feed>/releases/<tag>/PixivBiu_<ver>_<os>_<arch>.{tar.gz,zip}
+PixivBiu_<ver>_<os>_<arch>.{tar.gz,zip}   # per-platform archives (what Apply downloads)
+checksums.txt                              # SHA-256 of every archive (GoReleaser)
+checksums.txt.minisig                      # detached minisign (Ed25519) signature of checksums.txt
 ```
 
-Only the archives and the signed manifest live on the CDN — the per-release `checksums.txt` is **not** uploaded there (the GitHub Release still carries it). Each archive's SHA-256 travels inside the signed manifest, so an unsigned `checksums.txt` on the CDN would add nothing but a misleadingly authoritative-looking artifact.
+**Trust model.** Official builds carry the trusted minisign public key(s) **compiled into the binary** (stamped from `UPDATE_PUBLIC_KEYS`, §2). Before installing anything, the updater downloads the release's `checksums.txt` + `checksums.txt.minisig`, verifies the signature, and only then checks the archive's SHA-256 against the verified file — one signature transitively authenticates every download. The signing **secret key lives only in CI** (`MINISIGN_SECRET_KEY`), so a tampered release is rejected even if the GitHub account were compromised. A release without a valid signature is **refused** (`bad_request`/400) — such a release isn't even offered by the check.
 
-**Trust model.** The client verifies the manifest's minisign signature against a public key **compiled into the binary** before trusting any field; the manifest carries each archive's SHA-256 inline, so a verified manifest transitively authenticates every download (there is no separate `checksums.txt` fetch). The signing **secret key lives only in CI** — so even if the R2 write credentials leak, a tampered manifest or binary is rejected. The release workflow reinforces this by **verifying the existing feed's signature before extending it** (against the trusted `UPDATE_PUBLIC_KEYS`): a tampered `manifest.json` on R2 is discarded and rebuilt fresh, never re-signed with the CI key. This is strictly stronger than the old "HTTPS to GitHub + checksums" model. If the signature doesn't verify, the check is **refused** (`bad_request`/400), not silently trusted.
+Builds **without** stamped keys (a fresh checkout, `make build`, an unconfigured fork) degrade gracefully instead of failing closed: they verify downloads by HTTPS-to-GitHub + `checksums.txt` alone, exactly the pre-signing model — so a fork's self-updater works with zero key setup. A stamped-but-malformed key does **not** degrade; it fails closed (a typo must never silently turn an official build unsigned).
 
-**Caching.** Archives live under an immutable, version-pinned path and are cached forever; `manifest.json` (+ `.minisig`) get a short TTL and are **explicitly cache-purged** on every release, so a new version reaches users within seconds.
-
-**Yanking a bad release.** Because the archives are content-addressed by tag and the manifest just lists recent releases, pulling a release is: edit `manifest.json` to drop (or replace) that entry, re-sign, re-upload, purge. The older archives stay in place, so the feed can safely point back at a previous version.
+**Yanking a bad release.** Delete the GitHub Release (or mark it a pre-release to hide it from the stable channel). The updater lists recent releases live, so the change is effective on the next check; clients then converge on the newest remaining applicable release.
 
 ## One-time setup
 
-Do these once; afterwards a release is just `git push`. Until they're done, the trust anchor is unset (the source ships it empty and no repo variable fills it) and the updater **fails closed** — no trusted key → no update is ever offered, the safe default.
+Do these once; afterwards a release is just `git push`. The release workflow refuses to publish until the signing pieces exist, so there's no window where an official tag ships unsigned.
 
-### 1 · Cloudflare R2
-
-- **Create a bucket** (e.g. `pixivbiu-dl`) — its name is `R2_BUCKET`.
-- **Bind a custom domain** (e.g. `dl.pixivbiu.example`) under bucket → Settings → Custom Domains — this is the public CDN base.
-- **Create an R2 API token** (**Object Read & Write**) → `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and the S3 endpoint `https://<account-id>.r2.cloudflarestorage.com` → `R2_ENDPOINT`.
-
-Two URLs, don't mix them up: `R2_ENDPOINT` (`*.r2.cloudflarestorage.com`) is the authenticated **S3 API the workflow uploads to**; the custom domain (`dl.…`) is the public **CDN users download from** — it is the `UPDATE_FEED_BASE` variable below, which is also stamped into the binary as `updateFeedURL` (§3). The endpoint does not include the bucket name; the workflow appends it.
-
-**Cache rule** (optional belt-and-suspenders, so a stale manifest can't mask a new release): zone → Caching → Cache Rules → Create rule. Match `(http.host eq "dl.…" and starts_with(http.request.uri.path, "/manifest.json"))`, action **Edge TTL → Override origin → 5 minutes**. The one `starts_with` covers both `/manifest.json` and `/manifest.json.minisig` in a single flat condition the visual builder accepts — a nested `… or …` is valid Wirefilter but the builder rejects it (use "Edit expression" text mode if you prefer the explicit form). The workflow already sets a short `Cache-Control` on both files (and tags the immutable `releases/<tag>/*` archives long-cache), so this rule only matters if you want the edge TTL pinned independently of the origin header.
-
-**Cache purge** (optional — `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ZONE_ID`): lets the workflow drop the cached manifest right after upload, so a new release is visible instantly instead of after the ≤5-min TTL. Harmless to skip for a background updater — the step just prints "skipped". Not redundant with the cache rule: the rule bounds staleness to 5 min, the purge removes even that window. To enable: `CLOUDFLARE_ZONE_ID` = zone → Overview → **Zone ID**; `CLOUDFLARE_API_TOKEN` = My Profile → API Tokens → a custom token with `Zone → Cache Purge`, scoped to your zone (copy it once at creation).
-
-### 2 · Signing key (minisign)
+### 1 · Signing key (minisign)
 
 ```bash
 minisign -G -W -p minisign.pub -s minisign.key   # -W = unencrypted key, so CI signs non-interactively
 ```
 
-The public key is the base64 line in `minisign.pub`; the private key (`minisign.key`) is a CI secret only — never upload it to R2 or commit it. One keypair covers all versions — **back it up**, or installed clients can't verify future updates (see [key rotation](#key-rotation) for why losing it is painful).
+The public key is the base64 line in `minisign.pub`; the private key (`minisign.key`) is a CI secret only — never commit it. One keypair covers all versions — **back it up**, or installed clients can't verify future updates (see [key rotation](#key-rotation) for why losing it is painful).
 
-### 3 · Trust anchor (stamped at build time — no source edit)
+### 2 · Trust anchor (stamped at build time — no source edit)
 
-The feed URL and the trusted public key are the **trust anchor** — together they decide what code the updater installs on every user's machine — so they're compiled into the binary and can't be overridden at runtime. But they are **not** hardcoded in source: the release build stamps them in via `-ldflags` (exactly like `main.version`), sourced from two repo variables (§4):
+The trusted public key set is the **trust anchor** — it decides what code the updater installs on every user's machine — so it's compiled into the binary and can't be overridden at runtime. But it is **not** hardcoded in source: the release build stamps it in via `-ldflags` (exactly like `main.version`), sourced from one repo variable (§3):
 
-- `UPDATE_FEED_BASE` → `main.updateFeedURL` (the custom domain from §1, e.g. `https://dl.pixivbiu.example`).
 - `UPDATE_PUBLIC_KEYS` → `main.updateTrustedKeysRaw` (the `minisign.pub` base64 line; comma-separate multiple keys to stage a [rotation](#key-rotation)).
 
-`cmd/server/main.go` ships these empty, so a fresh checkout — or any build without the variables set — **fails closed** (no trusted key → no update ever offered, the safe default). Set the variables once and every release stamps the anchor automatically. This is why publishing your own builds (a [fork](#forking--self-publishing)) needs no code change, and why the old "`updateFeedURL` must equal `UPDATE_FEED_BASE`" hand-sync is gone: the binary and the workflow read the same value.
+`cmd/server/main.go` ships this empty. An **unstamped** build (fresh checkout, plain `make build`, an unconfigured fork) is not signature-enforcing — its updater verifies by HTTPS + `checksums.txt` alone, so it keeps working with zero setup. Any **stamped** value makes the build refuse unsigned releases, and a stamped-but-malformed key fails closed. Set the variable once and every release stamps the anchor automatically.
 
-### 4 · GitHub secrets & variables
+The update **source** is the `repoOwner` / `repoName` consts in `cmd/server/main.go` (default `txperl/PixivBiu`) — a fork that wants its own binaries to self-update from its own repo edits those two consts (the one source-level knob besides the rebrand note below).
+
+### 3 · GitHub secrets & variables
 
 Settings → Secrets and variables → Actions:
 
-| Kind                | Name                                          | Value                                                          |
-| ------------------- | --------------------------------------------- | ------------------------------------------------------------- |
-| secret              | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`   | R2 API token — §1                                             |
-| secret              | `R2_ENDPOINT`                                 | `https://<account-id>.r2.cloudflarestorage.com` — §1          |
-| secret              | `R2_BUCKET`                                    | bucket name — §1                                              |
-| secret              | `MINISIGN_SECRET_KEY`                          | the unencrypted `minisign.key` file contents — §2            |
-| variable            | `UPDATE_FEED_BASE`                            | public CDN base — §1; stamped into the binary as `updateFeedURL` |
-| variable            | `UPDATE_PUBLIC_KEYS`                          | trusted `minisign.pub` key(s), comma-separated — §2; public, stamped into the binary and used to verify the feed |
-| secret _(optional)_ | `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ZONE_ID`  | manifest cache purge — §1                                     |
+| Kind     | Name                  | Value                                                                                          |
+| -------- | --------------------- | ---------------------------------------------------------------------------------------------- |
+| secret   | `MINISIGN_SECRET_KEY` | the unencrypted `minisign.key` file contents — §1                                              |
+| variable | `UPDATE_PUBLIC_KEYS`  | trusted `minisign.pub` key(s), comma-separated — §1; public, stamped into the binary as the trust anchor |
+
+The workflow validates both before GoReleaser publishes anything: key shape, plus a sign/verify probe proving the secret pairs with a trusted key — a mismatch fails the run before a release exists, and the real `checksums.txt.minisig` is re-verified after publishing.
 
 **Repository vs Environment secrets:** plain repository secrets work as-is. For tighter scoping, put them in an **Environment** named `release` restricted to tag `v*` (Settings → Environments) and add `environment: release` to the workflow's job — then the signing key is only reachable from a real release run, with an optional manual-approval gate.
 
 ### Forking / self-publishing
 
-Publishing your own updates from a fork takes **no code change** — everything above is driven by repo variables and secrets:
+A fork gets a working release pipeline almost for free:
 
-- Do §1 (your own R2 bucket + custom domain) and §2 (your own `minisign` keypair).
-- Set the variables and secrets in §4 for your repo: `UPDATE_FEED_BASE` (your domain), `UPDATE_PUBLIC_KEYS` (your `minisign.pub`), the R2 secrets, and `MINISIGN_SECRET_KEY`. The release build stamps your feed URL and key into the binary; the workflow signs against them. Multiple keys go in `UPDATE_PUBLIC_KEYS` comma-separated (incidental spaces are normalized away before stamping).
-- GoReleaser infers the GitHub Release target from your fork's git remote (`.goreleaser.yaml` no longer pins `owner`/`name`), so the release lands in your repo automatically.
-- **Docker images** (`docker.yml`) get the same anchor: they read the same `UPDATE_FEED_BASE` / `UPDATE_PUBLIC_KEYS` repo variables as build args, so container builds surface the "update available" banner too (applying an update is a no-op in an immutable image — you pull a new tag). No extra setup beyond the variables above.
+- **No key setup at all:** just push a tag. GoReleaser infers the GitHub Release target from your fork's git remote (`.goreleaser.yaml` doesn't pin `owner`/`name`) — but the anchor validation will fail the workflow; either provision keys (next bullet) or drop the anchor/sign steps from your fork's `release.yml`. Fork builds without stamped keys still self-update fine (HTTPS + checksum mode) — **from the repo their binary points at** (`repoOwner`/`repoName` in `cmd/server/main.go`, default `txperl/PixivBiu`; edit to self-update from your fork).
+- **Signature-enforcing fork:** do §1 (your own keypair), set `UPDATE_PUBLIC_KEYS` + `MINISIGN_SECRET_KEY` (§3), and point `repoOwner`/`repoName` at your fork. Multiple keys go in `UPDATE_PUBLIC_KEYS` comma-separated (incidental spaces are normalized away before stamping).
+- **Docker images** (`docker.yml`) get the same anchor: they read the same `UPDATE_PUBLIC_KEYS` repo variable as a build arg, so container builds verify the same way (applying an update is a no-op in an immutable image — you pull a new tag).
 
-The only source-level knob is `project_name: PixivBiu` in `.goreleaser.yaml` — it names the archives and **must** match the asset-name prefix in `internal/update/update.go`. Leave it as-is, or change **both** if you rebrand.
+`project_name: PixivBiu` in `.goreleaser.yaml` names the archives and **must** match the asset-name prefix in `internal/update/update.go`. Leave it as-is, or change **both** if you rebrand.
 
 ### Key rotation
 
 A client can only verify with a key already compiled into it, so rotation is forward-only and needs **no source edit**:
 
-1. Add the **new** public key to `UPDATE_PUBLIC_KEYS` alongside the old one (comma-separated). The next release bakes both into the binary as trusted, and the release workflow (which verifies the existing feed with the same variable) accepts a feed still signed by the old key.
+1. Add the **new** public key to `UPDATE_PUBLIC_KEYS` alongside the old one (comma-separated). The next release bakes both into the binary as trusted.
 2. Wait for that release to become widespread.
 3. Switch CI's `MINISIGN_SECRET_KEY` to the new secret. Releases now sign with the new key, which fielded clients already trust.
 4. Drop the old key from `UPDATE_PUBLIC_KEYS` only once no in-field build still needs it.
 
-Because one variable is both the trusted set and the feed-verification key, there's nothing else to keep in sync.
+Because one variable is both the trusted set and what the workflow's pairing probe checks the signer against, there's nothing else to keep in sync.
 
 ## Channels
 
@@ -176,13 +159,27 @@ The full release body (this generated changelog) is also rendered inline in the 
 Before tagging, lint and dry-run the build locally:
 
 ```bash
-goreleaser check                       # lint the config
-goreleaser release --snapshot --clean  # full dry run, no tag; artifacts land in dist/
+goreleaser check                                   # lint the config
+goreleaser release --snapshot --clean --skip=sign  # full dry run, no tag; artifacts land in dist/
 ```
 
-This exercises the build, archives, and changelog only — the **R2 upload, manifest signing, and cache purge run solely in CI** (they need the secrets above).
+`--skip=sign` is needed locally because the `signs` block reads `MINISIGN_SECRET_KEY_FILE` (set by CI). To exercise signing too, point it at a throwaway key:
 
-To rehearse the whole pipeline once it's wired up, push a throwaway pre-release tag (e.g. `v0.0.0-rc.test`) and confirm: R2 has `releases/<tag>/…` plus a fresh `manifest.json` (+ `.minisig`), the GitHub Release exists, and the purge step logged success or skipped. Then point a real build at the feed — build it with a lower version (`-ldflags -X main.version=…`) — and run `POST /system/update/check` → `…/apply`. Delete the test tag and its R2 objects afterwards.
+```bash
+minisign -G -W -p /tmp/test.pub -s /tmp/test.key
+MINISIGN_SECRET_KEY_FILE=/tmp/test.key goreleaser release --snapshot --clean
+minisign -Vm dist/checksums.txt -p /tmp/test.pub   # should verify
+```
+
+To rehearse the whole pipeline once it's wired up, push a throwaway pre-release tag (e.g. `v0.0.0-rc.test`) and confirm the GitHub Release carries the archives + `checksums.txt` + `checksums.txt.minisig` and the "Verify checksums signature" step passed. Then run a real build with a lower version (`-ldflags -X main.version=…`, stamping `UPDATE_PUBLIC_KEYS` to exercise the signed path) and hit `POST /system/update/check` → `…/apply`. Delete the test tag + release afterwards.
+
+Anyone can audit a published release by hand:
+
+```bash
+gh release download v3.1.0 -p 'checksums.txt*'
+minisign -Vm checksums.txt -P <trusted public key>   # the UPDATE_PUBLIC_KEYS value
+shasum -a 256 -c checksums.txt --ignore-missing      # after downloading an archive
+```
 
 ## Desktop release train
 
@@ -200,7 +197,9 @@ Only the AppImage / dmg-zip / nsis artifacts carry auto-update metadata (`latest
 
 ### How a desktop release happens
 
-Pushing a `desktop-v*` tag triggers `.github/workflows/desktop.yml`. It does **not** rebuild the core or the SPA — `scripts/stage-core.sh` downloads the core release pinned in [`desktop/.core-version`](../desktop/.core-version) and stages the per-arch binary into `desktop/resources/<arch>/` (macOS stages **both** `darwin_amd64` and `darwin_arm64` slices — one per arch, no lipo; Linux/Windows stage `*_amd64` into `x64/`). electron-builder embeds the slice matching each package via `extraResources: from: resources/${arch}/`, packages with `--publish never`, and the workflow uploads the installers + `latest*.yml` to the desktop R2 feed.
+Pushing a `desktop-v*` tag triggers `.github/workflows/desktop.yml`. It does **not** rebuild the core or the SPA — `scripts/stage-core.sh` downloads the core release pinned in [`desktop/.core-version`](../desktop/.core-version) and stages the per-arch binary into `desktop/resources/<arch>/` (macOS stages **both** `darwin_amd64` and `darwin_arm64` slices — one per arch, no lipo; Linux/Windows stage `*_amd64` into `x64/`). electron-builder embeds the slice matching each package via `extraResources: from: resources/${arch}/` and publishes into the desktop releases repo.
+
+The flow is **draft-then-publish** across three jobs: a first job pre-creates a draft release `vX.Y.Z` in the releases repo (one idempotent create, so the three OS runners can't race electron-builder into duplicate drafts); the matrix builds and `electron-builder --publish always` uploads each platform's installers + `latest*.yml` into that draft (plus version-less `PixivBiu-latest-*` alias copies via `gh release upload`); a final job verifies all three platforms' update metadata (`latest-mac.yml` / `latest.yml` / `latest-linux.yml`) is present and only then flips the draft live — so electron-updater and the `/releases/latest` download links never see a half-built release. A prerelease desktop tag (e.g. `desktop-v1.2.0-beta.1`) is published with `--prerelease` instead of `--latest`, keeping the README's `/releases/latest/download/…` links on the last stable.
 
 ```bash
 # (optional) ship a newer core to desktop users first:
@@ -211,29 +210,41 @@ git push origin desktop-v1.0.0
 
 The desktop version is the tag minus `desktop-v` (`desktop-v1.0.0` → `package.json` `1.0.0`), which `electron-updater` compares against the feed. If the pinned core release is missing, the download step fails loudly (it never ships a desktop package around an absent core).
 
-### Feed & downloads (R2)
+### Channels (desktop)
 
-`electron-updater` reads a **desktop-only** feed via the `generic` provider — a separate R2 path from the core self-updater's signed manifest, and fully isolated from the core `v*` GitHub Releases so the updater never mistakes a core release for a desktop one:
+Prerelease desktop tags work as channels, but the rules differ from the core train:
+
+- **Only `-beta` and `-alpha` are allowed** (dot-separated counter: `desktop-v1.3.0-beta.1`). electron-updater's GitHub provider hardcodes exactly these two identifiers; any other suffix — **including `-rc`** — is treated as an unknown custom channel, and a user who installed such a build would only ever be offered releases with that same suffix, never the stable that follows. There is no rc→beta fold here (that's a core-train feature), so don't tag desktop rc's.
+- **The channel is chosen by what the user installed — no config, no code.** electron-updater auto-enables prereleases when the running version has a prerelease component and derives the channel from it: stable installs resolve `/releases/latest` and never see prereleases; a beta install follows beta + stable (not alpha); an alpha install follows everything. Newest stable wins on every channel, so prerelease users converge back to stable — the same cumulative model as the core.
+- **Metadata is always `latest*.yml`.** electron-builder's GitHub provider expresses channels via the tag suffix + prerelease flag, not via `beta.yml` file names (the updater tries `beta.yml` first and falls back to `latest.yml` by design), so the publish job's completeness check applies unchanged to prerelease tags.
+- Prerelease releases skip the `PixivBiu-latest-*` alias uploads — `/releases/latest/download/…` only ever resolves to the newest stable, so aliases on a beta would be dead weight.
+
+### Feed & downloads (the desktop releases repo)
+
+`electron-updater` reads the **dedicated artifacts-only repo** [`txperl/PixivBiu-Desktop`](https://github.com/txperl/PixivBiu-Desktop) via its `github` provider, with plain `vX.Y.Z` tags. It **cannot** share this repo: the GitHub provider watches the newest release in its target repo, and the core's own `v*` releases (which carry no `latest*.yml`) would shadow the desktop ones and break every update check. Each desktop release carries:
 
 ```
-<feed>/desktop/latest-mac.yml | latest.yml | latest-linux.yml   # electron-updater metadata (mutable, short TTL)
-<feed>/desktop/PixivBiu-<ver>-<arch>.{dmg,zip,exe,AppImage,deb,rpm} + .blockmap   # version-named installers (immutable)
-<feed>/desktop/PixivBiu-latest-{macos-arm64.dmg,macos-x64.dmg,windows.exe,linux.AppImage}   # stable download aliases for the README (mutable)
+latest-mac.yml | latest.yml | latest-linux.yml   # electron-updater metadata (one per platform)
+PixivBiu-<ver>-<arch>.{dmg,zip,exe,AppImage,deb,rpm} + .blockmap   # version-named installers
+PixivBiu-latest-{macos-arm64.dmg,macos-x64.dmg,windows.exe,linux.AppImage}   # version-less alias copies
 ```
 
-The feed base is `<DESKTOP_FEED_BASE>/desktop` (default `https://dl.biu.tls.moe/desktop`, set in `desktop/electron-builder.yml`; CI overrides via `-c.publish.url` when `vars.DESKTOP_FEED_BASE` is set). Integrity rides electron-updater's native `latest*.yml` sha512 + the macOS code signature — there is **no** minisign here (that's the core train's model). The stable `PixivBiu-latest-*` aliases are what the README links for first-time installs (auto-update handles everything after).
+The provider/owner/repo are set in `desktop/electron-builder.yml` (`publish:`) — that block is what the packaged `app-update.yml` (the updater's baked-in feed) is generated from, and where CI publishes; a fork points it at its own releases repo and updates `DESKTOP_REPO` in `desktop.yml` to match. Integrity rides electron-updater's native `latest*.yml` sha512 + the macOS code signature — there is **no** minisign here (that's the core train's model). The `PixivBiu-latest-*` aliases exist so the README can link fixed URLs via `…/releases/latest/download/<alias>` for first-time installs (auto-update handles everything after); they're not listed in `latest*.yml`, so the updater (and its blockmap differential downloads) ignores them.
+
+### One-time setup (desktop)
+
+1. Create the **public** releases repo (`PixivBiu-Desktop`) with at least one commit — a README saying "artifacts only; source lives in txperl/PixivBiu" is plenty. Public is required: electron-updater can't read private release assets without shipping a token inside the app.
+2. Create a **fine-grained PAT** scoped to that repo only, permission **Contents: Read & Write**, and save it as the `DESKTOP_RELEASES_TOKEN` secret in **this** repo. Note the expiry — a lapsed token fails the draft job loudly at the next release.
 
 ### Secrets & variables (desktop)
 
-Reuses the core train's `R2_*` secrets (the [one-time setup](#one-time-setup) table above) for the upload, plus:
-
 | Kind                | Name                                                             | Value                                            |
 | ------------------- | --------------------------------------------------------------- | ------------------------------------------------ |
+| secret              | `DESKTOP_RELEASES_TOKEN`                                         | fine-grained PAT, Contents R/W on the releases repo only |
 | secret              | `MAC_CSC_LINK` / `MAC_CSC_KEY_PASSWORD`                          | macOS Developer ID cert (.p12, base64) + password |
 | secret              | `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`     | notarization credentials                         |
 | secret _(opt.)_     | `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET`    | Azure Trusted Signing service principal (Windows signing) |
 | variable _(opt.)_   | `WIN_AZURE_ENDPOINT` / `WIN_AZURE_PUBLISHER_NAME` / `WIN_AZURE_ACCOUNT` / `WIN_AZURE_CERT_PROFILE` | Trusted Signing account config; **Windows signs only when `WIN_AZURE_ENDPOINT` is set** — unset ⇒ unsigned build |
-| variable _(opt.)_   | `DESKTOP_FEED_BASE`                                              | desktop feed base; defaults to the `electron-builder.yml` value |
 
 macOS is signed + notarized. Windows signs via **Azure Trusted Signing** once the `WIN_AZURE_*` variables + `AZURE_*` secrets are provisioned (the build stays unsigned until then — the workflow injects `-c.win.azureSignOptions.*` only when `WIN_AZURE_ENDPOINT` is set). Linux ships unsigned. electron-updater works regardless via `latest*.yml` sha512.
 

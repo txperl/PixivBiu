@@ -3,12 +3,21 @@ name: Desktop
 # The desktop release train — independent from the core `v*` train.
 #
 # The core (Go binary + embedded SPA) ships on its own cadence via release.yml
-# (`v*` → GoReleaser + signed R2 manifest). The desktop app is a thin Electron
+# (`v*` → GoReleaser → GitHub Releases). The desktop app is a thin Electron
 # shell that BUNDLES a pinned, already-released core binary; it versions and
 # ships on its own cadence here, so a shell-only change never forces a core
 # release (and vice-versa — no "phantom" updates on either side).
 #
-# Cut a desktop release by pushing a `desktop-v*` tag:
+# Desktop releases publish to a DEDICATED artifacts-only repository
+# (see DESKTOP_REPO below) with plain vX.Y.Z tags. electron-updater's GitHub
+# provider needs the newest release in the repo it watches to be a desktop one —
+# in this repo the core's v* releases would shadow them, so the two trains keep
+# separate repos. The flow is draft-then-publish: a draft release is created
+# up front, the three OS runners upload into it, and it flips live only once
+# every platform's update metadata (latest*.yml) is present — so updaters and
+# the README's /releases/latest download links never see a half-built release.
+#
+# Cut a desktop release by pushing a `desktop-v*` tag (source stays here):
 #   git tag desktop-v1.0.0 && git push origin desktop-v1.0.0
 #
 # The core version this build bundles is pinned in desktop/.core-version. Bump
@@ -19,11 +28,40 @@ on:
       - "desktop-v*"
 
 permissions:
-  contents: read # only needs to download the pinned core release archive
+  contents: read # this repo: only downloads the pinned core release archive
+
+env:
+  # The artifacts-only repository desktop releases publish into. Must match the
+  # publish block in desktop/electron-builder.yml (which is what app-update.yml —
+  # the updater's baked-in feed — is generated from). A fork changes both.
+  DESKTOP_REPO: txperl/PixivBiu-Desktop
 
 jobs:
+  # Pre-create the draft release the matrix uploads into. electron-builder can
+  # create drafts itself, but three concurrent runners racing that path is a
+  # known duplicate-draft hazard; one idempotent create up front removes it.
+  draft:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create draft release in the desktop repo
+        env:
+          GH_TOKEN: ${{ secrets.DESKTOP_RELEASES_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#desktop-v}"
+          if gh release view "v${VERSION}" --repo "$DESKTOP_REPO" >/dev/null 2>&1; then
+            echo "release v${VERSION} already exists in ${DESKTOP_REPO}; reusing it"
+            exit 0
+          fi
+          gh release create "v${VERSION}" --repo "$DESKTOP_REPO" --draft \
+            --title "PixivBiu Desktop v${VERSION}" \
+            --notes "PixivBiu Desktop v${VERSION} — built from [\`${GITHUB_REF_NAME}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}) in ${GITHUB_REPOSITORY}."
+
   desktop:
     name: Desktop (${{ matrix.os }})
+    needs: draft
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -48,7 +86,8 @@ jobs:
       # matching slice via extraResources). This is the SAME binary CLI users run —
       # no rebuild, no drift. The shared script auto-detects the platform and, on
       # macOS, stages both the x64 and arm64 slices for the per-arch split. Fails
-      # loudly if the release is missing.
+      # loudly if the release is missing. Uses the default GITHUB_TOKEN — the core
+      # lives in THIS repo; only the publish steps below touch DESKTOP_REPO.
       - name: Download & stage the pinned core binary
         shell: bash
         env:
@@ -68,22 +107,24 @@ jobs:
         run: cd desktop && npm ci
 
       # Compile main/preload, then package for the host platform (macOS builds
-      # both arches: dmg+zip for x64 and arm64). Build only (--publish never); the
-      # R2 upload below is the publish step so the feed is a single, CDN-backed
-      # source. macOS signs + notarizes; Windows signs via Azure Trusted Signing
-      # when provisioned (falls back to unsigned otherwise); Linux is unsigned.
-      # The generic feed URL is baked into app-update.yml / latest*.yml here from
-      # DESKTOP_FEED_BASE (falls back to the electron-builder.yml default when unset).
-      - name: Build & package
+      # both arches: dmg+zip for x64 and arm64) and publish the artifacts +
+      # update metadata (latest*.yml) into the draft release created above
+      # (publish.repo/releaseType in electron-builder.yml). Each runner uploads
+      # only its own platform's files, so the parallel matrix never collides.
+      # macOS signs + notarizes; Windows signs via Azure Trusted Signing when
+      # provisioned (falls back to unsigned otherwise); Linux is unsigned.
+      - name: Build & publish into the draft release
         shell: bash
         env:
+          # Write access to DESKTOP_REPO (fine-grained PAT, Contents: R/W on that
+          # repo only). The default GITHUB_TOKEN can't write to another repo.
+          GH_TOKEN: ${{ secrets.DESKTOP_RELEASES_TOKEN }}
           # macOS Developer ID cert (.p12) + notarization credentials.
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          DESKTOP_FEED_BASE: ${{ vars.DESKTOP_FEED_BASE }}
           # Windows Azure Trusted Signing. Non-secret account config as repo vars;
           # the service-principal auth as secrets. Signing is skipped (build stays
           # unsigned) unless WIN_AZURE_ENDPOINT is set — provisioning is external
@@ -99,10 +140,10 @@ jobs:
           set -euo pipefail
           cd desktop
           npm run build
-          args=(--publish never)
-          if [ -n "${DESKTOP_FEED_BASE:-}" ]; then
-            args+=(-c.publish.url="${DESKTOP_FEED_BASE%/}/desktop")
-          fi
+          # `always` publishes even though this is a tag build (electron-builder
+          # only auto-publishes on tag pushes of the SAME repo layout it expects);
+          # the release stays a draft until the publish job below flips it live.
+          args=(--publish always)
           # Inject Azure Trusted Signing only on Windows and only when provisioned.
           if [ "${RUNNER_OS:-}" = "Windows" ] && [ -n "${WIN_AZURE_ENDPOINT:-}" ]; then
             # publisherName is a top-level win option; only endpoint/account/profile
@@ -117,56 +158,65 @@ jobs:
           fi
           npx electron-builder "${args[@]}"
 
-      # Publish INTO the desktop R2 feed (electron-updater reads it via the
-      # generic provider). Symmetric with the core's R2 feed, and fully isolated
-      # from the core `v*` GitHub Releases so the updater never mistakes a core
-      # release for a desktop one. Each runner uploads only its own platform's
-      # artifacts + latest*.yml, so the parallel matrix never collides.
-      - name: Publish to the desktop R2 feed
+      # Stable "latest" download aliases so the README can link a fixed URL via
+      # /releases/latest/download/<alias>. Version-less copies of this runner's
+      # own installers, uploaded into the same draft. --clobber makes re-runs
+      # idempotent. The aliases are extra assets NOT listed in latest*.yml, so
+      # electron-updater (and its blockmap differential downloads) ignores them.
+      # Skipped on prerelease tags: /releases/latest only ever resolves to the
+      # newest stable release, so aliases on a beta/alpha would just be dead
+      # weight nothing links to.
+      - name: Upload latest-alias assets
         shell: bash
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          # R2 historically rejected aws-cli v2's default integrity checksums;
-          # only send them when an operation requires them.
-          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
-          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
-          AWS_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          GH_TOKEN: ${{ secrets.DESKTOP_RELEASES_TOKEN }}
         run: |
           set -euo pipefail
-          : "${R2_BUCKET:?R2_BUCKET must be set to the target bucket}"
+          VERSION="${GITHUB_REF_NAME#desktop-v}"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "prerelease ${VERSION}: skipping latest-alias uploads"
+            exit 0
+          fi
           out=desktop/out
-          # Fail loudly if electron-builder didn't emit update metadata: an empty
-          # --include below would upload nothing and silently ship a feed with no
-          # latest*.yml, breaking auto-update. (Each runner emits exactly one:
-          # latest-mac.yml / latest.yml / latest-linux.yml.)
-          ls "$out"/latest*.yml >/dev/null 2>&1 || {
-            echo "::error::no latest*.yml in $out — electron-builder produced no update metadata; refusing to publish a broken feed" >&2
-            exit 1
-          }
-          # Installers + blockmaps are version-named and immutable — cache forever.
-          aws s3 cp "$out" "s3://${R2_BUCKET}/desktop/" --recursive \
-            --exclude "*" \
-            --include "*.dmg" --include "*.zip" --include "*.exe" \
-            --include "*.AppImage" --include "*.deb" --include "*.rpm" --include "*.blockmap" \
-            --cache-control "public, max-age=31536000, immutable"
-          # Mutable objects (update metadata + the "latest" aliases below) share a
-          # short TTL so a stale edge copy self-heals within ~5 min even without an
-          # explicit cache purge.
-          mut_cc="public, max-age=300, must-revalidate"
-          aws s3 cp "$out" "s3://${R2_BUCKET}/desktop/" --recursive \
-            --exclude "*" --include "latest*.yml" \
-            --cache-control "$mut_cc"
-          # Stable "latest" download aliases so the README can link a fixed URL.
-          # Each runner only has its own platform's installer; nullglob skips the
-          # globs that don't apply here. macOS is a per-arch split, so it gets one
-          # alias per arch (arch-tagged artifactName from electron-builder.yml makes
-          # the match unambiguous).
           shopt -s nullglob
-          alias_latest() { for f in "$out"/$1; do aws s3 cp "$f" "s3://${R2_BUCKET}/desktop/$2" --cache-control "$mut_cc"; done; }
+          alias_latest() {
+            for f in "$out"/$1; do
+              cp "$f" "${RUNNER_TEMP}/$2"
+              gh release upload "v${VERSION}" "${RUNNER_TEMP}/$2" --repo "$DESKTOP_REPO" --clobber
+            done
+          }
           alias_latest '*-arm64.dmg' PixivBiu-latest-macos-arm64.dmg
           alias_latest '*-x64.dmg'   PixivBiu-latest-macos-x64.dmg
           alias_latest '*.exe'       PixivBiu-latest-windows.exe
           alias_latest '*.AppImage'  PixivBiu-latest-linux.AppImage
+
+  # Flip the draft live only after every platform uploaded its update metadata —
+  # a partially-published release would break electron-updater on the missing
+  # platforms and dangle the /releases/latest download links.
+  publish:
+    name: Publish release
+    needs: desktop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify completeness & publish
+        env:
+          GH_TOKEN: ${{ secrets.DESKTOP_RELEASES_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#desktop-v}"
+          assets="$(gh release view "v${VERSION}" --repo "$DESKTOP_REPO" --json assets --jq '.assets[].name')"
+          missing=0
+          for f in latest-mac.yml latest.yml latest-linux.yml; do
+            grep -qx "$f" <<<"$assets" || { echo "::error::draft is missing $f" >&2; missing=1; }
+          done
+          [ "$missing" = 0 ] || exit 1
+          # A prerelease desktop tag (desktop-v1.2.0-beta.1) must not become the
+          # repo's "latest" — /releases/latest (and the README's alias links) keep
+          # pointing at the last stable while updaters on the beta channel still
+          # see the prerelease.
+          if [[ "$VERSION" == *-* ]]; then
+            gh release edit "v${VERSION}" --repo "$DESKTOP_REPO" --draft=false --prerelease
+          else
+            gh release edit "v${VERSION}" --repo "$DESKTOP_REPO" --draft=false --latest
+          fi

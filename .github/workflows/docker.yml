@@ -57,7 +57,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ steps.meta.outputs.version }}
-            UPDATE_FEED_BASE=${{ vars.UPDATE_FEED_BASE }}
             UPDATE_PUBLIC_KEYS=${{ vars.UPDATE_PUBLIC_KEYS }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

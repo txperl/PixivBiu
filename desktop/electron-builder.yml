@@ -9,7 +9,7 @@ copyright: Copyright © txperl
 
 # Deterministic, arch-tagged artifact names. macOS ships a per-arch split (see
 # mac.target), so every artifact must carry its arch to avoid collisions and to
-# let the R2 "latest" aliases (.github/workflows/desktop.yml) match by arch.
+# let the "latest" alias assets (.github/workflows/desktop.yml) match by arch.
 artifactName: ${productName}-${version}-${arch}.${ext}
 
 directories:
@@ -40,16 +40,20 @@ extraResources:
       - pixivbiu
       - pixivbiu.exe
 
-# electron-updater reads its feed from the desktop app's own Cloudflare R2 path
-# (a `generic` provider), fully isolated from the core `v*` GitHub Releases so
-# the updater never mistakes a core release for a desktop one. Symmetric with the
-# core self-updater's R2 feed. The URL below is the local/default feed base;
-# CI overrides it via `-c.publish.url` from vars.DESKTOP_FEED_BASE (see
-# .github/workflows/desktop.yml). CI builds with `--publish never` and uploads
-# the installers + latest*.yml to `<url>` itself.
+# electron-updater reads its feed from a DEDICATED artifacts-only GitHub repo
+# with plain vX.Y.Z tags. It cannot share this repo: the GitHub provider watches
+# the newest release in the target repo, and the core's own `v*` releases (no
+# latest*.yml) would shadow the desktop ones. This block is what app-update.yml —
+# the updater's baked-in feed — is generated from, and where electron-builder
+# publishes in CI (`--publish always`; releaseType keeps it a draft until the
+# publish job in .github/workflows/desktop.yml verifies all platforms and flips
+# it live). A fork points owner/repo at its own releases repo (and updates
+# DESKTOP_REPO in the workflow to match).
 publish:
-  provider: generic
-  url: https://dl.biu.tls.moe/desktop
+  provider: github
+  owner: txperl
+  repo: PixivBiu-Desktop
+  releaseType: draft
 
 mac:
   category: public.app-category.entertainment

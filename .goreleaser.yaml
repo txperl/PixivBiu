@@ -28,10 +28,11 @@ builds:
     ldflags:
       - -s -w
       - -X main.version={{ .Version }}
-      # Self-updater trust anchor, from the UPDATE_FEED_BASE / UPDATE_PUBLIC_KEYS repo
-      # variables (see release.yml). envOrDefault lets `--snapshot`/local runs (vars
-      # unset) build with an empty anchor → updater fails closed. Forks set their own.
-      - -X main.updateFeedURL={{ envOrDefault "UPDATE_FEED_BASE" "" }}
+      # Self-updater trust anchor, from the UPDATE_PUBLIC_KEYS repo variable (see
+      # release.yml): the minisign public keys the updater accepts as signers of
+      # the release's checksums.txt. envOrDefault lets `--snapshot`/local/fork runs
+      # (variable unset) build with no keys → the updater degrades to HTTPS +
+      # SHA-256 verification instead of enforcing signatures.
       - -X main.updateTrustedKeysRaw={{ envOrDefault "UPDATE_PUBLIC_KEYS" "" }}
     # Reproducible builds: stamp binaries with the commit time, not build time.
     mod_timestamp: "{{ .CommitTimestamp }}"
@@ -42,20 +43,6 @@ builds:
     goarch:
       - amd64
       - arm64
-
-# Fuse the two macOS per-arch builds into one universal (arm64 + amd64) binary.
-# The desktop train (scripts/stage-core.sh) prefers this darwin_all archive so a
-# single Mac app runs natively on both architectures without lipo-ing at package
-# time (it falls back to lipo for older core releases that predate this). Also a
-# convenience for macOS CLI users who want one binary. replace: false keeps the
-# per-arch darwin archives too — CLI users get the smaller, arch-specific download
-# and the in-app self-updater keeps matching by os_arch as before.
-universal_binaries:
-  - id: pixivbiu-universal
-    ids:
-      - pixivbiu
-    replace: false
-    name_template: pixivbiu
 
 archives:
   - id: pixivbiu
@@ -72,6 +59,20 @@ archives:
 
 checksum:
   name_template: "checksums.txt" # SHA-256 by default
+
+# Sign checksums.txt with minisign and publish the detached signature
+# (checksums.txt.minisig) as a release asset. A verified checksums.txt
+# transitively authenticates every archive, so this one signature covers the
+# whole release — the self-updater in official builds (UPDATE_PUBLIC_KEYS
+# stamped) refuses releases without it. MINISIGN_SECRET_KEY_FILE points at the
+# secret key, written by release.yml from the MINISIGN_SECRET_KEY secret; the
+# template hard-fails when it is unset, so local/fork dry runs skip signing:
+#   goreleaser release --snapshot --clean --skip=sign
+signs:
+  - cmd: minisign
+    args: ["-S", "-s", "{{ .Env.MINISIGN_SECRET_KEY_FILE }}", "-x", "${signature}", "-m", "${artifact}"]
+    signature: "${artifact}.minisig"
+    artifacts: checksum
 
 snapshot:
   # Used only by `--snapshot` (untagged dry runs); never by a real release.

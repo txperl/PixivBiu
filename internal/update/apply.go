@@ -25,8 +25,9 @@ import (
 const maxDownload = 200 << 20 // 200 MiB
 
 // Apply downloads the release archive built for this OS/arch, verifies its
-// SHA-256 against the (signed) manifest entry, extracts the binary, and swaps
-// it into place at the running executable's path. On success the caller should
+// SHA-256 against the release's checksums.txt (whose minisign signature is
+// verified first on official builds), extracts the binary, and swaps it into
+// place at the running executable's path. On success the caller should
 // restart the process (the existing reexec path) so the new binary takes over.
 //
 // It refuses to run on dev/non-release builds — replacing a `go run` temp or a
@@ -66,16 +67,16 @@ func (s *Service) Apply(ctx context.Context) error {
 	if !ok {
 		return refusedf("release %s has no asset for this platform (%s)", ri.tag, name)
 	}
-	want := strings.ToLower(strings.TrimSpace(a.SHA256))
-	if want == "" {
-		return refusedf("release %s carries no checksum for %s; cannot verify download", ri.tag, name)
+
+	// fetchExpectedChecksum / download return categorized errors (upstream on a
+	// transport/HTTP failure, refused when an asset is missing or the checksums
+	// signature doesn't verify on a signature-enforcing build).
+	want, err := s.fetchExpectedChecksum(ctx, ri, name)
+	if err != nil {
+		return err
 	}
 
-	// download returns categorized errors (upstream on a transport/HTTP failure).
-	// The expected SHA-256 comes from the signed manifest, so verifying the
-	// download against it transitively authenticates the binary — no separate
-	// checksums.txt fetch is needed.
-	archive, err := s.download(ctx, a.URL)
+	archive, err := s.download(ctx, a.BrowserDownloadURL)
 	if err != nil {
 		return err
 	}
@@ -113,7 +114,7 @@ func (s *Service) Apply(ctx context.Context) error {
 // are small enough that buffering avoids a temp-file dance; selfupdate streams
 // the extracted binary from the buffer. It shares fetchBytes' transport + error
 // categorization, adding only the larger archive cap and a 5-minute ceiling (the
-// manifest check uses the caller's shorter context instead).
+// release-list check uses the caller's shorter context instead).
 func (s *Service) download(ctx context.Context, url string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()

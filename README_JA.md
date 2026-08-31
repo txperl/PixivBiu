@@ -22,10 +22,10 @@ PixivBiu、Pixiv のための便利な補助ツール。
 
 お使いのシステム向けのインストーラーをダウンロードして開くだけです。アプリが自動でアップデートを確認します：
 
-- **macOS（Apple シリコン）** — [PixivBiu-latest-macos-arm64.dmg](https://dl.biu.tls.moe/desktop/PixivBiu-latest-macos-arm64.dmg)
-- **macOS（Intel）** — [PixivBiu-latest-macos-x64.dmg](https://dl.biu.tls.moe/desktop/PixivBiu-latest-macos-x64.dmg)
-- **Windows** — [PixivBiu-latest-windows.exe](https://dl.biu.tls.moe/desktop/PixivBiu-latest-windows.exe)
-- **Linux** — [PixivBiu-latest-linux.AppImage](https://dl.biu.tls.moe/desktop/PixivBiu-latest-linux.AppImage)
+- **macOS（Apple シリコン）** — [PixivBiu-latest-macos-arm64.dmg](https://github.com/txperl/PixivBiu-Desktop/releases/latest/download/PixivBiu-latest-macos-arm64.dmg)
+- **macOS（Intel）** — [PixivBiu-latest-macos-x64.dmg](https://github.com/txperl/PixivBiu-Desktop/releases/latest/download/PixivBiu-latest-macos-x64.dmg)
+- **Windows** — [PixivBiu-latest-windows.exe](https://github.com/txperl/PixivBiu-Desktop/releases/latest/download/PixivBiu-latest-windows.exe)
+- **Linux** — [PixivBiu-latest-linux.AppImage](https://github.com/txperl/PixivBiu-Desktop/releases/latest/download/PixivBiu-latest-linux.AppImage)
 
 ### サーバー / CLI
 

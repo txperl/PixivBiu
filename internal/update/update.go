@@ -1,22 +1,21 @@
 // Package update implements PixivBiu's built-in version check and one-click
-// self-update against a signed release feed served over a CDN (Cloudflare R2),
-// replacing the former GitHub Releases API as the source of truth.
+// self-update against the project's GitHub Releases.
 //
-// The Service periodically (and on demand) fetches manifest.json — a static feed
-// of recent releases, each carrying its notes and per-platform archives with
-// embedded SHA-256 — compares the newest applicable release against the running
-// binary's version, and caches the result for the API/UI to read. Applying an
-// update — always user-triggered — downloads the archive built for this OS/arch,
-// verifies its SHA-256 against the (signed) manifest, extracts the binary, and
+// The Service periodically (and on demand) lists recent releases via the GitHub
+// API, compares the newest applicable release against the running binary's
+// version, and caches the result for the API/UI to read. Applying an update —
+// always user-triggered — downloads the archive built for this OS/arch, verifies
+// its SHA-256 against the release's checksums.txt, extracts the binary, and
 // swaps it in place via github.com/minio/selfupdate. The caller then restarts the
 // process (the existing reexec path) so the new binary takes over.
 //
-// Trust model: the manifest is signed with minisign (Ed25519) and the public key
-// is compiled into the binary. The client verifies the manifest signature before
-// trusting any field, and the manifest carries every archive's SHA-256, so a
-// verified manifest transitively authenticates each download. This holds even if
-// the object store's write credentials leak: without the signing key — which
-// never leaves CI — a tampered manifest or binary is rejected.
+// Trust model: official builds carry minisign (Ed25519) public keys compiled in
+// at link time and refuse any release whose checksums.txt does not verify
+// against its detached .minisig signature — the signing key never leaves CI, so
+// a tampered release is rejected even if the GitHub account were compromised.
+// Builds without stamped keys (forks, local `make build`) skip the signature and
+// trust HTTPS to GitHub plus the SHA-256 alone, so a fork's self-updater works
+// without provisioning keys.
 package update
 
 import (
@@ -46,7 +45,7 @@ type Status struct {
 	LatestVersion   string    // newest release tag seen, normalized (e.g. v3.1.0); empty if unknown
 	UpdateAvailable bool      // a newer release exists AND this is a real release build
 	IsDev           bool      // running a dev/non-release build; updates are never offered
-	ReleaseURL      string    // human-readable release page for LatestVersion (manifest html_url)
+	ReleaseURL      string    // human-readable GitHub release page for LatestVersion
 	ReleaseNotes    string    // release notes (markdown), cleaned for display; multi-version updates stitched (see aggregateNotes)
 	PublishedAt     time.Time // when LatestVersion was published
 	AssetName       string    // archive asset matching this OS/arch in the latest release
@@ -54,13 +53,14 @@ type Status struct {
 	LastError       string    // human-safe error from the most recent check, if any
 }
 
-// Service tracks the running version against the signed release feed. It is safe
-// for concurrent use: the cached status, live config, and HTTP client are all
-// guarded by mu.
+// Service tracks the running version against the project's GitHub Releases. It
+// is safe for concurrent use: the cached status, live config, and HTTP client
+// are all guarded by mu.
 type Service struct {
 	current     string               // running binary version, verbatim from main.version
-	feedURL     string               // base URL of the release feed (manifest.json lives under it)
-	trustedKeys []minisign.PublicKey // keys accepted as the manifest's signer, parsed once at construction
+	owner, repo string               // GitHub repository the releases are fetched from
+	trustedKeys []minisign.PublicKey // keys accepted as checksums.txt's signer, parsed once at construction
+	requireSig  bool                 // official build: refuse releases whose checksums.txt isn't signed by a trusted key
 
 	mu     sync.RWMutex
 	cfg    config.UpdateConfig
@@ -75,19 +75,24 @@ type Service struct {
 }
 
 // NewService builds an update Service. current is the running binary's version
-// string (main.version); feedURL is the base URL of the signed release feed
-// (manifest.json is fetched from under it); trustedKeys are the minisign public
-// keys (base64) accepted as the manifest's signer — a slice so a key can be
-// rotated by shipping the next key alongside the current one. They are parsed
-// once here; an unparseable key is dropped (a build-time typo then just leaves
-// the updater fail-closed). cfg and proxy seed the live, reloadable settings. The
-// proxy mirrors pixiv.proxy so update traffic takes the same path users already
-// configured for Pixiv (e.g. behind the GFW).
-func NewService(current, feedURL string, trustedKeys []string, cfg config.UpdateConfig, proxy string) *Service {
+// string (main.version); owner/repo name the GitHub repository whose releases
+// are the update source; trustedKeys are the minisign public keys (base64)
+// accepted as checksums.txt's signer — a slice so a key can be rotated by
+// shipping the next key alongside the current one. Any stamped key makes the
+// build signature-enforcing (requireSig); the keys are parsed once here and an
+// unparseable one is dropped, so a build-time typo leaves the updater
+// fail-closed rather than silently unsigned. An empty slice (fork/dev build)
+// disables the signature requirement entirely — HTTPS + SHA-256 only. cfg and
+// proxy seed the live, reloadable settings. The proxy mirrors pixiv.proxy so
+// update traffic takes the same path users already configured for Pixiv (e.g.
+// behind the GFW).
+func NewService(current, owner, repo string, trustedKeys []string, cfg config.UpdateConfig, proxy string) *Service {
 	s := &Service{
 		current:     current,
-		feedURL:     feedURL,
+		owner:       owner,
+		repo:        repo,
 		trustedKeys: parsePublicKeys(trustedKeys),
+		requireSig:  len(trustedKeys) > 0,
 		cfg:         cfg,
 		proxy:       proxy,
 		status: Status{
@@ -108,7 +113,8 @@ func (s *Service) config() config.UpdateConfig {
 
 // checkInterval is the fixed gap between automatic background checks. It is not
 // user-configurable: a few hours is plenty for a desktop tool, and a knob here
-// is more footgun (a tiny value hammering the feed) than feature.
+// is more footgun (a tiny value burning the anonymous GitHub API rate budget)
+// than feature.
 const checkInterval = 3 * time.Hour
 
 // Status returns the last cached check result without touching the network.
@@ -141,8 +147,8 @@ func (s *Service) httpClient() *http.Client {
 // service.go): an explicit proxy URL routes traffic through it, otherwise the
 // default client is used. No Client.Timeout — it caps the entire request and
 // would override the longer download context; each caller sets its own
-// per-request context deadline instead (20s for the manifest fetch in
-// fetchManifest, 5m for downloads in download).
+// per-request context deadline instead (20s for the release list in
+// fetchReleases, 5m for downloads in download).
 func buildClient(proxy string) *http.Client {
 	c := &http.Client{}
 	if proxy != "" {

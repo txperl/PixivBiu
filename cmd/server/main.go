@@ -18,36 +18,32 @@ import (
 //	go build -ldflags "-X main.version=1.2.3"
 var version = "0.1.0-dev"
 
-// updateFeedURL is the base URL of the signed release feed (manifest.json and the
-// per-version archives) served from Cloudflare R2 behind a CDN. The updater
-// fetches <updateFeedURL>/manifest.json (+ .minisig) instead of the GitHub API.
-//
-// It is the trust anchor's *where*, stamped at link time from the release
-// environment (empty by default → the updater fails closed). Keeping it out of
-// source is what lets a fork self-publish without editing code:
-//
-//	go build -ldflags "-X main.updateFeedURL=https://dl.example"
-//
-// It MUST match the UPDATE_FEED_BASE variable the release workflow uploads
-// against — the release build and the workflow read the same value.
-var updateFeedURL string
+// repoOwner/repoName identify the GitHub repository the self-updater checks for
+// releases. A fork that self-publishes points these at its own repository.
+const (
+	repoOwner = "txperl"
+	repoName  = "PixivBiu"
+)
 
 // updateTrustedKeysRaw holds the minisign (Ed25519) public keys the updater
-// accepts as signers of manifest.json, stamped at link time (empty → verification
-// fails closed). It is a plain string because -X can only set strings; multiple
-// keys are comma- (or whitespace-) separated to allow forward-only rotation —
-// ship the next public key before switching the signing key:
+// accepts as signers of the release's checksums.txt, stamped at link time. It is
+// a plain string because -X can only set strings; multiple keys are comma- (or
+// whitespace-) separated to allow forward-only rotation — ship the next public
+// key before switching the signing key:
 //
 //	go build -ldflags "-X main.updateTrustedKeysRaw=RWQ…,RWZ…"
 //
-// The matching secret key lives only in CI (the MINISIGN_SECRET_KEY secret) and
-// signs the feed at release time; the client verifies the signature before
-// trusting the feed (see internal/update).
+// Any stamped value makes the build signature-enforcing: releases without a
+// valid checksums.txt.minisig are refused (a malformed stamped key still fails
+// closed). Left empty (fork/dev builds), the updater degrades gracefully to
+// HTTPS + SHA-256 verification alone — it does NOT fail closed, so a fork works
+// without provisioning keys. The matching secret key lives only in CI (the
+// MINISIGN_SECRET_KEY secret) and signs checksums.txt at release time (see
+// internal/update).
 var updateTrustedKeysRaw string
 
 // updateTrustedKeys is the parsed trusted-key set. -X sets updateTrustedKeysRaw at
 // link time, before package initializers run, so this sees the stamped value.
-// An empty set makes verification fail closed.
 var updateTrustedKeys = parseTrustedKeys(updateTrustedKeysRaw)
 
 // parseTrustedKeys splits a stamped key string into individual minisign public

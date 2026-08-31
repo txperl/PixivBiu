@@ -1,9 +1,11 @@
 name: Release
 
-# Cross-compiles the self-contained binaries (frontend embedded), publishes a
-# GitHub Release (the human-readable notes page + mirror), and — the source the
-# app's self-updater actually reads — uploads the archives plus a minisign-signed
-# manifest.json to Cloudflare R2 behind a CDN. Triggered by pushing a semver tag:
+# Cross-compiles the self-contained binaries (frontend embedded) and publishes
+# them as a GitHub Release — the source the app's self-updater reads. GoReleaser
+# uploads the archives, checksums.txt, and its minisign signature
+# (checksums.txt.minisig); official binaries carry the matching public key(s)
+# and refuse a release whose checksums don't verify. Triggered by pushing a
+# semver tag:
 #   git tag v3.0.0 && git push origin v3.0.0
 on:
   push:
@@ -89,39 +91,30 @@ jobs:
       # Validate and normalize the self-updater trust anchor BEFORE GoReleaser
       # publishes anything — its own guards would run too late. Two hazards:
       #  - GoReleaser creates a public, non-draft GitHub Release and stamps the
-      #    binaries. An empty anchor here means shipping un-updatable binaries and
-      #    only failing afterwards, where a corrected rerun collides with the
-      #    already-published release.
+      #    binaries. A broken anchor here means shipping binaries that reject every
+      #    future release and only failing afterwards, where a corrected rerun
+      #    collides with the already-published release.
       #  - minisign public keys are base64 with no internal whitespace, but a fork
       #    might write "KEY1, KEY2". A space inside a `-X` ldflag value makes the Go
       #    linker treat the tail as a separate argument and the build fails, so we
       #    collapse any comma/whitespace runs to single commas — one safe token that
-      #    is stamped into the binary AND used to sign/verify the feed.
+      #    is stamped into the binary AND matches the key that signs checksums.txt.
       # Downstream steps consume these normalized outputs, never the raw variables.
-      # minisign (upstream jedisct1/minisign) verifies the key/secret pairing in the
-      # next step and signs the manifest in the R2 step below.
+      # minisign (upstream jedisct1/minisign) verifies the key/secret pairing here
+      # and signs checksums.txt inside GoReleaser (see `signs` in .goreleaser.yaml).
       - name: Install minisign
         run: sudo apt-get update && sudo apt-get install -y minisign
 
       - name: Validate & normalize update trust anchor
         id: anchor
         env:
-          FEED_BASE_IN: ${{ vars.UPDATE_FEED_BASE }}
           PUBLIC_KEYS_IN: ${{ vars.UPDATE_PUBLIC_KEYS }}
           MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
         shell: bash
         run: |
           set -euo pipefail
-          : "${FEED_BASE_IN:?set the UPDATE_FEED_BASE repo variable to the public CDN base (e.g. https://dl.example)}"
           : "${PUBLIC_KEYS_IN:?set the UPDATE_PUBLIC_KEYS repo variable to the trusted minisign public key(s)}"
-          : "${MINISIGN_SECRET_KEY:?set the MINISIGN_SECRET_KEY secret to the feed's signing key}"
-
-          # The feed base must be an absolute HTTPS URL the client can append
-          # "/manifest.json" (and asset paths) to. Parse it and require an https
-          # scheme, a real host, and no query/fragment/space — an empty host
-          # (https:///x) or a query/fragment would yield URLs the updater can't fetch.
-          python3 -c 'import sys,urllib.parse as u; url=sys.argv[1]; p=u.urlsplit(url); sys.exit(0 if (p.scheme=="https" and p.hostname and not p.query and not p.fragment and not any(c.isspace() for c in url)) else 1)' "$FEED_BASE_IN" \
-            || { echo "UPDATE_FEED_BASE must be an absolute https://<host>[/path] URL with no query, fragment, or spaces; got: $FEED_BASE_IN" >&2; exit 1; }
+          : "${MINISIGN_SECRET_KEY:?set the MINISIGN_SECRET_KEY secret to the release signing key}"
 
           # Collapse comma/whitespace runs to single commas: one token safe for -X.
           keys="$(printf '%s' "$PUBLIC_KEYS_IN" | tr -s '[:space:],' ',')"
@@ -137,12 +130,12 @@ jobs:
           # Pairing: sign a probe with the secret and confirm it verifies under one of
           # the trusted keys. Catches a MINISIGN_SECRET_KEY that doesn't correspond to
           # UPDATE_PUBLIC_KEYS BEFORE GoReleaser publishes — otherwise we'd ship a
-          # GitHub release whose signed feed every updated client rejects.
-          printf '%s\n' "$MINISIGN_SECRET_KEY" > sk.key
+          # release whose signed checksums every official client rejects.
+          key_file="${RUNNER_TEMP}/minisign.key"
+          printf '%s\n' "$MINISIGN_SECRET_KEY" > "$key_file"
           echo probe > probe.txt
-          minisign -S -s sk.key -m probe.txt >/dev/null 2>&1 \
-            || { rm -f sk.key; echo "MINISIGN_SECRET_KEY is not a usable minisign secret key" >&2; exit 1; }
-          rm -f sk.key
+          minisign -S -s "$key_file" -m probe.txt >/dev/null 2>&1 \
+            || { echo "MINISIGN_SECRET_KEY is not a usable minisign secret key" >&2; exit 1; }
           paired=0
           for k in "${_ks[@]}"; do
             if minisign -Vm probe.txt -P "$k" >/dev/null 2>&1; then paired=1; break; fi
@@ -151,7 +144,10 @@ jobs:
             || { echo "MINISIGN_SECRET_KEY does not match any key in UPDATE_PUBLIC_KEYS (signer would be untrusted by clients)" >&2; exit 1; }
           rm -f probe.txt probe.txt.minisig
 
-          echo "feed_base=${FEED_BASE_IN}" >> "$GITHUB_OUTPUT"
+          # The key file stays for GoReleaser's `signs` step (checksums.txt),
+          # referenced via MINISIGN_SECRET_KEY_FILE. RUNNER_TEMP is wiped after
+          # the job; the secret never enters the workspace.
+          echo "MINISIGN_SECRET_KEY_FILE=${key_file}" >> "$GITHUB_ENV"
           echo "public_keys=${keys}" >> "$GITHUB_OUTPUT"
 
       - uses: goreleaser/goreleaser-action@v6
@@ -161,166 +157,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # The self-updater trust anchor, stamped into the binary via ldflags
-          # (see .goreleaser.yaml). Same normalized values the R2 publish step below
-          # uploads against, so the baked-in feed URL/key can't drift from what's served.
-          UPDATE_FEED_BASE: ${{ steps.anchor.outputs.feed_base }}
+          # (see .goreleaser.yaml). The same normalized value the pairing check
+          # above proved matches the signing key, so the baked-in keys can't drift
+          # from what signs the release. MINISIGN_SECRET_KEY_FILE (set by the
+          # anchor step) feeds the `signs` block that produces checksums.txt.minisig.
           UPDATE_PUBLIC_KEYS: ${{ steps.anchor.outputs.public_keys }}
 
-      # Publish to Cloudflare R2 — the source the self-updater reads. Uploads the
-      # archives under an immutable, version-pinned path, then assembles, signs,
-      # and uploads manifest.json (+ .minisig) and (optionally) purges its edge
-      # cache. The GitHub Release created above is the dual-publish mirror.
-      #
-      # Required secrets/vars (see the migration plan):
-      #   secrets.R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY  — R2 API token
-      #   secrets.R2_ENDPOINT   — https://<accountid>.r2.cloudflarestorage.com
-      #   secrets.R2_BUCKET     — target bucket name
-      #   secrets.MINISIGN_SECRET_KEY — unencrypted minisign secret key (file body)
-      #   vars.UPDATE_FEED_BASE — public CDN base (e.g. https://dl.pixivbiu.example).
-      #                           Also stamped into the binary as updateFeedURL by
-      #                           the GoReleaser step above, so the two can't drift.
-      #   vars.UPDATE_PUBLIC_KEYS — the trusted minisign public key(s), comma-separated.
-      #                           Public (non-secret); same value baked into the binary
-      #                           as updateTrustedKeys. Used below to verify the existing
-      #                           feed before re-signing it.
-      # Optional:
-      #   secrets.CLOUDFLARE_API_TOKEN / CLOUDFLARE_ZONE_ID — enable the cache purge;
-      #     without them the manifest's max-age=300 expires a stale edge copy on its
-      #     own within ~5 min (the purge just makes the new release visible sooner).
-      - name: Publish release to Cloudflare R2
+      # Belt & braces: confirm the published signature actually verifies under a
+      # trusted key before declaring the release good. The pairing probe above
+      # makes a failure here nearly impossible, but this checks the real artifact.
+      - name: Verify checksums signature
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          # R2 historically rejected aws-cli v2's default integrity checksums;
-          # only send them when an operation requires them.
-          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
-          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
-          # aws-cli v2 reads the R2 S3 endpoint from this env var, so every `aws s3`
-          # call below targets R2 without repeating --endpoint-url.
-          AWS_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          # Normalized by the "Validate & normalize update trust anchor" step, so
-          # these match exactly what GoReleaser stamped into the binary.
-          FEED_BASE: ${{ steps.anchor.outputs.feed_base }}
-          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
-          # The trusted public key(s) — the same value baked into the binary as
-          # updateTrustedKeys (single source of truth). Used to verify the existing
-          # R2 feed before re-signing it (and the freshly-signed manifest after), so
-          # a tampered manifest can't be blessed with the CI key and a signer/key
-          # mismatch can't publish a feed clients reject. During a forward-only
-          # rotation this holds both keys; the verify step accepts a feed signed by any.
           UPDATE_PUBLIC_KEYS: ${{ steps.anchor.outputs.public_keys }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
-          # FEED_BASE / UPDATE_PUBLIC_KEYS are already validated non-empty and
-          # normalized by the "Validate & normalize update trust anchor" step above.
-          base="${FEED_BASE%/}"
-          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"   # one publish instant for the whole run
-
-          # 1) Upload the platform archives under an immutable, version-pinned
-          #    path (content-addressed by tag → cache forever). checksums.txt is
-          #    NOT uploaded: the signed manifest is the only authoritative source
-          #    on the CDN — an unsigned checksums.txt there would just mislead.
-          for f in dist/*.tar.gz dist/*.zip; do
-            [ -e "$f" ] || continue
-            aws s3 cp "$f" "s3://${R2_BUCKET}/releases/${TAG}/$(basename "$f")" \
-              --cache-control "public, max-age=31536000, immutable"
+          IFS=',' read -ra _ks <<< "$UPDATE_PUBLIC_KEYS"
+          for k in "${_ks[@]}"; do
+            if minisign -Vm dist/checksums.txt -x dist/checksums.txt.minisig -P "$k"; then
+              exit 0
+            fi
           done
-
-          # 2) Build this release's manifest entry. Notes are the exact GoReleaser
-          #    changelog already posted as the GitHub release body, so the in-app
-          #    notes match and the client's existing sanitizer keeps working.
-          notes="$(gh release view "$TAG" --json body --jq .body)"
-          assets='[]'
-          while read -r sha name; do
-            [ -n "$name" ] || continue
-            case "$name" in *.tar.gz|*.zip) ;; *) continue ;; esac
-            size="$(stat -c%s "dist/${name}")"
-            assets="$(jq -c \
-              --arg n "$name" \
-              --arg u "${base}/releases/${TAG}/${name}" \
-              --argjson s "$size" \
-              --arg h "$sha" \
-              '. + [{name:$n, url:$u, size:$s, sha256:($h|ascii_downcase)}]' <<<"$assets")"
-          done < dist/checksums.txt
-
-          entry="$(jq -nc \
-            --arg tag "$TAG" \
-            --arg ver "${TAG#v}" \
-            --arg pub "$now" \
-            --arg url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${TAG}" \
-            --arg notes "$notes" \
-            --argjson assets "$assets" \
-            '{tag:$tag, version:$ver, published_at:$pub, html_url:$url, notes:$notes, assets:$assets}')"
-
-          # 3) Fetch the existing feed and VERIFY its signature before extending it.
-          #    The manifest on R2 is mutable; re-signing it unchecked would let anyone
-          #    with bucket write access inject an entry that this step then blesses
-          #    with the CI signing key — clients would trust the forged "latest". A
-          #    missing or unverifiable manifest → start fresh (safe: only recent-version
-          #    note history is lost, never the release). Then drop any same-tag entry
-          #    (idempotent re-runs), prepend the new one, keep the most recent 20
-          #    (array order is cosmetic — the client re-sorts by semver).
-          # verify_feed <manifest> succeeds if ANY trusted key verifies that manifest's
-          # detached signature. UPDATE_PUBLIC_KEYS is normalized to a comma-separated
-          # list, so a forward-only rotation (feed still signed by the previous key,
-          # new key already in the trusted set) doesn't wedge the pipeline.
-          verify_feed() {
-            local file="$1" key
-            IFS=',' read -ra _keys <<< "$UPDATE_PUBLIC_KEYS"
-            for key in "${_keys[@]}"; do
-              [ -n "$key" ] || continue
-              if minisign -Vm "$file" -P "$key" >/dev/null 2>&1; then return 0; fi
-            done
-            return 1
-          }
-          if ! { aws s3 cp "s3://${R2_BUCKET}/manifest.json" old.json 2>/dev/null \
-              && aws s3 cp "s3://${R2_BUCKET}/manifest.json.minisig" old.json.minisig 2>/dev/null \
-              && verify_feed old.json; }; then
-            echo "no verifiable existing manifest; starting a fresh feed" >&2
-            echo '{"releases":[]}' > old.json
-          fi
-          jq \
-            --argjson entry "$entry" \
-            --arg gen "$now" \
-            '{schema:1, generated_at:$gen,
-              releases: ([$entry] + ((.releases // []) | map(select(.tag != $entry.tag))))[0:20]}' \
-            old.json > manifest.json
-
-          # 4) Sign the manifest (unencrypted CI key; the secret lives only in the
-          #    GitHub secret). The client verifies this before trusting any field.
-          #    set -e aborts on a signing failure, and the anchor step already proved
-          #    this secret matches a trusted key before GoReleaser published — so the
-          #    resulting signature is guaranteed to verify; no re-check needed here.
-          printf '%s\n' "$MINISIGN_SECRET_KEY" > minisign.key
-          minisign -S -s minisign.key -m manifest.json
-          rm -f minisign.key
-
-          # 5) Upload the manifest + signature — the only mutable objects — with a
-          #    short TTL so a stale edge copy self-heals even if a purge is missed.
-          for f in manifest.json manifest.json.minisig; do
-            aws s3 cp "$f" "s3://${R2_BUCKET}/${f}" \
-              --cache-control "public, max-age=300, must-revalidate"
-          done
-
-          # 6) Purge the manifest + signature from Cloudflare's edge so clients see
-          #    the release within seconds (immutable archives are never purged).
-          #    Optional: without the token/zone the manifest's max-age=300 expires a
-          #    stale edge copy on its own within ~5 min, so skip cleanly rather than
-          #    fail the release.
-          if [ -n "${CLOUDFLARE_API_TOKEN:-}" ] && [ -n "${CLOUDFLARE_ZONE_ID:-}" ]; then
-            curl -fsS -X POST \
-              "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
-              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-              -H "Content-Type: application/json" \
-              --data "{\"files\":[\"${base}/manifest.json\",\"${base}/manifest.json.minisig\"]}"
-            echo "purged manifest + signature from the edge cache"
-          else
-            echo "skipping cache purge (CLOUDFLARE_API_TOKEN / CLOUDFLARE_ZONE_ID not set); max-age=300 expires the stale copy within ~5 min"
-          fi
+          echo "checksums.txt.minisig does not verify under any trusted key" >&2
+          exit 1

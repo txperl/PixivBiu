@@ -17,7 +17,7 @@ export async function getUpdateStatus(): Promise<Result<UpdateStatus>> {
     return { data: data ?? null, error: error ?? null };
 }
 
-// Forces a fresh check against the release feed (requires auth).
+// Forces a fresh check against GitHub Releases (requires auth).
 export async function checkForUpdate(): Promise<Result<UpdateStatus>> {
     const { data, error } = await api.POST("/system/update/check");
     return { data: data ?? null, error: error ?? null };

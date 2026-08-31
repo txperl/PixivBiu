@@ -17,11 +17,9 @@ VERSION   ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo de
 LDFLAGS   := -s -w -X main.version=$(VERSION)
 
 # Optional self-updater trust anchor, mirroring the GoReleaser stamping (unset →
-# empty anchor → updater fails closed; fine since dev builds never self-update).
-# Test against a real feed with: UPDATE_FEED_BASE=… UPDATE_PUBLIC_KEYS=… make build
-ifdef UPDATE_FEED_BASE
-LDFLAGS   += -X main.updateFeedURL=$(UPDATE_FEED_BASE)
-endif
+# no keys → the updater verifies downloads by HTTPS + SHA-256 only, without
+# enforcing the checksums signature). Test the signed path with:
+#   UPDATE_PUBLIC_KEYS=… make build
 ifdef UPDATE_PUBLIC_KEYS
 # Normalize the trusted-key list to a single -X-safe token (see release.yml for why).
 UPDATE_PUBLIC_KEYS_NORM := $(shell printf '%s' '$(UPDATE_PUBLIC_KEYS)' | tr -s '[:space:],' ',' | sed 's/^,//;s/,$$//')

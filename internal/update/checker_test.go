@@ -64,67 +64,81 @@ func TestAssetName(t *testing.T) {
 	}
 }
 
-// serveManifest serves the given manifest bytes at /manifest.json and the given
-// detached signature at /manifest.json.minisig, returning the feed base URL.
-func serveManifest(t *testing.T, data, sig []byte) string {
+// testOwner/testRepo are the repository coordinates every test Service uses;
+// serveGitHub validates the request path against them.
+const (
+	testOwner = "txperl"
+	testRepo  = "PixivBiu"
+)
+
+// serveGitHub serves releases as the GitHub list-releases API response and the
+// given asset bodies (path → bytes), pointing githubAPI at the test server for
+// the test's lifetime. Host-relative asset BrowserDownloadURLs ("/dl/…") in the
+// fixtures are rewritten to absolute test-server URLs, since the real API hands
+// out absolute URLs.
+func serveGitHub(t *testing.T, releases []ghRelease, assets map[string][]byte) {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("User-Agent") == "" {
 			t.Errorf("request missing User-Agent header")
 		}
-		switch r.URL.Path {
-		case "/manifest.json":
-			_, _ = w.Write(data)
-		case "/manifest.json.minisig":
-			_, _ = w.Write(sig)
-		default:
-			http.NotFound(w, r)
+		if r.URL.Path == "/repos/"+testOwner+"/"+testRepo+"/releases" {
+			_ = json.NewEncoder(w).Encode(releases)
+			return
 		}
+		if body, ok := assets[r.URL.Path]; ok {
+			_, _ = w.Write(body)
+			return
+		}
+		http.NotFound(w, r)
 	}))
 	t.Cleanup(srv.Close)
-	return srv.URL
+	for i := range releases {
+		for j := range releases[i].Assets {
+			if u := releases[i].Assets[j].BrowserDownloadURL; strings.HasPrefix(u, "/") {
+				releases[i].Assets[j].BrowserDownloadURL = srv.URL + u
+			}
+		}
+	}
+	old := githubAPI
+	githubAPI = srv.URL
+	t.Cleanup(func() { githubAPI = old })
 }
 
-// signedFeed builds a manifest from releases, signs it with a fresh minisign key,
-// serves it, and returns the feed base URL plus the trusted public key (base64).
-func signedFeed(t *testing.T, releases []releaseEntry) (feedURL, pubKey string) {
+// newTestService wires a Service to a fake GitHub API serving releases. keys are
+// the trusted minisign public keys: none → the unsigned fork/dev trust mode
+// (HTTPS + checksum only), any → a signature-enforcing official build.
+func newTestService(t *testing.T, current, channel string, releases []ghRelease, keys ...string) *Service {
 	t.Helper()
-	pub, priv, err := minisign.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatalf("generate key: %v", err)
-	}
-	data, err := json.Marshal(manifest{Schema: 1, Releases: releases})
-	if err != nil {
-		t.Fatalf("marshal manifest: %v", err)
-	}
-	return serveManifest(t, data, minisign.Sign(priv, data)), pub.String()
-}
-
-// newTestService wires a Service to a freshly-signed feed built from releases.
-func newTestService(t *testing.T, current, channel string, releases []releaseEntry) *Service {
-	t.Helper()
-	feedURL, pubKey := signedFeed(t, releases)
-	return NewService(current, feedURL, []string{pubKey}, config.UpdateConfig{
+	serveGitHub(t, releases, nil)
+	return NewService(current, testOwner, testRepo, keys, config.UpdateConfig{
 		Enabled: true,
 		Channel: channel,
 	}, "")
 }
 
-// withAssets attaches the archive for the running platform to r, so Check treats
-// the release as installable here (mirrors a real release). The name is built
-// from assetName so the fixture stays correct on whatever OS/arch the test runs
-// on; the SHA-256 is a placeholder (Check only gates on the asset's presence).
-func withAssets(r releaseEntry) releaseEntry {
-	name := assetName(r.Tag)
-	r.Assets = []asset{{Name: name, URL: "https://example/" + name, SHA256: "00"}}
+// withAssets attaches what installable() requires of a release on an unsigned
+// build — the archive for the running platform plus checksums.txt — and any
+// extra asset names (e.g. checksumsSigAssetName for signed-build fixtures). The
+// archive name is built from assetName so the fixture stays correct on whatever
+// OS/arch the test runs on. URLs are host-relative; serveGitHub makes them
+// absolute. Check only gates on presence, so Check-only tests need no bodies.
+func withAssets(r ghRelease, extra ...string) ghRelease {
+	names := append([]string{assetName(r.TagName), checksumsAssetName}, extra...)
+	for _, n := range names {
+		r.Assets = append(r.Assets, ghAsset{
+			Name:               n,
+			BrowserDownloadURL: "/dl/" + normalizeVersion(r.TagName) + "/" + n,
+		})
+	}
 	return r
 }
 
 func TestCheckUpdateAvailable(t *testing.T) {
-	s := newTestService(t, "3.0.0", "stable", []releaseEntry{
-		{Tag: "v3.0.0", HTMLURL: "https://example/v3.0.0"},
-		withAssets(releaseEntry{Tag: "v3.1.0", HTMLURL: "https://example/v3.1.0"}),
-		{Tag: "v2.6.4b"}, // legacy non-semver, must be ignored
+	s := newTestService(t, "3.0.0", "stable", []ghRelease{
+		{TagName: "v3.0.0", HTMLURL: "https://example/v3.0.0"},
+		withAssets(ghRelease{TagName: "v3.1.0", HTMLURL: "https://example/v3.1.0"}),
+		{TagName: "v2.6.4b"}, // legacy non-semver, must be ignored
 	})
 	st, err := s.Check(context.Background())
 	if err != nil {
@@ -147,10 +161,10 @@ func TestCheckUpdateAvailable(t *testing.T) {
 // it's allowed to see.
 func TestCheckChannelFloors(t *testing.T) {
 	// Filtering keys off the tag suffix (via releaseRank), not a prerelease bool.
-	releases := []releaseEntry{
-		withAssets(releaseEntry{Tag: "v3.0.0", HTMLURL: "https://example/v3.0.0"}),
-		withAssets(releaseEntry{Tag: "v3.2.0-beta.1", HTMLURL: "https://example/beta"}),
-		withAssets(releaseEntry{Tag: "v3.3.0-alpha.1", HTMLURL: "https://example/alpha"}),
+	releases := []ghRelease{
+		withAssets(ghRelease{TagName: "v3.0.0", HTMLURL: "https://example/v3.0.0"}),
+		withAssets(ghRelease{TagName: "v3.2.0-beta.1", HTMLURL: "https://example/beta"}),
+		withAssets(ghRelease{TagName: "v3.3.0-alpha.1", HTMLURL: "https://example/alpha"}),
 	}
 
 	cases := []struct {
@@ -185,8 +199,8 @@ func TestCheckChannelFloors(t *testing.T) {
 }
 
 func TestCheckDevBuildNeverOffersUpdate(t *testing.T) {
-	s := newTestService(t, "0.1.0-dev", "stable", []releaseEntry{
-		withAssets(releaseEntry{Tag: "v9.9.9", HTMLURL: "https://example/v9.9.9"}),
+	s := newTestService(t, "0.1.0-dev", "stable", []ghRelease{
+		withAssets(ghRelease{TagName: "v9.9.9", HTMLURL: "https://example/v9.9.9"}),
 	})
 	st, err := s.Check(context.Background())
 	if err != nil {
@@ -204,29 +218,47 @@ func TestCheckDevBuildNeverOffersUpdate(t *testing.T) {
 	}
 }
 
-// A newer release is only advertised as available when it actually ships an
-// installable archive for this platform; otherwise Apply would refuse it. The
-// latest version is still surfaced for display, but without an offer or an asset
-// name.
+// Draft releases are visible only to an authenticated owner, but the guard must
+// hold regardless: an unfinished release is never offered nor counted as latest.
+func TestCheckIgnoresDraftReleases(t *testing.T) {
+	s := newTestService(t, "3.0.0", "stable", []ghRelease{
+		withAssets(ghRelease{TagName: "v3.2.0", Draft: true, HTMLURL: "https://example/draft"}),
+		withAssets(ghRelease{TagName: "v3.1.0", HTMLURL: "https://example/v3.1.0"}),
+	})
+	st, err := s.Check(context.Background())
+	if err != nil {
+		t.Fatalf("Check: %v", err)
+	}
+	if st.LatestVersion != "v3.1.0" {
+		t.Errorf("LatestVersion = %q, want v3.1.0 (draft must be ignored)", st.LatestVersion)
+	}
+}
+
+// A newer release is only advertised as available when it actually ships
+// everything Apply needs on this platform — the archive plus the checksums.txt
+// that verifies it; otherwise Apply would refuse. The latest version is still
+// surfaced for display, but without an offer or an asset name.
 func TestCheckOnlyOffersApplicableReleases(t *testing.T) {
 	const v = "v3.1.0"
-	archive := asset{Name: assetName(v), URL: "https://example/a", SHA256: "00"}
+	archive := ghAsset{Name: assetName(v), BrowserDownloadURL: "https://example/a"}
+	sums := ghAsset{Name: checksumsAssetName, BrowserDownloadURL: "https://example/c"}
 
 	cases := map[string]struct {
-		assets        []asset
+		assets        []ghAsset
 		wantAvailable bool
 	}{
-		"archive for this platform": {[]asset{archive}, true},
-		"no archive for any":        {nil, false},
-		"archive for another OS": {[]asset{{
-			Name: "PixivBiu_3.1.0_someos_somearch.tar.gz", URL: "https://example/x", SHA256: "00",
-		}}, false},
+		"archive and checksums":     {[]ghAsset{archive, sums}, true},
+		"archive without checksums": {[]ghAsset{archive}, false},
+		"no assets":                 {nil, false},
+		"archive for another OS": {[]ghAsset{{
+			Name: "PixivBiu_3.1.0_someos_somearch.tar.gz", BrowserDownloadURL: "https://example/x",
+		}, sums}, false},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			s := newTestService(t, "3.0.0", "stable", []releaseEntry{
-				{Tag: "v3.0.0"},
-				{Tag: v, HTMLURL: "https://example/v3.1.0", Assets: c.assets},
+			s := newTestService(t, "3.0.0", "stable", []ghRelease{
+				{TagName: "v3.0.0"},
+				{TagName: v, HTMLURL: "https://example/v3.1.0", Assets: c.assets},
 			})
 			st, err := s.Check(context.Background())
 			if err != nil {
@@ -246,15 +278,45 @@ func TestCheckOnlyOffersApplicableReleases(t *testing.T) {
 	}
 }
 
+// A signature-enforcing build (trusted keys stamped) additionally gates the
+// offer on the checksums signature asset: without checksums.txt.minisig, Apply
+// would refuse the release, so Check must not advertise it. An unsigned build
+// offers the same release fine (covered by TestCheckUpdateAvailable).
+func TestCheckSignedBuildRequiresSignatureAsset(t *testing.T) {
+	pub, _, err := minisign.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	cases := map[string]struct {
+		release       ghRelease
+		wantAvailable bool
+	}{
+		"unsigned release": {withAssets(ghRelease{TagName: "v3.1.0"}), false},
+		"signed release":   {withAssets(ghRelease{TagName: "v3.1.0"}, checksumsSigAssetName), true},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			s := newTestService(t, "3.0.0", "stable", []ghRelease{c.release}, pub.String())
+			st, err := s.Check(context.Background())
+			if err != nil {
+				t.Fatalf("Check: %v", err)
+			}
+			if st.UpdateAvailable != c.wantAvailable {
+				t.Errorf("UpdateAvailable = %v, want %v", st.UpdateAvailable, c.wantAvailable)
+			}
+		})
+	}
+}
+
 // An update that skips intermediate versions should surface every skipped
 // version's changelog, newest-first, each under its own "## <tag>" heading — not
 // just the newest hop — with each body sanitized (commit SHA + "(@author)" + the
 // per-release "## Changelog" heading stripped).
 func TestCheckAggregatesNotesAcrossVersions(t *testing.T) {
-	s := newTestService(t, "3.0.0", "stable", []releaseEntry{
-		{Tag: "v3.1.0", Notes: "## Changelog\n### Features\n* 12d8eaacc0b65e76dede78bc67252c8f3be31827: feat: thing one (@txperl)"},
-		{Tag: "v3.2.0", Notes: "## Changelog\n### Bug fixes\n* a6f4c52a5b4900fef85a47c7eaf523c758d0c4c3: fix: thing two (@txperl)"},
-		withAssets(releaseEntry{Tag: "v3.3.0", HTMLURL: "https://example/v3.3.0", Notes: "## Changelog\n### Features\n* fbb56ddb997b8608aae3cd048f3ecae5b6543025: feat: thing three (@txperl)"}),
+	s := newTestService(t, "3.0.0", "stable", []ghRelease{
+		{TagName: "v3.1.0", Body: "## Changelog\n### Features\n* 12d8eaacc0b65e76dede78bc67252c8f3be31827: feat: thing one (@txperl)"},
+		{TagName: "v3.2.0", Body: "## Changelog\n### Bug fixes\n* a6f4c52a5b4900fef85a47c7eaf523c758d0c4c3: fix: thing two (@txperl)"},
+		withAssets(ghRelease{TagName: "v3.3.0", HTMLURL: "https://example/v3.3.0", Body: "## Changelog\n### Features\n* fbb56ddb997b8608aae3cd048f3ecae5b6543025: feat: thing three (@txperl)"}),
 	})
 	st, err := s.Check(context.Background())
 	if err != nil {
@@ -278,9 +340,9 @@ func TestCheckAggregatesNotesAcrossVersions(t *testing.T) {
 // A single-version jump carries no synthetic "## <tag>" heading, but the body is
 // still sanitized for display (SHA + "(@author)" + "## Changelog" stripped).
 func TestCheckSingleVersionNotesCleaned(t *testing.T) {
-	s := newTestService(t, "3.0.0", "stable", []releaseEntry{
-		{Tag: "v3.0.0"},
-		withAssets(releaseEntry{Tag: "v3.1.0", HTMLURL: "https://example/v3.1.0", Notes: "## Changelog\n### Features\n* 12d8eaacc0b65e76dede78bc67252c8f3be31827: feat: only hop (@txperl)"}),
+	s := newTestService(t, "3.0.0", "stable", []ghRelease{
+		{TagName: "v3.0.0"},
+		withAssets(ghRelease{TagName: "v3.1.0", HTMLURL: "https://example/v3.1.0", Body: "## Changelog\n### Features\n* 12d8eaacc0b65e76dede78bc67252c8f3be31827: feat: only hop (@txperl)"}),
 	})
 	st, err := s.Check(context.Background())
 	if err != nil {
@@ -312,7 +374,7 @@ func assertCleanedNotes(t *testing.T, notes string) {
 }
 
 func TestApplyRefusesDevBuild(t *testing.T) {
-	s := NewService("0.1.0-dev", "https://dl.invalid", nil, config.UpdateConfig{}, "")
+	s := NewService("0.1.0-dev", testOwner, testRepo, nil, config.UpdateConfig{}, "")
 	err := s.Apply(context.Background())
 	var ue *Error
 	if !errors.As(err, &ue) || ue.Kind != KindRefused {
@@ -320,69 +382,69 @@ func TestApplyRefusesDevBuild(t *testing.T) {
 	}
 }
 
-// A non-2xx from the feed must classify as upstream so the API returns 502, not a
-// 400 with raw text.
-func TestCheckClassifiesFeedFailureAsUpstream(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+// A non-2xx from the GitHub API must classify as upstream so the API returns
+// 502, not a 400 with raw text. (A rate-limit 403 takes the same path.)
+func TestCheckClassifiesGitHubFailureAsUpstream(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
-	defer ts.Close()
+	t.Cleanup(srv.Close)
+	old := githubAPI
+	githubAPI = srv.URL
+	t.Cleanup(func() { githubAPI = old })
 
-	s := NewService("3.0.0", ts.URL, []string{"unused"}, config.UpdateConfig{Enabled: true, Channel: "stable"}, "")
+	s := NewService("3.0.0", testOwner, testRepo, nil, config.UpdateConfig{Enabled: true, Channel: "stable"}, "")
 	_, err := s.Check(context.Background())
 	var ue *Error
 	if !errors.As(err, &ue) || ue.Kind != KindUpstream {
-		t.Fatalf("Check against a failing feed = %v, want a KindUpstream *Error", err)
+		t.Fatalf("Check against a failing API = %v, want a KindUpstream *Error", err)
 	}
 }
 
-// A manifest whose signature doesn't verify under the trusted key must be refused
-// outright — an unverifiable feed is never parsed or trusted. This is the core
-// guarantee of the minisign migration: tampering with the feed (even with valid
-// JSON) cannot push an update.
-func TestCheckRejectsInvalidSignature(t *testing.T) {
-	// Sign with one key but trust a different one → verification must fail.
-	_, signingPriv, err := minisign.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatalf("generate signing key: %v", err)
+func TestFetchBytesEnforcesBodyLimit(t *testing.T) {
+	const limit = int64(5)
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{name: "under limit", body: "1234"},
+		{name: "exactly at limit", body: "12345"},
+		{name: "over limit", body: "123456", wantErr: true},
 	}
-	trustedPub, _, err := minisign.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatalf("generate trusted key: %v", err)
-	}
-	data, err := json.Marshal(manifest{Schema: 1, Releases: []releaseEntry{
-		withAssets(releaseEntry{Tag: "v3.1.0", HTMLURL: "https://example/v3.1.0"}),
-	}})
-	if err != nil {
-		t.Fatalf("marshal manifest: %v", err)
-	}
-	feedURL := serveManifest(t, data, minisign.Sign(signingPriv, data))
 
-	s := NewService("3.0.0", feedURL, []string{trustedPub.String()}, config.UpdateConfig{Enabled: true, Channel: "stable"}, "")
-	_, err = s.Check(context.Background())
-	var ue *Error
-	if !errors.As(err, &ue) || ue.Kind != KindRefused {
-		t.Fatalf("Check with a bad signature = %v, want a KindRefused *Error", err)
-	}
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			t.Cleanup(srv.Close)
 
-// No trusted key configured must also fail closed: without a key we cannot verify
-// the feed, so no update is ever offered (the placeholder build state).
-func TestCheckWithoutTrustedKeyIsRefused(t *testing.T) {
-	feedURL, _ := signedFeed(t, []releaseEntry{
-		withAssets(releaseEntry{Tag: "v3.1.0", HTMLURL: "https://example/v3.1.0"}),
-	})
-	s := NewService("3.0.0", feedURL, nil, config.UpdateConfig{Enabled: true, Channel: "stable"}, "")
-	_, err := s.Check(context.Background())
-	var ue *Error
-	if !errors.As(err, &ue) || ue.Kind != KindRefused {
-		t.Fatalf("Check with no trusted key = %v, want a KindRefused *Error", err)
+			s := NewService("3.0.0", testOwner, testRepo, nil, config.UpdateConfig{}, "")
+			got, err := s.fetchBytes(context.Background(), srv.URL, limit)
+			if tt.wantErr {
+				var ue *Error
+				if !errors.As(err, &ue) || ue.Kind != KindUpstream {
+					t.Fatalf("fetchBytes over the limit = (%q, %v), want a KindUpstream *Error", got, err)
+				}
+				if got != nil {
+					t.Errorf("fetchBytes over the limit returned %q, want no truncated body", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("fetchBytes = %v", err)
+			}
+			if string(got) != tt.body {
+				t.Errorf("fetchBytes = %q, want %q", got, tt.body)
+			}
+		})
 	}
 }
 
 // "no applicable release" is a refusal (precondition), not a transport failure.
 func TestCheckNoApplicableReleaseIsRefused(t *testing.T) {
-	s := newTestService(t, "3.0.0", "stable", []releaseEntry{{Tag: "v2.6.4b"}}) // legacy non-semver only
+	s := newTestService(t, "3.0.0", "stable", []ghRelease{{TagName: "v2.6.4b"}}) // legacy non-semver only
 	_, err := s.Check(context.Background())
 	var ue *Error
 	if !errors.As(err, &ue) || ue.Kind != KindRefused {
