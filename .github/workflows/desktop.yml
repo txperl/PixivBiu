@@ -42,6 +42,7 @@ jobs:
   # known duplicate-draft hazard; one idempotent create up front removes it.
   draft:
     name: Create draft release
+    environment: Public-Release
     runs-on: ubuntu-latest
     steps:
       - name: Create draft release in the desktop repo
@@ -62,6 +63,7 @@ jobs:
   desktop:
     name: Desktop (${{ matrix.os }})
     needs: draft
+    environment: Public-Release
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -196,6 +198,7 @@ jobs:
   publish:
     name: Publish release
     needs: desktop
+    environment: Public-Release
     runs-on: ubuntu-latest
     steps:
       - name: Verify completeness & publish
