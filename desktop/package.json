@@ -3,8 +3,12 @@
     "productName": "PixivBiu",
     "version": "0.0.0",
     "description": "PixivBiu desktop shell — a thin Electron wrapper around the single-binary core",
+    "homepage": "https://github.com/txperl/PixivBiu",
     "private": true,
-    "author": "txperl",
+    "author": {
+        "name": "txperl",
+        "email": "txperl@gmail.com"
+    },
     "license": "MIT",
     "main": "dist/main.js",
     "scripts": {

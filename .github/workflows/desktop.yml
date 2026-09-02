@@ -121,12 +121,14 @@ jobs:
           # Write access to DESKTOP_REPO (fine-grained PAT, Contents: R/W on that
           # repo only). The default GITHUB_TOKEN can't write to another repo.
           GH_TOKEN: ${{ secrets.DESKTOP_RELEASES_TOKEN }}
-          # macOS Developer ID cert (.p12) + notarization credentials.
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # macOS Developer ID cert (.p12) + notarization credentials. Keep
+          # these empty on Windows: electron-builder otherwise treats the Apple
+          # certificate as a generic CSC_LINK and attempts Authenticode signing.
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
           # Windows Azure Trusted Signing. Non-secret account config as repo vars;
           # the service-principal auth as secrets. Signing is skipped (build stays
           # unsigned) unless WIN_AZURE_ENDPOINT is set — provisioning is external
