@@ -18,21 +18,9 @@ PixivBiu, a handy companion tool for Pixiv.
 
 ## Usage
 
-### Desktop app
-
-Download the installer for your system and open it — the app checks for updates on its own:
-
-- **macOS (Apple Silicon)** — [PixivBiu-latest-macos-arm64.dmg](https://github.com/txperl/PixivBiu-Desktop/releases/latest/download/PixivBiu-latest-macos-arm64.dmg)
-- **macOS (Intel)** — [PixivBiu-latest-macos-x64.dmg](https://github.com/txperl/PixivBiu-Desktop/releases/latest/download/PixivBiu-latest-macos-x64.dmg)
-- **Windows** — [PixivBiu-latest-windows.exe](https://github.com/txperl/PixivBiu-Desktop/releases/latest/download/PixivBiu-latest-windows.exe)
-- **Linux** — [PixivBiu-latest-linux.AppImage](https://github.com/txperl/PixivBiu-Desktop/releases/latest/download/PixivBiu-latest-linux.AppImage)
-
-### Server / CLI
-
-Head to [Releases](https://github.com/txperl/PixivBiu/releases) and download the archive for your system:
-
-1. Unzip and run the `pixivbiu` file
-2. Open [http://127.0.0.1:4001](http://127.0.0.1:4001) in your browser
+1. Head to [Releases](https://github.com/txperl/PixivBiu/releases) and download the package for your system
+2. Unzip and run the `pixivbiu` file
+3. Open [http://127.0.0.1:4001](http://127.0.0.1:4001) in your browser
 
 ## Configuration
 

@@ -18,21 +18,9 @@ PixivBiu、Pixiv のための便利な補助ツール。
 
 ## 使い方
 
-### デスクトップアプリ
-
-お使いのシステム向けのインストーラーをダウンロードして開くだけです。アプリが自動でアップデートを確認します：
-
-- **macOS（Apple シリコン）** — [PixivBiu-latest-macos-arm64.dmg](https://github.com/txperl/PixivBiu-Desktop/releases/latest/download/PixivBiu-latest-macos-arm64.dmg)
-- **macOS（Intel）** — [PixivBiu-latest-macos-x64.dmg](https://github.com/txperl/PixivBiu-Desktop/releases/latest/download/PixivBiu-latest-macos-x64.dmg)
-- **Windows** — [PixivBiu-latest-windows.exe](https://github.com/txperl/PixivBiu-Desktop/releases/latest/download/PixivBiu-latest-windows.exe)
-- **Linux** — [PixivBiu-latest-linux.AppImage](https://github.com/txperl/PixivBiu-Desktop/releases/latest/download/PixivBiu-latest-linux.AppImage)
-
-### サーバー / CLI
-
-[Releases](https://github.com/txperl/PixivBiu/releases) からお使いのシステム向けのアーカイブをダウンロード：
-
-1. 展開して `pixivbiu` を実行
-2. ブラウザで [http://127.0.0.1:4001](http://127.0.0.1:4001) を開く
+1. [Releases](https://github.com/txperl/PixivBiu/releases) からお使いのシステム向けのパッケージをダウンロード
+2. 展開して `pixivbiu` を実行
+3. ブラウザで [http://127.0.0.1:4001](http://127.0.0.1:4001) を開く
 
 ## 設定
 
