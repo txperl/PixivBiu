@@ -215,7 +215,7 @@ func (r *Renderer) RenderRootPath(tmpl *template.Template, ctx NameContext) (str
 		joined = "/" + joined
 	}
 	result := filepath.FromSlash(volume + joined)
-	if r.BaseDir != "" && !filepath.IsAbs(result) {
+	if r.BaseDir != "" && volume == "" && !anchored {
 		result = filepath.Join(r.BaseDir, result)
 	}
 	return result, nil

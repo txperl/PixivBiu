@@ -189,19 +189,21 @@ func TestRenderRelativePath_LeadingSlashNormalisedToRelative(t *testing.T) {
 	}
 }
 
-func TestRenderRootPath_PreservesPosixAbsolute(t *testing.T) {
-	tmpl := mustParse(t, "root", `/mnt/pixiv/{{.Title}}`)
+func TestRenderRootPath_PreservesAbsolute(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "pixiv")
+	tmpl := mustParse(t, "root", filepath.ToSlash(root)+`/{{.Title}}`)
 	out := mustRenderRoot(t, tmpl, "", NameContext{Title: "Work"})
-	want := "/mnt/pixiv/Work"
+	want := filepath.Join(root, "Work")
 	if out != want {
 		t.Errorf("absolute root lost: want %q, got %q", want, out)
 	}
 }
 
 func TestRenderRootPath_HomeAnchorSurvives(t *testing.T) {
+	home := t.TempDir()
 	tmpl := mustParse(t, "root", `{{.Home}}/Downloads`)
-	out := mustRenderRoot(t, tmpl, "", NameContext{Home: "/Users/someone"})
-	want := "/Users/someone/Downloads"
+	out := mustRenderRoot(t, tmpl, "", NameContext{Home: home})
+	want := filepath.Join(home, "Downloads")
 	if out != want {
 		t.Errorf(".Home anchor lost: want %q, got %q", want, out)
 	}
@@ -217,27 +219,39 @@ func TestRenderRootPath_RelativeStaysRelativeWithoutBaseDir(t *testing.T) {
 }
 
 func TestRenderRootPath_RelativeResolvedAgainstBaseDir(t *testing.T) {
+	base := t.TempDir()
 	tmpl := mustParse(t, "root", `./downloads/{{.Title}}`)
-	out := mustRenderRoot(t, tmpl, "/opt/pixiv", NameContext{Title: "Work"})
-	want := "/opt/pixiv/downloads/Work"
+	out := mustRenderRoot(t, tmpl, base, NameContext{Title: "Work"})
+	want := filepath.Join(base, "downloads", "Work")
 	if out != want {
 		t.Errorf("relative root should anchor to BaseDir: want %q, got %q", want, out)
 	}
 }
 
 func TestRenderRootPath_AbsoluteUntouchedWhenBaseDirSet(t *testing.T) {
-	tmpl := mustParse(t, "root", `/mnt/pixiv/{{.Title}}`)
-	out := mustRenderRoot(t, tmpl, "/opt/pixiv", NameContext{Title: "Work"})
-	want := "/mnt/pixiv/Work"
+	root := filepath.Join(t.TempDir(), "pixiv")
+	tmpl := mustParse(t, "root", filepath.ToSlash(root)+`/{{.Title}}`)
+	out := mustRenderRoot(t, tmpl, t.TempDir(), NameContext{Title: "Work"})
+	want := filepath.Join(root, "Work")
 	if out != want {
 		t.Errorf("absolute root must ignore BaseDir: want %q, got %q", want, out)
 	}
 }
 
+func TestRenderRootPath_RootAnchorIgnoresBaseDir(t *testing.T) {
+	tmpl := mustParse(t, "root", `/mnt/pixiv/{{.Title}}`)
+	out := mustRenderRoot(t, tmpl, t.TempDir(), NameContext{Title: "Work"})
+	want := filepath.FromSlash("/mnt/pixiv/Work")
+	if out != want {
+		t.Errorf("root-anchored path must ignore BaseDir: want %q, got %q", want, out)
+	}
+}
+
 func TestRenderRootPath_HomeAnchoredTemplateUntouchedWhenBaseDirSet(t *testing.T) {
+	home := t.TempDir()
 	tmpl := mustParse(t, "root", `{{.Home}}/Downloads`)
-	out := mustRenderRoot(t, tmpl, "/opt/pixiv", NameContext{Home: "/Users/someone"})
-	want := "/Users/someone/Downloads"
+	out := mustRenderRoot(t, tmpl, t.TempDir(), NameContext{Home: home})
+	want := filepath.Join(home, "Downloads")
 	if out != want {
 		t.Errorf("{{.Home}}-anchored template must ignore BaseDir: want %q, got %q", want, out)
 	}
@@ -249,8 +263,9 @@ func TestRenderRootPath_BareRootIsLegal(t *testing.T) {
 	// does on empty cleaned-segment lists.
 	tmpl := mustParse(t, "root", `/`)
 	out := mustRenderRoot(t, tmpl, "", NameContext{})
-	if out != "/" {
-		t.Errorf("bare root: want %q, got %q", "/", out)
+	want := string(filepath.Separator)
+	if out != want {
+		t.Errorf("bare root: want %q, got %q", want, out)
 	}
 }
 
@@ -417,6 +432,5 @@ func TestResolveCollisionPair_StaggeredTakenSkipsToCommonFree(t *testing.T) {
 // filepathSep returns the OS path separator as a string. Used in
 // assertions that check joined subdirectories.
 func filepathSep() rune {
-	// filepath.Separator is a rune in the stdlib; wrap for use.
-	return '/' // on POSIX; naming_test runs on the host platform
+	return filepath.Separator
 }

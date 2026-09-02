@@ -29,9 +29,7 @@ function App() {
 // computes drag regions in paint order; a strip painted last would cover the
 // holes. Height is 0 in the browser — renders as nothing.
 function WindowDragStrip() {
-    return (
-        <div className="app-drag -z-10 fixed inset-x-0 top-0" style={{ height: "var(--titlebar-inset, 0px)" }} />
-    );
+    return <div className="app-drag fixed inset-x-0 top-0 -z-10" style={{ height: "var(--titlebar-inset, 0px)" }} />;
 }
 
 export default App;

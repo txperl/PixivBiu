@@ -72,15 +72,21 @@ func assemble(system, env []string) []Candidate {
 // detectEnv reads the conventional proxy environment variables, HTTPS first
 // (the app only reaches Pixiv over HTTPS), then HTTP, then ALL_PROXY. Both
 // upper- and lower-case spellings are honored, as curl and Go's own
-// http.ProxyFromEnvironment do.
+// http.ProxyFromEnvironment do. Equal values are collapsed here because
+// environment names are case-insensitive aliases on Windows.
 func detectEnv() []string {
 	var out []string
+	seen := make(map[string]struct{})
 	for _, name := range []string{
 		"HTTPS_PROXY", "https_proxy",
 		"HTTP_PROXY", "http_proxy",
 		"ALL_PROXY", "all_proxy",
 	} {
 		if v := strings.TrimSpace(os.Getenv(name)); v != "" {
+			if _, ok := seen[v]; ok {
+				continue
+			}
+			seen[v] = struct{}{}
 			out = append(out, v)
 		}
 	}

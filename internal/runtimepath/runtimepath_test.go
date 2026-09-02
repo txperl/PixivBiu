@@ -6,6 +6,12 @@ import (
 )
 
 func TestResolveRoot_GoBuildTempFallsBackToCWD(t *testing.T) {
+	root := t.TempDir()
+	cwd := filepath.Join(root, "cwd")
+	installedDir := filepath.Join(root, "usr", "local", "bin")
+	repoBinDir := filepath.Join(root, "home", "me", "proj", "bin")
+	goBuildsDir := filepath.Join(root, "opt", "go-builds", "pixivbiu", "bin")
+	cacheBinDir := filepath.Join(root, "home", "me", ".cache", "go-build", "binaries")
 	cases := []struct {
 		name string
 		exe  string
@@ -14,33 +20,33 @@ func TestResolveRoot_GoBuildTempFallsBackToCWD(t *testing.T) {
 	}{
 		{
 			name: "go-run temp dir falls back to cwd",
-			exe:  "/var/folders/xx/T/go-build123456789/b001/exe/server",
-			cwd:  "/home/me/proj",
-			want: "/home/me/proj",
+			exe:  filepath.Join(root, "tmp", "go-build123456789", "b001", "exe", "server"),
+			cwd:  cwd,
+			want: cwd,
 		},
 		{
 			name: "installed binary keeps exec dir",
-			exe:  "/usr/local/bin/pixivbiu",
-			cwd:  "/elsewhere",
-			want: "/usr/local/bin",
+			exe:  filepath.Join(installedDir, "pixivbiu"),
+			cwd:  cwd,
+			want: installedDir,
 		},
 		{
 			name: "repo-built binary keeps exec dir",
-			exe:  "/home/me/proj/bin/pixivbiu",
-			cwd:  "/anywhere",
-			want: "/home/me/proj/bin",
+			exe:  filepath.Join(repoBinDir, "pixivbiu"),
+			cwd:  cwd,
+			want: repoBinDir,
 		},
 		{
 			name: "go-build-prefixed install path keeps exec dir",
-			exe:  "/opt/go-builds/pixivbiu/bin/pixivbiu",
-			cwd:  "/anywhere",
-			want: "/opt/go-builds/pixivbiu/bin",
+			exe:  filepath.Join(goBuildsDir, "pixivbiu"),
+			cwd:  cwd,
+			want: goBuildsDir,
 		},
 		{
 			name: "bare go-build path component keeps exec dir",
-			exe:  "/home/me/.cache/go-build/binaries/pixivbiu",
-			cwd:  "/anywhere",
-			want: "/home/me/.cache/go-build/binaries",
+			exe:  filepath.Join(cacheBinDir, "pixivbiu"),
+			cwd:  cwd,
+			want: cacheBinDir,
 		},
 	}
 	for _, c := range cases {
@@ -54,6 +60,11 @@ func TestResolveRoot_GoBuildTempFallsBackToCWD(t *testing.T) {
 }
 
 func TestDataRoot(t *testing.T) {
+	root := t.TempDir()
+	absFlag := filepath.Join(root, "var", "lib", "pixivbiu")
+	absEnv := filepath.Join(root, "opt", "pixivbiu-data")
+	flagPrecedence := filepath.Join(root, "opt", "from-flag")
+	envPrecedence := filepath.Join(root, "opt", "from-env")
 	// A relative override resolves against the test's CWD; capture the
 	// expected absolute form here so the table stays declarative.
 	relAbs, err := filepath.Abs(filepath.FromSlash("scratch/data"))
@@ -68,9 +79,9 @@ func TestDataRoot(t *testing.T) {
 	}{
 		{"no override falls back to Root", "", "", Root()},
 		{"relative override is absolutized", filepath.FromSlash("scratch/data"), "", relAbs},
-		{"absolute override returned unchanged", filepath.FromSlash("/var/lib/pixivbiu"), "", filepath.FromSlash("/var/lib/pixivbiu")},
-		{"env used when flag arg empty", "", filepath.FromSlash("/opt/pixivbiu-data"), filepath.FromSlash("/opt/pixivbiu-data")},
-		{"flag arg takes precedence over env", filepath.FromSlash("/opt/from-flag"), filepath.FromSlash("/opt/from-env"), filepath.FromSlash("/opt/from-flag")},
+		{"absolute override returned unchanged", absFlag, "", absFlag},
+		{"env used when flag arg empty", "", absEnv, absEnv},
+		{"flag arg takes precedence over env", flagPrecedence, envPrecedence, flagPrecedence},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -83,7 +94,12 @@ func TestDataRoot(t *testing.T) {
 }
 
 func TestCacheRoot(t *testing.T) {
-	dataRoot := filepath.FromSlash("/opt/app")
+	root := t.TempDir()
+	dataRoot := filepath.Join(root, "opt", "app")
+	absFlag := filepath.Join(root, "var", "cache", "pixivbiu")
+	absEnv := filepath.Join(root, "opt", "pixiv-cache")
+	flagPrecedence := filepath.Join(root, "opt", "from-flag")
+	envPrecedence := filepath.Join(root, "opt", "from-env")
 	// A relative override resolves against the test's CWD.
 	relAbs, err := filepath.Abs(filepath.FromSlash("scratch/cache"))
 	if err != nil {
@@ -97,9 +113,9 @@ func TestCacheRoot(t *testing.T) {
 	}{
 		{"no override falls back to usr/cache under data root", "", "", filepath.Join(dataRoot, "usr/cache")},
 		{"relative override is absolutized", filepath.FromSlash("scratch/cache"), "", relAbs},
-		{"absolute override returned unchanged", filepath.FromSlash("/var/cache/pixivbiu"), "", filepath.FromSlash("/var/cache/pixivbiu")},
-		{"env used when flag arg empty", "", filepath.FromSlash("/opt/pixiv-cache"), filepath.FromSlash("/opt/pixiv-cache")},
-		{"flag arg takes precedence over env", filepath.FromSlash("/opt/from-flag"), filepath.FromSlash("/opt/from-env"), filepath.FromSlash("/opt/from-flag")},
+		{"absolute override returned unchanged", absFlag, "", absFlag},
+		{"env used when flag arg empty", "", absEnv, absEnv},
+		{"flag arg takes precedence over env", flagPrecedence, envPrecedence, flagPrecedence},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -112,10 +128,10 @@ func TestCacheRoot(t *testing.T) {
 }
 
 func TestAnchor(t *testing.T) {
-	root := filepath.FromSlash("/opt/app/bin")
+	root := t.TempDir()
 
 	t.Run("absolute path untouched", func(t *testing.T) {
-		abs := filepath.FromSlash("/etc/pixivbiu/settings.json")
+		abs := filepath.Join(t.TempDir(), "etc", "pixivbiu", "settings.json")
 		if got := Anchor(root, abs); got != abs {
 			t.Errorf("Anchor(root, abs) = %q, want unchanged %q", got, abs)
 		}
