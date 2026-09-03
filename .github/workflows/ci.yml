@@ -1,7 +1,7 @@
 name: CI
 
-# Quality gate for the Go backend and the React frontend. Runs on pushes to
-# master and on every pull request; tag pushes are handled by release.yml.
+# Quality gate for the Go backend, React frontend, and Electron desktop shell.
+# Runs on pushes to master and every pull request; tags use release workflows.
 on:
   push:
     branches: [master]
@@ -103,3 +103,25 @@ jobs:
       # type-checks (tsc) and bundles in one pass — no separate tsc step needed.
       - name: Type check and build
         run: bun run build
+
+  desktop:
+    name: Desktop (Electron)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test release contract
+        run: node --test ../scripts/desktop-release.test.mjs

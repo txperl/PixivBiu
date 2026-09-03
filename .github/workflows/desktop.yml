@@ -14,8 +14,8 @@ name: Desktop
 # in this repo the core's v* releases would shadow them, so the two trains keep
 # separate repos. The flow is draft-then-publish: a draft release is created
 # up front, the three OS runners upload into it, and it flips live only once
-# every platform's update metadata (latest*.yml) is present — so updaters and
-# the README's /releases/latest download links never see a half-built release.
+# every installer and update artifact is present and internally consistent — so
+# updaters and the README's /releases/latest link never see a half-built release.
 #
 # Cut a desktop release by pushing a `desktop-v*` tag (source stays here):
 #   git tag desktop-v1.0.0 && git push origin desktop-v1.0.0
@@ -45,6 +45,12 @@ jobs:
     environment: Public-Release
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Create draft release in the desktop repo
         env:
           GH_TOKEN: ${{ secrets.DESKTOP_RELEASES_TOKEN }}
@@ -52,13 +58,20 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME#desktop-v}"
-          if gh release view "v${VERSION}" --repo "$DESKTOP_REPO" >/dev/null 2>&1; then
+          # Validates strict stable/alpha/beta Desktop SemVer before any release
+          # state is created. Unsupported channels (including rc) fail here.
+          TITLE="$(node scripts/desktop-release.mjs title "$GITHUB_REF_NAME")"
+          if existing_is_draft="$(gh release view "v${VERSION}" --repo "$DESKTOP_REPO" --json isDraft --jq '.isDraft' 2>/dev/null)"; then
+            if [ "$existing_is_draft" != "true" ]; then
+              echo "::error::release v${VERSION} is already published; refusing to modify it" >&2
+              exit 1
+            fi
             echo "release v${VERSION} already exists in ${DESKTOP_REPO}; reusing it"
             exit 0
           fi
           gh release create "v${VERSION}" --repo "$DESKTOP_REPO" --draft \
-            --title "PixivBiu Desktop v${VERSION}" \
-            --notes "PixivBiu Desktop v${VERSION} — built from [\`${GITHUB_REF_NAME}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}) in ${GITHUB_REPOSITORY}."
+            --title "$TITLE" \
+            --notes "Release assets are being assembled and verified. This draft was triggered by [\`${GITHUB_REF_NAME}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/tree/${GITHUB_REF_NAME})."
 
   desktop:
     name: Desktop (${{ matrix.os }})
@@ -162,47 +175,25 @@ jobs:
           fi
           npx electron-builder "${args[@]}"
 
-      # Stable "latest" download aliases so the README can link a fixed URL via
-      # /releases/latest/download/<alias>. Version-less copies of this runner's
-      # own installers, uploaded into the same draft. --clobber makes re-runs
-      # idempotent. The aliases are extra assets NOT listed in latest*.yml, so
-      # electron-updater (and its blockmap differential downloads) ignores them.
-      # Skipped on prerelease tags: /releases/latest only ever resolves to the
-      # newest stable release, so aliases on a beta/alpha would just be dead
-      # weight nothing links to.
-      - name: Upload latest-alias assets
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.DESKTOP_RELEASES_TOKEN }}
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#desktop-v}"
-          if [[ "$VERSION" == *-* ]]; then
-            echo "prerelease ${VERSION}: skipping latest-alias uploads"
-            exit 0
-          fi
-          out=desktop/out
-          shopt -s nullglob
-          alias_latest() {
-            for f in "$out"/$1; do
-              cp "$f" "${RUNNER_TEMP}/$2"
-              gh release upload "v${VERSION}" "${RUNNER_TEMP}/$2" --repo "$DESKTOP_REPO" --clobber
-            done
-          }
-          alias_latest '*-arm64.dmg' PixivBiu-latest-macos-arm64.dmg
-          alias_latest '*-x64.dmg'   PixivBiu-latest-macos-x64.dmg
-          alias_latest '*.exe'       PixivBiu-latest-windows.exe
-          alias_latest '*.AppImage'  PixivBiu-latest-linux.AppImage
-
-  # Flip the draft live only after every platform uploaded its update metadata —
-  # a partially-published release would break electron-updater on the missing
-  # platforms and dangle the /releases/latest download links.
+  # Flip the draft live only after every platform uploaded all expected assets,
+  # the updater metadata references those exact filenames, and the user-facing
+  # release notes have been rendered from the verified manifest.
   publish:
     name: Publish release
     needs: desktop
     environment: Public-Release
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Read pinned core version
+        shell: bash
+        run: echo "CORE_VERSION=$(tr -d '[:space:]' < desktop/.core-version)" >> "$GITHUB_ENV"
+
       - name: Verify completeness & publish
         env:
           GH_TOKEN: ${{ secrets.DESKTOP_RELEASES_TOKEN }}
@@ -210,18 +201,35 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME#desktop-v}"
-          assets="$(gh release view "v${VERSION}" --repo "$DESKTOP_REPO" --json assets --jq '.assets[].name')"
-          missing=0
-          for f in latest-mac.yml latest.yml latest-linux.yml; do
-            grep -qx "$f" <<<"$assets" || { echo "::error::draft is missing $f" >&2; missing=1; }
-          done
-          [ "$missing" = 0 ] || exit 1
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          metadata="$work/metadata"
+          mkdir -p "$metadata"
+
+          is_draft="$(gh release view "v${VERSION}" --repo "$DESKTOP_REPO" --json isDraft --jq '.isDraft')"
+          if [ "$is_draft" != "true" ]; then
+            echo "::error::release v${VERSION} is already published; refusing to modify it" >&2
+            exit 1
+          fi
+          gh release view "v${VERSION}" --repo "$DESKTOP_REPO" --json assets \
+            --jq '[.assets[].name]' > "$work/assets.json"
+          gh release download "v${VERSION}" --repo "$DESKTOP_REPO" \
+            --pattern 'latest*.yml' --dir "$metadata"
+
+          node scripts/desktop-release.mjs verify \
+            "$GITHUB_REF_NAME" "$CORE_VERSION" "$GITHUB_REPOSITORY" "$DESKTOP_REPO" \
+            "$work/assets.json" "$metadata" "$work/release-notes.md"
+          TITLE="$(node scripts/desktop-release.mjs title "$GITHUB_REF_NAME")"
+
           # A prerelease desktop tag (desktop-v1.2.0-beta.1) must not become the
-          # repo's "latest" — /releases/latest (and the README's alias links) keep
-          # pointing at the last stable while updaters on the beta channel still
-          # see the prerelease.
+          # repo's "latest" — /releases/latest keeps pointing at the last stable
+          # while updaters on the beta channel still see the prerelease.
           if [[ "$VERSION" == *-* ]]; then
-            gh release edit "v${VERSION}" --repo "$DESKTOP_REPO" --draft=false --prerelease
+            gh release edit "v${VERSION}" --repo "$DESKTOP_REPO" \
+              --title "$TITLE" --notes-file "$work/release-notes.md" \
+              --draft=false --prerelease
           else
-            gh release edit "v${VERSION}" --repo "$DESKTOP_REPO" --draft=false --latest
+            gh release edit "v${VERSION}" --repo "$DESKTOP_REPO" \
+              --title "$TITLE" --notes-file "$work/release-notes.md" \
+              --draft=false --prerelease=false --latest
           fi

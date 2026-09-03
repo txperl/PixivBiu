@@ -7,10 +7,9 @@ appId: moe.tls.pixivbiu
 productName: PixivBiu
 copyright: Copyright © txperl
 
-# Deterministic, arch-tagged artifact names. macOS ships a per-arch split (see
-# mac.target), so every artifact must carry its arch to avoid collisions and to
-# let the "latest" alias assets (.github/workflows/desktop.yml) match by arch.
-artifactName: ${productName}-${version}-${arch}.${ext}
+# Artifact names are set per platform below. They use the same machine-facing
+# OS vocabulary as the core release (darwin/windows/linux) while release notes
+# present Apple's user-facing "macOS" name.
 
 directories:
   output: out
@@ -56,6 +55,7 @@ publish:
   releaseType: draft
 
 mac:
+  artifactName: ${productName}-Desktop-${version}-darwin-${arch}.${ext}
   category: public.app-category.entertainment
   # Hardened runtime + notarization (requires APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD
   # / APPLE_TEAM_ID and a Developer ID cert via CSC_LINK / CSC_KEY_PASSWORD).
@@ -78,6 +78,7 @@ mac:
       arch: [x64, arm64]
 
 win:
+  artifactName: ${productName}-Desktop-${version}-windows-${arch}.${ext}
   # Signing: Azure Trusted Signing (cloud, EV-grade SmartScreen reputation, no
   # hardware token). Left OUT of this file so an unprovisioned build still
   # succeeds unsigned; CI injects it via `-c.win.azureSignOptions.*` from repo
@@ -96,11 +97,13 @@ win:
       arch: [x64]
 
 nsis:
+  artifactName: ${productName}-Desktop-${version}-windows-${arch}-setup.${ext}
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
 
 linux:
+  artifactName: ${productName}-Desktop-${version}-linux-${arch}.${ext}
   category: Graphics
   # AppImage is the auto-updating format (electron-updater); deb + rpm are
   # install-only (managed by the system package manager). rpm covers

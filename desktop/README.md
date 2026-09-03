@@ -12,8 +12,8 @@ What the shell adds:
   natively). The captured code goes straight into the existing
   `POST /auth/oauth/exchange`. See `src/oauth-window.ts`.
 - **Whole-app updates** via `electron-updater`, off the dedicated
-  [PixivBiu-Desktop](https://github.com/txperl/PixivBiu-Desktop) GitHub
-  Releases repo (`github` provider) — the core's own self-updater is
+  [PixivBiu-Desktop Releases](https://github.com/txperl/PixivBiu-Desktop/releases/latest)
+  repo (`github` provider) — the core's own self-updater is
   disabled in desktop builds. See `src/updater.ts` and [../docs/RELEASE.md](../docs/RELEASE.md#desktop-release-train).
 
 ## Layout
@@ -105,6 +105,26 @@ core `v*` train. CI (`.github/workflows/desktop.yml`) does not rebuild the core 
 downloads the core release pinned in [`.core-version`](.core-version) and bundles that
 exact binary. Bump `.core-version` (+ cut a new `desktop-v*` tag) to ship a newer core
 to desktop users. Full flow + secrets in [../docs/RELEASE.md](../docs/RELEASE.md#desktop-release-train).
+
+Published installers are explicitly platform-tagged and versioned:
+
+```text
+PixivBiu-Desktop-<version>-darwin-arm64.dmg
+PixivBiu-Desktop-<version>-darwin-x64.dmg
+PixivBiu-Desktop-<version>-windows-x64-setup.exe
+PixivBiu-Desktop-<version>-linux-x86_64.AppImage
+PixivBiu-Desktop-<version>-linux-amd64.deb
+PixivBiu-Desktop-<version>-linux-x86_64.rpm
+```
+
+`darwin` deliberately matches the core release's machine-facing OS identifier;
+the release page presents it to users as **macOS**. Every release description
+contains direct installer links, the source `desktop-v*` tag, and the bundled core
+Release. Auto-update `.zip` / `.blockmap` / `latest*.yml` files remain visible in
+GitHub Assets but are identified as updater internals. There are no mutable,
+version-less installer aliases; the releases repository links users to
+the standard [`/releases/latest`](https://github.com/txperl/PixivBiu-Desktop/releases/latest)
+page instead.
 
 Packaging is **per-arch** (`resources/<arch>/pixivbiu`): macOS ships separate
 arm64 + x64 builds (not a universal binary — see Signing below); Windows/Linux are

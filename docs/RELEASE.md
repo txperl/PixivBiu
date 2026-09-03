@@ -191,15 +191,15 @@ The desktop Electron app (`desktop/`) ships on its **own** train — tag `deskto
 | --- | --- | --- | --- | --- |
 | macOS | arm64 **and** x64 (separate) | `.dmg` (per arch) | `.zip` + `.blockmap` (per arch) | Developer ID + notarized |
 | Windows | x64 | NSIS `.exe` | `.exe` + `.blockmap` | Azure Trusted Signing when provisioned, else unsigned |
-| Linux | x64 | AppImage, `.deb`, `.rpm` | AppImage + `.blockmap` | unsigned |
+| Linux | x64 | AppImage, `.deb`, `.rpm` | AppImage (embedded block map) | unsigned |
 
-Only the AppImage / dmg-zip / nsis artifacts carry auto-update metadata (`latest*.yml`); `.deb` / `.rpm` are install-only (the system package manager owns updates). macOS ships **per-arch** rather than a universal binary: universal doubles the bundled ~85 MB Go core (and the Electron runtime), so a split roughly halves each user's download/disk. Both mac arches build in one run and share a single `latest-mac.yml`; electron-updater picks the slice matching `process.arch`.
+Only the AppImage / dmg-zip / nsis artifacts carry auto-update metadata (`latest*.yml`); `.deb` / `.rpm` are install-only (the system package manager owns updates). AppImage's differential block map is embedded in the AppImage, so Linux does not publish a separate `.AppImage.blockmap`; macOS and Windows publish standalone `.blockmap` sidecars. macOS ships **per-arch** rather than a universal binary: universal doubles the bundled ~85 MB Go core (and the Electron runtime), so a split roughly halves each user's download/disk. Both mac arches build in one run and share a single `latest-mac.yml`; electron-updater picks the slice matching `process.arch`.
 
 ### How a desktop release happens
 
 Pushing a `desktop-v*` tag triggers `.github/workflows/desktop.yml`. It does **not** rebuild the core or the SPA — `scripts/stage-core.sh` downloads the core release pinned in [`desktop/.core-version`](../desktop/.core-version) and stages the per-arch binary into `desktop/resources/<arch>/` (macOS stages **both** `darwin_amd64` and `darwin_arm64` slices — one per arch, no lipo; Linux/Windows stage `*_amd64` into `x64/`). electron-builder embeds the slice matching each package via `extraResources: from: resources/${arch}/` and publishes into the desktop releases repo.
 
-The flow is **draft-then-publish** across three jobs: a first job pre-creates a draft release `vX.Y.Z` in the releases repo (one idempotent create, so the three OS runners can't race electron-builder into duplicate drafts); the matrix builds and `electron-builder --publish always` uploads each platform's installers + `latest*.yml` into that draft (plus version-less `PixivBiu-latest-*` alias copies via `gh release upload`); a final job verifies all three platforms' update metadata (`latest-mac.yml` / `latest.yml` / `latest-linux.yml`) is present and only then flips the draft live — so electron-updater and the `/releases/latest` download links never see a half-built release. A prerelease desktop tag (e.g. `desktop-v1.2.0-beta.1`) is published with `--prerelease` instead of `--latest`, keeping the README's `/releases/latest/download/…` links on the last stable.
+The flow is **draft-then-publish** across three jobs: a first job validates the Desktop tag and pre-creates a draft release `vX.Y.Z` in the releases repo (one idempotent create, so the three OS runners can't race electron-builder into duplicate drafts); the matrix builds and `electron-builder --publish always` uploads each platform's installers + `latest*.yml` into that draft; a final job verifies every installer/update asset and metadata URL, renders the user-facing download table, and only then flips the draft live. A prerelease desktop tag (e.g. `desktop-v1.2.0-beta.1`) is published with `--prerelease` instead of `--latest`, keeping the README's `/releases/latest` link on the last stable. Version-less installer aliases are deliberately not published: versioned assets stay traceable, while GitHub's latest-release page provides discovery.
 
 ```bash
 # (optional) ship a newer core to desktop users first:
@@ -217,7 +217,7 @@ Prerelease desktop tags work as channels, but the rules differ from the core tra
 - **Only `-beta` and `-alpha` are allowed** (dot-separated counter: `desktop-v1.3.0-beta.1`). electron-updater's GitHub provider hardcodes exactly these two identifiers; any other suffix — **including `-rc`** — is treated as an unknown custom channel, and a user who installed such a build would only ever be offered releases with that same suffix, never the stable that follows. There is no rc→beta fold here (that's a core-train feature), so don't tag desktop rc's.
 - **The channel is chosen by what the user installed — no config, no code.** electron-updater auto-enables prereleases when the running version has a prerelease component and derives the channel from it: stable installs resolve `/releases/latest` and never see prereleases; a beta install follows beta + stable (not alpha); an alpha install follows everything. Newest stable wins on every channel, so prerelease users converge back to stable — the same cumulative model as the core.
 - **Metadata is always `latest*.yml`.** electron-builder's GitHub provider expresses channels via the tag suffix + prerelease flag, not via `beta.yml` file names (the updater tries `beta.yml` first and falls back to `latest.yml` by design), so the publish job's completeness check applies unchanged to prerelease tags.
-- Prerelease releases skip the `PixivBiu-latest-*` alias uploads — `/releases/latest/download/…` only ever resolves to the newest stable, so aliases on a beta would be dead weight.
+- The workflow validates this grammar before creating release state, so unsupported channels fail before any artifacts are built or uploaded.
 
 ### Feed & downloads (the desktop releases repo)
 
@@ -225,11 +225,16 @@ Prerelease desktop tags work as channels, but the rules differ from the core tra
 
 ```
 latest-mac.yml | latest.yml | latest-linux.yml   # electron-updater metadata (one per platform)
-PixivBiu-<ver>-<arch>.{dmg,zip,exe,AppImage,deb,rpm} + .blockmap   # version-named installers
-PixivBiu-latest-{macos-arm64.dmg,macos-x64.dmg,windows.exe,linux.AppImage}   # version-less alias copies
+PixivBiu-Desktop-<ver>-darwin-{arm64,x64}.{dmg,zip} + .blockmap
+PixivBiu-Desktop-<ver>-windows-x64-setup.exe + .blockmap
+PixivBiu-Desktop-<ver>-linux-{x86_64.AppImage,amd64.deb,x86_64.rpm}
 ```
 
-The provider/owner/repo are set in `desktop/electron-builder.yml` (`publish:`) — that block is what the packaged `app-update.yml` (the updater's baked-in feed) is generated from, and where CI publishes; a fork points it at its own releases repo and updates `DESKTOP_REPO` in `desktop.yml` to match. Integrity rides electron-updater's native `latest*.yml` sha512 + the macOS code signature — there is **no** minisign here (that's the core train's model). The `PixivBiu-latest-*` aliases exist so the README can link fixed URLs via `…/releases/latest/download/<alias>` for first-time installs (auto-update handles everything after); they're not listed in `latest*.yml`, so the updater (and its blockmap differential downloads) ignores them.
+The filenames use the core release's machine-facing OS vocabulary (`darwin` / `windows` / `linux`); release titles and download instructions use the user-facing name **macOS**. Linux keeps each packaging ecosystem's native architecture spelling (`x86_64` for AppImage/rpm and `amd64` for deb).
+
+The provider/owner/repo are set in `desktop/electron-builder.yml` (`publish:`) — that block is what the packaged `app-update.yml` (the updater's baked-in feed) is generated from, and where CI publishes; a fork points it at its own releases repo and updates `DESKTOP_REPO` in `desktop.yml` to match. Integrity rides electron-updater's native `latest*.yml` sha512 + the macOS code signature — there is **no** minisign here (that's the core train's model).
+
+The final publish job generates an English release description from the verified asset manifest. It provides direct links to the two macOS dmgs, Windows installer, and three Linux packages; identifies the source `desktop-v*` tag and pinned core Release; and explains that `.zip`, `.blockmap`, and `latest*.yml` assets belong to the automatic updater. Stable titles are `PixivBiu Desktop vX.Y.Z`; prerelease titles append `(Alpha)` or `(Beta)`.
 
 ### One-time setup (desktop)
 
