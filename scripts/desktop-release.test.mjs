@@ -69,6 +69,34 @@ test("electron-builder artifact templates match the verified release contract", 
   assert.match(config, /artifactName: \$\{productName\}-Desktop-\$\{version\}-linux-\$\{arch\}\.\$\{ext\}/);
 });
 
+test("desktop toolchain and package hardening stay on the supported contract", () => {
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(repositoryRoot, "desktop/package.json"), "utf8"),
+  );
+  assert.equal(manifest.homepage, "https://biu.tls.moe");
+  assert.equal(manifest.desktopName, "moe.tls.pixivbiu");
+  assert.equal(manifest.engines.node, ">=22.12.0");
+  assert.equal(manifest.devDependencies.electron, "^44.1.1");
+  assert.equal(manifest.devDependencies["@types/node"], "^24.13.3");
+
+  const config = fs.readFileSync(path.join(repositoryRoot, "desktop/electron-builder.yml"), "utf8");
+  assert.match(config, /electronFuses:\n(?: {2}.+\n)+/);
+  for (const fuse of [
+    "runAsNode: false",
+    "enableCookieEncryption: true",
+    "enableNodeOptionsEnvironmentVariable: false",
+    "enableNodeCliInspectArguments: false",
+    "enableEmbeddedAsarIntegrityValidation: true",
+    "onlyLoadAppFromAsar: true",
+    "grantFileProtocolExtraPrivileges: false",
+  ]) {
+    assert.ok(config.includes(`  ${fuse}`), fuse);
+  }
+  assert.match(config, /minimumSystemVersion: "13\.0"/);
+  assert.match(config, /syncDesktopName: true/);
+  assert.match(config, /desktop:\n {4}entry:\n {6}Keywords:/);
+});
+
 test("desktop packaging has a real cross-platform application icon", () => {
   const config = fs.readFileSync(path.join(repositoryRoot, "desktop/electron-builder.yml"), "utf8");
   assert.equal(config.match(/^\s+icon: icon\.icns$/gm)?.length, 1);
@@ -104,6 +132,7 @@ test("release notes use user-facing platform names and traceable build links", (
 
   assert.match(notes, /This is an Alpha preview/);
   assert.match(notes, /macOS — Apple silicon/);
+  assert.match(notes, /macOS 13\+/);
   assert.match(notes, /PixivBiu-Desktop-1\.2\.0-alpha\.1-darwin-arm64\.dmg/);
   assert.match(notes, /\/tree\/desktop-v1\.2\.0-alpha\.1/);
   assert.match(notes, /\/releases\/tag\/v3\.1\.0-alpha\.1/);

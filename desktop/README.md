@@ -2,7 +2,8 @@
 
 A thin Electron shell around the single-binary PixivBiu core. The Go binary is
 unchanged: the shell spawns it as a child ("sidecar"), waits for `/health`, then
-loads its embedded SPA from `http://127.0.0.1:<port>`.
+proxies its embedded SPA through the stable `pixivbiu://core` origin. The random
+loopback port remains private to the main process.
 
 What the shell adds:
 
@@ -102,6 +103,11 @@ The download default is seeded on first run only and stays editable in Settings
 (`core-process.ts::seedFirstRunDefaults`).
 
 ## Package
+
+Desktop builds require **macOS 13 or later**, Windows 10 or later, or a current
+x64 Linux distribution. Electron's cookie-encryption fuse is enabled in packaged
+apps; opening an existing profile upgrades its cookie store on write, so rolling
+back to a build without that fuse may require signing in to Pixiv again.
 
 The desktop app is its **own** release train (`desktop-v*` tag), decoupled from the
 core `v*` train. CI (`.github/workflows/desktop.yml`) does not rebuild the core — it

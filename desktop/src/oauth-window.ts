@@ -1,18 +1,18 @@
-import { BrowserWindow, session, type Event } from "electron";
+import { app, BrowserWindow, session, type Event } from "electron";
+import {
+    extractPixivOAuthCode,
+    isPixivOAuthLoginURL,
+    PIXIV_OAUTH_CALLBACK_URL,
+} from "./security";
 
 // This is the feature that justifies a desktop build: automating Pixiv login.
 //
-// Pixiv's mobile OAuth redirects to a callback URL carrying `?code=…`. In a
-// plain browser that callback uses the `pixiv://` scheme (or a blank hosted
-// page), so the web app has to ask the user to copy the URL out of DevTools and
-// paste it back. A real Chromium BrowserWindow can intercept that redirect
-// programmatically — and it renders Pixiv's reCAPTCHA / 2FA natively, unlike
-// headless token-grabbers — so the user just signs in and we capture the code.
-
-// The only redirect Pixiv's OAuth backend accepts. The hosted callback page is
-// blank/error, but the request URL carries `?code=…`. Keep in sync with
-// pixivOAuthRedirectURI in internal/pixiv/oauth_code.go.
-const CALLBACK_PREFIX = "https://app-api.pixiv.net/web/v1/users/auth/pixiv/callback";
+// Pixiv's mobile OAuth redirects to a hosted callback URL carrying `?code=…`.
+// The page itself is blank/error, so the web app would otherwise ask the user
+// to copy the URL out of DevTools and paste it back. A real Chromium
+// BrowserWindow can intercept that redirect programmatically — and it renders
+// Pixiv's reCAPTCHA / 2FA natively, unlike headless token-grabbers — so the user
+// just signs in and we capture the code.
 
 // Give up if the user never finishes signing in, so the promise can't dangle.
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
@@ -35,25 +35,19 @@ export class OAuthTimeoutError extends Error {
     }
 }
 
-function extractCode(rawUrl: string): string | null {
-    if (!rawUrl.startsWith(CALLBACK_PREFIX) && !rawUrl.startsWith("pixiv://")) return null;
-    try {
-        return new URL(rawUrl).searchParams.get("code");
-    } catch {
-        return null;
-    }
-}
-
 // captureOAuthCode opens the hosted Pixiv login URL in a modal child window and
 // resolves with the authorization code the moment Pixiv redirects to its
 // callback. The caller exchanges that code through the existing
 // POST /auth/oauth/exchange path.
 export function captureOAuthCode(loginUrl: string, parent?: BrowserWindow): Promise<string> {
+    if (!isPixivOAuthLoginURL(loginUrl)) return Promise.reject(new Error("invalid_login_url"));
+
     return new Promise<string>((resolve, reject) => {
         const ses = session.fromPartition(LOGIN_PARTITION);
         // Pixiv sign-in needs no device permissions; deny everything.
         ses.setPermissionRequestHandler((_wc, _permission, cb) => cb(false));
-        const filter = { urls: [`${CALLBACK_PREFIX}*`] };
+        ses.setPermissionCheckHandler(() => false);
+        const filter = { urls: [`${PIXIV_OAUTH_CALLBACK_URL}*`] };
 
         const win = new BrowserWindow({
             parent,
@@ -67,6 +61,7 @@ export function captureOAuthCode(loginUrl: string, parent?: BrowserWindow): Prom
                 nodeIntegration: false,
                 contextIsolation: true,
                 sandbox: true,
+                devTools: !app.isPackaged,
             },
         });
 
@@ -89,7 +84,7 @@ export function captureOAuthCode(loginUrl: string, parent?: BrowserWindow): Prom
         }
 
         const tryCapture = (rawUrl: string): boolean => {
-            const code = extractCode(rawUrl);
+            const code = extractPixivOAuthCode(rawUrl);
             if (!code) return false;
             finish(() => {
                 resolve(code);
@@ -108,8 +103,8 @@ export function captureOAuthCode(loginUrl: string, parent?: BrowserWindow): Prom
             cb({});
         });
 
-        // Backup capture: navigation-level events also fire for the `pixiv://`
-        // scheme variant, which never reaches webRequest.
+        // Backup capture: navigation-level events cover redirects that are
+        // surfaced before the request filter observes them.
         const onNav = (e: Event, url: string) => {
             if (tryCapture(url)) e.preventDefault();
         };

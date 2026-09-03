@@ -1,6 +1,7 @@
 import { app, ipcMain, type BrowserWindow } from "electron";
 import { autoUpdater } from "electron-updater";
 import type { UpdateStatus } from "./preload";
+import { isTrustedIPCEvent } from "./security";
 
 // NOTE: electron-updater is CJS that sets `__esModule` but exposes no default
 // export — only named ones (autoUpdater, …). A default import would be undefined
@@ -43,11 +44,13 @@ export function initUpdater(getWindow: GetWindow): void {
     );
     autoUpdater.on("error", (err) => send({ state: "error", message: String(err?.message ?? err) }));
 
-    ipcMain.handle("pixivbiu:update-check", async () => {
+    ipcMain.handle("pixivbiu:update-check", async (event) => {
+        if (!isTrustedIPCEvent(event, getWindow())) throw new Error("unauthorized_ipc");
         await autoUpdater.checkForUpdates();
     });
 
-    ipcMain.handle("pixivbiu:update-install", async () => {
+    ipcMain.handle("pixivbiu:update-install", async (event) => {
+        if (!isTrustedIPCEvent(event, getWindow())) throw new Error("unauthorized_ipc");
         // Download, then quit & install once the bytes are in place.
         autoUpdater.once("update-downloaded", () => autoUpdater.quitAndInstall());
         await autoUpdater.downloadUpdate();

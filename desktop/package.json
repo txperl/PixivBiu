@@ -1,9 +1,10 @@
 {
     "name": "pixivbiu-desktop",
     "productName": "PixivBiu",
+    "desktopName": "moe.tls.pixivbiu",
     "version": "0.0.0",
     "description": "Browse, search, bookmark, follow, and download Pixiv artwork.",
-    "homepage": "https://github.com/txperl/PixivBiu",
+    "homepage": "https://biu.tls.moe",
     "private": true,
     "author": {
         "name": "txperl",
@@ -19,21 +20,27 @@
         "url": "https://github.com/txperl/PixivBiu/issues"
     },
     "license": "MIT",
+    "type": "commonjs",
+    "engines": {
+        "node": ">=22.12.0"
+    },
     "main": "dist/main.js",
     "scripts": {
         "build": "tsc -p tsconfig.json",
+        "check": "npm run build && npm test",
         "start": "npm run build && electron .",
         "dist": "npm run build && electron-builder",
         "dist:dir": "npm run build && electron-builder --dir",
+        "test": "node --test ../scripts/desktop-release.test.mjs ../scripts/desktop-security.test.mjs",
         "typecheck": "tsc -p tsconfig.json --noEmit"
     },
     "dependencies": {
-        "electron-updater": "^6.3.9"
+        "electron-updater": "^6.8.9"
     },
     "devDependencies": {
-        "@types/node": "^22.10.0",
-        "electron": "^34.0.0",
-        "electron-builder": "^25.1.8",
-        "typescript": "^5.7.3"
+        "@types/node": "^24.13.3",
+        "electron": "^44.1.1",
+        "electron-builder": "^26.16.0",
+        "typescript": "^7.0.2"
     }
 }

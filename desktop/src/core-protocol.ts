@@ -1,4 +1,9 @@
 import { net, protocol } from "electron";
+import {
+    APP_CONTENT_SECURITY_POLICY,
+    CORE_SCHEME,
+    isTrustedCoreURL,
+} from "./security";
 
 // The renderer loads the SPA from this stable custom origin instead of the
 // core's loopback URL. The core binds a fresh ephemeral port every launch, and
@@ -8,10 +13,22 @@ import { net, protocol } from "electron";
 // the port entirely: the port stays a private main-process detail, and if a
 // future watchdog respawns the core on a new port the page keeps its origin
 // and self-heals (API retries, EventSource auto-reconnect).
-export const CORE_ORIGIN = "pixivbiu://core";
-export const CORE_BASE_URL = `${CORE_ORIGIN}/`;
+export { CORE_BASE_URL, CORE_ORIGIN } from "./security";
 
-const CORE_SCHEME = "pixivbiu";
+function secureHeaders(source?: HeadersInit): Headers {
+    const headers = new Headers(source);
+    headers.set("Content-Security-Policy", APP_CONTENT_SECURITY_POLICY);
+    headers.set("X-Content-Type-Options", "nosniff");
+    headers.set("Referrer-Policy", "no-referrer");
+    return headers;
+}
+
+function errorResponse(message: string, status: number): Response {
+    return new Response(message, {
+        status,
+        headers: secureHeaders({ "Content-Type": "text/plain; charset=utf-8" }),
+    });
+}
 
 // Must run before app.whenReady() (Electron requirement).
 export function registerCoreScheme(): void {
@@ -35,9 +52,9 @@ export function registerCoreScheme(): void {
 export function installCoreProtocol(getPort: () => number | null): void {
     protocol.handle(CORE_SCHEME, async (request) => {
         const url = new URL(request.url);
-        if (url.host !== "core") return new Response("not found", { status: 404 });
+        if (!isTrustedCoreURL(request.url)) return errorResponse("not found", 404);
         const port = getPort();
-        if (port === null) return new Response("core unavailable", { status: 503 });
+        if (port === null) return errorResponse("core unavailable", 503);
         // Strip headers that describe the renderer's request before forwarding;
         // net.fetch builds its own. An Origin of pixivbiu://core makes net.fetch
         // treat the loopback request as cross-origin and fail CORS
@@ -69,7 +86,14 @@ export function installCoreProtocol(getPort: () => number | null): void {
                 signal: upstreamCtrl.signal,
                 bypassCustomProtocolHandlers: true,
             } as RequestInit); // duplex isn't in lib.dom's RequestInit yet
-            if (!upstream.body) return upstream;
+            const responseHeaders = secureHeaders(upstream.headers);
+            if (!upstream.body) {
+                return new Response(null, {
+                    status: upstream.status,
+                    statusText: upstream.statusText,
+                    headers: responseHeaders,
+                });
+            }
             const reader = upstream.body.getReader();
             const body = new ReadableStream({
                 async pull(controller) {
@@ -85,12 +109,16 @@ export function installCoreProtocol(getPort: () => number | null): void {
                     upstreamCtrl.abort();
                 },
             });
-            return new Response(body, { status: upstream.status, statusText: upstream.statusText, headers: upstream.headers });
+            return new Response(body, {
+                status: upstream.status,
+                statusText: upstream.statusText,
+                headers: responseHeaders,
+            });
         } catch (err) {
             // Core died mid-flight: a non-ok status lets the SPA's error
             // normalization surface its localized failure state.
             console.error("[core-protocol]", request.method, request.url, err);
-            return new Response("core unreachable", { status: 502 });
+            return errorResponse("core unreachable", 502);
         }
     });
 }

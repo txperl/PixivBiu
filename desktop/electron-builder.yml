@@ -20,6 +20,20 @@ directories:
 # the misleading declarations after packaging and before code signing.
 afterPack: build/after-pack.cjs
 
+# Remove Electron runtime escape hatches the packaged app never needs. The Go
+# sidecar is an independent executable under extraResources, so RunAsNode and
+# Node process-spawning compatibility are irrelevant here. Cookie encryption is
+# intentionally a one-way profile migration; see desktop/README.md.
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  loadBrowserProcessSpecificV8Snapshot: false
+  grantFileProtocolExtraPrivileges: false
+
 # Default file set, minus things that don't belong inside app.asar. The Go
 # binary ships through extraResources instead, so exclude it from the asar to
 # avoid shipping it twice.
@@ -70,6 +84,7 @@ mac:
   artifactName: ${productName}-Desktop-${version}-darwin-${arch}.${ext}
   icon: icon.icns
   category: public.app-category.entertainment
+  minimumSystemVersion: "13.0"
   darkModeSupport: true
   # Hardened runtime + notarization (requires APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD
   # / APPLE_TEAM_ID and a Developer ID cert via CSC_LINK / CSC_KEY_PASSWORD).
@@ -125,8 +140,10 @@ linux:
   description: Browse, search, bookmark, follow, and download Pixiv artwork.
   maintainer: txperl <txperl@gmail.com>
   vendor: txperl
+  syncDesktopName: true
   desktop:
-    Keywords: Pixiv;artwork;illustration;browser;downloader;
+    entry:
+      Keywords: Pixiv;artwork;illustration;browser;downloader;
   # AppImage is the auto-updating format (electron-updater); deb + rpm are
   # install-only (managed by the system package manager). rpm covers
   # Fedora/RHEL/openSUSE — same x64 core, no extra infra (ubuntu runner has
