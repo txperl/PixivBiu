@@ -5,7 +5,7 @@
 # embedded via extraResources; it is NOT bundled into the asar (see files).
 appId: moe.tls.pixivbiu
 productName: PixivBiu
-copyright: Copyright © txperl
+copyright: Copyright © 2020–2026 Trii Hsia
 
 # Artifact names are set per platform below. They use the same machine-facing
 # OS vocabulary as the core release (darwin/windows/linux) while release notes
@@ -14,6 +14,11 @@ copyright: Copyright © txperl
 directories:
   output: out
   buildResources: build
+
+# Electron's stock macOS plist advertises camera, microphone, and Bluetooth
+# access. PixivBiu denies those permissions in both renderer sessions, so strip
+# the misleading declarations after packaging and before code signing.
+afterPack: build/after-pack.cjs
 
 # Default file set, minus things that don't belong inside app.asar. The Go
 # binary ships through extraResources instead, so exclude it from the asar to
@@ -38,6 +43,13 @@ extraResources:
     filter:
       - pixivbiu
       - pixivbiu.exe
+  # BrowserWindow needs a runtime icon on Linux (and in unpackaged Windows
+  # development). Keep both platform variants beside the packaged app; the
+  # main process selects the matching one.
+  - from: build/icon.png
+    to: icon.png
+  - from: build/icon.ico
+    to: icon.ico
 
 # electron-updater reads its feed from a DEDICATED artifacts-only GitHub repo
 # with plain vX.Y.Z tags. It cannot share this repo: the GitHub provider watches
@@ -56,7 +68,9 @@ publish:
 
 mac:
   artifactName: ${productName}-Desktop-${version}-darwin-${arch}.${ext}
+  icon: icon.icns
   category: public.app-category.entertainment
+  darkModeSupport: true
   # Hardened runtime + notarization (requires APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD
   # / APPLE_TEAM_ID and a Developer ID cert via CSC_LINK / CSC_KEY_PASSWORD).
   hardenedRuntime: true
@@ -79,6 +93,7 @@ mac:
 
 win:
   artifactName: ${productName}-Desktop-${version}-windows-${arch}.${ext}
+  icon: icon.ico
   # Signing: Azure Trusted Signing (cloud, EV-grade SmartScreen reputation, no
   # hardware token). Left OUT of this file so an unprovisioned build still
   # succeeds unsigned; CI injects it via `-c.win.azureSignOptions.*` from repo
@@ -104,7 +119,14 @@ nsis:
 
 linux:
   artifactName: ${productName}-Desktop-${version}-linux-${arch}.${ext}
+  icon: icon.png
   category: Graphics
+  synopsis: Pixiv artwork browser and downloader
+  description: Browse, search, bookmark, follow, and download Pixiv artwork.
+  maintainer: txperl <txperl@gmail.com>
+  vendor: txperl
+  desktop:
+    Keywords: Pixiv;artwork;illustration;browser;downloader;
   # AppImage is the auto-updating format (electron-updater); deb + rpm are
   # install-only (managed by the system package manager). rpm covers
   # Fedora/RHEL/openSUSE — same x64 core, no extra infra (ubuntu runner has

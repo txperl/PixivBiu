@@ -69,6 +69,30 @@ test("electron-builder artifact templates match the verified release contract", 
   assert.match(config, /artifactName: \$\{productName\}-Desktop-\$\{version\}-linux-\$\{arch\}\.\$\{ext\}/);
 });
 
+test("desktop packaging has a real cross-platform application icon", () => {
+  const config = fs.readFileSync(path.join(repositoryRoot, "desktop/electron-builder.yml"), "utf8");
+  assert.equal(config.match(/^\s+icon: icon\.icns$/gm)?.length, 1);
+  assert.equal(config.match(/^\s+icon: icon\.ico$/gm)?.length, 1);
+  assert.equal(config.match(/^\s+icon: icon\.png$/gm)?.length, 1);
+  assert.match(config, /from: build\/icon\.png\n\s+to: icon\.png/);
+  assert.match(config, /from: build\/icon\.ico\n\s+to: icon\.ico/);
+
+  const icon = fs.readFileSync(path.join(repositoryRoot, "desktop/build/icon.png"));
+  assert.deepEqual(icon.subarray(0, 8), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  const width = icon.readUInt32BE(16);
+  const height = icon.readUInt32BE(20);
+  assert.equal(width, height);
+  assert.ok(width >= 512, `icon must be at least 512x512, got ${width}x${height}`);
+
+  const macIcon = fs.readFileSync(path.join(repositoryRoot, "desktop/build/icon.icns"));
+  assert.equal(macIcon.subarray(0, 4).toString("ascii"), "icns");
+  assert.equal(macIcon.readUInt32BE(4), macIcon.length);
+
+  const windowsIcon = fs.readFileSync(path.join(repositoryRoot, "desktop/build/icon.ico"));
+  assert.deepEqual(windowsIcon.subarray(0, 4), Buffer.from([0x00, 0x00, 0x01, 0x00]));
+  assert.ok(windowsIcon.readUInt16LE(4) >= 1, "Windows ICO must contain at least one image");
+});
+
 test("release notes use user-facing platform names and traceable build links", () => {
   const info = parseDesktopTag("desktop-v1.2.0-alpha.1");
   const notes = renderReleaseNotes(

@@ -2,12 +2,21 @@
     "name": "pixivbiu-desktop",
     "productName": "PixivBiu",
     "version": "0.0.0",
-    "description": "PixivBiu desktop shell — a thin Electron wrapper around the single-binary core",
+    "description": "Browse, search, bookmark, follow, and download Pixiv artwork.",
     "homepage": "https://github.com/txperl/PixivBiu",
     "private": true,
     "author": {
         "name": "txperl",
-        "email": "txperl@gmail.com"
+        "email": "txperl@gmail.com",
+        "url": "https://github.com/txperl"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/txperl/PixivBiu.git",
+        "directory": "desktop"
+    },
+    "bugs": {
+        "url": "https://github.com/txperl/PixivBiu/issues"
     },
     "license": "MIT",
     "main": "dist/main.js",

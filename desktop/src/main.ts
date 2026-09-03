@@ -9,6 +9,13 @@ import { initUpdater } from "./updater";
 import { chromeArgs, chromeOptions } from "./window-chrome";
 import { restoreWindowState, trackWindowState } from "./window-state";
 
+// Keep this in sync with electron-builder.yml::appId. NSIS assigns the same
+// AUMID to shortcuts; Windows needs the running process to claim it before the
+// first window opens so taskbar grouping, pinning, and notification icons use
+// the packaged application identity.
+const APP_ID = "moe.tls.pixivbiu";
+if (process.platform === "win32") app.setAppUserModelId(APP_ID);
+
 // One window, one core. A second launch focuses the existing window rather than
 // starting a second sidecar against the same user-data dir.
 const gotInstanceLock = app.requestSingleInstanceLock();
@@ -24,6 +31,10 @@ let coreError: string | null = null;
 let coreStarting: Promise<void> | null = null;
 
 const PRELOAD = path.join(__dirname, "preload.js");
+const APP_ICON_NAME = process.platform === "win32" ? "icon.ico" : "icon.png";
+const APP_ICON = app.isPackaged
+    ? path.join(process.resourcesPath, APP_ICON_NAME)
+    : path.join(__dirname, "..", "build", APP_ICON_NAME);
 
 function failurePage(detail: string): string {
     const body =
@@ -80,6 +91,10 @@ function createMainWindow(): void {
         minHeight: 600,
         show: false,
         title: "PixivBiu",
+        // Windows normally falls back to the executable icon; Linux does not
+        // have an embedded executable icon, so setting this explicitly also
+        // keeps development windows and less conventional WMs branded.
+        ...(process.platform === "darwin" ? {} : { icon: APP_ICON }),
         ...chromeOptions(),
         webPreferences: {
             preload: PRELOAD,

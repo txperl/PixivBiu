@@ -29,6 +29,9 @@ What the shell adds:
 | `src/preload.ts` | `contextBridge` → `window.pixivbiu` (the SPA mirrors this in `frontend/src/lib/desktop.ts`) |
 | `src/updater.ts` | `electron-updater` wiring + IPC to the renderer |
 | `electron-builder.yml` | Packaging / signing / publish config |
+| `build/icon.icns` / `icon.png` | macOS bundle icon and Linux/runtime icon, generated from the Unix artwork |
+| `build/icon.ico` | Multi-size Windows executable, installer, and runtime icon |
+| `build/after-pack.cjs` | Removes unused hardware-permission declarations from the macOS plist |
 | `build/entitlements.mac.plist` | Hardened-runtime entitlements |
 | `resources/<arch>/` | The Go core binary per arch (`x64` / `arm64`), staged at build time (gitignored) |
 
@@ -172,6 +175,14 @@ unsigned.
 
 ### Icons
 
-Drop `build/icon.icns`, `build/icon.ico`, `build/icon.png` (electron-builder
-auto-detects them). Generate them from the project's app artwork — the core no
-longer ships a Windows `.exe` icon, so the desktop app owns all icon assets.
+The application intentionally has two platform treatments:
+
+- `build/icon.icns` is the macOS bundle icon, generated from the 1024×1024 Unix
+  artwork; `build/icon.png` is its 512×512 counterpart for Linux packages and
+  the Linux runtime window.
+- `build/icon.ico` is the supplied multi-size Windows artwork and is used by the
+  executable, NSIS installer, shortcuts, and runtime window.
+
+The runtime PNG/ICO files are copied into app resources so `BrowserWindow` can
+select the platform-appropriate icon explicitly. The core no longer ships a
+Windows `.exe` icon, so the desktop app owns all icon assets.
