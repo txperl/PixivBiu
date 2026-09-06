@@ -1,26 +1,102 @@
 # Configuration & Environment Variables
 
-Full reference for every `PIXIVBIU_*` variable.
+Reference for core settings, CLI overrides, and runtime paths. For deployment examples see [Docker](DOCKER.md); for adding a setting see [Development](DEVELOPMENT.md#adding-or-changing-a-setting).
 
-The settings file lives at `./usr/settings.json` by default (override with the `-config <path>` flag) and is managed by the running app (the web **Settings** page / `/api/v1/config/*`) — you normally never hand-edit it. Configuration is layered, low → high precedence:
+[Config structs and defaults](../internal/config/config.go) define keys, types, metadata, and defaults. The running authenticated `GET /api/v1/config/schema` exposes structural metadata for visible settings. Hidden settings remain documented below even though they are omitted from that schema.
 
+## Configuration layers
+
+Precedence, low to high:
+
+```text
+built-in defaults → settings.json → PIXIVBIU_* environment variables
 ```
-built-in defaults  →  ./usr/settings.json  →  environment variables  (env wins)
+
+Use the Settings page or `/api/v1/config/*` for runtime edits. Missing `settings.json` is valid: defaults and environment values are used until the first successful settings write creates the file. Desktop may seed it before boot.
+
+The file contains nested JSON user overrides, not a complete config dump:
+
+```json
+{
+  "download": {
+    "output_dir": "./artwork",
+    "ugoira": { "format": "gif" }
+  }
+}
 ```
 
-**Data root (`-data-dir` / `PIXIVBIU_DATA_DIR`).** All runtime files — `usr/settings.json`, `usr/state.json`, `usr/downloads.json`, the `usr/cache/img/` image cache, and a **relative** `download.output_dir` (the `./downloads/<date>` default) — anchor to one base directory. By default that is the **executable's directory**, so the single binary keeps everything beside itself regardless of launch CWD (portable). Pass `-data-dir <path>` (or set `PIXIVBIU_DATA_DIR`; the flag wins) to relocate the whole tree at once — a relative value is made absolute once at startup. This is process-level, not a config key, so it isn't in the tables below. The Electron desktop build sets it to the OS user-data dir (`app.getPath('userData')`, e.g. `~/Library/Application Support/PixivBiu`) so state lives outside the read-only `.app` bundle. Note: an explicitly passed `-config <path>` and an **absolute** `download.output_dir` keep their own paths and are unaffected by the data root.
+Ordinary values equal to defaults are pruned when saving. An explicit `app.update.channel` is retained because its default can change with the build. All writes use atomic replacement. Manual edits are not automatically applied to running services: stop the process, edit, and restart. Do not use file edits as a concurrent alternative to the Settings API.
 
-**Cache root (`-cache-dir` / `PIXIVBIU_CACHE_DIR`).** The image cache (`<cacheRoot>/img/`) can be carved out of the data root onto its own base. By default `cacheRoot` is `usr/cache` under the data root (so the portable layout is unchanged), but `-cache-dir <path>` (or `PIXIVBIU_CACHE_DIR`; the flag wins, a relative value is made absolute) relocates it — useful because the cache is large (default cap 2 GiB), regenerable, and machine-local, so it does not belong in a backed-up/roaming app-data dir. Like the data root this is process-level, not a config key. The Electron desktop build points it at the OS cache dir (macOS `~/Library/Caches/PixivBiu`, Windows `%LOCALAPPDATA%\PixivBiu\Cache`, Linux `$XDG_CACHE_HOME/PixivBiu`).
+### Saved versus effective values
 
-**Key ↔ env mapping.** Every setting has a dotted config key and a matching env var: uppercase the key, replace `.` with `_`, and prepend `PIXIVBIU_`. For example `download.ugoira.format` → `PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT`, `server.timeouts.shutdown` → `PIXIVBIU_SERVER_TIMEOUTS_SHUTDOWN`. Duration values accept Go duration strings (`15s`, `1m30s`, `250ms`). An env-set value also overrides the Settings UI: it's written to disk on a `PATCH` but the effective value stays pinned to the env until you unset it.
+`GET /api/v1/config` returns:
 
-**Flags** (shown in the last column):
+| Field | Meaning |
+| --- | --- |
+| `file` | Persisted user overrides, with sensitive values masked |
+| `effective` | Values active in the running process |
+| `sources` | Origin of each effective dotted key: defaults, file, or env |
+| `pending_restart` | Restart-required keys whose new layered value differs from the boot value |
+| `schema_version` | Settings shape version |
 
-- **restart** — persisted but applied only after `POST /api/v1/config/restart` (or a process restart); shows up in `pending_restart`.
-- **internal** — ops/program-only: not writable through the runtime API/UI (the Settings page renders it read-only, `PATCH`/keyed reset are rejected). Change it only via an env var or by hand-editing `settings.json`.
-- **sensitive** — stored in cleartext on disk but masked as `***` in `GET /config`; a `PATCH` of `***` or `""` is a no-op.
-- **advanced** — de-prioritised in the Settings UI (sorted/folded behind the "advanced" toggle).
-- **hidden** — dropped from the Settings page schema, so it never appears there (not even under the "advanced" toggle); still changeable via the API, an env var, or by hand-editing `settings.json`.
+A PATCH can save a value while an environment override keeps the effective value unchanged. Remove the environment override and relaunch the process to release it; changing a terminal's environment does not change an already-running process. For containers, recreate the container with the revised environment.
+
+A hot setting takes effect after a successful API write. A restart-required setting stays at its boot value until restart. `POST /api/v1/config/restart` accepts with 202, drains and restarts the core; clients reconnect afterwards. Interrupted downloads are requeued, not resumed from partial HTTP byte ranges.
+
+### Key-to-environment mapping
+
+Uppercase the dotted key, replace dots with underscores, and prepend `PIXIVBIU_`. Underscores inside existing key segments are preserved:
+
+- `download.max_concurrent` → `PIXIVBIU_DOWNLOAD_MAX_CONCURRENT`
+- `download.ugoira.format` → `PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT`
+- `server.timeouts.shutdown` → `PIXIVBIU_SERVER_TIMEOUTS_SHUTDOWN`
+
+The resolver uses known schema keys to distinguish separators from literal underscores. Duration settings accept Go duration strings such as `15s`, `1m30s`, and `250ms`.
+
+### Flags and reset behavior
+
+| Flag | Behavior |
+| --- | --- |
+| restart | API writes persist now and apply after restart; pending changes appear in `pending_restart` |
+| internal | API PATCH and keyed reset reject the key; change through file/env and restart; UI is read-only |
+| sensitive | Stored in cleartext on disk, masked as `***` in API views; PATCH of `***` or an empty string is a no-op |
+| advanced | De-prioritized/folded in the Settings UI |
+| hidden | Omitted from the UI schema; remains accessible through API, file, and env |
+
+A keyed reset removes that key's file override so env/defaults win. Reset-all preserves internal and hidden overrides. Hidden keys can be reset explicitly; internal keys cannot. Reset does not remove environment overrides.
+
+To clear the saved proxy, use the Settings reset action or send `{"keys":["pixiv.proxy"]}` to `POST /api/v1/config/reset` after login. An empty proxy PATCH deliberately does not clear it. An env-set proxy remains active until removed from the process environment and the app is relaunched.
+
+## Runtime paths
+
+The core stays portable: it accepts path overrides but does not choose OS application directories. The Electron shell makes that choice.
+
+| CLI option | Environment fallback | Default / semantics |
+| --- | --- | --- |
+| `-data-dir <path>` | `PIXIVBIU_DATA_DIR` | Executable directory; under `go run`, the process working directory |
+| `-cache-dir <path>` | `PIXIVBIU_CACHE_DIR` | `usr/cache` under the data root; image files go in its `img` child |
+| `-config <path>` | None | Without an explicit flag: `usr/settings.json` under the data root; explicit relative paths use launch CWD |
+| `-open` / `-open=false` | `PIXIVBIU_APP_OPEN_BROWSER` through the config layer | Explicit flag overrides the layered `app.open_browser` value |
+| `-h` | None | Display CLI help |
+
+Non-empty data/cache flags win over their environment fallback. Relative data/cache overrides are made absolute against launch CWD once at startup. Absolute paths stay absolute.
+
+| Runtime data | Default location |
+| --- | --- |
+| Settings | `<dataRoot>/usr/settings.json` |
+| Auth tokens | `<dataRoot>/usr/state.json` |
+| Download history | `<dataRoot>/usr/downloads.json` |
+| Downloaded artwork | `<dataRoot>/downloads` |
+| Image cache | `<cacheRoot>/img` |
+| Slog output | stdout, unless `log.file` selects a file |
+
+Relative `pixiv.state_file`, `download.store_file`, `log.file`, and `download.output_dir` values anchor to the data root. An explicit settings file does not move those other paths. Example: `./bin/pixivbiu -config ./usr/settings.json` reads repository settings but still defaults to `bin/usr/state.json` and `bin/downloads`; add `-data-dir .` to root everything in the launch directory.
+
+Docker sets the data root to `/data` and downloads to `/downloads`. Desktop uses OS user-data, cache, and log directories, and seeds `~/Downloads/PixivBiu` on first run when possible. See [Desktop storage](../desktop/README.md#develop) for the shell's placement. Back up settings, token state, download history, and artwork separately from the regenerable image cache. Treat token state and proxy credentials as private.
+
+## Settings reference
+
+Defaults below are core defaults; Docker/Desktop overrides are documented in their guides. A setting's flags are independent (for example, hidden can also require restart).
 
 ## app
 
@@ -62,7 +138,7 @@ built-in defaults  →  ./usr/settings.json  →  environment variables  (env wi
 
 | Variable | Default | Values / notes | Flags |
 |---|---|---|---|
-| `PIXIVBIU_DOWNLOAD_OUTPUT_DIR` | `./downloads/<date>` | output dir template (see [Path templates](#path-templates)); may be absolute | — |
+| `PIXIVBIU_DOWNLOAD_OUTPUT_DIR` | `./downloads` | output dir template (see [Path templates](#path-templates)); may be absolute | — |
 | `PIXIVBIU_DOWNLOAD_FILE_TEMPLATE` | *(see below)* | single-file name template | — |
 | `PIXIVBIU_DOWNLOAD_FILE_GROUP_TEMPLATE` | *(see below)* | multi-page file name template | — |
 | `PIXIVBIU_DOWNLOAD_MAX_CONCURRENT` | `4` | worker-pool size (1–64) | restart |
@@ -85,7 +161,7 @@ built-in defaults  →  ./usr/settings.json  →  environment variables  (env wi
 
 | Variable | Default | Values / notes | Flags |
 |---|---|---|---|
-| `PIXIVBIU_IMAGE_CACHE_MAX_SIZE_MB` | `2048` | `≥0` — on-disk cap (MB) for the `/api/v1/proxy/img` image cache (`0` = unlimited) | — |
+| `PIXIVBIU_IMAGE_CACHE_MAX_SIZE_MB` | `2048` | `≥0` — on-disk cap (MiB; the setting name uses MB) for the `/api/v1/proxy/img` image cache (`0` = unlimited) | — |
 
 ## search
 
@@ -96,7 +172,7 @@ built-in defaults  →  ./usr/settings.json  →  environment variables  (env wi
 
 ## Path templates
 
-The three download templates are Go [`text/template`](https://pkg.go.dev/text/template) strings. Defaults:
+Download paths use Go `text/template`. The exact defaults are:
 
 ```text
 output_dir          ./downloads
@@ -104,6 +180,26 @@ file_template       {{.IllustID}}_{{.Title | trunc 80}}{{.Ext}}
 file_group_template {{.IllustID}}_{{.Title | trunc 80}}/{{.Index | pad 2}}{{.Ext}}
 ```
 
-- **Variables**: `.IllustID` `.Title` `.Type` `.UserID` `.UserName` `.CreatedAt` `.Now` `.Index` `.Ext` `.Home` `.Root`.
-- **Functions**: `sanitize` `pad` `date` `lower` `upper` `trunc` `default` (`trunc` counts runes, not bytes).
-- `output_dir` may be absolute (`/mnt/pixiv`, `{{.Home}}/Downloads`, `C:\pixiv`); a relative value is anchored to the executable's directory. `file_template` / `file_group_template` are always relative to `output_dir`. Every path segment is sanitised and clamped (≤240 bytes per filename, extension preserved); a literal `/` in the template is an explicit subdirectory.
+| Variable | Meaning |
+| --- | --- |
+| `.IllustID`, `.Title`, `.Type` | Artwork ID, sanitized title, and artwork type |
+| `.UserID`, `.UserName` | Artist ID and sanitized name |
+| `.CreatedAt`, `.Now` | Artwork creation time and job submission time; Now is shared across the job |
+| `.Index` | Zero-based page index |
+| `.Ext` | Output extension, including the leading dot |
+| `.Home` | OS home directory |
+| `.Root` | Runtime data root used by the download Manager |
+
+Functions: `sanitize`, `pad`, `date`, `lower`, `upper`, `trunc`, and `default`. `trunc` counts Unicode runes, not bytes. Examples:
+
+```text
+output_dir          ./downloads/{{.Now | date "2006-01-02"}}
+file_template       {{.UserID}}/{{.IllustID}}{{.Ext}}
+file_group_template {{.UserID}}/{{.IllustID}}/{{.Index | pad 3}}{{.Ext}}
+```
+
+The date format is Go's reference date layout, not strftime. Dated directories are optional, not the default. `output_dir` may be absolute, including `{{.Home}}/Downloads/PixivBiu`; relative output roots use the data root. Both filename templates are always relative to the rendered output directory.
+
+Every path segment is sanitized and clamped to at most 240 bytes, preserving normal file extensions. User titles/names cannot introduce subdirectories; literal template separators can. Existing or reserved filenames get a collision suffix rather than being deliberately overwritten.
+
+Use the Settings naming preview to inspect results. Its API, `POST /api/v1/config/naming/preview`, writes nothing and uses a sample artwork with the current time. Omitted templates use live download settings. Parse/render errors appear per template in a 200 response's `fields`; the preview is an editor aid, while PATCH performs authoritative validation.

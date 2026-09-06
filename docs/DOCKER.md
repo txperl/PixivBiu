@@ -1,112 +1,170 @@
 # Docker Deployment
 
-PixivBiu ships as a single self-contained binary (the React SPA is embedded), so
-the container image is small and stateless — all persistent data lives in mounted
-volumes. Pre-built **multi-arch images (linux/amd64, linux/arm64)** are published to
-GitHub Container Registry on every release:
+Run the embedded SPA and Go core in one container. Persistent state and artwork live in volumes. Published images support Linux amd64 and arm64:
 
+```text
+ghcr.io/txperl/pixivbiu:latest     # moving stable tag
+ghcr.io/txperl/pixivbiu:3.0.0      # example explicit version; choose an existing release
 ```
-ghcr.io/txperl/pixivbiu:latest      # latest stable
-ghcr.io/txperl/pixivbiu:3.0.0       # a specific version
-```
+
+For configuration details see [Configuration](CONFIGURATION.md); image publishing is part of the [core release train](RELEASE.md).
 
 ## Quick start (Docker Compose)
 
-```bash
-# 1. (host bind mount for downloads) make the dir writable by the container's uid
-mkdir -p downloads && sudo chown 65532:65532 downloads
+Install Docker with the Compose plugin, clone the repository, and run commands from its root. The examples use a POSIX shell.
 
-# 2. start it
+On a Linux host, prepare the downloads bind mount for the container's uid:
+
+```sh
+mkdir -p downloads
+sudo chown 65532:65532 downloads
 docker compose up -d
-
-# 3. open the UI
-open http://localhost:4001
 ```
 
-`docker-compose.yml` lives at the repo root. To build the image locally from source
-instead of pulling it, uncomment the `build:` block (or run `docker compose up -d --build`).
+Open `http://localhost:4001` in a browser. Docker Desktop manages filesystem sharing differently; ensure the shared folder is writable if downloads fail.
+
+The supplied [docker-compose.yml](../docker-compose.yml) publishes `4001:4001` on host interfaces. For local-only access, change its port mapping to `127.0.0.1:4001:4001`. The app uses one shared Pixiv session, not per-browser accounts. Remote deployments need network or reverse-proxy access control.
+
+### Build from source
+
+The Compose file's `build` section is commented out. Uncomment it first, then run:
+
+```sh
+docker compose up -d --build
+```
+
+Without an enabled `build` configuration, `--build` does not turn the image-only service into a source build. For an independent local image build:
+
+```sh
+docker build --build-arg VERSION=docker -t pixivbiu:local .
+```
+
+That image is separate from the Compose service until its `image` is changed to `pixivbiu:local`. The Dockerfile builds the frontend and core; no host Go/Bun installation is needed for that build.
 
 ## Quick start (docker run)
 
-```bash
-docker run -d --name pixivbiu \
-  -p 4001:4001 \
+As an alternative to Compose, with the downloads directory prepared as above:
+
+```sh
+docker run -d --name pixivbiu --restart unless-stopped \
+  -p 127.0.0.1:4001:4001 \
   -v pixivbiu-data:/data \
   -v "$PWD/downloads:/downloads" \
-  -e PIXIVBIU_PIXIV_PROXY="http://host.docker.internal:7890" \
   ghcr.io/txperl/pixivbiu:latest
 ```
 
+Proxy configuration is optional and depends on the host's route to Pixiv. Add the environment option described below before the image name when needed.
+
 ## Volumes
 
-| Mount        | Holds                                                                                          | Recommended     |
-| ------------ | ---------------------------------------------------------------------------------------------- | --------------- |
-| `/data`      | `usr/settings.json`, `usr/state.json` (**auth token**), `usr/downloads.json`, `usr/cache/img/` | named volume    |
-| `/downloads` | downloaded artwork (`/downloads/<date>/…`)                                                     | host bind mount |
+| Mount | Holds | Typical storage |
+| --- | --- | --- |
+| `/data` | `usr/settings.json`, `usr/state.json` (tokens), `usr/downloads.json`, `usr/cache/img` | Named volume |
+| `/downloads` | Downloaded artwork; no default date subdirectory | Host bind mount |
 
-`/data` is the single runtime root (set via `PIXIVBIU_DATA_DIR`); losing it means
-re-logging in and re-downloading. Back it up to preserve your session.
+The data volume preserves settings, login, and download history. Losing it does not delete files in the separate downloads mount, but the app loses its index and session. The image cache can be regenerated. Custom absolute paths need their own mounts; paths left in the writable container layer disappear on replacement.
 
-### Non-root permissions (important)
+### Non-root permissions
 
-The container runs as a **non-root user, uid `65532`** (distroless `nonroot`).
+The image runs as uid 65532 (distroless nonroot). A new named volume inherits the image directory's ownership. An existing volume retains its existing contents and permissions; it may need repair if created by a different image/user.
 
-- A **named volume** (e.g. `pixivbiu-data`) "just works" — Docker initialises its
-  ownership from the image.
-- A **host bind mount** (e.g. `./downloads`) keeps the host directory's ownership,
-  so it must be writable by uid `65532`:
-  ```bash
-  mkdir -p downloads && sudo chown 65532:65532 downloads
-  ```
-  Prefer to avoid that? Use a named volume for downloads too — replace
-  `./downloads:/downloads` with `pixivbiu-downloads:/downloads` and declare it under
-  `volumes:`.
+A host bind mount keeps host permissions. On Linux, give uid 65532 write access to the dedicated downloads directory; don't recursively change unrelated host directories. As an alternative, use a named volume for downloads: replace `./downloads:/downloads` with `pixivbiu-downloads:/downloads` and declare that volume in Compose.
+
+Distroless has no shell or package manager. Use host tools or a temporary helper container for volume maintenance; `docker exec ... sh` will not work.
 
 ## Configuration
 
-Everything is configured via `PIXIVBIU_*` environment variables — see
-[CONFIGURATION.md](CONFIGURATION.md) for the full list. The image already sets the
-container-appropriate defaults:
+Settings are managed in the UI/API, with `PIXIVBIU_*` environment variables taking precedence. The image supplies these overrides:
 
-| Variable                        | Image default                              | Notes                                   |
-| ------------------------------- | ------------------------------------------ | --------------------------------------- |
-| `PIXIVBIU_SERVER_HOST`          | `0.0.0.0`                                  | listen on all interfaces (vs. loopback) |
-| `PIXIVBIU_SERVER_PORT`          | `4001`                                     | change → also remap `-p`                |
-| `PIXIVBIU_SERVER_PORT_FALLBACK` | `false`                                    | fail loud on a busy port                |
-| `PIXIVBIU_DATA_DIR`             | `/data`                                    | runtime root                            |
-| `PIXIVBIU_DOWNLOAD_OUTPUT_DIR`  | `/downloads`                               | downloads volume root                   |
-| `PIXIVBIU_APP_OPEN_BROWSER`     | `false`                                    | headless                                |
+| Variable | Image value | Meaning |
+| --- | --- | --- |
+| `PIXIVBIU_SERVER_HOST` | `0.0.0.0` | Listen inside the container on all interfaces |
+| `PIXIVBIU_SERVER_PORT` | `4001` | Container port; update the mapping if changed |
+| `PIXIVBIU_SERVER_PORT_FALLBACK` | `false` | Fail if the selected port cannot bind |
+| `PIXIVBIU_DATA_DIR` | `/data` | State root |
+| `PIXIVBIU_DOWNLOAD_OUTPUT_DIR` | `/downloads` | Artwork mount |
+| `PIXIVBIU_APP_OPEN_BROWSER` | `false` | Headless startup |
 
-Commonly tuned at runtime: `PIXIVBIU_PIXIV_PROXY`, `PIXIVBIU_DOWNLOAD_UGOIRA_FORMAT`,
-`PIXIVBIU_LOG_LEVEL`, `PIXIVBIU_APP_LANGUAGE`.
+Environment settings remain effective even if a different value is saved in the UI. This includes the image's download output directory. To change it, override the environment and mount that destination. Recreate containers after changing their environment; a core-only restart does not replace container env.
 
 ### Proxy to reach Pixiv
 
-Pixiv is typically unreachable without a proxy. Point `PIXIVBIU_PIXIV_PROXY` at one
-(`scheme://host:port`):
+If the connectivity step cannot reach Pixiv and your network requires a proxy, set `PIXIVBIU_PIXIV_PROXY` to a URL such as `http://host.docker.internal:7890`. For Compose, edit the existing environment entry; for docker run, add `-e PIXIVBIU_PIXIV_PROXY=http://host.docker.internal:7890`.
 
-- **Docker Desktop (macOS/Windows):** `http://host.docker.internal:7890` works out of the box.
-- **Linux:** add `--add-host=host.docker.internal:host-gateway` (or the Compose
-  `extra_hosts` entry, already stubbed in `docker-compose.yml`) so the hostname resolves.
+- Docker Desktop provides `host.docker.internal` for reaching the host.
+- On Linux, enable the Compose `extra_hosts` entry, or add `--add-host=host.docker.internal:host-gateway` to docker run.
+- The proxy must listen on an address reachable from the container. A host proxy bound only to loopback may need its LAN-access option enabled and appropriate firewall permissions.
+- `127.0.0.1` inside the container refers to the container, not the host.
+
+When direct connectivity works, leave the proxy empty. To remove a proxy saved through the UI, use its reset action; see [sensitive reset behavior](CONFIGURATION.md#flags-and-reset-behavior).
 
 ## Updating
 
-Update by pulling a newer image, not via the in-app updater:
+Replace the container image to update:
 
-```bash
-docker compose pull && docker compose up -d
+```sh
+docker compose pull
+docker compose up -d
 ```
 
-The in-app **self-update is a no-op inside Docker** by design — applying it would
-rewrite the read-only, ephemeral binary. The update _check_ (banner) still works, so
-you may see an "update available" hint; ignore it and pull the image instead.
-(Locally built images are stamped with the version `docker`, which can make that
-banner always appear — cosmetic only.)
+For a pinned image version, change the Compose tag first. For docker run, stop/remove the old container and recreate it using the same mounts and desired image. Back up state before an upgrade that may change persisted data.
+
+The core has no container-specific guard making self-update a no-op. A release build can still offer an in-app update, but replacing its executable may fail under the image's permissions and would not update the declared image. Use container replacement. Builds stamped `docker` are treated as development versions and do not offer installable updates.
+
+To return to an older version, select that image explicitly and recreate the container. Automatic rollback of application state is not provided; use a compatible backup if the older version cannot read the current state.
+
+## Backup and restore
+
+Stop the service before taking a consistent backup. Preserve the data volume's `usr/settings.json`, `usr/state.json`, and `usr/downloads.json`, plus the separate downloads mount. Cache files are optional. Keep the same download paths on restore because the index records file paths.
+
+The following Linux/POSIX-shell example follows Docker's [volume backup and restore pattern](https://docs.docker.com/engine/storage/volumes/#back-up-restore-or-migrate-data-volumes). It uses a temporary BusyBox container for tar because the application image has no shell, refers to the supplied container name `pixivbiu`, and includes the cache:
+
+```sh
+docker compose stop
+mkdir -p backup
+docker run --rm --volumes-from pixivbiu:ro \
+  -v "$PWD/backup:/backup" busybox:1.37 \
+  tar -czf /backup/pixivbiu-data.tgz -C /data usr
+docker run --rm --volumes-from pixivbiu:ro \
+  -v "$PWD/backup:/backup" busybox:1.37 \
+  tar -czf /backup/pixivbiu-downloads.tgz -C /downloads .
+docker compose start
+```
+
+Protect these archives: they contain the Pixiv session and may contain proxy credentials. Copy them off the deployment host as appropriate.
+
+To restore, create a stopped container with empty destination mounts using the same Compose layout (`docker compose create`), or stop the existing service. For existing populated mounts, first make a backup and empty the intended destinations so stale files are not mixed into the restored state. Then:
+
+```sh
+docker run --rm --volumes-from pixivbiu \
+  -v "$PWD/backup:/backup:ro" busybox:1.37 \
+  tar -xzf /backup/pixivbiu-data.tgz -C /data
+docker run --rm --volumes-from pixivbiu \
+  -v "$PWD/backup:/backup:ro" busybox:1.37 \
+  tar -xzf /backup/pixivbiu-downloads.tgz -C /downloads
+docker compose start
+```
+
+The helper runs as root to preserve archive ownership. Check that the restored directories are writable by uid 65532, then verify health, login, history, and artwork paths. Do not use `docker compose down -v` during routine updates: it removes named volumes.
 
 ## Health
 
-The image defines a `HEALTHCHECK` that probes `GET /api/v1/health`:
+The image's dedicated healthcheck binary probes `GET /api/v1/health`:
 
-```bash
-docker inspect --format '{{.State.Health.Status}}' pixivbiu   # => healthy
+```sh
+docker inspect --format '{{.State.Health.Status}}' pixivbiu
+docker compose logs --tail=100 pixivbiu
 ```
+
+Health confirms core HTTP availability, not Pixiv connectivity or authentication. The healthcheck executable ships only in Docker, not in the portable archives.
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Downloads fail with permission denied | Bind-mount ownership/access for uid 65532; free space and destination path |
+| UI opens but Pixiv cannot be reached | Proxy host address, Linux host-gateway entry, proxy listening interface |
+| Saved setting does not take effect | Container env overrides and `pending_restart` |
+| Events stop behind a reverse proxy | Disable response buffering for SSE and allow long-lived connections |
+| Container is unhealthy | Startup logs, port/env consistency, settings validity and mount permissions |
+| Source changes are absent | Enable Compose build config and rebuild; pulling uses the published image |
