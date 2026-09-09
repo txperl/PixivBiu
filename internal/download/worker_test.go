@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -207,10 +206,8 @@ func TestBackoff_Exponential(t *testing.T) {
 	}
 }
 
-// Locks in the last-writer-wins contract at worker.go:L95-98:
-// os.Rename replaces an existing destPath atomically on both POSIX
-// and Windows. A future change that adds "skip if exists" or
-// "rename with suffix" must update this test explicitly.
+// A completed download replaces an existing destination. This exercises
+// replacement without assuming that concurrent renames are atomic on every OS.
 func TestHttpDownload_OverwritesExistingDestination(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "file.bin")
 	oldContent := []byte("OLD CONTENT - must be replaced")
@@ -247,16 +244,13 @@ func TestHttpDownload_OverwritesExistingDestination(t *testing.T) {
 	}
 }
 
-// Locks in the taskID isolation contract at worker.go:L32-34: two
-// concurrent downloads targeting the same destPath write to distinct
-// .part files keyed by taskID, so neither fails with a "file busy"
-// or produces interleaved bytes. Which body wins is scheduler-
-// dependent (last-writer-wins) — the test only asserts (a) both
-// calls return nil, (b) final content equals exactly one of the two
-// bodies, (c) no .part residue.
+// Concurrent tasks must keep their partial data separate. Hold both downloads
+// after writing, inspect their partial files, then finish them in order: Windows
+// can reject simultaneous renames to the same destination. The manager prevents
+// final-path collisions in normal operation.
 func TestHttpDownload_ConcurrentTasksSameDestIsolatePartFiles(t *testing.T) {
-	bodyA := []byte("AAAAAAAAAA")                 // 10 bytes
-	bodyB := []byte("BBBBBBBBBBBBBBBBBBBBBBBBBB") // 26 bytes
+	bodyA := []byte("AAAAAAAAAA")
+	bodyB := []byte("BBBBBBBBBBBBBBBBBBBBBBBBBB")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body := bodyA
 		if r.URL.Query().Get("who") == "b" {
@@ -268,42 +262,78 @@ func TestHttpDownload_ConcurrentTasksSameDestIsolatePartFiles(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	dest := filepath.Join(t.TempDir(), "file.bin")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	var wg sync.WaitGroup
-	var errA, errB error
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		_, _, errA = httpDownload(
-			context.Background(), http.DefaultClient, srv.URL+"?who=a", "", dest, "tsk_a", nil, nil,
-		)
+	type pendingDownload struct {
+		id      string
+		body    []byte
+		ready   chan struct{}
+		release chan struct{}
+		done    chan error
+	}
+	tasks := []pendingDownload{
+		{"tsk_a", bodyA, make(chan struct{}), make(chan struct{}), make(chan error, 1)},
+		{"tsk_b", bodyB, make(chan struct{}), make(chan struct{}), make(chan error, 1)},
+	}
+	// Join workers before TempDir cleanup, including when an assertion fails.
+	defer func() {
+		cancel()
+		for _, task := range tasks {
+			for range task.done {
+			}
+		}
 	}()
-	go func() {
-		defer wg.Done()
-		_, _, errB = httpDownload(
-			context.Background(), http.DefaultClient, srv.URL+"?who=b", "", dest, "tsk_b", nil, nil,
-		)
-	}()
-	wg.Wait()
-
-	if errA != nil {
-		t.Errorf("task A: %v", errA)
+	for i, task := range tasks {
+		who := []string{"a", "b"}[i]
+		go func() {
+			defer close(task.done)
+			var written int64
+			_, _, err := httpDownload(ctx, http.DefaultClient, srv.URL+"?who="+who, "", dest, task.id, nil, func(delta int64) {
+				written += delta
+				if written == int64(len(task.body)) {
+					close(task.ready)
+					select {
+					case <-task.release:
+					case <-ctx.Done():
+					}
+				}
+			})
+			task.done <- err
+		}()
 	}
-	if errB != nil {
-		t.Errorf("task B: %v", errB)
+	for _, task := range tasks {
+		select {
+		case <-task.ready:
+		case err := <-task.done:
+			t.Fatalf("%s exited before partial-file inspection: %v", task.id, err)
+		case <-ctx.Done():
+			t.Fatalf("waiting for %s: %v", task.id, ctx.Err())
+		}
 	}
-
-	got, err := os.ReadFile(dest)
-	if err != nil {
-		t.Fatalf("read dest: %v", err)
+	for _, task := range tasks {
+		got, err := os.ReadFile(dest + "." + task.id + ".part")
+		if err != nil {
+			t.Fatalf("read partial for %s: %v", task.id, err)
+		}
+		if string(got) != string(task.body) {
+			t.Errorf("partial for %s: want %q, got %q", task.id, task.body, got)
+		}
 	}
-	if string(got) != string(bodyA) && string(got) != string(bodyB) {
-		t.Errorf("dest content mismatch: got %q (len=%d), want exactly bodyA or bodyB", got, len(got))
-	}
-
-	for _, tid := range []string{"tsk_a", "tsk_b"} {
-		if _, err := os.Stat(dest + "." + tid + ".part"); !os.IsNotExist(err) {
-			t.Errorf(".part file for %s should not remain: %v", tid, err)
+	for _, task := range tasks {
+		close(task.release)
+		if err := <-task.done; err != nil {
+			t.Fatalf("%s: %v", task.id, err)
+		}
+		got, err := os.ReadFile(dest)
+		if err != nil {
+			t.Fatalf("read dest after %s: %v", task.id, err)
+		}
+		if string(got) != string(task.body) {
+			t.Errorf("dest after %s: want %q, got %q", task.id, task.body, got)
+		}
+		if _, err := os.Stat(dest + "." + task.id + ".part"); !os.IsNotExist(err) {
+			t.Errorf(".part file for %s should not remain: %v", task.id, err)
 		}
 	}
 }

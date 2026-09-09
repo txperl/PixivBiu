@@ -32,7 +32,8 @@ type sizeCallback func(total int64)
 //
 // taskID is mixed into the temporary filename so concurrent tasks
 // targeting the same destPath don't overwrite each other's partial
-// data. The final rename to destPath is last-writer-wins.
+// data. A successful final rename replaces destPath; the manager
+// reserves distinct destination paths to avoid concurrent rename collisions.
 //
 // Responsibilities that are NOT in here (kept in the manager):
 //   - Retry policy, URL rewriting, state transitions, event publishing
