@@ -23,7 +23,7 @@ afterPack: build/after-pack.cjs
 # Remove Electron runtime escape hatches the packaged app never needs. The Go
 # sidecar is an independent executable under extraResources, so RunAsNode and
 # Node process-spawning compatibility are irrelevant here. Cookie encryption is
-# intentionally a one-way profile migration; see desktop/README.md.
+# retained for defense in depth; normal sessions are memory-only (see README).
 electronFuses:
   runAsNode: false
   enableCookieEncryption: true

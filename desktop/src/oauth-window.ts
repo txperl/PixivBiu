@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { app, BrowserWindow, session, type Event } from "electron";
 import {
     extractPixivOAuthCode,
@@ -17,9 +18,8 @@ import {
 // Give up if the user never finishes signing in, so the promise can't dangle.
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
 
-// A dedicated, persisted partition so Pixiv's "remember this device" survives
-// across logins, and login cookies stay isolated from the app window.
-const LOGIN_PARTITION = "persist:pixiv-login";
+// Every authorization gets an isolated in-memory session; no login cookies
+// or remembered-device state are persisted between attempts.
 
 export class OAuthCancelledError extends Error {
     constructor() {
@@ -43,7 +43,7 @@ export function captureOAuthCode(loginUrl: string, parent?: BrowserWindow): Prom
     if (!isPixivOAuthLoginURL(loginUrl)) return Promise.reject(new Error("invalid_login_url"));
 
     return new Promise<string>((resolve, reject) => {
-        const ses = session.fromPartition(LOGIN_PARTITION);
+        const ses = session.fromPartition(`pixiv-login-${randomUUID()}`, { cache: false });
         // Pixiv sign-in needs no device permissions; deny everything.
         ses.setPermissionRequestHandler((_wc, _permission, cb) => cb(false));
         ses.setPermissionCheckHandler(() => false);
@@ -65,6 +65,9 @@ export function captureOAuthCode(loginUrl: string, parent?: BrowserWindow): Prom
             },
         });
 
+        // Popups must not create a window backed by the persistent default session.
+        win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+
         let settled = false;
         const finish = (action: () => void) => {
             if (settled) return;
@@ -77,6 +80,13 @@ export function captureOAuthCode(loginUrl: string, parent?: BrowserWindow): Prom
             clearTimeout(timer);
             // Clears all onBeforeRequest listeners on this (login-only) session.
             ses.webRequest.onBeforeRequest(null);
+            // Start cleanup after the callback interceptor returns. Close first
+            // so the login page cannot repopulate storage during cleanup.
+            queueMicrotask(() => {
+                if (!win.isDestroyed()) win.destroy();
+                void Promise.all([ses.clearStorageData(), ses.clearCache(), ses.clearAuthCache(), ses.closeAllConnections()])
+                    .catch(() => console.warn("[oauth] Temporary session cleanup failed"));
+            });
             if (!win.isDestroyed()) {
                 win.webContents.removeListener("will-redirect", onNav);
                 win.webContents.removeListener("will-navigate", onNav);

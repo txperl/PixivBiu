@@ -1,18 +1,14 @@
-import { net, protocol } from "electron";
+import { protocol, type Session } from "electron";
 import {
     APP_CONTENT_SECURITY_POLICY,
     CORE_SCHEME,
     isTrustedCoreURL,
 } from "./security";
 
-// The renderer loads the SPA from this stable custom origin instead of the
-// core's loopback URL. The core binds a fresh ephemeral port every launch, and
-// web storage (localStorage, IndexedDB, …) is partitioned per origin including
-// the port — loading http://127.0.0.1:<port> directly would hand the SPA an
-// empty storage bucket on every run. pixivbiu://core decouples the origin from
-// the port entirely: the port stays a private main-process detail, and if a
-// future watchdog respawns the core on a new port the page keeps its origin
-// and self-heals (API retries, EventSource auto-reconnect).
+// The renderer keeps a stable security/storage origin in its in-memory session.
+// The sidecar's changing loopback port stays private to the main process; API
+// calls, images and SSE all flow through the same session's protocol and fetch.
+// UI preferences are persisted separately by preferences.ts.
 export { CORE_BASE_URL, CORE_ORIGIN } from "./security";
 
 function secureHeaders(source?: HeadersInit): Headers {
@@ -49,17 +45,17 @@ export function registerCoreScheme(): void {
 
 // Call after app.whenReady(). getPort is read per request so a respawned core
 // on a different port is picked up without reinstalling the handler.
-export function installCoreProtocol(getPort: () => number | null): void {
-    protocol.handle(CORE_SCHEME, async (request) => {
+export function installCoreProtocol(ses: Session, getPort: () => number | null): void {
+    ses.protocol.handle(CORE_SCHEME, async (request) => {
         const url = new URL(request.url);
         if (!isTrustedCoreURL(request.url)) return errorResponse("not found", 404);
         const port = getPort();
         if (port === null) return errorResponse("core unavailable", 503);
         // Strip headers that describe the renderer's request before forwarding;
-        // net.fetch builds its own. An Origin of pixivbiu://core makes net.fetch
+        // ses.fetch builds its own. An Origin of pixivbiu://core makes ses.fetch
         // treat the loopback request as cross-origin and fail CORS
         // (net::ERR_FAILED) since the core sends no CORS headers. A forwarded
-        // Content-Length clashes with the chunked encoding net.fetch uses for
+        // Content-Length clashes with the chunked encoding ses.fetch uses for
         // streamed bodies, leaving the core waiting for bytes that never come
         // (POST/PATCH hang forever). App headers like X-PixivBiu-App pass
         // through untouched.
@@ -69,7 +65,7 @@ export function installCoreProtocol(getPort: () => number | null): void {
         }
         try {
             // Electron (≤34 at least) never aborts request.signal when the
-            // renderer cancels — a directly returned net.fetch Response then
+            // renderer cancels — a directly returned ses.fetch Response then
             // holds its upstream connection open forever. For SSE that both
             // accumulates dead hub subscriptions in the core and exhausts
             // Chromium's 6-connections-per-host pool, starving later requests.
@@ -78,7 +74,7 @@ export function installCoreProtocol(getPort: () => number | null): void {
             // request.signal is wired too for Electron versions that fix it.
             const upstreamCtrl = new AbortController();
             request.signal.addEventListener("abort", () => upstreamCtrl.abort());
-            const upstream = await net.fetch(`http://127.0.0.1:${port}${url.pathname}${url.search}`, {
+            const upstream = await ses.fetch(`http://127.0.0.1:${port}${url.pathname}${url.search}`, {
                 method: request.method,
                 headers,
                 body: request.body,

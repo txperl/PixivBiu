@@ -20,6 +20,10 @@ export interface DesktopBridge {
         downloadAndInstall(): Promise<void>;
         onStatus(cb: (status: DesktopUpdateStatus) => void): () => void;
     };
+    preferences: {
+        read(): Promise<Record<string, string>>;
+        write(key: string, value: string): Promise<void>;
+    };
     platform: {
         os: string;
         arch: string;

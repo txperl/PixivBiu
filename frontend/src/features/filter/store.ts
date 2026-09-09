@@ -1,3 +1,4 @@
+import { writePreference } from "@/lib/preferences";
 import {
     type AspectRatio,
     DEFAULT_GENERAL_FILTERS,
@@ -116,7 +117,7 @@ function write(next: GeneralFilters) {
     snapshot = next;
     if (typeof window !== "undefined") {
         try {
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+            writePreference(STORAGE_KEY, JSON.stringify(next));
         } catch {
             // localStorage may be unavailable (private mode / quota)
         }

@@ -30,6 +30,11 @@ const pixivbiu = {
         },
     },
 
+    preferences: {
+        read: (): Promise<Record<string, string>> => ipcRenderer.invoke("pixivbiu:preferences-read"),
+        write: (key: string, value: string): Promise<void> => ipcRenderer.invoke("pixivbiu:preferences-write", key, value),
+    },
+
     platform: {
         os: process.platform,
         arch: process.arch,

@@ -2,6 +2,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import type { ConfigView } from "@/features/settings/api";
 import { getConfig } from "@/features/settings/api";
 import { nestedGet } from "@/features/settings/flatten";
+import { writePreference } from "@/lib/preferences";
 import { getLocale, isLocale, type Locale, setLocale as paraglideSetLocale } from "../generated/runtime";
 
 interface LocaleContextValue {
@@ -80,6 +81,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
     const applyLanguage = useCallback((configured: string) => {
         const next = resolveLocale(configured);
+        writePreference(PARAGLIDE_LOCALE_KEY, next);
         if (next === getLocale()) return;
         paraglideSetLocale(next, { reload: false });
         setLocaleState(next);

@@ -5,14 +5,20 @@ import "./styles/globals.css";
 import "./styles/material-you.css";
 // Desktop-shell overrides; after material-you.css so frost tints win.
 import "./styles/desktop.css";
-import App from "@/app/App";
 import { applyDesktopChrome } from "@/lib/desktop-chrome";
+import { restoreDesktopPreferences } from "@/lib/preferences";
 
 // Before first paint: mark <html> with the Electron shell's window chrome.
 applyDesktopChrome();
 
-createRoot(document.getElementById("root") as HTMLElement).render(
-    <StrictMode>
-        <App />
-    </StrictMode>,
-);
+async function start() {
+    await restoreDesktopPreferences();
+    const { default: App } = await import("@/app/App");
+    createRoot(document.getElementById("root") as HTMLElement).render(
+        <StrictMode>
+            <App />
+        </StrictMode>,
+    );
+}
+
+void start();

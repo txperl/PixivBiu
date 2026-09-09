@@ -1,4 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { writePreference } from "@/lib/preferences";
 import { ActivityBarContext, type ActivityBarContextValue } from "./activity-bar-context";
 import { type ActivityItemId, ITEM_DEFS } from "./items";
 import { FILTER_ID } from "./items/filter";
@@ -31,7 +32,7 @@ function readPersisted(): PersistedState {
 function writePersisted(s: PersistedState) {
     if (typeof window === "undefined") return;
     try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+        writePreference(STORAGE_KEY, JSON.stringify(s));
     } catch {
         // localStorage may be unavailable (private mode / quota)
     }

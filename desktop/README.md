@@ -11,7 +11,7 @@ See [Development](../docs/DEVELOPMENT.md) for repository setup and [Release](../
 
 ## Protocol, security, and lifecycle
 
-The main window loads `pixivbiu://core/`. Loading the random loopback URL directly would change the storage origin on every launch and lose access to the previous localStorage/IndexedDB bucket. `core-protocol.ts` forwards trusted core-origin requests to the current sidecar port, preserving method, body, and application headers. It removes transport/origin headers that would break the upstream request and adds the application's CSP and related response headers.
+The main window loads `pixivbiu://core/`. The main window uses the in-memory `pixivbiu-main` session. Its stable origin keeps renderer storage and security checks consistent when the core restarts. `core-protocol.ts` forwards trusted core-origin requests to the current sidecar port, preserving method, body, and application headers. It removes transport/origin headers that would break the upstream request and adds the application's CSP and related response headers.
 
 The scheme enables fetch and streaming. The response body is wrapped so consumer cancellation aborts upstream work; returning an uncancellable SSE stream would leak subscriptions and exhaust the connection pool. Preserve streaming rather than buffering a whole response. The scheme is registered before app readiness, and the protocol handler is installed afterwards.
 
@@ -26,7 +26,17 @@ Security decisions live in [security.ts](src/security.ts) and their callers:
 - Permission handlers deny unsupported capabilities; the main app allows only its explicitly scoped clipboard behavior. Do not loosen CSP, permissions, sandboxing, or navigation guards to work around a frontend bug.
 - Packaging sets Electron fuses in `electron-builder.yml` and removes unused macOS hardware-permission declarations via `build/after-pack.cjs`.
 
-Keep `preload.ts` aligned with [frontend/src/lib/desktop.ts](../frontend/src/lib/desktop.ts), and keep the OAuth callback constant aligned with `internal/pixiv/oauth_code.go`. The bridge offers OAuth capture, update operations/status subscription, and platform/chrome flags; it never exposes a generic IPC or filesystem API.
+Keep `preload.ts` aligned with [frontend/src/lib/desktop.ts](../frontend/src/lib/desktop.ts), and keep the OAuth callback constant aligned with `internal/pixiv/oauth_code.go`. The bridge offers OAuth capture, update operations/status subscription, a bounded UI-preference read/write API, and platform/chrome flags; it never exposes a generic IPC or filesystem API.
+
+## Sessions and UI preferences
+
+Normal startup never opens a persistent Chromium session or initializes `safeStorage`. The main window, protocol handler, permission policy and core proxy all use `pixivbiu-main` (no `persist:` prefix). Use that session’s `protocol` and `fetch`; global `protocol.handle` and `net.fetch` would reintroduce the persistent default session. Electron-updater uses its own in-memory session. Cookie encryption stays enabled as defense in depth for any future persistent session, but normal application and OAuth traffic have no on-disk cookie store to encrypt.
+
+Each OAuth attempt creates a unique in-memory session with caching disabled. Completion, cancellation and timeout close the window and clear storage, cache, HTTP authentication and connections. Popups are denied so they cannot create default-session windows. Pixiv’s remembered-account/device cookies do not survive authorization attempts; occasional reauthorization may require credentials, captcha or 2FA again. The core’s persisted refresh token still maintains PixivBiu login across restarts and is separate from Electron cookies. The core token state remains a permission-restricted JSON file, not encrypted by Electron’s Cookie fuse.
+
+Only `PARAGLIDE_LOCALE`, `pixivbiu.general-filters`, `pixivbiu.search.history.v1` and `pixivbiu.activity-bar` are persisted by the shell in versioned `userData/ui-preferences.json`. Main-process IPC checks the trusted main frame, allowed keys and size limits, and atomically replaces the file before acknowledging a write. The SPA hydrates its in-memory localStorage before importing App (including module-level preference readers and Paraglide); explicit preference writes update both the working copy and the shell store. Browser builds keep normal localStorage persistence. Storage failures fall back to usable in-memory preferences and emit diagnostics without preference contents. New persisted UI fields must be added to both explicit allowlists and use the preference adapter; tokens and generic filesystem paths are forbidden.
+
+This internal-test transition does not import or delete old Chromium profiles or keychain entries. Previous browser-only preferences start at defaults; core settings, login and downloads retain their own storage. Development uses a separate `PixivBiu Development` identity and userData directory. Validate startup and OAuth with a signed macOS package, including a locked/denied keychain and repeated launches; TypeScript and unit tests cannot prove the absence of native prompts.
 
 ## Layout
 
@@ -37,6 +47,7 @@ Keep `preload.ts` aligned with [frontend/src/lib/desktop.ts](../frontend/src/lib
 | `src/core-protocol.ts` | Stable renderer origin, HTTP forwarding, streamed response cancellation |
 | `src/security.ts` | Shared URL, CSP, OAuth, and IPC sender policies |
 | `src/window-chrome.ts` | Per-platform frameless title bar + frosted backdrop options |
+| `src/preferences.ts` | Versioned, bounded and atomic persistence of non-credential UI preferences |
 | `src/window-state.ts` | Persist/restore window bounds (`userData/window-state.json`) |
 | `src/menu.ts` | Application menu (standard macOS roles; none in packaged win/linux) |
 | `src/oauth-window.ts` | OAuth window that intercepts the Pixiv callback → returns the code |
@@ -74,7 +85,7 @@ npm ci
 npm start                                # tsc -> electron .
 ```
 
-`npm run check` builds the shell and runs release/security contracts; `npm run typecheck` checks types without emitting. Native smoke tests are still needed for OAuth, stream cancellation, window chrome, and quitting. The root `make desktop-dev` convenience target currently uses `npm install`; the manual sequence above uses the lockfile strictly.
+`npm run check` builds the shell and runs release/security contracts; `npm run typecheck` checks types without emitting. `npm run test:native` runs an isolated Electron smoke fixture (requires frontend dependencies) covering memory sessions, the protocol proxy, sandboxed preload, preference persistence and window recreation. Real Pixiv OAuth, signed-package keychain behavior, window chrome and full core shutdown still require manual native validation. The root `make desktop-dev` convenience target currently uses `npm install`; the manual sequence above uses the lockfile strictly.
 
 In dev the shell looks for the core at `../bin/pixivbiu` (override with `PIXIVBIU_CORE_BIN`). The shell owns OS placement and passes it to the (portable) core via env, so data lands in OS-appropriate dirs, not the repo:
 
@@ -94,7 +105,7 @@ On quit, the shell terminates the core process tree on Windows; on other systems
 | Symptom | Check |
 | --- | --- |
 | Core fails to start | Expected binary path, executable permission, core log and settings validity |
-| UI preferences disappear after launch | Main window must use the stable core scheme, not the random HTTP origin |
+| UI preferences disappear after launch | Check UI-preference hydration/IPC and `ui-preferences.json`; keep the stable core scheme |
 | Requests hang after navigation | Verify protocol body cancellation, especially SSE cleanup |
 | OAuth or updates reject IPC | Sender must be the trusted main frame; don't bypass the policy |
 | No desktop update in development | Automatic update checks run only in packaged builds |
@@ -104,7 +115,7 @@ Before sharing logs, remove account/proxy details. Do not attach auth state file
 
 ## Package
 
-Desktop builds require **macOS 13 or later**, Windows 10 or later, or a current x64 Linux distribution. Electron's cookie-encryption fuse is enabled in packaged apps; opening an existing profile upgrades its cookie store on write, so rolling back to a build without that fuse may require signing in to Pixiv again.
+Desktop builds require **macOS 13 or later**, Windows 10 or later, or a current x64 Linux distribution. Electron’s cookie-encryption fuse remains enabled in packaged apps; application and OAuth sessions are in memory and do not use disk Cookie encryption. See Sessions and UI preferences above.
 
 The desktop app is its **own** release train (`desktop-v*` tag), decoupled from the core `v*` train. CI (`.github/workflows/desktop.yml`) does not rebuild the core — it downloads the core release pinned in [`.core-version`](.core-version) and bundles that exact binary. Bump `.core-version` (+ cut a new `desktop-v*` tag) to ship a newer core to desktop users. Full flow + secrets in [../docs/RELEASE.md](../docs/RELEASE.md#desktop-release-train).
 

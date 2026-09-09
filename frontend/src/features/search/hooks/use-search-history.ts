@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { writePreference } from "@/lib/preferences";
 
 const HISTORY_KEY = "pixivbiu.search.history.v1";
 const HISTORY_LIMIT = 8;
@@ -49,7 +50,7 @@ function shallowEqual(a: readonly string[], b: readonly string[]): boolean {
 function safeWrite(key: string, value: readonly string[]) {
     if (typeof window === "undefined") return;
     try {
-        window.localStorage.setItem(key, JSON.stringify(value));
+        writePreference(key, JSON.stringify(value));
     } catch {
         // Quota exceeded / privacy mode — silently no-op.
     }

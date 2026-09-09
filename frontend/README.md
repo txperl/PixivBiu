@@ -113,6 +113,8 @@ Settings labels use explicit `useFieldText/useSectionTitle` maps. Missing transl
 
 Feature-detect the [desktop bridge](src/lib/desktop.ts); browser builds have none. The login page uses captured OAuth codes in desktop and manual callback/token entry in a browser. UpdateProvider maps its existing UI onto `window.pixivbiu.updates` instead of the core update endpoints.
 
+Desktop restores an explicit set of UI preferences through `lib/preferences.ts` before dynamically importing App. Use `writePreference` for persisted UI writes; direct localStorage writes in desktop are memory-only. The shell owns a versioned, bounded file and validates every IPC request. Browser builds continue using localStorage. Paraglide’s locale cache is restored before its runtime initializes and is saved by LocaleProvider when applying language.
+
 Keep the frontend interface aligned with [preload.ts](../desktop/src/preload.ts). Renderers use the stable `pixivbiu://core` origin, not the private sidecar port. Chrome flags come from the shell: absent flags fall back to framed/opaque. Use the existing drag/no-drag conventions for interactive controls. The [desktop guide](../desktop/README.md) owns protocol, IPC, window and release details.
 
 ## Behavioral checks

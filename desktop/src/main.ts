@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import { app, BrowserWindow, ipcMain, session, shell } from "electron";
 import { startCore, stopCore, type CoreHandle } from "./core-process";
@@ -7,7 +6,6 @@ import { installMenu } from "./menu";
 import { captureOAuthCode } from "./oauth-window";
 import {
     CORE_BASE_URL,
-    CORE_ORIGIN,
     failurePage,
     isAllowedExternalURL,
     isPixivOAuthLoginURL,
@@ -16,6 +14,7 @@ import {
 } from "./security";
 import { initUpdater } from "./updater";
 import { chromeArgs, chromeOptions } from "./window-chrome";
+import { PreferenceStore } from "./preferences";
 import { restoreWindowState, trackWindowState } from "./window-state";
 
 // Keep this in sync with electron-builder.yml::appId. NSIS assigns the same
@@ -24,6 +23,12 @@ import { restoreWindowState, trackWindowState } from "./window-state";
 // the packaged application identity.
 const APP_ID = "moe.tls.pixivbiu";
 if (process.platform === "win32") app.setAppUserModelId(APP_ID);
+
+// Keep local development separate from the installed app and its auth state.
+if (!app.isPackaged) {
+    app.setName("PixivBiu Development");
+    app.setPath("userData", path.join(app.getPath("appData"), "PixivBiu Development"));
+}
 
 // Apply Chromium's OS-level sandbox to every renderer, including any future
 // BrowserWindow that might otherwise omit its per-window sandbox flag.
@@ -67,22 +72,9 @@ function ensureCore(): Promise<void> {
     return coreStarting;
 }
 
-// Builds that predate the pixivbiu:// scheme loaded the SPA from a random
-// loopback port per launch, stranding web storage under dead
-// http://127.0.0.1:<port> origins. Clear those once; the stable core origin is
-// excluded and the login window uses its own persist: partition, so neither is
-// touched. If the marker write fails, re-running is harmless for the same
-// reason.
-function clearLegacyOriginStorage(): void {
-    const marker = path.join(app.getPath("userData"), "storage-cleaned");
-    if (fs.existsSync(marker)) return;
-    void session.defaultSession
-        .clearData({ excludeOrigins: [CORE_ORIGIN] })
-        .then(() => fs.promises.writeFile(marker, ""))
-        .catch(() => {
-            // Non-fatal: stale origins are only disk garbage; retried next launch.
-        });
-}
+// Never initialize defaultSession: even an empty persistent cookie store can
+// request the OS encryption key. Protocol, network and permissions share this session.
+const mainSession = () => session.fromPartition("pixivbiu-main");
 
 // createMainWindow is re-entrant: on macOS the window is recreated on dock
 // activate against the already-running core. One-time wiring (core, updater,
@@ -101,6 +93,7 @@ function createMainWindow(): void {
         ...(process.platform === "darwin" ? {} : { icon: APP_ICON }),
         ...chromeOptions(),
         webPreferences: {
+            session: mainSession(),
             preload: PRELOAD,
             contextIsolation: true,
             nodeIntegration: false,
@@ -148,13 +141,21 @@ if (gotInstanceLock) {
 
     app.whenReady().then(async () => {
         installMenu();
-        installCoreProtocol(() => core?.port ?? null);
-        clearLegacyOriginStorage();
+        installCoreProtocol(mainSession(), () => core?.port ?? null);
+        const preferences = new PreferenceStore(path.join(app.getPath("userData"), "ui-preferences.json"));
+        ipcMain.handle("pixivbiu:preferences-read", (event) => {
+            if (!isTrustedIPCEvent(event, mainWindow)) throw new Error("unauthorized_ipc");
+            return preferences.read();
+        });
+        ipcMain.handle("pixivbiu:preferences-write", (event, key: unknown, value: unknown) => {
+            if (!isTrustedIPCEvent(event, mainWindow)) throw new Error("unauthorized_ipc");
+            preferences.write(key, value);
+        });
 
         // Renderer permission policy: deny everything except the clipboard
         // access the SPA actually uses (login paste, copy buttons), scoped to
         // the core origin.
-        session.defaultSession.setPermissionRequestHandler((webContents, permission, cb, details) => {
+        mainSession().setPermissionRequestHandler((webContents, permission, cb, details) => {
             const allowed = permission === "clipboard-read" || permission === "clipboard-sanitized-write";
             cb(
                 allowed &&
@@ -163,7 +164,7 @@ if (gotInstanceLock) {
                     isTrustedCoreURL(details.requestingUrl),
             );
         });
-        session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+        mainSession().setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
             const allowed = permission === "clipboard-read" || permission === "clipboard-sanitized-write";
             return (
                 allowed &&
