@@ -10,6 +10,8 @@ const UNUSED_USAGE_DESCRIPTIONS = [
 ];
 
 exports.default = function removeUnusedMacUsageDescriptions(context) {
+    // Runs after Electron's locale cleanup and resource copying, before signing.
+    require("./package-audit.cjs").recordPackage(context);
     if (context.electronPlatformName !== "darwin") return;
 
     const plist = path.join(

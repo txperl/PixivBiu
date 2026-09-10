@@ -87,7 +87,7 @@ git tag desktop-v1.0.0
 git push origin desktop-v1.0.0
 ```
 
-5. **Watch Actions → Desktop:** **Create draft release → all three platform builds → Publish release** must succeed. The final job checks installers and update metadata before making the draft public; leave publication to that job.
+5. **Watch Actions → Desktop:** **Create draft release → all three platform builds → Publish release** must succeed. Each platform's packaging hooks validate contents and save size reports in the job summary and `desktop-size-<OS>` Actions artifact. Review installer and expanded-byte changes against comparable builds. Audit or report-upload failure keeps the release in draft. The final job checks installers and update metadata before making the draft public; leave publication to that job.
 6. **Confirm the result:** the desktop releases repository has `v1.0.0` with the correct source tag and pinned core in its release notes, working installer links, and `latest-mac.yml`, `latest.yml`, and `latest-linux.yml`. Stable releases become latest; prereleases leave the previous stable latest. Only versioned assets are published. Use the [artifact reference](RELEASE_REFERENCE.md#desktop-artifacts) if inspecting uploads manually.
 
 ## Failed release recovery

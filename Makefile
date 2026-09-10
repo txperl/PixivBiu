@@ -52,7 +52,8 @@ build:  ## Build server binary (embeds the current internal/web/dist)
 build-web:  ## Build the frontend into the embed dir (internal/web/dist)
 	cd frontend && bun install --frozen-lockfile && bun run build
 
-dist: build-web build  ## Full self-contained build: frontend embedded into the binary
+dist: build-web  ## Full self-contained build: frontend embedded into the binary
+	$(MAKE) build
 
 desktop-stage: dist  ## Stage the freshly built core binary into desktop/resources/<host-arch> for packaging
 	mkdir -p $(DESKTOP)/resources/$(HOST_ARCH)

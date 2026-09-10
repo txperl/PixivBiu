@@ -177,6 +177,15 @@ jobs:
           fi
           npx electron-builder "${args[@]}"
 
+      # The packager hooks validate contents before signing and measure the
+      # final app/artifacts afterwards. Failure keeps the release in draft.
+      - name: Save package size reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-size-${{ runner.os }}
+          path: desktop/out/size-reports/
+          if-no-files-found: error
+
   # Flip the draft live only after every platform uploaded all expected assets,
   # the updater metadata references those exact filenames, and the user-facing
   # release notes have been rendered from the verified manifest.

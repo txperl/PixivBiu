@@ -19,6 +19,11 @@ directories:
 # access. PixivBiu denies those permissions in both renderer sessions, so strip
 # the misleading declarations after packaging and before code signing.
 afterPack: build/after-pack.cjs
+afterAllArtifactBuild: build/package-report.cjs
+
+# Keep the four UI languages (including Electron's platform-specific variants).
+# English resources remain available for unsupported-system-language fallback.
+electronLanguages: [en, zh-CN, zh-TW, ja]
 
 # Remove Electron runtime escape hatches the packaged app never needs. The Go
 # sidecar is an independent executable under extraResources, so RunAsNode and
@@ -34,17 +39,14 @@ electronFuses:
   loadBrowserProcessSpecificV8Snapshot: false
   grantFileProtocolExtraPrivileges: false
 
-# Default file set, minus things that don't belong inside app.asar. The Go
-# binary ships through extraResources instead, so exclude it from the asar to
-# avoid shipping it twice.
+# Explicit application payload. electron-builder also collects production
+# dependencies with its default exclusions; retain their license notices.
+# The Go binary ships once, outside ASAR, through extraResources.
 files:
-  - "**/*"
-  - "!resources/**"
-  - "!src/**"
-  - "!tsconfig.json"
-  - "!electron-builder.yml"
+  - "dist/**/*.js"
+  - "package.json"
   - "!**/*.map"
-  - "!**/*.md"
+  - "!**/*.ts"
 
 # Stage the matching platform+arch binary (pixivbiu / pixivbiu.exe — lowercase,
 # the core's release binary name) into the app's resources directory;
@@ -94,9 +96,8 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   notarize: true
   # Per-arch split (arm64 + x64) instead of a universal binary: a universal build
-  # doubles the bundled 85 MB Go core (~171 MB fat) and ~doubles the Electron
-  # runtime, so ~45% of a universal download is CPU code the user can't run.
-  # Splitting halves per-user download/disk. Both arches build in one run on the
+  # would include both core and Electron CPU slices in every user's download.
+  # Both arches build in one run on the
   # macos runner, producing a single latest-mac.yml that electron-updater filters
   # by process.arch. CI stages each core slice into resources/{x64,arm64}.
   target:

@@ -41,6 +41,8 @@ docker build --build-arg VERSION=docker -t pixivbiu:local .
 
 That image is separate from the Compose service until its `image` is changed to `pixivbiu:local`. The Dockerfile builds the frontend and core; no host Go/Bun installation is needed for that build.
 
+The web stage copies the shared build-cleanup script and uses `bun run build`, which removes previous frontend outputs before Vite. Local embedded assets are excluded from the Docker context, so the image only contains its freshly built SPA.
+
 ## Quick start (docker run)
 
 As an alternative to Compose, with the downloads directory prepared as above:

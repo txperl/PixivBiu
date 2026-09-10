@@ -31,8 +31,8 @@ export default defineConfig({
         // the SPA into the server binary (single self-contained artifact).
         // outDir sits outside the frontend root; emptyOutDir:false preserves
         // the committed dist/.gitkeep (which keeps backend-only `go build`
-        // compiling) and avoids Vite's outside-root deletion guard. Stale
-        // hashed assets are harmless and cleared by `make clean`.
+        // compiling). The build script cleans previous outputs before Vite,
+        // so repeated builds cannot embed stale hashed assets into the core.
         outDir: path.resolve(__dirname, "../internal/web/dist"),
         emptyOutDir: false,
     },

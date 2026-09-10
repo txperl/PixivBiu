@@ -20,6 +20,7 @@ WORKDIR /src/frontend
 COPY frontend/package.json frontend/bun.lock ./
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY frontend/ ./
+COPY scripts/clean-build.mjs /src/scripts/clean-build.mjs
 # vite.config.ts emits to ../internal/web/dist (i.e. /src/internal/web/dist).
 RUN bun run build
 

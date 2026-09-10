@@ -56,7 +56,8 @@ This internal-test transition does not import or delete old Chromium profiles or
 | `electron-builder.yml` | Packaging / signing / publish config |
 | `build/icon.icns` / `icon.png` | macOS bundle icon and Linux/runtime icon, generated from the Unix artwork |
 | `build/icon.ico` | Multi-size Windows executable, installer, and runtime icon |
-| `build/after-pack.cjs` | Removes unused hardware-permission declarations from the macOS plist |
+| `build/after-pack.cjs` | Checks package contents before signing and removes unused macOS hardware-permission declarations |
+| `build/package-audit.cjs` / `package-report.cjs` | Validates payload, languages and core architecture; reports final app and artifact sizes |
 | `build/entitlements.mac.plist` | Hardened-runtime entitlements |
 | `resources/<arch>/` | The Go core binary per arch (`x64` / `arm64`), staged at build time (gitignored) |
 
@@ -147,6 +148,16 @@ make desktop-fetch-core                 # -> resources/x64/ (+ resources/arm64/ 
 cd desktop && npm ci && npm run dist
 ```
 
+### Package footprint and verification
+
+The app ships Electron resources for English, Simplified Chinese, Traditional Chinese and Japanese via `electronLanguages`, including matching regional/gender variants. Other system languages use available fallback text for Electron/Chromium UI, usually English; OS-native dialogs may still use the system language. This does not remove website translations, fonts, input methods, ICU data or the ability to display other languages. The SPA keeps its four existing translations. Validate unsupported-system-language startup and Pixiv OAuth/captcha language negotiation with native packages.
+
+Shell builds clear previous `dist` output first. ASAR contains compiled shell JavaScript, package metadata and automatically collected production dependencies, with source maps/TypeScript excluded and dependency license notices retained. The matching core is bundled once through `extraResources`. Keep Chromium binaries, GPU fallbacks, ICU, runtime licenses and normal compression. Most package bytes belong to Electron; ASAR is a container, not an additional compression layer.
+
+Packaging hooks check locales, application/preload entries, declared production dependency entries, runtime licenses and the core's platform/architecture before signing. They also compare the bundled core with the staged bytes at that point; signing can legitimately change the executable afterwards. After artifacts finish, the hooks recheck the final app and write `<output>/size-reports/<platform>-<arch>.json` plus `summary.md`, including Desktop/Electron versions, core hashes, pin and artifact sizes. `coreReleaseVersion` is supplied by CI's `CORE_VERSION`; local builds without it are explicitly unverified, even when a pin exists. `--dir` builds report an empty artifact list. Reports stay in Actions artifacts and the job summary, not the release/update feed; an audit failure blocks publication of the draft.
+
+Size reports use bytes and MiB (1 MiB = 1,048,576 bytes). Expanded size sums regular file lengths without following framework symlinks; it is not filesystem allocation or a sum of every installer format. Compare builds with identical Electron/core/lockfiles, architecture, target formats and signing settings. Structural checks prevent leaked payload and missing files; there is no arbitrary total-size cap. `npm run check` also runs build-cleanup and package-audit regression tests. On packaging changes, verify native startup in all four languages and an unsupported system language, OAuth/captcha, image loading, downloads/SSE, quit, and an older installation's update path. Validate macOS signatures/notarization separately; cross-packaging cannot prove native behavior.
+
 ### Signing / notarization (macOS)
 
 `mac.notarize: true` + `hardenedRuntime: true` require these env vars at pack time:
@@ -154,7 +165,7 @@ cd desktop && npm ci && npm run dist
 - `CSC_LINK` / `CSC_KEY_PASSWORD` — Developer ID Application cert (.p12)
 - `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID` — notarization
 
-macOS ships a **per-arch split** (arm64 + x64), not a universal binary: universal would double the bundled ~85 MB Go core (plus the Electron runtime), so ~45% of a universal download is CPU code the user can't run. Both arches build in one `electron-builder` run and share one `latest-mac.yml`; the updater picks the slice matching `process.arch`. The embedded Go executable is included in app signing. Verify the packaged app with its actual path:
+macOS ships a **per-arch split** (arm64 + x64), avoiding a universal download containing both core and Electron CPU slices. Actual sizes depend on the runtime and core release; use the package size reports rather than fixed estimates. Both arches build in one `electron-builder` run and share one `latest-mac.yml`; the updater picks the slice matching `process.arch`. The embedded Go executable is included in app signing. Verify the packaged app with its actual path:
 
 ```sh
 codesign --verify --deep --strict --verbose=2 "/path/to/PixivBiu.app"

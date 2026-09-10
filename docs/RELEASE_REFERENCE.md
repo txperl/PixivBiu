@@ -38,6 +38,8 @@ latest-mac.yml | latest.yml | latest-linux.yml
 
 Standalone `.blockmap` sidecars accompany the macOS and Windows update artifacts. There are no versionless installer aliases. The generated release description links to installers, identifies the source `desktop-v*` tag and bundled core release, and distinguishes update-only files from user downloads. Stable titles are `PixivBiu Desktop vX.Y.Z`; prereleases append `(Alpha)` or `(Beta)`.
 
+Package size JSON/Markdown reports are Actions artifacts, not release assets or updater inputs. Each platform must pass the [package content checks](../desktop/README.md#package-footprint-and-verification) before the draft can become public. Reports distinguish compressed artifact bytes from expanded app bytes and identify the Electron version and staged/packaged core hashes; a local core pin alone is not a verified core release version. Compare like-for-like targets and signing settings, and keep the macOS update ZIPs even when optimizing first-download DMGs.
+
 The feed is the public, artifacts-only [PixivBiu-Desktop repository](https://github.com/txperl/PixivBiu-Desktop), using plain `vX.Y.Z` tags. Keep it separate from core releases: electron-updater's GitHub provider can select a core release lacking desktop update metadata if they share a repository. The `publish` block in [electron-builder.yml](../desktop/electron-builder.yml) sets both the publishing destination and the packaged `app-update.yml` feed.
 
 ## Channels

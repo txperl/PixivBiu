@@ -26,6 +26,8 @@ The install compiles i18n messages. Vite normally serves on 5173 and proxies `/a
 
 After changing OpenAPI, regenerate Go and restart the backend before `gen:api`. Never hand-edit `src/lib/api/schema.gen.ts` or i18n generated output.
 
+Use `bun run build` for distributable assets: after type checking it cleans previous output from `internal/web/dist`, preserving `.gitkeep`, before running Vite. This also covers Make, core releases and Docker. Invoking `vite build` alone bypasses cleanup and can retain stale hashed assets; `make build` embeds the output directory as it stands.
+
 ## Structure and providers
 
 - `src/app`: providers, router, and layouts.

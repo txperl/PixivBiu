@@ -62,7 +62,7 @@ make dist
 ./bin/pixivbiu
 ```
 
-On Windows, the output is `bin/pixivbiu.exe`. `make dist` builds the SPA into `internal/web/dist` before compiling the core. `make build` alone embeds whatever is already there; it does not refresh the frontend. Only `.gitkeep` is tracked in the embed directory, so a clean backend-only build serves a missing-frontend notice. Avoid `make -j dist`: the current Makefile does not order its two prerequisites against parallel execution.
+On Windows, the output is `bin/pixivbiu.exe`. `make dist` builds the SPA into `internal/web/dist` before compiling the core, including under `make -j dist`. The frontend build removes previous output before Vite while preserving the tracked `.gitkeep`, preventing old hashed assets from accumulating in the embedded binary. `make build` alone embeds whatever is already there; it does not refresh the frontend. A clean backend-only build serves a missing-frontend notice. The shared `scripts/clean-build.mjs` only accepts the fixed web/desktop build destinations, rejects symlinked output directories or ancestors, and unlinks child symlinks without traversing them.
 
 `make build`, `make dist`, and the local `make desktop-*` build targets stamp the core as `dev-<commit>` (with `-dirty` for tracked changes), independently of tags on that commit. Without Git metadata the value is `dev-unknown`. To rehearse release-version behavior, pass an explicit version, for example `make dist VERSION=v3.1.0`; this overrides the development/dirty label and does not publish anything. The desktop shell still takes its own version from `desktop/package.json`.
 
