@@ -4,7 +4,8 @@
 
 [![Go](https://img.shields.io/github/go-mod/go-version/txperl/PixivBiu)](go.mod)
 [![CI](https://img.shields.io/github/actions/workflow/status/txperl/PixivBiu/ci.yml?branch=master&label=CI)](https://github.com/txperl/PixivBiu/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/txperl/PixivBiu?sort=semver)](https://github.com/txperl/PixivBiu/releases)
+[![Core](https://img.shields.io/github/v/release/txperl/PixivBiu?sort=semver&label=Core)](https://github.com/txperl/PixivBiu/releases)
+[![Desktop](https://img.shields.io/github/v/release/txperl/PixivBiu-Desktop?sort=semver&label=Desktop)](https://github.com/txperl/PixivBiu-Desktop/releases/latest)
 [![License](https://img.shields.io/github/license/txperl/PixivBiu)](LICENSE)
 
 PixivBiu、Pixiv のための便利な補助ツール。
@@ -18,9 +19,20 @@ PixivBiu、Pixiv のための便利な補助ツール。
 
 ## 使い方
 
-1. [Releases](https://github.com/txperl/PixivBiu/releases) からお使いのシステム向けのパッケージをダウンロード
+### Core
+
+Core はフロントエンドとバックエンドの全機能を備えています。軽量な構成や柔軟な管理、サーバーでの利用を求める場合は、Core 版をそのまま利用できます。
+
+1. [Releases](https://github.com/txperl/PixivBiu/releases/latest) からお使いのシステム向けのパッケージをダウンロード
 2. 展開して `pixivbiu` を実行
 3. ブラウザで [http://127.0.0.1:4001](http://127.0.0.1:4001) を開く
+
+### Desktop
+
+Desktop 版は Core をデスクトップアプリとして利用できるようにしたもので、機能は Core と同じです。デスクトップ環境では、こちらのほうが手軽に利用できます。
+
+1. [Desktop-Releases](https://github.com/txperl/PixivBiu-Desktop/releases/latest) にアクセス
+2. お使いのシステム向けのデスクトップパッケージをダウンロードし、開いて実行
 
 ## 設定
 

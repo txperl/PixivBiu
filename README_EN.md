@@ -4,7 +4,8 @@
 
 [![Go](https://img.shields.io/github/go-mod/go-version/txperl/PixivBiu)](go.mod)
 [![CI](https://img.shields.io/github/actions/workflow/status/txperl/PixivBiu/ci.yml?branch=master&label=CI)](https://github.com/txperl/PixivBiu/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/txperl/PixivBiu?sort=semver)](https://github.com/txperl/PixivBiu/releases)
+[![Core](https://img.shields.io/github/v/release/txperl/PixivBiu?sort=semver&label=Core)](https://github.com/txperl/PixivBiu/releases)
+[![Desktop](https://img.shields.io/github/v/release/txperl/PixivBiu-Desktop?sort=semver&label=Desktop)](https://github.com/txperl/PixivBiu-Desktop/releases/latest)
 [![License](https://img.shields.io/github/license/txperl/PixivBiu)](LICENSE)
 
 PixivBiu, a handy companion tool for Pixiv.
@@ -18,9 +19,20 @@ PixivBiu, a handy companion tool for Pixiv.
 
 ## Usage
 
-1. Head to [Releases](https://github.com/txperl/PixivBiu/releases) and download the package for your system
+### Core
+
+Core includes the full frontend and backend. Choose Core if you need a lightweight setup, more control, or server deployment.
+
+1. Head to [Releases](https://github.com/txperl/PixivBiu/releases/latest) and download the package for your system
 2. Unzip and run the `pixivbiu` file
 3. Open [http://127.0.0.1:4001](http://127.0.0.1:4001) in your browser
+
+### Desktop
+
+Desktop wraps Core in a desktop app with the same functionality. It is easier to use on desktop systems.
+
+1. Head to [Desktop-Releases](https://github.com/txperl/PixivBiu-Desktop/releases/latest)
+2. Download the desktop package for your system, then open and run it
 
 ## Configuration
 

@@ -4,7 +4,8 @@
 
 [![Go](https://img.shields.io/github/go-mod/go-version/txperl/PixivBiu)](go.mod)
 [![CI](https://img.shields.io/github/actions/workflow/status/txperl/PixivBiu/ci.yml?branch=master&label=CI)](https://github.com/txperl/PixivBiu/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/txperl/PixivBiu?sort=semver)](https://github.com/txperl/PixivBiu/releases)
+[![Core](https://img.shields.io/github/v/release/txperl/PixivBiu?sort=semver&label=Core)](https://github.com/txperl/PixivBiu/releases)
+[![Desktop](https://img.shields.io/github/v/release/txperl/PixivBiu-Desktop?sort=semver&label=Desktop)](https://github.com/txperl/PixivBiu-Desktop/releases/latest)
 [![License](https://img.shields.io/github/license/txperl/PixivBiu)](LICENSE)
 
 PixivBiu，一款不错的 Pixiv 辅助工具。
@@ -18,9 +19,20 @@ PixivBiu，一款不错的 Pixiv 辅助工具。
 
 ## 使用
 
-1. 前往 [Releases](https://github.com/txperl/PixivBiu/releases)，下载对应系统的程序包
+### Core
+
+Core 拥有完整前后端功能。如果你有轻量、可控、服务器使用需求，可以直接使用 Core 版本。
+
+1. 前往 [Releases](https://github.com/txperl/PixivBiu/releases/latest)，下载对应系统的程序包
 2. 解压并运行 `pixivbiu` 文件
 3. 在浏览器中打开 [http://127.0.0.1:4001](http://127.0.0.1:4001) 即可
+
+### Desktop
+
+Desktop 版本是对 Core 使用的封装，功能上与 Core 完全相同。如果在桌面系统使用，此版本会更加易用。
+
+1. 前往 [Desktop-Releases](https://github.com/txperl/PixivBiu-Desktop/releases/latest)
+2. 下载对应系统的桌面包，打开并运行即可
 
 ## 配置
 
