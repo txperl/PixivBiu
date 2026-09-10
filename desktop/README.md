@@ -138,7 +138,9 @@ Packaging is **per-arch** (`resources/<arch>/pixivbiu`): macOS ships separate ar
 make desktop-dist                       # stage host-arch core -> electron-builder --<host-arch>
 ```
 
-…or reproduce CI's pinned-core staging path (needs authenticated `gh`). This downloads/extracts the release archive; the staging script does not currently perform the core updater's checksum/minisign verification. On macOS `stage-core.sh` stages **both** arch slices, so a plain `npm run dist` packages both x64 and arm64:
+The locally built core uses `dev-<commit>` regardless of tags; pass `VERSION=v3.1.0` to `make desktop-dist` only when intentionally rehearsing that core version. This does not change the shell version from `package.json`.
+
+Alternatively, reproduce CI's pinned-core staging path (needs authenticated `gh`). This downloads/extracts the release archive; the staging script does not currently perform the core updater's checksum/minisign verification. On macOS `stage-core.sh` stages **both** arch slices, so a plain `npm run dist` packages both x64 and arm64:
 
 ```bash
 make desktop-fetch-core                 # -> resources/x64/ (+ resources/arm64/ on macOS)

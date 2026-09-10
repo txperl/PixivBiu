@@ -12,8 +12,9 @@ WEB_DIST  := internal/web/dist
 DESKTOP   := desktop
 
 # Version stamped into the binary via -ldflags. Mirrors what GoReleaser injects
-# for releases; falls back to the git description (or "dev") for local builds.
-VERSION   ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+# for releases. Local builds are development versions regardless of Git tags;
+# pass VERSION=vX.Y.Z explicitly to rehearse a release-versioned build.
+VERSION   ?= dev-$(shell git describe --always --dirty --exclude='*' 2>/dev/null || echo unknown)
 LDFLAGS   := -s -w -X main.version=$(VERSION)
 
 # Optional self-updater trust anchor, mirroring the GoReleaser stamping (unset →

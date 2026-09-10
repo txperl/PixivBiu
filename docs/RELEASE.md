@@ -71,6 +71,8 @@ git push origin v3.0.0
 4. **Watch Actions:** both **Release** and **Docker** must succeed. They run independently; a green Release workflow does not prove the image was published.
 5. **Confirm the result:** the core release has six platform archives (Linux/macOS/Windows × amd64/arm64), `checksums.txt`, and `checksums.txt.minisig`; the Release job's signature check passed. Confirm the Docker job's emitted image tags include both `linux/amd64` and `linux/arm64`. Inspect generated release notes and, when validating updates, check availability from an older accepted version on the intended channel.
 
+Multiple tags may point at the same commit (for example alpha and stable): the workflow explicitly passes the triggering tag to GoReleaser. Changelog selection only considers lower versions accepted by the release channel.
+
 GoReleaser builds the embedded web UI and generates the release notes automatically. A successful update check confirms required assets exist; installation performs signature/hash verification. For an independent download audit, use [verify a published archive](RELEASE_REFERENCE.md#verify-a-published-archive). Container users update by [replacing the image](DOCKER.md#updating).
 
 ## Desktop release train
@@ -92,6 +94,7 @@ git push origin desktop-v1.0.0
 
 | Failure | What to do |
 | --- | --- |
+| Wrong release tag / duplicate asset names | Compare the triggering tag with GoReleaser’s `current` tag. The workflow must explicitly set `GORELEASER_CURRENT_TAG`; do not delete another version’s assets to make an incorrect upload succeed. Reruns use the original commit’s workflow, so a workflow fix on a newer commit needs a new release tag. |
 | Core signing preflight | Correct missing/mismatched `MINISIGN_SECRET_KEY` and `UPDATE_PUBLIC_KEYS` in the scopes above; rerun once they match. |
 | Core fails after uploading | Inspect the public release and signature step; publication is not transactional. Withdraw incomplete/bad releases before more users receive them. Use a new version for changed source or already-consumed artifacts. |
 | Docker only | Fix and rerun the Docker job independently; verify image tags and both architectures afterwards. |

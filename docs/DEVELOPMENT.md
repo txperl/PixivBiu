@@ -64,6 +64,8 @@ make dist
 
 On Windows, the output is `bin/pixivbiu.exe`. `make dist` builds the SPA into `internal/web/dist` before compiling the core. `make build` alone embeds whatever is already there; it does not refresh the frontend. Only `.gitkeep` is tracked in the embed directory, so a clean backend-only build serves a missing-frontend notice. Avoid `make -j dist`: the current Makefile does not order its two prerequisites against parallel execution.
 
+`make build`, `make dist`, and the local `make desktop-*` build targets stamp the core as `dev-<commit>` (with `-dirty` for tracked changes), independently of tags on that commit. Without Git metadata the value is `dev-unknown`. To rehearse release-version behavior, pass an explicit version, for example `make dist VERSION=v3.1.0`; this overrides the development/dirty label and does not publish anything. The desktop shell still takes its own version from `desktop/package.json`.
+
 `make help` lists the targets. `make clean` removes build outputs, including the embedded SPA. For local Electron development use `make desktop-dev`; for lockfile-based manual setup and packaging, see the [desktop guide](../desktop/README.md#develop).
 
 ## OpenAPI workflow
@@ -108,6 +110,7 @@ Run the checks relevant to the changed behavior. These are the current CI comman
 | Frontend | `frontend` | `bunx @biomejs/biome ci .`, `bun run build` |
 | Desktop | `desktop` | `npm ci`, then `npm run check` |
 | Vulnerabilities | Root | `make vuln` (fetches the vulnerability database) |
+| Build version selection | Root | `node --test scripts/build-version.test.mjs` (Git, Bash, Make, Node required) |
 | Docs only | Root | Local links/anchors, source comparisons, `git diff --check` |
 
 CI runs Go tests on Linux and Windows and cross-compiles Windows/amd64 and Darwin/arm64. Platform helpers live in `cmd/server/platform_{unix,windows}.go`; changes to port fallback, startup errors, signals, or restart need platform coverage. Electron checks build TypeScript and run release/security contracts; they do not replace native window, OAuth, or lifecycle smoke tests.

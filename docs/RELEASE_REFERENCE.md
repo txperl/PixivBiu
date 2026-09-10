@@ -80,7 +80,7 @@ Official core builds carry trusted minisign public keys in `main.updateTrustedKe
 
 A missing required asset suppresses an update offer. An invalid signature may still be offered, but apply refuses it (`bad_request`/400). One signature authenticates all listed archive hashes. This protects against replaced assets only while the trusted signing key and signing pipeline remain uncompromised.
 
-An empty key stamp permits HTTPS + SHA-256 verification without signature enforcement; a non-empty malformed stamp fails closed. Apply also requires a release-versioned build regardless of keys. A local build can be release-versioned when `git describe` resolves to a release tag; “built locally” does not necessarily mean “updates disabled.”
+An empty key stamp permits HTTPS + SHA-256 verification without signature enforcement; a non-empty malformed stamp fails closed. Apply also requires a release-versioned build regardless of keys. Local Make builds default to `dev-<commit>` independently of Git tags; only an explicit `VERSION` override makes them release-versioned. Direct local GoReleaser releases still require an explicit `GORELEASER_CURRENT_TAG` when multiple tags share a commit.
 
 ### Desktop trust model
 
@@ -130,13 +130,15 @@ For deliberately checksum-only releases, leaving keys unset is insufficient: the
 
 Core notes are generated from commit subjects: `feat` → Features, `fix` → Bug fixes, `refactor` → Refactors, other included commits → Others. The current filters exclude unscoped `docs:`, `test:`, `chore:`, `ci:`, `style:`, `build:`, and subjects containing `Merge `. Scoped variants such as `docs(api):` are not excluded by those regexes; see [.goreleaser.yaml](../.goreleaser.yaml).
 
-The [Release workflow](../.github/workflows/release.yml) sets `GORELEASER_PREVIOUS_TAG` from qualifying ancestor tags so stable notes include the entire prerelease cycle:
+The [Release workflow](../.github/workflows/release.yml) binds `GORELEASER_CURRENT_TAG` to the triggering `github.ref_name`, so stable, prerelease, and desktop tags can share a commit without changing the release destination or stamped version. Before building/signing, [previous-core-tag.sh](../scripts/previous-core-tag.sh) validates the core tag and checks that it points at HEAD. It sets `GORELEASER_PREVIOUS_TAG` to the highest strictly lower qualifying ancestor tag so stable notes include the entire prerelease cycle:
 
 | Releasing | Changelog base |
 | --- | --- |
 | Stable | Previous stable |
 | Beta / RC | Previous beta, RC, or stable |
 | Alpha | Previous recognized release |
+
+Newer tags on the same commit are excluded, including when an older prerelease is rerun. Only strict core tags with stable or `alpha.N`/`beta.N`/`rc.N` versions participate; desktop and legacy tags are excluded. If no qualifying base exists, the workflow retains GoReleaser’s default first-release behavior. The temporary-repository tests in `node --test scripts/build-version.test.mjs` cover promotion, reruns, numeric prerelease ordering, unrelated branches, annotated tags, checkout validation, and local version overrides.
 
 Keep this selection aligned with the core updater's maturity rules. The app renders the release body in Settings → About when an update is available. Desktop uses a separate generated download table and source/core references from [desktop-release.mjs](../scripts/desktop-release.mjs).
 

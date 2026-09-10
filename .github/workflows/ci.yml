@@ -122,5 +122,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build version contracts
+        run: node --test ../scripts/build-version.test.mjs
+
       - name: Build and test contracts
         run: npm run check
