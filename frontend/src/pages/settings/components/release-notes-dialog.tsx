@@ -2,6 +2,8 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import Markdown, { type Components } from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,8 +19,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMessages } from "@/i18n";
 import { ExternalLinkIcon } from "@/lib/icons";
 
-// Element styles for the GoReleaser-generated release-notes markdown. react-markdown
-// (v10) does not render raw HTML by default, so the body is safe to render inline.
+// Core notes are Markdown; electron-updater's GitHub feed supplies HTML.
+// Parse raw HTML before sanitizing it, then render through the same components.
 // The project ships no @tailwindcss/typography plugin, so each element is mapped
 // here to a compact, muted scale.
 //
@@ -39,6 +41,7 @@ const GroupHeading = ({ children }: { children?: ReactNode }) => (
 
 // Hoisted so the plugin list keeps a stable identity across renders.
 const releaseNotesPlugins = [remarkGfm];
+const releaseNotesHtmlPlugins = [rehypeRaw, rehypeSanitize];
 
 const releaseNotesComponents: Components = {
     h1: VersionHeading,
@@ -56,6 +59,14 @@ const releaseNotesComponents: Components = {
     ),
     code: ({ children }) => <code className="rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]">{children}</code>,
     strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+    blockquote: ({ children }) => <blockquote className="my-2 border-border border-l-2 pl-3">{children}</blockquote>,
+    table: ({ children }) => (
+        <div className="my-2 overflow-x-auto">
+            <table className="w-full border-collapse text-xs">{children}</table>
+        </div>
+    ),
+    th: ({ children }) => <th className="border border-border px-2 py-1 text-left font-semibold">{children}</th>,
+    td: ({ children }) => <td className="border border-border px-2 py-1 align-top">{children}</td>,
     hr: () => <hr className="my-2 border-border/60" />,
 };
 
@@ -101,7 +112,11 @@ export function ReleaseNotesDialog({
                     viewport (not the root) so it scrolls reliably in this content-sized dialog. */}
                 <ScrollArea viewportProps={{ className: "max-h-[60vh]" }}>
                     <div className="p-3 text-muted-foreground text-sm">
-                        <Markdown remarkPlugins={releaseNotesPlugins} components={releaseNotesComponents}>
+                        <Markdown
+                            remarkPlugins={releaseNotesPlugins}
+                            rehypePlugins={releaseNotesHtmlPlugins}
+                            components={releaseNotesComponents}
+                        >
                             {notes}
                         </Markdown>
                     </div>
