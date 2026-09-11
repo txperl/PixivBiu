@@ -1,3 +1,21 @@
 # Frontend is a first-party SPA embedded into the Go binary via go:embed.
 # Exclude it from GitHub language stats so Go shows as the primary language.
 frontend/** linguist-detectable=false
+
+# Normalize text in the index and use LF in every platform's working tree.
+* text=auto eol=lf
+
+# Windows command scripts use CRLF when checked out.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets must never undergo line-ending conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary

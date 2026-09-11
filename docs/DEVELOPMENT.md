@@ -117,6 +117,12 @@ CI runs Go tests on Linux and Windows and cross-compiles Windows/amd64 and Darwi
 
 Formatting is explicit: `make fmt` rewrites Go, and frontend `bun run check` rewrites lint/format fixes. `bun run check:unsafe` also permits unsafe fixes. Review their diffs instead of treating them as read-only checks.
 
+### Line endings
+
+The root [`.gitattributes`](../.gitattributes) normalizes text to LF in Git and on checkout across platforms, with CRLF checkout exceptions for `.bat` and `.cmd` files and explicit binary asset exclusions. [`.editorconfig`](../.editorconfig) applies the same line endings when saving in supporting editors; existing language formatters still own indentation and other formatting. No global `core.autocrlf` change is needed.
+
+When changing these rules, preserve outstanding work first, then run `git add --renormalize .` and review `git diff --cached` before making a separate normalization commit. Renormalization updates the index and stages tracked edits; it does not rewrite existing working-tree files. Fresh checkouts use the new rules. Use `git ls-files --eol` to compare index (`i/`) and working-tree (`w/`) line endings. Text readers should still accept LF and CRLF when line endings are not part of their format contract.
+
 ## Common development problems
 
 | Symptom | Check |
