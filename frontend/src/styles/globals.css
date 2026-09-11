@@ -19,8 +19,10 @@
     }
 }
 @utility app-no-drag {
-    -webkit-app-region: no-drag;
-    app-region: no-drag;
+    :root[data-frameless][data-desktop="darwin"]:not([data-window-fullscreen]) & {
+        -webkit-app-region: no-drag;
+        app-region: no-drag;
+    }
 }
 
 /* Hide the native scrollbar while keeping the element scrollable (wheel / drag /

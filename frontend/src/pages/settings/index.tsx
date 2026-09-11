@@ -99,7 +99,7 @@ function SettingsPage() {
     }, [view, awaitRestart]);
 
     return (
-        <div ref={rootRef} className="flex flex-col">
+        <div ref={rootRef} data-app-controls="" className="flex flex-col">
             {/* The page's single fixed frame: title, advanced toggle, reset-all,
                 and the save/restart state all live here, so nothing floats. */}
             <header

@@ -53,7 +53,7 @@ function RankingFilters({ period, variantKey, onPeriodChange, onVariantChange }:
     const variants = RANKING_VARIANTS[period];
 
     return (
-        <div className="flex flex-col gap-3">
+        <div data-app-controls="" className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
                 {RANKING_PERIODS.map((p) => {
                     const active = p === period;

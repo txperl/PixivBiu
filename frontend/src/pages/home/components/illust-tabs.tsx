@@ -172,7 +172,7 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
 
     return (
         <section>
-            <div className="mb-4 flex items-center border-muted/60 border-b">
+            <div data-app-controls="" className="mb-4 flex items-center border-muted/60 border-b">
                 <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1">
                     <TabsList variant="line" className="h-12 gap-0">
                         {TAB_IDS.map((id) => (

@@ -150,7 +150,7 @@ function DownloadsPage() {
                 </span>
             </header>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div data-app-controls="" className="flex flex-wrap items-center gap-2">
                 {FILTER_KEYS.map((key) => (
                     <button
                         key={key}

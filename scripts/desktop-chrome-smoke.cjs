@@ -8,6 +8,8 @@ const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
 const { once } = require('node:events');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
 const { setTimeout: delay } = require('node:timers/promises');
 const { registerCoreScheme, installCoreProtocol } = require('../desktop/dist/core-protocol');
 const { chromeOptions, chromeArgs, trackWindowChrome } = require('../desktop/dist/window-chrome');
@@ -28,7 +30,93 @@ let win;
 let server;
 let readChrome;
 let authenticated = true;
-const watchdog = setTimeout(() => { console.error('Chrome smoke timed out'); app.exit(1); }, 60000);
+const watchdog = setTimeout(() => { console.error('Chrome smoke timed out'); app.exit(1); }, 180000);
+const runFile = promisify(execFile);
+const artwork = Array.from({ length: 30 }, (_, i) => ({
+    id: i + 1, title: `Fixture artwork ${i + 1}`, type: 'illust',
+    image_urls: { square_medium: '/fixture-image.svg', medium: '/fixture-image.svg', large: '/fixture-image.svg' },
+    user: { id: 1, name: 'Fixture artist', account: 'fixture', profile_image_urls: { medium: '/fixture-image.svg' } },
+    width: 400, height: 400, page_count: 1, tags: [], tools: [], meta_pages: [],
+    meta_single_page: { original_image_url: '/fixture-image.svg' },
+    total_bookmarks: 100, total_view: 1000, is_bookmarked: false, visible: true,
+    x_restrict: 0, illust_ai_type: 1, create_date: '2026-01-01T00:00:00Z', caption: '',
+}));
+
+async function nativeHits(points) {
+    const handle = win.getNativeWindowHandle();
+    const value = handle.length === 8 ? handle.readBigUInt64LE().toString() : String(handle.readUInt32LE());
+    const { stdout } = await runFile('powershell.exe', ['-NoProfile', '-File',
+        path.join(__dirname, 'windows-window-hit-test.ps1'), '-WindowHandle', value,
+        '-PointsJson', JSON.stringify(points), '-ZoomFactor', String(win.webContents.getZoomFactor())],
+    { windowsHide: true, timeout: 15000 });
+    return JSON.parse(stdout);
+}
+
+async function checkDragRegions(mode) {
+    const mac = mode === 'darwin' || (mode === 'native' && process.platform === 'darwin');
+    const nativeProbe = process.platform === 'win32' && (mode === 'native' || mode === 'darwin');
+    await win.loadURL('pixivbiu://core/ranking');
+    await waitFor(`document.querySelector('img[alt="Fixture artwork 1"]')?.naturalWidth > 0`);
+    for (const zoom of [1, 1.5]) {
+        win.webContents.setZoomFactor(zoom);
+        await delay(100);
+        // Use the actual page scroller and actual IllustCard, with its nested
+        // selection/download/preview buttons, not a hand-written card imitation.
+        const points = await win.webContents.executeJavaScript(`(() => {
+            const scroller = document.querySelector('[data-app-scroller]');
+            const img = document.querySelector('img[alt="Fixture artwork 1"]');
+            scroller.scrollTop += img.getBoundingClientRect().top + 70;
+            const r = img.getBoundingClientRect();
+            return [{ x: r.x + r.width / 2, y: 20 }, { x: r.x + r.width / 2, y: 80 }];
+        })()`);
+        await delay(100);
+        if (nativeProbe) assert.deepEqual(await nativeHits(points), [2, 1], `${mode} zoom ${zoom}: caption over scrolled artwork, client below`);
+        // Image loading/fallback must not change window hit regions.
+        await win.webContents.executeJavaScript(`document.querySelector('img[alt="Fixture artwork 1"]').style.visibility = 'hidden'`);
+        await delay(100);
+        if (nativeProbe) assert.deepEqual(await nativeHits(points), [2, 1], `${mode} zoom ${zoom}: fallback has the same hit regions`);
+        await win.webContents.executeJavaScript(`document.querySelector('img[alt="Fixture artwork 1"]').style.visibility = ''`);
+    }
+    win.webContents.setZoomFactor(1);
+    await win.loadURL('pixivbiu://core/search');
+    await waitFor(`!!document.querySelector('input[type="search"]')`);
+    const search = await win.webContents.executeJavaScript(`(() => {
+        const input = document.querySelector('input[type="search"]');
+        const r = input.getBoundingClientRect();
+        return { point: { x: r.x + r.width / 2, y: r.y + r.height / 2 },
+            noDrag: getComputedStyle(input).getPropertyValue('app-region') === 'no-drag',
+            inset: document.querySelector('[data-window-content]').getBoundingClientRect().top };
+    })()`);
+    assert.equal(search.noDrag, mac, `${mode}: search exceptions only in macOS chrome`);
+    if (mac) assert.equal(search.inset, 0, 'macOS keeps the original zero content inset');
+    if (nativeProbe) assert.deepEqual(await nativeHits([search.point]), [1], `${mode}: search is a native client region`);
+    await click('input[type="search"]');
+    await waitFor(`document.activeElement?.matches('input[type="search"]')`);
+    // Exercise the CSS state contract independently of native fullscreen IPC.
+    // The full suite below still validates real host transitions separately.
+    const fullscreen = await win.webContents.executeJavaScript(`(() => {
+        document.documentElement.setAttribute('data-window-fullscreen', '');
+        return { strip: document.querySelector('.mac-window-drag-strip').getBoundingClientRect().height,
+            inset: document.querySelector('[data-window-content]').getBoundingClientRect().top,
+            noDrag: getComputedStyle(document.querySelector('input[type="search"]')).getPropertyValue('app-region') === 'no-drag' };
+    })()`);
+    assert.deepEqual(fullscreen, { strip: 0, inset: 0, noDrag: false }, `${mode}: fullscreen removes chrome and control exceptions`);
+    await win.webContents.executeJavaScript(`document.documentElement.removeAttribute('data-window-fullscreen')`);
+    // A tall portal must remain interactive where it overlaps the Mac band.
+    await win.loadURL('pixivbiu://core/ranking?illust=1');
+    await waitFor(`!!document.querySelector('[data-slot="dialog-content"]')`);
+    await delay(150);
+    if (nativeProbe) {
+        const point = await win.webContents.executeJavaScript(`(() => {
+            const r = document.querySelector('[data-slot="dialog-content"]').getBoundingClientRect();
+            return { x: r.x + r.width / 2, y: r.y + 10 };
+        })()`);
+        assert.deepEqual(await nativeHits([point]), [1], `${mode}: dialog receives pointer input`);
+    }
+    await win.loadURL('pixivbiu://core/downloads');
+    await waitFor(`!!document.querySelector('button[aria-label="Filter"]')`);
+    console.log(`Drag regression passed: ${mode}${nativeProbe ? ' (Windows native hit tests)' : ' (renderer checks)'}`);
+}
 
 async function waitFor(expression) {
     const deadline = Date.now() + 8000;
@@ -59,10 +147,16 @@ app.whenReady().then(async () => {
     const ses = session.fromPartition('pixivbiu-chrome-smoke');
     server = http.createServer((req, res) => {
         const pathname = new URL(req.url, 'http://fixture').pathname;
+        if (pathname === '/fixture-image.svg') {
+            res.setHeader('Content-Type', 'image/svg+xml');
+            return res.end('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="#9180bb"/></svg>');
+        }
         if (pathname.startsWith('/api/')) {
             res.setHeader('Content-Type', 'application/json');
             if (pathname === '/api/v1/auth/status') return res.end(JSON.stringify({ authenticated, user_id: 1 }));
             if (pathname === '/api/v1/downloads') return res.end(JSON.stringify({ jobs: [], total: 0, page: 1, per_page: 20 }));
+            if (pathname === '/api/v1/illusts/ranking') return res.end(JSON.stringify({ illusts: artwork, next_offset: null }));
+            if (pathname === '/api/v1/illusts/1') return res.end(JSON.stringify({ illust: artwork[0] }));
             res.writeHead(503);
             return res.end(JSON.stringify({ code: 'unavailable', kind: 'app', message: 'Synthetic offline fixture' }));
         }
@@ -81,12 +175,12 @@ app.whenReady().then(async () => {
     ipcMain.handle('pixivbiu:preferences-write', () => {});
     ipcMain.handle('pixivbiu:update-check', () => {});
 
-    const modes = ['win32', 'linux', 'browser', 'old-shell', ...(process.argv.includes('--layout-only') ? [] : ['native'])];
+    const modes = ['win32', 'darwin', 'linux', 'browser', 'old-shell', ...(process.argv.includes('--layout-only') ? [] : ['native'])];
     for (const mode of modes) {
-        const args = mode === 'native' ? chromeArgs() : mode === 'win32' ? ['--pixivbiu-frameless'] : [];
+        const args = mode === 'native' ? chromeArgs() : ['win32', 'darwin'].includes(mode) ? ['--pixivbiu-frameless'] : [];
         if (mode !== 'native') args.push(`--fixture-os=${mode === 'old-shell' ? 'win32' : mode}`);
         win = new BrowserWindow({ width: 960, height: 600, show: false,
-            ...(mode === 'native' ? chromeOptions() : {}),
+            ...(mode === 'native' ? chromeOptions() : mode === 'darwin' ? { frame: false } : {}),
             webPreferences: { session: ses, preload: mode === 'browser' ? undefined : preload,
                 sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, additionalArguments: args },
         });
@@ -102,8 +196,11 @@ app.whenReady().then(async () => {
         const wasPressed = await win.webContents.executeJavaScript(`document.querySelector('button[aria-label="Filter"]').getAttribute('aria-pressed')`);
         await click('button[aria-label="Filter"]');
         await waitFor(`document.querySelector('button[aria-label="Filter"]').getAttribute('aria-pressed') !== ${JSON.stringify(wasPressed)}`);
-        if (mode === 'win32') {
-            await win.loadURL('pixivbiu://core/downloads?illust=1');
+        await checkDragRegions(mode);
+        if (mode === 'win32' && !process.argv.includes('--drag-only')) {
+            // Preserve the existing unavailable-detail layout case separately
+            // from the loaded artwork used by the drag regression above.
+            await win.loadURL('pixivbiu://core/downloads?illust=999');
             await waitFor(`!!document.querySelector('[data-slot="dialog-content"]')`);
             await delay(150);
             result = await layout();
@@ -126,7 +223,7 @@ app.whenReady().then(async () => {
             assert.ok(result.scrollHeight <= result.height + 1, 'login stays in content viewport');
             authenticated = true;
         }
-        if (mode === 'native') {
+        if (mode === 'native' && !process.argv.includes('--drag-only')) {
             // Real host fullscreen transitions, production tracker and preload.
             win.show();
             app.focus({ steal: true });
@@ -159,6 +256,11 @@ app.whenReady().then(async () => {
     clearTimeout(watchdog);
     if (win && !win.isDestroyed()) win.destroy();
     if (server) { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
-    fs.rmSync(dir, { recursive: true, force: true });
+    try { fs.rmSync(dir, { recursive: true, force: true }); }
+    catch (error) {
+        // Chromium can still hold its temporary profile open on Windows until
+        // app.exit. Do not strand the test process after a failed assertion.
+        console.warn(`Temporary chrome profile still locked at exit: ${error.code}`);
+    }
     app.exit(process.exitCode || 0);
 });
