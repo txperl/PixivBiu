@@ -96,7 +96,8 @@ function verifyAsar(archive) {
         assert.ok(!entry.link, `Unexpected ASAR link: ${file}`);
         if (entry.unpacked) regularFile(path.join(`${archive}.unpacked`, file));
     }
-    const json = file => JSON.parse(asar.extractFile(archive, file).toString());
+    // Keep audit keys POSIX, but the ASAR reader splits paths using the host separator.
+    const json = file => JSON.parse(asar.extractFile(archive, path.normalize(file)).toString());
     const hasFile = file => entries.has(file) && entries.get(file).size > 0;
     const entryExists = main => [main, `${main}.js`, `${main}.json`, `${main}.node`, `${main}/index.js`].some(hasFile);
     const manifest = json("package.json");

@@ -60,6 +60,21 @@ test("package audit accepts the platform layouts and rejects a mismatched core",
   }
 });
 
+test("ASAR audit resolves nested scoped dependencies on the host platform", async t => {
+  const f = fixture(t);
+  const nested = path.join(f.source, "node_modules/electron-updater/node_modules/@fixture/helper");
+  f.write(path.join(f.source, "node_modules/electron-updater/package.json"),
+    JSON.stringify({ main: "index.js", dependencies: { "@fixture/helper": "1.0.0" } }));
+  f.write(path.join(nested, "package.json"), JSON.stringify({ main: "lib/index.js" }));
+  f.write(path.join(nested, "lib/index.js"));
+  await f.pack();
+  assert.equal(verifyAsar(f.archive).version, "1.2.3");
+
+  fs.unlinkSync(path.join(nested, "lib/index.js"));
+  await f.pack();
+  assert.throws(() => verifyAsar(f.archive), /Missing package entry/);
+});
+
 test("package audit refuses a core predating the managed lifecycle protocol", t => {
   const f = fixture(t);
   const data = fs.readFileSync(f.corePath);

@@ -80,7 +80,7 @@ test("desktop toolchain and package hardening stay on the supported contract", (
   assert.equal(manifest.devDependencies["@types/node"], "^24.13.3");
 
   const config = fs.readFileSync(path.join(repositoryRoot, "desktop/electron-builder.yml"), "utf8");
-  assert.match(config, /electronFuses:\n(?: {2}.+\n)+/);
+  assert.match(config, /electronFuses:\r?\n(?: {2}.+\r?\n)+/);
   for (const fuse of [
     "runAsNode: false",
     "enableCookieEncryption: true",
@@ -94,7 +94,7 @@ test("desktop toolchain and package hardening stay on the supported contract", (
   }
   assert.match(config, /minimumSystemVersion: "13\.0"/);
   assert.match(config, /syncDesktopName: true/);
-  assert.match(config, /desktop:\n {4}entry:\n {6}Keywords:/);
+  assert.match(config, /desktop:\r?\n {4}entry:\r?\n {6}Keywords:/);
 });
 
 test("desktop packaging has a real cross-platform application icon", () => {
@@ -102,8 +102,8 @@ test("desktop packaging has a real cross-platform application icon", () => {
   assert.equal(config.match(/^\s+icon: icon\.icns$/gm)?.length, 1);
   assert.equal(config.match(/^\s+icon: icon\.ico$/gm)?.length, 1);
   assert.equal(config.match(/^\s+icon: icon\.png$/gm)?.length, 1);
-  assert.match(config, /from: build\/icon\.png\n\s+to: icon\.png/);
-  assert.match(config, /from: build\/icon\.ico\n\s+to: icon\.ico/);
+  assert.match(config, /from: build\/icon\.png\r?\n\s+to: icon\.png/);
+  assert.match(config, /from: build\/icon\.ico\r?\n\s+to: icon\.ico/);
 
   const icon = fs.readFileSync(path.join(repositoryRoot, "desktop/build/icon.png"));
   assert.deepEqual(icon.subarray(0, 8), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
