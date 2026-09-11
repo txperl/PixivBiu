@@ -2,6 +2,8 @@
 // Keep this module free of Electron imports so its decisions can be exercised
 // directly by Node's test runner.
 
+import { shellPageChrome } from "./window-chrome";
+
 export const CORE_SCHEME = "pixivbiu";
 export const CORE_ORIGIN = `${CORE_SCHEME}://core`;
 export const CORE_BASE_URL = `${CORE_ORIGIN}/`;
@@ -125,17 +127,17 @@ export function failurePage(detail: string): string {
     const body =
         "<!doctype html><html><head><meta charset=\"utf-8\">" +
         `<meta http-equiv="Content-Security-Policy" content="${APP_CONTENT_SECURITY_POLICY}">` +
-        "<meta name=\"referrer\" content=\"no-referrer\"></head>" +
-        `<body style="margin:0;font:14px/1.6 system-ui,sans-serif;padding:3rem;background:#0b0b0c;color:#e7e7ea">` +
+        `<meta name="referrer" content="no-referrer">${shellPageChrome()}</head>` +
+        `<body><div class="window-titlebar" aria-hidden="true"><span>PixivBiu</span></div><main>` +
         `<h2 style="font-weight:500">PixivBiu couldn't start its core service.</h2>` +
-        `<p style="color:#a0a0a8">${escapeHTML(detail)}</p>` +
-        `<p><a href="pixivbiu://desktop/retry" style="color:#c4b5fd;margin-right:24px">Try again</a>` +
-        `<a href="pixivbiu://desktop/logs" style="color:#c4b5fd">Open logs folder</a></p></body></html>`;
+        `<p>${escapeHTML(detail)}</p>` +
+        `<p><a href="pixivbiu://desktop/retry" style="margin-right:24px">Try again</a>` +
+        `<a href="pixivbiu://desktop/logs">Open logs folder</a></p></main></body></html>`;
     return `data:text/html;charset=utf-8,${encodeURIComponent(body)}`;
 }
 
 export function startingPage(): string {
-    const html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${APP_CONTENT_SECURITY_POLICY}"></head><body style="margin:0;font:14px/1.6 system-ui,sans-serif;padding:3rem;background:#0b0b0c;color:#e7e7ea"><h2>PixivBiu</h2><p>Opening PixivBiu…</p></body></html>`;
+    const html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${APP_CONTENT_SECURITY_POLICY}">${shellPageChrome()}</head><body><div class="window-titlebar" aria-hidden="true"><span>PixivBiu</span></div><main><h2>PixivBiu</h2><p>Opening PixivBiu…</p></main></body></html>`;
     return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 }
 

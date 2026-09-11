@@ -129,7 +129,7 @@ function IllustViewerDialog({
         >
             <DialogContent
                 showCloseButton={false}
-                className="block h-[85vh] w-[calc(100%-2rem)] max-w-6xl gap-0 overflow-hidden p-0 sm:max-w-6xl"
+                className="block h-[calc(var(--window-content-height)*0.85)] w-[calc(100%-2rem)] max-w-6xl gap-0 overflow-hidden p-0 sm:max-w-6xl"
             >
                 <DialogClose
                     render={

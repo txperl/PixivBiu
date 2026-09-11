@@ -236,7 +236,7 @@ test('Windows window close waits for core cleanup and duplicate close requests s
         './core-protocol': { installCoreProtocol() {}, registerCoreScheme() {} },
         './menu': { installMenu() {} }, './oauth-window': { captureOAuthCode() {} },
         './updater': { initUpdater(_window, prepareQuit) { updateBarrier = prepareQuit; } },
-        './window-chrome': { chromeArgs: () => [], chromeOptions: () => ({}) },
+        './window-chrome': { chromeArgs: () => [], chromeOptions: () => ({}), trackWindowChrome: () => () => ({ fullscreen: false }) },
         './preferences': { PreferenceStore: class {} },
         './window-state': { restoreWindowState: () => ({ bounds: {} }), trackWindowState() {} },
     };
@@ -260,4 +260,81 @@ test('Windows window close waits for core cleanup and duplicate close requests s
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(completedQuits, 1);
     assert.equal(close(), false);
+});
+
+test('window chrome preserves native Linux frames and Windows caption controls across OS versions', () => {
+    for (const [platform, release, frost] of [['linux', '6.8.0', false], ['win32', '10.0.19045', false], ['win32', '10.0.22621', true], ['darwin', '24.0.0', true]]) {
+        const { chromeOptions, chromeArgs, shellPageChrome } = loadWithElectron('window-chrome.js', {}, {
+            process: { platform }, require: name => name === 'node:os' ? { release: () => release } : require(name),
+        });
+        const options = chromeOptions();
+        assert.equal(chromeArgs().includes('--pixivbiu-frost'), frost);
+        assert.equal(chromeArgs().includes('--pixivbiu-frameless'), platform !== 'linux');
+        if (platform === 'linux') {
+            assert.equal(options.titleBarStyle, undefined);
+            assert.equal(options.titleBarOverlay, undefined);
+            assert.match(shellPageChrome(), /--chrome-height: 0px/);
+        } else if (platform === 'win32') {
+            assert.equal(options.titleBarStyle, 'hidden');
+            assert.equal(options.titleBarOverlay.height, 36);
+            assert.equal(options.backgroundMaterial, frost ? 'mica' : undefined);
+            assert.match(shellPageChrome(), /titlebar-area-height/);
+        } else {
+            assert.equal(options.titleBarStyle, 'hiddenInset');
+        }
+    }
+});
+
+test('chrome state handles nested native/HTML fullscreen and page reloads without collapsing maximize', () => {
+    const { trackWindowChrome } = require('../desktop/dist/window-chrome.js');
+    let fullscreen = false;
+    const sent = [];
+    const win = Object.assign(new EventEmitter(), {
+        isFullScreen: () => fullscreen,
+        webContents: Object.assign(new EventEmitter(), { send: (channel, state) => sent.push([channel, state]) }),
+    });
+    const read = trackWindowChrome(win);
+    assert.deepEqual(read(), { fullscreen: false });
+    win.emit('maximize');
+    assert.deepEqual(read(), { fullscreen: false });
+    fullscreen = true;
+    win.emit('enter-full-screen');
+    win.webContents.emit('enter-html-full-screen');
+    fullscreen = false;
+    win.emit('leave-full-screen');
+    assert.deepEqual(read(), { fullscreen: true });
+    win.webContents.emit('leave-html-full-screen');
+    win.webContents.emit('did-finish-load');
+    assert.deepEqual(sent.map(([, state]) => state.fullscreen), [true, true, true, false, false]);
+    assert.equal(sent.every(([channel]) => channel === 'pixivbiu:window-chrome-state'), true);
+});
+
+test('sandboxed chrome bridge forwards only state and removes subscription listeners', async () => {
+    const ipc = Object.assign(new EventEmitter(), {
+        invoke: async channel => {
+            assert.equal(channel, 'pixivbiu:window-chrome-read');
+            return { fullscreen: false };
+        },
+    });
+    let bridge;
+    const attributes = new Map();
+    const location = { protocol: 'pixivbiu:' };
+    loadWithElectron('preload.js', {
+        ipcRenderer: ipc,
+        contextBridge: { exposeInMainWorld: (_name, value) => { bridge = value; } },
+    }, {
+        process: { platform: 'win32', arch: 'x64', argv: ['--pixivbiu-frameless'] },
+        location, document: { documentElement: { toggleAttribute: (name, value) => attributes.set(name, value) } },
+    });
+    assert.equal((await bridge.windowChrome.read()).fullscreen, false);
+    const received = [];
+    const unsubscribe = bridge.windowChrome.onState(state => received.push(state.fullscreen));
+    ipc.emit('pixivbiu:window-chrome-state', {}, { fullscreen: true });
+    assert.deepEqual(received, [true]);
+    assert.equal(attributes.size, 0, 'core documents own their frontend state');
+    unsubscribe();
+    location.protocol = 'data:';
+    ipc.emit('pixivbiu:window-chrome-state', {}, { fullscreen: false });
+    assert.deepEqual(received, [true]);
+    assert.equal(attributes.get('data-window-fullscreen'), false, 'authored data documents follow notifications');
 });

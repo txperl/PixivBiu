@@ -199,7 +199,7 @@ function LoginPage() {
     return (
         <div
             className={cn(
-                "flex h-svh flex-col justify-between overflow-auto bg-background",
+                "flex h-full flex-col justify-between overflow-auto bg-background",
                 "px-12 pt-16 pb-16 md:px-16 md:pt-20 lg:px-28 lg:pt-32",
             )}
         >

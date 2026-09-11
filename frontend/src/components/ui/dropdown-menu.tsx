@@ -3,6 +3,7 @@ import { ArrowRight01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
+import { useWindowContentBoundary } from "@/lib/window-layout";
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
     return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
@@ -24,9 +25,11 @@ function DropdownMenuContent({
     className,
     ...props
 }: MenuPrimitive.Popup.Props & Pick<MenuPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
+    const boundary = useWindowContentBoundary();
     return (
         <MenuPrimitive.Portal>
             <MenuPrimitive.Positioner
+                collisionBoundary={boundary}
                 className="isolate z-50 outline-none"
                 align={align}
                 alignOffset={alignOffset}

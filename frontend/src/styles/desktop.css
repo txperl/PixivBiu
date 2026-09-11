@@ -1,7 +1,6 @@
 /*
- * Desktop-shell chrome. Every rule is gated on html[data-frost] set by
- * applyDesktopChrome() (lib/desktop-chrome.ts), so browser rendering is
- * untouched.
+ * Desktop-shell chrome, gated by the shell flags from applyDesktopChrome().
+ * Browser and native-framed windows use a zero content inset.
  *
  * Ordering contract vs lib/theme/dynamic-color.ts: setColorScheme() appends
  * <style id="dynamic-color-scheme"> to <head> (always AFTER this sheet), but
@@ -13,25 +12,60 @@
  * source order.
  */
 
-/* Height of the frameless shell's full-width drag band (the App.tsx strip).
-   The strip paints first (negative z-index), so the no-drag rule below can
-   punch holes for everything interactive painted after it: empty top-band
-   pixels drag the window, UI on top stays clickable, nothing moves.
-   0px in the browser and under old framed shells. */
+/* Layout contract shared by routes, dialogs and floating-element boundaries.
+   Reserve at least the shell's 36px while geometry is unavailable/initializing.
+   CSS env values track Chromium's geometry and zoom; native fullscreen is an
+   explicit state, never inferred from missing or temporarily zero geometry. */
 :root {
-    --titlebar-inset: 0px;
+    --window-content-top: 0px;
+    --window-content-height: calc(100svh - var(--window-content-top));
     --traffic-lights-inset: 0px;
 }
 :root[data-frameless][data-desktop="darwin"] {
-    --titlebar-inset: 44px;
     /* Sidebar-only top padding clearing the traffic lights at y=16
        (window-chrome.ts); other surfaces keep their normal layout. */
     --traffic-lights-inset: 44px;
 }
 :root[data-frameless][data-desktop="win32"] {
-    /* Filled by Chromium while titleBarOverlay is active; fallback matches
-       WCO_HEIGHT in desktop/src/window-chrome.ts. */
-    --titlebar-inset: env(titlebar-area-height, 36px);
+    --window-content-top: max(36px, calc(env(titlebar-area-y, 0px) + env(titlebar-area-height, 36px)));
+}
+:root[data-frameless][data-desktop][data-window-fullscreen] {
+    --window-content-top: 0px;
+    --traffic-lights-inset: 0px;
+}
+
+.window-titlebar {
+    display: none;
+    height: var(--window-content-top);
+}
+:root[data-frameless][data-desktop="win32"]:not([data-window-fullscreen]) .window-titlebar {
+    display: block;
+    -webkit-app-region: drag;
+    app-region: drag;
+    user-select: none;
+}
+.window-titlebar-safe {
+    /* No guessed button widths. If WCO geometry is absent, leave the bar blank. */
+    margin-left: env(titlebar-area-x, 0px);
+    width: env(titlebar-area-width, 0px);
+    height: 100%;
+    box-sizing: border-box;
+}
+.mac-window-drag-strip {
+    height: var(--traffic-lights-inset);
+}
+
+/* Portals are viewport-positioned and do not inherit the route's height.
+   Keep their backdrop and usable content below the Windows caption buttons. */
+:root[data-frameless][data-desktop="win32"] [data-slot="dialog-overlay"] {
+    top: var(--window-content-top);
+}
+:root[data-frameless][data-desktop="win32"] [data-slot="dialog-content"] {
+    top: calc(var(--window-content-top) + var(--window-content-height) / 2);
+    max-height: max(0px, calc(var(--window-content-height) - 2rem));
+}
+:root[data-frameless][data-desktop="win32"] [data-slot="dialog-content"]:not(.overflow-hidden) {
+    overflow-y: auto;
 }
 
 /* Punch no-drag holes in the drag band for anything interactive. Inert

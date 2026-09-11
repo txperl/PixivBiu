@@ -26,7 +26,7 @@ Security decisions live in [security.ts](src/security.ts) and their callers:
 - Permission handlers deny unsupported capabilities; the main app allows only its explicitly scoped clipboard behavior. Do not loosen CSP, permissions, sandboxing, or navigation guards to work around a frontend bug.
 - Packaging sets Electron fuses in `electron-builder.yml` and removes unused macOS hardware-permission declarations via `build/after-pack.cjs`.
 
-Keep `preload.ts` aligned with [frontend/src/lib/desktop.ts](../frontend/src/lib/desktop.ts), and keep the OAuth callback constant aligned with `internal/pixiv/oauth_code.go`. The bridge offers OAuth capture, update operations/status subscription, a bounded UI-preference read/write API, and platform/chrome flags; it never exposes a generic IPC or filesystem API.
+Keep `preload.ts` aligned with [frontend/src/lib/desktop.ts](../frontend/src/lib/desktop.ts), and keep the OAuth callback constant aligned with `internal/pixiv/oauth_code.go`. The bridge offers OAuth capture, update operations/status subscription, a bounded UI-preference read/write API, platform/chrome flags, and read-only fullscreen state; it never exposes a generic IPC or filesystem API.
 
 ## Sessions and UI preferences
 
@@ -48,7 +48,7 @@ This internal-test transition does not import or delete old Chromium profiles or
 | `src/core-diagnostics.ts` | Bounded startup/stderr snapshots, independent of the core business log |
 | `src/core-protocol.ts` | Stable renderer origin, HTTP forwarding, streamed response cancellation |
 | `src/security.ts` | Shared URL, CSP, OAuth, and IPC sender policies |
-| `src/window-chrome.ts` | Per-platform frameless title bar + frosted backdrop options |
+| `src/window-chrome.ts` | Platform title bars/backdrops, fullscreen notifications and startup-page chrome |
 | `src/preferences.ts` | Versioned, bounded and atomic persistence of non-credential UI preferences |
 | `src/window-state.ts` | Persist/restore window bounds (`userData/window-state.json`) |
 | `src/menu.ts` | Application menu (standard macOS roles; none in packaged win/linux) |
@@ -65,15 +65,21 @@ This internal-test transition does not import or delete old Chromium profiles or
 
 ## Window & chrome
 
-The shell draws no separate title bar — the SPA is the whole window (`src/window-chrome.ts`):
+The shell retains native window controls; the SPA accounts for their space according to the actual platform chrome (`src/window-chrome.ts`):
 
 - **macOS**: `titleBarStyle: hiddenInset`; traffic lights float over the sidebar (`trafficLightPosition`). The window uses `vibrancy: "sidebar"` with a fully transparent `backgroundColor`, so the splash is full-window frost and, once loaded, the sidebar/activity rail stay frosted while the content area paints opaque.
-- **Windows 11 (22H2+)**: `titleBarStyle: hidden` + `titleBarOverlay` (transparent caption-button strip, 36px) + `backgroundMaterial: "mica"`. Older Windows falls back to a solid surface-colored window with a solid overlay.
+- **Windows 11 (22H2+)**: `titleBarStyle: hidden` + `titleBarOverlay` (transparent caption-button strip, 36px) + `backgroundMaterial: "mica"`. A compact SPA title bar blends with the sidebar material and reserves a full-width row above all application content. Older Windows falls back to a solid surface-colored window with a solid overlay.
 - **Linux**: native frame, solid background (frameless/transparent windows are unreliable across compositors).
 
-Dragging: the SPA paints a full-width invisible drag band across the top of the window (`--titlebar-inset`: 44px on macOS, `env(titlebar-area-height)` on Windows) at negative z-index, and a global CSS rule marks every interactive element `app-region: no-drag`. Chromium computes drag regions in paint order, so the band drags from any empty top pixel while buttons/inputs painted over it stay clickable — no layout shift, no title-bar row. The sidebar and the right activity rail are drag surfaces too (native macOS sidebar behavior); their nav links/buttons punch holes the same way. Custom widgets the selector list misses can opt out with `data-app-no-drag`.
+On Windows, `WindowLayout` reserves `--window-content-top`, using Chromium's `env(titlebar-area-y)` plus `env(titlebar-area-height)` with a 36 CSS-pixel minimum matching `WCO_HEIGHT`. This minimum also protects first paint and unavailable/zero geometry; zoomed-in content may retain a taller row than the native buttons. The title text uses `env(titlebar-area-x)` / `env(titlebar-area-width)` and stays hidden if horizontal geometry is unavailable, so no caption-button width is guessed. The title bar is the Windows drag surface; the sidebar and activity rail remain ordinary content. Native controls own minimize, maximize, close and window-system interactions.
 
-The SPA learns what the shell actually did via `platform.frameless` / `platform.frost` on the preload bridge (wired through `webPreferences.additionalArguments` as `--pixivbiu-frameless` / `--pixivbiu-frost`), and only then draws drag regions (`app-drag` utilities) and translucent surfaces. Cross-version combinations degrade gracefully: a new shell with an older core renders frameless but opaque; an old shell with a newer core renders exactly as before.
+On macOS, the SPA retains the 44px invisible top drag band at negative z-index and sidebar-only traffic-light padding. Sidebar/activity-rail empty space remains draggable; interactive elements opt out via the global `no-drag` selector and custom widgets can use `data-app-no-drag`. Browser and Linux builds have no SPA title-bar row or drag regions. Fullscreen disables the SPA drag surfaces and removes title-bar/traffic-light spacing.
+
+`windowChrome.read()` and `windowChrome.onState()` expose only `{ fullscreen }`. The main process combines native and HTML fullscreen, publishes after page load and state changes, and checks the trusted main frame for reads. The SPA subscribes before its initial read and ignores a stale snapshot after an event. HTML fullscreen also has a renderer-side fallback; missing bridge/geometry information conservatively keeps normal spacing. Authored startup/failure data documents share the shell's title-bar height and consume notifications through preload, but cannot invoke the core-origin read IPC.
+
+The content viewport fills the space below the title bar; route roots use parent height. Windows dialog portals are centered and bounded within that viewport. Floating menus, popovers, selects and tooltips receive its measured rectangle as their collision boundary, updated on resize/fullscreen/zoom; item-aligned selects use anchored positioning while a top inset is present. Keep the actual page scroller at `[data-app-scroller]`. The [frontend guide](../frontend/README.md#desktop-integration) owns these component conventions.
+
+The SPA learns what the shell actually did via `platform.frameless` / `platform.frost` on the preload bridge (wired through `webPreferences.additionalArguments` as `--pixivbiu-frameless` / `--pixivbiu-frost`), and only then draws the matching chrome and translucent surfaces. Missing flags mean framed/opaque. A newer SPA can reserve space under an older WCO shell without the optional fullscreen bridge, but an older embedded SPA cannot acquire this layout fix from a shell update alone: release the updated core and advance `.core-version` before shipping Desktop.
 
 Window size/position persist in `userData/window-state.json` (`src/window-state.ts`; default 1440×900, validated against the current displays on restore). On macOS, closing the window keeps the app and the core sidecar alive in the Dock (downloads keep running); clicking the Dock icon reopens the window against the same core, and only Cmd+Q quits.
 
@@ -89,6 +95,8 @@ npm start                                # tsc -> electron .
 ```
 
 `npm run check` builds the shell and runs release/security contracts plus real subprocess lifecycle tests (including parent death, port conflicts and forced termination); `npm run typecheck` checks types without emitting. `npm run test:native` runs an isolated Electron smoke fixture (requires frontend dependencies) covering memory sessions, the protocol proxy, sandboxed preload, preference persistence and window recreation. `PIXIVBIU_SMOKE_CORE_BIN=/absolute/path/to/bin/pixivbiu npm run test:native-core` runs Electron against a freshly built host core in a temporary profile with synthetic auth and external traffic directed to a closed local proxy; it checks two real settings restarts, the stable protocol, SSE drain, failure-page navigation and core shutdown. Use the `.exe` path on Windows. Real Pixiv OAuth, signed-package keychain behavior, window chrome and Windows console visibility still require manual native validation. The root `make desktop-dev` convenience target currently uses `npm install`; the manual sequence above uses the lockfile strictly.
+
+After `cd frontend && bun run build`, run `npm run test:native-chrome` in `desktop`. This uses the built SPA, synthetic local API, temporary profile and production preload/tracker to check Filter pointer clicks, remaining content height, viewer/dialog bounds, login layout, zoom and fullscreen state. It exercises real host fullscreen transitions and simulated Windows/Linux/browser/old-shell layout branches; simulated flags are not native platform validation. Before release, manually check Windows 10/11 normal/maximized/restored windows, 100/125/150/200% display scaling, mixed-DPI monitor moves, title-bar double-click/right-click, native caption buttons and Windows 11 Snap. Also check menus near the top edge, panel resizing, tall dialogs, keyboard focus, high contrast, and Linux GNOME/KDE under Wayland/X11. macOS must retain traffic-light clearance and sidebar interactions.
 
 In dev the shell looks for the core at `../bin/pixivbiu` (override with `PIXIVBIU_CORE_BIN`). The shell owns OS placement and passes it to the (portable) core via env, so data lands in OS-appropriate dirs, not the repo:
 

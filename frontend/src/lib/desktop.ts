@@ -11,7 +11,16 @@ export type DesktopUpdateStatus =
     | { state: "downloaded"; version: string; notes?: string }
     | { state: "error"; message: string };
 
+export interface DesktopWindowChromeState {
+    fullscreen: boolean;
+}
+
 export interface DesktopBridge {
+    // Optional for older shells. Window operations remain native.
+    windowChrome?: {
+        read(): Promise<DesktopWindowChromeState>;
+        onState(cb: (state: DesktopWindowChromeState) => void): () => void;
+    };
     // Opens an Electron window at the hosted Pixiv login URL, intercepts the
     // OAuth callback redirect, and resolves the authorization code.
     captureOAuthCode(loginUrl: string): Promise<string>;

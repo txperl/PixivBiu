@@ -1,4 +1,13 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { WindowChromeState } from "./window-chrome";
+
+// Authored startup/failure data documents have no SPA and cannot invoke core
+// IPC. They only consume the shell's notification after load/state changes.
+ipcRenderer.on("pixivbiu:window-chrome-state", (_event, state: WindowChromeState) => {
+    if (location.protocol === "data:") {
+        document.documentElement?.toggleAttribute("data-window-fullscreen", state.fullscreen);
+    }
+});
 
 // The bridge exposed to the renderer (the SPA served by the core). Keep this
 // surface minimal and typed; the SPA mirrors this contract in
@@ -13,6 +22,14 @@ export type UpdateStatus =
     | { state: "error"; message: string };
 
 const pixivbiu = {
+    windowChrome: {
+        read: (): Promise<WindowChromeState> => ipcRenderer.invoke("pixivbiu:window-chrome-read"),
+        onState: (cb: (state: WindowChromeState) => void): (() => void) => {
+            const listener = (_e: unknown, state: WindowChromeState) => cb(state);
+            ipcRenderer.on("pixivbiu:window-chrome-state", listener);
+            return () => ipcRenderer.removeListener("pixivbiu:window-chrome-state", listener);
+        },
+    },
     // Automated Pixiv login: hand the hosted login URL to the main process,
     // which opens a window, intercepts the OAuth callback redirect, and resolves
     // the authorization code — no DevTools, no copy/paste.

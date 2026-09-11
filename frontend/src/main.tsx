@@ -9,7 +9,8 @@ import { applyDesktopChrome } from "@/lib/desktop-chrome";
 import { restoreDesktopPreferences } from "@/lib/preferences";
 
 // Before first paint: mark <html> with the Electron shell's window chrome.
-applyDesktopChrome();
+const disposeDesktopChrome = applyDesktopChrome();
+if (import.meta.hot) import.meta.hot.dispose(disposeDesktopChrome);
 
 async function start() {
     await restoreDesktopPreferences();

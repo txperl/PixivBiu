@@ -42,7 +42,7 @@ function RootLayout() {
     // doesn't flash a half-loaded app before we know where the user belongs.
     if (status === null) {
         return (
-            <div className="flex h-svh items-center justify-center bg-background frost:bg-transparent">
+            <div className="flex h-full items-center justify-center bg-background frost:bg-transparent">
                 <span
                     className="fade-in animate-in text-muted-foreground/70 text-sm duration-500"
                     style={{ animationFillMode: "backwards" }}
@@ -59,7 +59,7 @@ function RootLayout() {
 
     return (
         <IllustViewerProvider>
-            <div className="flex h-svh overflow-hidden">
+            <div className="flex h-full overflow-hidden">
                 <ResizablePanelGroup className="min-w-0 flex-1" orientation="horizontal">
                     <ResizablePanel id="sidebar" defaultSize="14%" minSize="10%" maxSize="22%">
                         <RootSidebar />

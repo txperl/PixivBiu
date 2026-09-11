@@ -10,9 +10,13 @@
 
 /* Window drag regions for the frameless desktop shell. */
 @utility app-drag {
-    -webkit-app-region: drag;
-    app-region: drag;
-    user-select: none;
+    /* Sidebar dragging is a macOS convention. Windows has an explicit title
+       bar; browser/Linux content must never become non-client hit regions. */
+    :root[data-frameless][data-desktop="darwin"]:not([data-window-fullscreen]) & {
+        -webkit-app-region: drag;
+        app-region: drag;
+        user-select: none;
+    }
 }
 @utility app-no-drag {
     -webkit-app-region: no-drag;

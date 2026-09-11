@@ -1,19 +1,43 @@
 import os from "node:os";
-import type { BrowserWindowConstructorOptions } from "electron";
+import type { BrowserWindow, BrowserWindowConstructorOptions } from "electron";
 
 // Per-platform window chrome: frameless title bars and frosted (translucent)
 // backdrops. The SPA learns what the shell actually did via the
-// --pixivbiu-frameless / --pixivbiu-frost args (see preload.ts), so an old
-// core's frontend under this shell simply renders opaque — never broken.
+// --pixivbiu-frameless / --pixivbiu-frost args (see preload.ts), selecting
+// matching layout and backdrop treatments when supported by the bundled SPA.
 
 // Light-scheme fallbacks matching the SPA's surface tokens
 // (frontend/src/styles/material-you.css --md-sys-color-surface / on-surface).
 const SOLID_BG = "#fdf7ff";
 const WCO_SYMBOL = "#1c1b20";
 
-// Height of the Windows caption-button overlay; the SPA's drag strip uses
+// Height of the Windows caption-button overlay; the SPA's title bar uses
 // env(titlebar-area-height) with a fallback that must match this value.
 export const WCO_HEIGHT = 36;
+
+export interface WindowChromeState {
+    fullscreen: boolean;
+}
+
+// Read-only state: geometry remains Chromium's responsibility (WCO CSS env).
+// Native and HTML fullscreen have separate lifetimes; either hides our chrome.
+export function trackWindowChrome(win: BrowserWindow): () => WindowChromeState {
+    let htmlFullscreen = false;
+    const read = (): WindowChromeState => ({ fullscreen: win.isFullScreen() || htmlFullscreen });
+    const publish = () => win.webContents.send("pixivbiu:window-chrome-state", read());
+    win.on("enter-full-screen", publish);
+    win.on("leave-full-screen", publish);
+    win.webContents.on("enter-html-full-screen", () => {
+        htmlFullscreen = true;
+        publish();
+    });
+    win.webContents.on("leave-html-full-screen", () => {
+        htmlFullscreen = false;
+        publish();
+    });
+    win.webContents.on("did-finish-load", publish);
+    return read;
+}
 
 // Mica requires Win11 22H2+ (build 22621, DWMWA_SYSTEMBACKDROP_TYPE).
 function win32Build(): number {
@@ -73,4 +97,20 @@ export function chromeArgs(): string[] {
         ...(framelessChrome() ? ["--pixivbiu-frameless"] : []),
         ...(frostCapable() ? ["--pixivbiu-frost"] : []),
     ];
+}
+
+// Startup/failure documents load before the SPA. Give them the same reserved
+// strip without granting these data documents access to core-origin IPC.
+export function shellPageChrome(): string {
+    const height = process.platform === "win32" ? WCO_HEIGHT : process.platform === "darwin" ? 44 : 0;
+    return `<style>
+        :root { --chrome-height: ${height}px; }
+        ${process.platform === "win32" ? `:root { --chrome-height: max(${WCO_HEIGHT}px, calc(env(titlebar-area-y, 0px) + env(titlebar-area-height, ${WCO_HEIGHT}px))); }` : ""}
+        :root[data-window-fullscreen] { --chrome-height: 0px; }
+        body { margin: 0; font: 14px/1.6 system-ui,sans-serif; background: ${SOLID_BG}; color: ${WCO_SYMBOL}; }
+        .window-titlebar { height: var(--chrome-height); overflow: hidden; app-region: drag; -webkit-app-region: drag; user-select: none; }
+        .window-titlebar span { display: block; box-sizing: border-box; margin-left: env(titlebar-area-x, 0px); width: env(titlebar-area-width, 0px); padding: 0 16px; overflow: hidden; white-space: nowrap; font-size: 12px; line-height: var(--chrome-height); opacity: .6; }
+        main { padding: 3rem; }
+        a { color: #65558f; app-region: no-drag; -webkit-app-region: no-drag; }
+    </style>`;
 }

@@ -3,6 +3,7 @@
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
 import { cn } from "@/lib/utils";
+import { useWindowContentBoundary } from "@/lib/window-layout";
 
 function TooltipProvider({ delay = 0, ...props }: TooltipPrimitive.Provider.Props) {
     return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} {...props} />;
@@ -26,9 +27,11 @@ function TooltipContent({
     ...props
 }: TooltipPrimitive.Popup.Props &
     Pick<TooltipPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
+    const boundary = useWindowContentBoundary();
     return (
         <TooltipPrimitive.Portal>
             <TooltipPrimitive.Positioner
+                collisionBoundary={boundary}
                 align={align}
                 alignOffset={alignOffset}
                 side={side}

@@ -16,7 +16,7 @@ import {
     isTrustedIPCEvent,
 } from "./security";
 import { initUpdater } from "./updater";
-import { chromeArgs, chromeOptions } from "./window-chrome";
+import { chromeArgs, chromeOptions, trackWindowChrome, type WindowChromeState } from "./window-chrome";
 import { PreferenceStore } from "./preferences";
 import { restoreWindowState, trackWindowState } from "./window-state";
 
@@ -47,6 +47,7 @@ if (!gotInstanceLock) {
 registerCoreScheme();
 
 let mainWindow: BrowserWindow | null = null;
+let readWindowChrome: (() => WindowChromeState) | null = null;
 let core: CoreSupervisor | null = null;
 let failureURL: string | null = null;
 let mainDocumentURL: string | null = null;
@@ -150,6 +151,7 @@ function createMainWindow(): void {
         },
     });
     mainWindow = win;
+    readWindowChrome = trackWindowChrome(win);
     trackWindowState(win);
     if (state.isMaximized) win.maximize();
 
@@ -188,6 +190,7 @@ function createMainWindow(): void {
     win.on("closed", () => {
         if (mainWindow === win) {
             mainWindow = null;
+            readWindowChrome = null;
             mainDocumentURL = null;
         }
     });
@@ -213,6 +216,10 @@ if (gotInstanceLock) {
         core = createCore(showCoreState);
         installCoreProtocol(mainSession(), () => core?.port ?? null);
         const preferences = new PreferenceStore(path.join(app.getPath("userData"), "ui-preferences.json"));
+        ipcMain.handle("pixivbiu:window-chrome-read", (event) => {
+            if (!isTrustedIPCEvent(event, mainWindow)) throw new Error("unauthorized_ipc");
+            return readWindowChrome?.();
+        });
         ipcMain.handle("pixivbiu:preferences-read", (event) => {
             if (!isTrustedIPCEvent(event, mainWindow)) throw new Error("unauthorized_ipc");
             return preferences.read();

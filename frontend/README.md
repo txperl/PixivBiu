@@ -121,6 +121,10 @@ Desktop restores an explicit set of UI preferences through `lib/preferences.ts` 
 
 Keep the frontend interface aligned with [preload.ts](../desktop/src/preload.ts). Renderers use the stable `pixivbiu://core` origin, not the private sidecar port. Chrome flags come from the shell: absent flags fall back to framed/opaque. Use the existing drag/no-drag conventions for interactive controls. The [desktop guide](../desktop/README.md) owns protocol, IPC, window and release details.
 
+`WindowLayout` wraps all routes and owns the Windows title-bar row plus the remaining content viewport (`data-window-content`). Route roots use `h-full`, not `h-svh`; `--window-content-top` and `--window-content-height` are the shared geometry contract. The application page scroller remains `[data-app-scroller]`. Windows uses the explicit top bar for dragging; `app-drag` on sidebars only activates in the macOS frameless shell. Native/HTML fullscreen removes reserved chrome, with read-only state from the optional `windowChrome` bridge and a DOM fullscreen fallback.
+
+Portal UI must respect the same content viewport. Shared Dialog CSS centers and bounds Windows popups below the caption strip; a dialog with its own scroll regions can retain `overflow-hidden`. Viewer height derives from `--window-content-height`. Anchored primitives consume `useWindowContentBoundary()` for Base UI collision handling; the measured rectangle updates as the content resizes. Windows selects disable viewport-based item alignment while the inset is present. Use these shared primitives for new floating UI rather than positioning directly against the entire window. Browser, Linux and macOS retain their normal collision policy.
+
 ## Behavioral checks
 
 In addition to Biome/build, exercise the behavior touched by a UI change: account switches, bookmark card/viewer agreement and rollback, pagination versus filter changes, slow loading, SSE reconnect/resync, language changes without reload, image fallback/lazy loading, and scroll-root behavior. For bridge changes, check both browser and native desktop paths. The build does not verify these interactions automatically.

@@ -2,6 +2,7 @@ import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { useWindowContentBoundary } from "@/lib/window-layout";
 
 function Popover({ ...props }: PopoverPrimitive.Root.Props) {
     return <PopoverPrimitive.Root data-slot="popover" {...props} />;
@@ -24,9 +25,11 @@ function PopoverContent({
     ...props
 }: PopoverPrimitive.Popup.Props &
     Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset" | "anchor">) {
+    const boundary = useWindowContentBoundary();
     return (
         <PopoverPrimitive.Portal>
             <PopoverPrimitive.Positioner
+                collisionBoundary={boundary}
                 align={align}
                 alignOffset={alignOffset}
                 side={side}

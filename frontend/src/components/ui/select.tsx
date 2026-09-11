@@ -3,6 +3,7 @@ import { ArrowDown01Icon, ArrowUp01Icon, Tick02Icon, UnfoldMoreIcon } from "@hug
 import { HugeiconsIcon } from "@hugeicons/react";
 import type * as React from "react";
 import { cn } from "@/lib/utils";
+import { useWindowContentBoundary } from "@/lib/window-layout";
 
 const Select = SelectPrimitive.Root;
 
@@ -59,19 +60,24 @@ function SelectContent({
     ...props
 }: SelectPrimitive.Popup.Props &
     Pick<SelectPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset" | "alignItemWithTrigger">) {
+    const boundary = useWindowContentBoundary();
+    // Base UI's item-aligned mode positions against the whole viewport. Use
+    // its anchored collision handling when native chrome occupies that space.
+    const alignWithTrigger = alignItemWithTrigger && !(boundary && boundary.top > 0);
     return (
         <SelectPrimitive.Portal>
             <SelectPrimitive.Positioner
+                collisionBoundary={boundary}
                 side={side}
                 sideOffset={sideOffset}
                 align={align}
                 alignOffset={alignOffset}
-                alignItemWithTrigger={alignItemWithTrigger}
+                alignItemWithTrigger={alignWithTrigger}
                 className="isolate z-50"
             >
                 <SelectPrimitive.Popup
                     data-slot="select-content"
-                    data-align-trigger={alignItemWithTrigger}
+                    data-align-trigger={alignWithTrigger}
                     className={cn(
                         "data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 origin-(--transform-origin) overflow-y-auto overflow-x-hidden rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-closed:animate-out data-open:animate-in",
                         className,
