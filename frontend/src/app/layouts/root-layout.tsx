@@ -21,6 +21,7 @@ function ActivityPanelSlot() {
             <ResizableHandle />
             <ResizablePanel
                 id="activity-panel"
+                className="window-activity-panel"
                 defaultSize={`${preferredSizeRef.current}%`}
                 minSize="20%"
                 maxSize="40%"
@@ -59,16 +60,16 @@ function RootLayout() {
 
     return (
         <IllustViewerProvider>
-            <div className="flex h-full overflow-hidden">
+            <div className="window-root-layout flex h-full overflow-hidden">
                 <ResizablePanelGroup className="min-w-0 flex-1" orientation="horizontal">
                     <ResizablePanel id="sidebar" defaultSize="14%" minSize="10%" maxSize="22%">
                         <RootSidebar />
                     </ResizablePanel>
-                    <ResizableHandle />
-                    <ResizablePanel id="main">
+                    <ResizableHandle className="window-sidebar-handle" />
+                    <ResizablePanel id="main" className="window-main-panel">
                         {/* The ScrollArea viewport (not <main>) is the real page scroller — see
                             [data-app-scroller] consumers in settings scroll-spy + pager scroll-to-top. */}
-                        <main className="h-full min-h-0 bg-background">
+                        <main className="window-main-surface h-full min-h-0 bg-background">
                             <ScrollArea className="h-full" viewportProps={{ "data-app-scroller": "" }}>
                                 <Outlet />
                             </ScrollArea>

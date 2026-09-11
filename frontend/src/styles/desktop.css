@@ -57,6 +57,32 @@
     height: var(--traffic-lights-inset);
 }
 
+/* The sidebar flows into the Windows title bar. Put the separator on the
+   content surfaces so it follows sidebar resizing and the main corner. */
+:root[data-frameless][data-desktop="win32"]:not([data-window-fullscreen]):has(.window-root-layout) .window-titlebar {
+    border-bottom: 0;
+}
+:root[data-frameless][data-desktop="win32"]:not([data-window-fullscreen]) {
+    .window-main-panel {
+        background: var(--sidebar);
+    }
+    .window-sidebar-handle {
+        /* The main surface owns the curved left border; keep the separator's
+           original pointer/keyboard resize target and focus indicator. */
+        background: var(--sidebar);
+    }
+    .window-main-surface {
+        overflow: hidden;
+        border-top: 1px solid var(--border);
+        border-left: 1px solid var(--border);
+        border-top-left-radius: var(--radius-xl);
+    }
+    .window-activity-panel,
+    .window-root-layout > aside {
+        border-top: 1px solid var(--border);
+    }
+}
+
 /* Portals are viewport-positioned and do not inherit the route's height.
    Keep their backdrop and usable content below the Windows caption buttons. */
 :root[data-frameless][data-desktop="win32"] [data-slot="dialog-overlay"] {
