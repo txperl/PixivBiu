@@ -96,44 +96,53 @@
     overflow-y: auto;
 }
 
-/* Only macOS content overlaps a drag surface. Electron can subtract a scrolled
-   no-drag box even after overflow clips its paint; never mark every card/link
-   in the document. Scope automatic exceptions to chrome and control groups.
+/* Electron can subtract scrolled no-drag boxes even after overflow clips their
+   paint; never mark every card/link in the document. Scope automatic
+   exceptions to chrome and control groups.
    Plain content stays undeclared (explicit `none` is not a neutral reset).
    These selectors do not add boxes, spacing, or a new toolbar. */
-:root[data-frameless][data-desktop="darwin"]:not([data-window-fullscreen]) {
-    :is(.app-drag, header, nav, form, [role="toolbar"], [role="tablist"], [data-app-controls])
-        :is(
-            button,
-            a,
-            input,
-            select,
-            textarea,
-            label,
-            [role="button"],
-            [role="tab"],
-            [role="menuitem"],
-            [role="option"],
-            [role="slider"],
-            [role="checkbox"],
-            [role="switch"],
-            [role="separator"],
-            [contenteditable="true"],
-            [data-app-no-drag]
-        ),
+:is(
+        :root[data-frameless][data-desktop="darwin"]:not([data-window-fullscreen])
+            :is(.app-drag, header, nav, form, [role="toolbar"], [role="tablist"], [data-app-controls]),
+        :root[data-frameless][data-desktop="win32"]:not([data-window-fullscreen]) [data-window-sidebar]
+    )
     :is(
-            [data-app-no-drag],
-            [data-slot="scroll-area-scrollbar"],
-            [data-slot="resizable-handle"],
-            [data-slot="dialog-overlay"],
-            [data-slot="dialog-content"],
-            [data-slot="popover-content"],
-            [data-slot="dropdown-menu-content"],
-            [data-slot="select-content"]
-        ) {
-        -webkit-app-region: no-drag;
-        app-region: no-drag;
-    }
+        button,
+        a,
+        input,
+        select,
+        textarea,
+        label,
+        [role="button"],
+        [role="tab"],
+        [role="menuitem"],
+        [role="option"],
+        [role="slider"],
+        [role="checkbox"],
+        [role="switch"],
+        [role="separator"],
+        [contenteditable="true"],
+        [data-app-no-drag]
+    ) {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+}
+
+/* Portals can cover a draggable sidebar on either platform. Keep their
+   pointer input, including modal backdrops, without marking ordinary lists. */
+:root[data-frameless]:is([data-desktop="darwin"], [data-desktop="win32"]):not([data-window-fullscreen])
+    :is(
+        [data-app-no-drag],
+        [data-slot="scroll-area-scrollbar"],
+        [data-slot="resizable-handle"],
+        [data-slot="dialog-overlay"],
+        [data-slot="dialog-content"],
+        [data-slot="popover-content"],
+        [data-slot="dropdown-menu-content"],
+        [data-slot="select-content"]
+    ) {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
 }
 
 :root[data-frost] {

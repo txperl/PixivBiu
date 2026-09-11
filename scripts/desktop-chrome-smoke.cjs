@@ -52,9 +52,58 @@ async function nativeHits(points) {
     return JSON.parse(stdout);
 }
 
+async function checkSidebarDrag(mode, mac, nativeProbe) {
+    const draggable = mac || mode === 'win32' || (mode === 'native' && process.platform === 'win32');
+    const previousSize = win.getSize();
+    // Leave enough room for the real account button beneath all nav groups.
+    win.setSize(1100, 850);
+    await delay(100);
+    const sidebar = await win.webContents.executeJavaScript(`(() => {
+        const root = document.querySelector('[data-window-sidebar]');
+        const brand = root.firstElementChild.getBoundingClientRect();
+        const nav = root.querySelector('nav').getBoundingClientRect();
+        const center = el => { const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; };
+        return { drag: getComputedStyle(root).getPropertyValue('app-region') === 'drag',
+            railDrag: getComputedStyle(document.querySelector('.window-root-layout > aside')).getPropertyValue('app-region') === 'drag',
+            points: [{ x: brand.x + brand.width / 2, y: (brand.bottom + nav.top) / 2 },
+                center(root.querySelector('a[href="/search"]')), center(root.querySelector('[data-slot="dropdown-menu-trigger"]'))] };
+    })()`);
+    assert.equal(sidebar.drag, draggable, `${mode}: sidebar drag is platform-gated`);
+    assert.equal(sidebar.railDrag, mac, `${mode}: activity rail keeps its platform policy`);
+    if (nativeProbe) assert.deepEqual(await nativeHits(sidebar.points), [2, 1, 1], `${mode}: sidebar gap drags, navigation and account receive clicks`);
+    await click('[data-window-sidebar] a[href="/search"]');
+    await waitFor(`location.pathname === '/search' && !!document.querySelector('input[type="search"]')`);
+    await click('[data-window-sidebar] [data-slot="dropdown-menu-trigger"]');
+    await waitFor(`!!document.querySelector('[data-slot="dropdown-menu-content"]')`);
+    await delay(150);
+    if (nativeProbe) {
+        const menuPoint = await win.webContents.executeJavaScript(`(() => {
+            const r = document.querySelector('[data-slot="dropdown-menu-item"]').getBoundingClientRect();
+            return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+        })()`);
+        assert.deepEqual(await nativeHits([menuPoint]), [1], `${mode}: account menu overrides sidebar dragging`);
+    }
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' });
+    await waitFor(`!document.querySelector('[data-slot="dropdown-menu-content"]')`);
+    const fullscreen = await win.webContents.executeJavaScript(`(() => {
+        document.documentElement.setAttribute('data-window-fullscreen', '');
+        const sidebar = document.querySelector('[data-window-sidebar]');
+        return { drag: getComputedStyle(sidebar).getPropertyValue('app-region') === 'drag',
+            noDrag: getComputedStyle(sidebar.querySelector('a')).getPropertyValue('app-region') === 'no-drag' };
+    })()`);
+    assert.deepEqual(fullscreen, { drag: false, noDrag: false }, `${mode}: sidebar regions are disabled in fullscreen`);
+    await win.webContents.executeJavaScript(`document.documentElement.removeAttribute('data-window-fullscreen')`);
+    await delay(100);
+    if (nativeProbe) assert.deepEqual(await nativeHits(sidebar.points), [2, 1, 1], `${mode}: sidebar regions recover after fullscreen CSS state`);
+    win.setSize(...previousSize);
+    await delay(100);
+}
+
 async function checkDragRegions(mode) {
     const mac = mode === 'darwin' || (mode === 'native' && process.platform === 'darwin');
     const nativeProbe = process.platform === 'win32' && (mode === 'native' || mode === 'darwin');
+    await checkSidebarDrag(mode, mac, nativeProbe);
     await win.loadURL('pixivbiu://core/ranking');
     await waitFor(`document.querySelector('img[alt="Fixture artwork 1"]')?.naturalWidth > 0`);
     for (const zoom of [1, 1.5]) {
@@ -107,11 +156,12 @@ async function checkDragRegions(mode) {
     await waitFor(`!!document.querySelector('[data-slot="dialog-content"]')`);
     await delay(150);
     if (nativeProbe) {
-        const point = await win.webContents.executeJavaScript(`(() => {
+        const points = await win.webContents.executeJavaScript(`(() => {
             const r = document.querySelector('[data-slot="dialog-content"]').getBoundingClientRect();
-            return { x: r.x + r.width / 2, y: r.y + 10 };
+            const sidebar = document.querySelector('[data-window-sidebar]').getBoundingClientRect();
+            return [{ x: r.x + r.width / 2, y: r.y + 10 }, { x: sidebar.x + sidebar.width / 2, y: sidebar.y + 70 }];
         })()`);
-        assert.deepEqual(await nativeHits([point]), [1], `${mode}: dialog receives pointer input`);
+        assert.deepEqual(await nativeHits(points), [1, 1], `${mode}: dialog and backdrop over sidebar receive pointer input`);
     }
     await win.loadURL('pixivbiu://core/downloads');
     await waitFor(`!!document.querySelector('button[aria-label="Filter"]')`);
