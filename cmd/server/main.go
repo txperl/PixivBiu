@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -58,11 +59,18 @@ func parseTrustedKeys(raw string) []string {
 func main() {
 	suppressSIGPIPE()
 	if err := run(); err != nil {
+		if errors.Is(err, errDesktopRestart) {
+			os.Exit(desktopRestartExitCode)
+		}
 		fmt.Fprintln(os.Stderr, "fatal:", err)
 		// On Windows a double-clicked console window closes the instant we
 		// exit, so without this the error above just flashes past. No-op when
 		// run from a terminal/CI or on other OSes.
-		pauseOnExit()
+		if desktopManagedVersion == 0 {
+			pauseOnExit()
+		} else if isPortUnavailable(err) {
+			os.Exit(desktopPortBusyExitCode)
+		}
 		os.Exit(1)
 	}
 }
@@ -82,11 +90,21 @@ func suppressSIGPIPE() {
 }
 
 func run() error {
+	flag.IntVar(&desktopManagedVersion, "desktop-managed", 0, "private desktop lifecycle protocol version (0 disables; supported: 1)")
 	configPath := flag.String("config", "./usr/settings.json", "path to runtime settings file (managed via API)")
 	openFlag := flag.Bool("open", false, "open the web UI in the default browser at startup (overrides app.open_browser)")
 	dataDir := flag.String("data-dir", "", "base directory for runtime files (settings, auth state, default downloads, and the image cache unless -cache-dir is set); defaults to the executable's directory. Also settable via PIXIVBIU_DATA_DIR; desktop builds point this at the OS user-data dir.")
 	cacheDir := flag.String("cache-dir", "", "base directory for purgeable caches (image cache); defaults to usr/cache under the data root. Also settable via PIXIVBIU_CACHE_DIR; desktop builds point this at the OS cache dir so a large regenerable cache stays out of the app-data dir.")
 	flag.Parse()
+	if desktopManagedVersion != 0 && desktopManagedVersion != 1 {
+		return fmt.Errorf("unsupported desktop lifecycle protocol version")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	if desktopManagedVersion == 1 {
+		fmt.Fprintln(os.Stdout, desktopProtocolMarker)
+		go watchDesktopParent(os.Stdin, stop)
+	}
 
 	// Anchor for every runtime path below — the config/state/index files,
 	// the image cache, and a relative download.output_dir all derive from
@@ -113,14 +131,18 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	a.desktopManaged = desktopManagedVersion == 1
+	if a.desktopManaged {
+		a.openBrowser = false
+	}
+	if ctx.Err() != nil {
+		return nil
+	}
 
 	// ctx + signal handling and the load-bearing defers stay HERE: on a
 	// restart the explicit Shutdowns + reexec below bypass these defers
 	// (syscall.Exec replaces the image), which only works if they live in
 	// the same frame as the reexec call.
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
 	a.svc.Start(ctx)
 	defer a.svc.Shutdown()
 
@@ -143,6 +165,15 @@ func run() error {
 			a.logger.Warn("graceful drain timed out before restart; forcing close",
 				slog.Any("error", shutdownErr))
 			_ = a.srv.Close()
+		}
+		if a.desktopManaged {
+			// Returning runs worker cleanup before main emits the restart code.
+			// Parent shutdown wins a simultaneous settings restart.
+			if ctx.Err() != nil {
+				return nil
+			}
+			a.logger.Info("exiting for desktop-managed restart")
+			return errDesktopRestart
 		}
 		// syscall.Exec replaces the image, so the deferred Shutdowns
 		// above would never run — flush their state explicitly here

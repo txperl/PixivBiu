@@ -78,6 +78,7 @@ The core stays portable: it accepts path overrides but does not choose OS applic
 | `-config <path>` | None | Without an explicit flag: `usr/settings.json` under the data root; explicit relative paths use launch CWD |
 | `-open` / `-open=false` | `PIXIVBIU_APP_OPEN_BROWSER` through the config layer | Explicit flag overrides the layered `app.open_browser` value |
 | `-h` | None | Display CLI help |
+| `-desktop-managed=1` | None | Private desktop lifecycle protocol; default `0` disables it. Requires a parent-owned stdin pipe; see [managed lifecycle](../desktop/README.md#managed-lifecycle-protocol). Not a persisted setting. |
 
 Non-empty data/cache flags win over their environment fallback. Relative data/cache overrides are made absolute against launch CWD once at startup. Absolute paths stay absolute.
 

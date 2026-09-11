@@ -1,12 +1,15 @@
 import path from "node:path";
-import { app, BrowserWindow, ipcMain, session, shell } from "electron";
-import { startCore, stopCore, type CoreHandle } from "./core-process";
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from "electron";
+import { createCore } from "./core-process";
+import type { CoreSupervisor, CoreFailure, CoreState } from "./core-supervisor";
 import { installCoreProtocol, registerCoreScheme } from "./core-protocol";
 import { installMenu } from "./menu";
 import { captureOAuthCode } from "./oauth-window";
 import {
     CORE_BASE_URL,
     failurePage,
+    startingPage,
+    desktopFailureAction,
     isAllowedExternalURL,
     isPixivOAuthLoginURL,
     isTrustedCoreURL,
@@ -44,9 +47,12 @@ if (!gotInstanceLock) {
 registerCoreScheme();
 
 let mainWindow: BrowserWindow | null = null;
-let core: CoreHandle | null = null;
-let coreError: string | null = null;
-let coreStarting: Promise<void> | null = null;
+let core: CoreSupervisor | null = null;
+let failureURL: string | null = null;
+let mainDocumentURL: string | null = null;
+let quitting = false;
+let quitReady = false;
+let quitOperation: Promise<void> | null = null;
 
 const PRELOAD = path.join(__dirname, "preload.js");
 const APP_ICON_NAME = process.platform === "win32" ? "icon.ico" : "icon.png";
@@ -54,22 +60,63 @@ const APP_ICON = app.isPackaged
     ? path.join(process.resourcesPath, APP_ICON_NAME)
     : path.join(__dirname, "..", "build", APP_ICON_NAME);
 
-// ensureCore starts the sidecar once per app run; a failed start is retried on
-// the next call (macOS dock re-activate can heal a transient failure).
-function ensureCore(): Promise<void> {
-    if (core) return Promise.resolve();
-    coreStarting ??= startCore()
-        .then((handle) => {
-            core = handle;
-            coreError = null;
-        })
-        .catch((err) => {
-            coreError = String(err);
-        })
-        .finally(() => {
-            coreStarting = null;
-        });
-    return coreStarting;
+const failureMessages: Record<CoreFailure, string> = {
+    start_failed: "The local service could not start. Check the logs, then try again.",
+    incompatible_core: app.isPackaged
+        ? "This desktop package includes an incompatible component. Please install a matching desktop release."
+        : "The development core does not support the desktop lifecycle protocol. Rebuild the core with make dist, then try again.",
+    startup_timeout: "The local service took too long to start. Check the logs, then try again.",
+    core_exited: "The local service stopped unexpectedly. Your saved data is still available. Try again to reconnect.",
+    stop_failed: "The local service could not be stopped. Check the logs before trying again.",
+};
+
+function loadMainURL(url: string): void {
+    mainDocumentURL = url;
+    void mainWindow?.loadURL(url).catch(() => {
+        // A newer lifecycle state can supersede an in-flight navigation.
+        // Browser/network error details may contain user URLs; keep them local.
+        console.error("[desktop] Main document navigation did not complete");
+    });
+}
+
+function showCoreState(state: CoreState, failure?: CoreFailure): void {
+    if (!mainWindow || quitting) return;
+    if (state === "failed") {
+        failureURL = failurePage(failureMessages[failure ?? "start_failed"]);
+        loadMainURL(failureURL);
+    } else if (state === "starting") {
+        failureURL = null;
+        loadMainURL(startingPage());
+    } else if (state === "ready") {
+        failureURL = null;
+        // A settings restart keeps the SPA mounted: its existing REST/SSE
+        // reconnect paths pick up the supervisor's new port through the proxy.
+        if (mainDocumentURL !== CORE_BASE_URL) loadMainURL(CORE_BASE_URL);
+    }
+}
+
+function resumeAfterFailedUpdate(): void {
+    if (!quitReady) return;
+    quitting = false;
+    quitReady = false;
+    core = createCore(showCoreState);
+    if (!mainWindow) createMainWindow();
+    void core.start();
+}
+
+async function prepareQuit(): Promise<void> {
+    if (quitReady) return;
+    if (quitOperation) return quitOperation;
+    quitting = true;
+    quitOperation = (async () => {
+        await core?.stop();
+        if (core?.state === "failed") throw new Error("The local service could not be stopped. Please try closing PixivBiu again.");
+        quitReady = true;
+    })().catch(error => {
+        quitting = false;
+        throw error;
+    }).finally(() => { quitOperation = null; });
+    return quitOperation;
 }
 
 // Never initialize defaultSession: even an empty persistent cookie store can
@@ -118,19 +165,40 @@ function createMainWindow(): void {
     // Page-initiated navigation is locked to the core origin. loadURL from the
     // main process (including the data: failure page) doesn't fire this event.
     win.webContents.on("will-navigate", (e, url) => {
-        if (!core || !isTrustedCoreURL(url)) e.preventDefault();
+        const action = desktopFailureAction(win.webContents.getURL(), failureURL, url);
+        if (action) {
+            e.preventDefault();
+            if (action === "retry" && !quitting) void core?.start();
+            if (action === "logs") void shell.openPath(app.getPath("logs"));
+            return;
+        }
+        if (core?.port == null || !isTrustedCoreURL(url)) e.preventDefault();
     });
 
     win.once("ready-to-show", () => win.show());
+    win.on("close", event => {
+        // Keep the last Windows/Linux window available while cleanup runs,
+        // including when an OS termination failure needs another close attempt.
+        // macOS window dismissal still keeps downloads alive in the Dock.
+        if (process.platform !== "darwin" && !quitReady) {
+            event.preventDefault();
+            if (!quitting) app.quit();
+        }
+    });
     win.on("closed", () => {
-        if (mainWindow === win) mainWindow = null;
+        if (mainWindow === win) {
+            mainWindow = null;
+            mainDocumentURL = null;
+        }
     });
 
-    void win.loadURL(core ? CORE_BASE_URL : failurePage(coreError ?? "unknown error"));
+    if (core?.state === "failed") showCoreState("failed", core.failure);
+    else loadMainURL(core?.port != null ? CORE_BASE_URL : startingPage());
 }
 
 if (gotInstanceLock) {
     app.on("second-instance", () => {
+        if (quitting) return;
         if (!mainWindow) {
             createMainWindow();
             return;
@@ -140,7 +208,9 @@ if (gotInstanceLock) {
     });
 
     app.whenReady().then(async () => {
+        if (quitting) return;
         installMenu();
+        core = createCore(showCoreState);
         installCoreProtocol(mainSession(), () => core?.port ?? null);
         const preferences = new PreferenceStore(path.join(app.getPath("userData"), "ui-preferences.json"));
         ipcMain.handle("pixivbiu:preferences-read", (event) => {
@@ -184,13 +254,15 @@ if (gotInstanceLock) {
             return captureOAuthCode(loginUrl, mainWindow ?? undefined);
         });
 
-        await ensureCore();
-        initUpdater(() => mainWindow);
+        initUpdater(() => mainWindow, prepareQuit, resumeAfterFailedUpdate);
         createMainWindow();
+        void core.start();
 
         app.on("activate", () => {
             if (BrowserWindow.getAllWindows().length === 0) {
-                void ensureCore().then(createMainWindow);
+                if (quitting) return;
+                createMainWindow();
+                void core?.start();
             }
         });
     });
@@ -204,9 +276,10 @@ app.on("window-all-closed", () => {
 });
 
 // The core is a child tied to this app — never leave it orphaned.
-app.on("before-quit", () => {
-    if (core) {
-        stopCore(core);
-        core = null;
-    }
+app.on("before-quit", (event) => {
+    if (quitReady || !gotInstanceLock) return;
+    event.preventDefault();
+    void prepareQuit().then(() => app.quit()).catch(error => {
+        dialog.showErrorBox("PixivBiu could not close", String(error.message));
+    });
 });

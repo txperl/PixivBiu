@@ -43,9 +43,9 @@ The SPA calls `/api/v1` in every mode. Production assets come from [internal/web
 | [internal/atomicfile](../internal/atomicfile) | Shared temp-file + rename writer |
 | [internal/browser](../internal/browser) / [sysproxy](../internal/sysproxy) | Browser launching and OS proxy discovery |
 
-Construction does not start background work. The entrypoint owns service starts, context cancellation, and cleanup. Shutdown closes hub subscriptions first, then drains HTTP with the configured timeout, so SSE cannot hold the drain open. Normal shutdown reports a drain error. Restart logs a timeout, force-closes HTTP, explicitly shuts down download/Pixiv services, and still re-execs. Unix replaces the process image; Windows launches a successor through the platform helper.
+Construction does not start background work. The entrypoint owns service starts, context cancellation, and cleanup. Shutdown closes hub subscriptions first, then drains HTTP with the configured timeout, so SSE cannot hold the drain open. Normal shutdown reports a drain error. Restart logs a timeout, force-closes HTTP, explicitly shuts down download/Pixiv services, and still re-execs. In standalone mode, Unix replaces the process image and Windows launches a successor through the platform helper. With `-desktop-managed=1`, restart returns exit code 75 only after worker cleanup and the Electron supervisor creates the successor. The private stdin pipe carries stop requests and cancels the normal lifecycle when the parent disappears; managed startup advertises `pixivbiu-desktop/1` on stdout. See the [desktop lifecycle protocol](../desktop/README.md#managed-lifecycle-protocol) for handshake, retry and shutdown deadlines.
 
-Port fallback tries up to ten consecutive ports, bounded by 65535. Only platform-classified unavailable-port errors trigger it; Windows includes reserved ports reported as access denied. The actual bound URL is printed and used for browser auto-open. Windows startup errors pause when launched as the sole console owner so double-click failures remain visible.
+Port fallback tries up to ten consecutive ports, bounded by 65535. Only platform-classified unavailable-port errors trigger it; Windows includes reserved ports reported as access denied. The actual bound URL is printed and used for browser auto-open. Standalone Windows startup errors pause when launched as the sole console owner so double-click failures remain visible. Managed startup never pauses and returns exit code 76 for a platform-classified port conflict, allowing the shell to retry without treating arbitrary startup failures as port races.
 
 ## HTTP contracts and trust boundary
 
@@ -76,7 +76,7 @@ The codes are `unauthenticated` (401), `bad_request` (400), `forbidden` (403), `
 
 Middleware order is RequestID → RealIP → httplog. httplog owns panic recovery; adding another Recoverer loses the intended structured error path. Request errors and attributes attach to the single request log via `httplog.SetError/SetAttrs`. Background events use slog. Both use ECS normalization, such as `@timestamp`, `log.level`, and `error.message`. Backend logs stay in English.
 
-Logs normally use stdout. `log.file` redirects slog to a rotating file rather than teeing it to inherited stdout; startup validates the destination. The process also suppresses SIGPIPE termination from closed inherited output pipes. The boot banner remains on stderr. Raw diagnostics can contain private upstream/proxy details: redact them before sharing.
+Logs normally use stdout. `log.file` redirects slog to a rotating file rather than teeing it to inherited stdout; startup validates the destination. The process also suppresses SIGPIPE termination from closed inherited output pipes. The boot banner remains on stderr in standalone mode; managed desktop mode suppresses it and captures early diagnostics through pipes. Raw diagnostics can contain private upstream/proxy details: redact them before sharing.
 
 ## Authentication and onboarding
 

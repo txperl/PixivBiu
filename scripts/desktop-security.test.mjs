@@ -9,6 +9,7 @@ const {
   escapeHTML,
   extractPixivOAuthCode,
   failurePage,
+  desktopFailureAction,
   isAllowedExternalURL,
   isPixivOAuthCallbackURL,
   isPixivOAuthLoginURL,
@@ -119,4 +120,17 @@ test("failure document escapes diagnostics and carries the application CSP", () 
   for (const directive of ["default-src 'self'", "object-src 'none'", "connect-src 'self'"]) {
     assert.ok(APP_CONTENT_SECURITY_POLICY.includes(directive), directive);
   }
+});
+
+test("failure actions require the exact shell document and allow only fixed destinations", () => {
+  const failure = failurePage("Start failed");
+  assert.equal(desktopFailureAction(failure, failure, "pixivbiu://desktop/retry"), "retry");
+  assert.equal(desktopFailureAction(failure, failure, "pixivbiu://desktop/logs"), "logs");
+  for (const source of [CORE_BASE_URL, "data:text/html,evil", "https://example.com"]) {
+    assert.equal(desktopFailureAction(source, failure, "pixivbiu://desktop/logs"), null);
+  }
+  for (const target of ["pixivbiu://desktop/logs?path=/", "pixivbiu://desktop/quit", "file:///etc/passwd"]) {
+    assert.equal(desktopFailureAction(failure, failure, target), null);
+  }
+  assert.equal(desktopFailureAction(failure, null, "pixivbiu://desktop/retry"), null);
 });

@@ -134,3 +134,130 @@ test("OAuth attempts isolate memory sessions and clean success, dismissal, load 
     }
     assert.equal(windows.every(w => w.isDestroyed()), true);
 });
+
+function updaterFixture(prepareQuit, resumeAfterFailedUpdate = () => {}) {
+    const handlers = new Map();
+    const mainFrame = { url: 'pixivbiu://core/' };
+    const win = { webContents: { mainFrame, send() {} } };
+    const updater = new EventEmitter();
+    updater.checkForUpdates = async () => {};
+    updater.downloadUpdate = async () => {};
+    updater.quitAndInstall = () => {};
+    const filename = path.resolve(import.meta.dirname, '../desktop/dist/updater.js');
+    const localRequire = createRequire(filename);
+    const electron = { app: { isPackaged: false }, ipcMain: { handle: (name, fn) => handlers.set(name, fn) } };
+    const { initUpdater } = loadWithElectron('updater.js', electron, {
+        require: name => name === 'electron' ? electron : name === 'electron-updater' ? { autoUpdater: updater } : localRequire(name),
+    });
+    initUpdater(() => win, prepareQuit, resumeAfterFailedUpdate);
+    const install = () => handlers.get('pixivbiu:update-install')({ sender: win.webContents, senderFrame: mainFrame });
+    return { updater, install };
+}
+
+test('updater waits for the core shutdown barrier before installation and coalesces duplicate requests', async () => {
+    let release;
+    const order = [];
+    const barrier = new Promise(resolve => { release = resolve; });
+    const { updater, install } = updaterFixture(async () => { order.push('stop'); await barrier; });
+    updater.downloadUpdate = async () => { order.push('download'); };
+    updater.quitAndInstall = () => { order.push('install'); };
+    const first = install();
+    const second = install();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(order, ['download', 'stop']);
+    release();
+    await Promise.all([first, second]);
+    assert.deepEqual(order, ['download', 'stop', 'install']);
+});
+
+test('download/shutdown errors prevent installation; installer failure resumes the core', async () => {
+    let stopped = 0;
+    let installed = 0;
+    let resumed = 0;
+    const { updater, install } = updaterFixture(async () => { stopped++; }, () => { resumed++; });
+    updater.downloadUpdate = async () => { throw new Error('fixture download failed'); };
+    updater.quitAndInstall = () => { installed++; };
+    await assert.rejects(install(), /download failed/);
+    assert.equal(stopped, 0);
+    assert.equal(installed, 0);
+    assert.equal(updater.listenerCount('update-downloaded'), 1, 'only the status listener remains');
+    updater.downloadUpdate = async () => {};
+    updater.quitAndInstall = () => updater.emit('error', new Error('fixture installer failed'));
+    await install();
+    assert.equal(stopped, 1);
+    assert.equal(resumed, 1);
+    updater.emit('error', new Error('unrelated error'));
+    assert.equal(resumed, 1);
+    const blocked = updaterFixture(async () => { throw new Error('stop failed'); });
+    blocked.updater.quitAndInstall = () => assert.fail('installed before cleanup');
+    await assert.rejects(blocked.install(), /stop failed/);
+});
+
+test('Windows window close waits for core cleanup and duplicate close requests share one barrier', async () => {
+    const windows = [];
+    let release;
+    const barrier = new Promise(resolve => { release = resolve; });
+    let stops = 0;
+    let completedQuits = 0;
+    let updateBarrier;
+    const app = Object.assign(new EventEmitter(), {
+        isPackaged: true, getPath: () => '/fixture', enableSandbox() {}, setAppUserModelId() {},
+        requestSingleInstanceLock: () => true, whenReady: () => Promise.resolve(),
+        quit() {
+            const event = { prevented: false, preventDefault() { this.prevented = true; } };
+            app.emit('before-quit', event);
+            if (!event.prevented) completedQuits++;
+        },
+    });
+    class Window extends EventEmitter {
+        static getAllWindows() { return windows; }
+        constructor() {
+            super();
+            windows.push(this);
+            this.webContents = Object.assign(new EventEmitter(), { setWindowOpenHandler() {}, getURL: () => this.url || '' });
+        }
+        loadURL(url) { this.url = url; return Promise.resolve(); }
+        show() {}
+        maximize() {}
+    }
+    let notify;
+    const core = {
+        state: 'ready', port: 4000,
+        async start() { notify('ready'); },
+        async stop() { stops++; await barrier; this.state = 'stopped'; this.port = null; },
+    };
+    const ses = { setPermissionRequestHandler() {}, setPermissionCheckHandler() {} };
+    const electron = { app, BrowserWindow: Window, dialog: { showErrorBox: () => assert.fail('unexpected quit failure') },
+        ipcMain: { handle() {} }, session: { fromPartition: () => ses }, shell: {} };
+    const filename = path.resolve(import.meta.dirname, '../desktop/dist/main.js');
+    const localRequire = createRequire(filename);
+    const modules = {
+        './core-process': { createCore(fn) { notify = fn; return core; } },
+        './core-protocol': { installCoreProtocol() {}, registerCoreScheme() {} },
+        './menu': { installMenu() {} }, './oauth-window': { captureOAuthCode() {} },
+        './updater': { initUpdater(_window, prepareQuit) { updateBarrier = prepareQuit; } },
+        './window-chrome': { chromeArgs: () => [], chromeOptions: () => ({}) },
+        './preferences': { PreferenceStore: class {} },
+        './window-state': { restoreWindowState: () => ({ bounds: {} }), trackWindowState() {} },
+    };
+    loadWithElectron('main.js', electron, {
+        __dirname: path.dirname(filename), process: { platform: 'win32', resourcesPath: '/fixture' },
+        require: name => name === 'electron' ? electron : modules[name] || localRequire(name),
+    });
+    await new Promise(resolve => setImmediate(resolve));
+    const close = () => {
+        const event = { prevented: false, preventDefault() { this.prevented = true; } };
+        windows[0].emit('close', event);
+        return event.prevented;
+    };
+    assert.equal(close(), true);
+    assert.equal(close(), true);
+    const updaterAlsoQuitting = updateBarrier();
+    assert.equal(stops, 1);
+    assert.equal(completedQuits, 0);
+    release();
+    await updaterAlsoQuitting;
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(completedQuits, 1);
+    assert.equal(close(), false);
+});

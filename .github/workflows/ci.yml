@@ -105,8 +105,11 @@ jobs:
         run: bun run build
 
   desktop:
-    name: Desktop (Electron)
-    runs-on: ubuntu-latest
+    name: Desktop (Electron, ${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: desktop
@@ -123,6 +126,7 @@ jobs:
         run: npm ci
 
       - name: Build version contracts
+        if: runner.os != 'Windows'
         run: node --test ../scripts/build-version.test.mjs
 
       - name: Build and test contracts

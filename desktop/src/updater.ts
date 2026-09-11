@@ -25,7 +25,7 @@ function normalizeNotes(notes: RawNotes): string | undefined {
 // initUpdater wires electron-updater's lifecycle to the renderer over IPC and
 // registers the check/install handlers the preload bridge invokes. The renderer
 // drives the UX (show notes, confirm); we never pop native dialogs.
-export function initUpdater(getWindow: GetWindow): void {
+export function initUpdater(getWindow: GetWindow, prepareQuit: () => Promise<void>, resumeAfterFailedUpdate: () => void): void {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
 
@@ -42,18 +42,38 @@ export function initUpdater(getWindow: GetWindow): void {
     autoUpdater.on("update-downloaded", (info) =>
         send({ state: "downloaded", version: info.version, notes: normalizeNotes(info.releaseNotes) }),
     );
-    autoUpdater.on("error", (err) => send({ state: "error", message: String(err?.message ?? err) }));
+    let preparedForInstall = false;
+    autoUpdater.on("error", (err) => {
+        send({ state: "error", message: String(err?.message ?? err) });
+        if (preparedForInstall) {
+            preparedForInstall = false;
+            resumeAfterFailedUpdate();
+        }
+    });
 
     ipcMain.handle("pixivbiu:update-check", async (event) => {
         if (!isTrustedIPCEvent(event, getWindow())) throw new Error("unauthorized_ipc");
         await autoUpdater.checkForUpdates();
     });
 
+    let installation: Promise<void> | undefined;
     ipcMain.handle("pixivbiu:update-install", async (event) => {
         if (!isTrustedIPCEvent(event, getWindow())) throw new Error("unauthorized_ipc");
-        // Download, then quit & install once the bytes are in place.
-        autoUpdater.once("update-downloaded", () => autoUpdater.quitAndInstall());
-        await autoUpdater.downloadUpdate();
+        // Windows updater starts the installer before app.before-quit. Stop
+        // the bundled executable first so it cannot hold files open during replacement.
+        installation ??= (async () => {
+            await autoUpdater.downloadUpdate();
+            await prepareQuit();
+            preparedForInstall = true;
+            try {
+                autoUpdater.quitAndInstall();
+            } catch (error) {
+                preparedForInstall = false;
+                resumeAfterFailedUpdate();
+                throw error;
+            }
+        })().finally(() => { installation = undefined; });
+        await installation;
     });
 
     // electron-updater only works in a packaged app; skip the auto-check in dev

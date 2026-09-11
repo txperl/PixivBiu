@@ -61,7 +61,8 @@ type app struct {
 	stateFile string
 	storeFile string
 
-	openBrowser bool
+	openBrowser    bool
+	desktopManaged bool
 }
 
 // newApp wires every service and the HTTP server from the loaded config. It

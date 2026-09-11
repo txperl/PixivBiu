@@ -1,6 +1,6 @@
 # PixivBiu Desktop (Electron)
 
-A thin Electron shell around the single-binary PixivBiu core. The Go binary is unchanged: the shell spawns it as a child ("sidecar"), waits for `/api/v1/health`, then proxies its embedded SPA through the stable `pixivbiu://core` origin. The random loopback port remains private to the main process.
+A thin Electron shell around the single-binary PixivBiu core. The shell launches the same portable Go binary as a managed child ("sidecar"), waits for the private protocol handshake and `/api/v1/health`, then proxies its embedded SPA through the stable `pixivbiu://core` origin. The random loopback port remains private to the main process.
 
 What the shell adds:
 
@@ -15,7 +15,7 @@ The main window loads `pixivbiu://core/`. The main window uses the in-memory `pi
 
 The scheme enables fetch and streaming. The response body is wrapped so consumer cancellation aborts upstream work; returning an uncancellable SSE stream would leak subscriptions and exhaust the connection pool. Preserve streaming rather than buffering a whole response. The scheme is registered before app readiness, and the protocol handler is installed afterwards.
 
-The core starts on a selected loopback port with fallback disabled. Startup retries a port race, polls health, and reports a failure page if readiness fails. A single-instance lock prevents another shell from spawning a second core against the same data directory. The main process owns its child's lifecycle; there is no general automatic crash-restart watchdog.
+The core starts on a selected loopback port with fallback disabled. Startup retries only a confirmed port conflict (three attempts maximum), requires the managed protocol handshake and bound-port acknowledgement, and polls health for up to 20 seconds per attempt. A single-instance lock prevents another shell from spawning a second core against the same data directory. The window appears with a startup page while readiness is pending. Startup failures and unexpected runtime exits show an authored failure page with retry and log-folder actions; raw child diagnostics never become page content. There is no general automatic crash-restart watchdog.
 
 Security decisions live in [security.ts](src/security.ts) and their callers:
 
@@ -43,7 +43,9 @@ This internal-test transition does not import or delete old Chromium profiles or
 | File | Responsibility |
 |------|----------------|
 | `src/main.ts` | App lifecycle; orchestrates core + window + updater; IPC handlers |
-| `src/core-process.ts` | Free-port selection, core spawn, `/api/v1/health` readiness, stop-on-quit |
+| `src/core-process.ts` | OS paths, first-run defaults and managed-core environment |
+| `src/core-supervisor.ts` | Single-flight startup, protocol handshake, readiness, settings restart and bounded shutdown |
+| `src/core-diagnostics.ts` | Bounded startup/stderr snapshots, independent of the core business log |
 | `src/core-protocol.ts` | Stable renderer origin, HTTP forwarding, streamed response cancellation |
 | `src/security.ts` | Shared URL, CSP, OAuth, and IPC sender policies |
 | `src/window-chrome.ts` | Per-platform frameless title bar + frosted backdrop options |
@@ -86,7 +88,7 @@ npm ci
 npm start                                # tsc -> electron .
 ```
 
-`npm run check` builds the shell and runs release/security contracts; `npm run typecheck` checks types without emitting. `npm run test:native` runs an isolated Electron smoke fixture (requires frontend dependencies) covering memory sessions, the protocol proxy, sandboxed preload, preference persistence and window recreation. Real Pixiv OAuth, signed-package keychain behavior, window chrome and full core shutdown still require manual native validation. The root `make desktop-dev` convenience target currently uses `npm install`; the manual sequence above uses the lockfile strictly.
+`npm run check` builds the shell and runs release/security contracts plus real subprocess lifecycle tests (including parent death, port conflicts and forced termination); `npm run typecheck` checks types without emitting. `npm run test:native` runs an isolated Electron smoke fixture (requires frontend dependencies) covering memory sessions, the protocol proxy, sandboxed preload, preference persistence and window recreation. `PIXIVBIU_SMOKE_CORE_BIN=/absolute/path/to/bin/pixivbiu npm run test:native-core` runs Electron against a freshly built host core in a temporary profile with synthetic auth and external traffic directed to a closed local proxy; it checks two real settings restarts, the stable protocol, SSE drain, failure-page navigation and core shutdown. Use the `.exe` path on Windows. Real Pixiv OAuth, signed-package keychain behavior, window chrome and Windows console visibility still require manual native validation. The root `make desktop-dev` convenience target currently uses `npm install`; the manual sequence above uses the lockfile strictly.
 
 In dev the shell looks for the core at `../bin/pixivbiu` (override with `PIXIVBIU_CORE_BIN`). The shell owns OS placement and passes it to the (portable) core via env, so data lands in OS-appropriate dirs, not the repo:
 
@@ -97,9 +99,19 @@ In dev the shell looks for the core at `../bin/pixivbiu` (override with `PIXIVBI
 | logs (rotating) | OS logs dir (`app.getPath('logs')/pixivbiu.log`) | `PIXIVBIU_LOG_FILE` |
 | downloads | `~/Downloads/PixivBiu` (first-run seed) | `download.output_dir` |
 
-The download default is seeded only when the settings file is absent and stays editable in Settings (`core-process.ts::seedFirstRunDefaults`). If the Downloads directory cannot be resolved or seeding fails, the core uses its normal default. Logs go to the configured rotating file; the startup banner still goes to stderr.
+The download default is seeded only when the settings file is absent and stays editable in Settings (`core-process.ts::seedFirstRunDefaults`). If the Downloads directory cannot be resolved or seeding fails, the core uses its normal default. Business logs go to the configured rotating file. Managed mode suppresses the portable startup banner (which includes account/proxy details); the handshake goes to stdout, while early failures and panic output are captured from stderr into a bounded local diagnostic snapshot.
 
-On quit, the shell terminates the core process tree on Windows; on other systems it requests termination and escalates if necessary. This is separate from a core-initiated configuration restart. The download index supports recovery after an interrupted process, not partial-byte resume.
+### Managed lifecycle protocol
+
+The shell passes `-desktop-managed=1`; a compatible core emits `pixivbiu-desktop/1` as its first stdout line, followed by `pixivbiu-desktop/1 ready` only after binding its listener. Health polling starts after both messages, so a competing listener cannot satisfy startup readiness. This is an internal capability marker, not a secret or authentication mechanism. Both the runtime handshake and packaging's embedded-marker check must pass. Old cores are refused rather than silently reverting to unsupervised Windows re-exec. No additional HTTP endpoints or renderer bridge methods are introduced. Portable CLI/Docker executions omit this argument and keep their existing lifecycle.
+
+All core launches use `windowsHide: true`, direct executable invocation (`shell: false`, `detached: false`) and pipes for all standard streams. The main process continually drains stdout/stderr; `core-startup.log` keeps at most the last 64 KiB for the current shell run, coalesced into atomic snapshots at most once per 250 ms during normal output. A failed log write retains the memory tail and does not block pipe consumption. The core's existing rotating `pixivbiu.log` remains the business-log destination. Diagnostics are local, may contain private error details, and must be redacted before sharing.
+
+Stdin is a private parent-lifetime pipe. `stop\n`, EOF or a read error requests normal shutdown: SSE closes, HTTP drains and workers persist/clean up state. The shell waits up to 10 seconds, then uses hidden `System32/taskkill.exe /PID <pid> /T /F` on Windows (with error/exit handling and a direct-kill fallback), or SIGKILL elsewhere, with bounded termination waits. Windows/Linux keep the main window until cleanup completes; macOS window dismissal still keeps the core running. A failed termination keeps the app open and allows another close attempt. Quit cancels pending readiness, forbids new launches and waits for the current child; a failed attempt is cleaned up before retry. Parent death closes the pipe so the core also shuts down when no Electron quit handler can run. Forced OS termination cannot guarantee graceful state persistence; durable download recovery remains the fallback, not partial-byte resume.
+
+For settings restart, the managed core drains and completes worker cleanup, then exits with code 75 instead of creating its own successor. The shell clears the old port and starts a new managed child, keeping the SPA mounted so REST/SSE reconnect through the same `pixivbiu://core` origin. Only a healthy managed child exiting with this code requests restart; ordinary crashes require an explicit retry. Code 76 identifies a startup port conflict. Stopping the application takes precedence over a simultaneous restart.
+
+The same shutdown barrier runs before explicit updater installation: electron-updater can launch the Windows installer before Electron's `before-quit`. If installer startup fails, the shell resumes the core. Normal quit still supports the updater's install-on-quit path after child cleanup. Failure-page actions are intercepted in the main process only from the exact current failure document and only for fixed retry/log destinations; they do not grant data documents access to privileged IPC.
 
 ### Troubleshooting
 
@@ -118,7 +130,7 @@ Before sharing logs, remove account/proxy details. Do not attach auth state file
 
 Desktop builds require **macOS 13 or later**, Windows 10 or later, or a current x64 Linux distribution. Electron’s cookie-encryption fuse remains enabled in packaged apps; application and OAuth sessions are in memory and do not use disk Cookie encryption. See Sessions and UI preferences above.
 
-The desktop app is its **own** release train (`desktop-v*` tag), decoupled from the core `v*` train. CI (`.github/workflows/desktop.yml`) does not rebuild the core — it downloads the core release pinned in [`.core-version`](.core-version) and bundles that exact binary. Bump `.core-version` (+ cut a new `desktop-v*` tag) to ship a newer core to desktop users. Full flow + secrets in [../docs/RELEASE.md](../docs/RELEASE.md#desktop-release-train).
+The desktop app is its **own** release train (`desktop-v*` tag), decoupled from the core `v*` train. CI (`.github/workflows/desktop.yml`) does not rebuild the core — it downloads the core release pinned in [`.core-version`](.core-version) and bundles that exact binary. Bump `.core-version` (+ cut a new `desktop-v*` tag) to ship a newer core to desktop users. This shell requires lifecycle protocol v1: release a core containing `cmd/server/desktop.go` and update the pin before the next desktop release. Pins predating this protocol are rejected by the package audit; use a published compatible release. Full flow + secrets in [../docs/RELEASE.md](../docs/RELEASE.md#desktop-release-train).
 
 Published installers are explicitly platform-tagged and versioned:
 
@@ -154,7 +166,7 @@ The app ships Electron resources for English, Simplified Chinese, Traditional Ch
 
 Shell builds clear previous `dist` output first. ASAR contains compiled shell JavaScript, package metadata and automatically collected production dependencies, with source maps/TypeScript excluded and dependency license notices retained. The matching core is bundled once through `extraResources`. Keep Chromium binaries, GPU fallbacks, ICU, runtime licenses and normal compression. Most package bytes belong to Electron; ASAR is a container, not an additional compression layer.
 
-Packaging hooks check locales, application/preload entries, declared production dependency entries, runtime licenses and the core's platform/architecture before signing. They also compare the bundled core with the staged bytes at that point; signing can legitimately change the executable afterwards. After artifacts finish, the hooks recheck the final app and write `<output>/size-reports/<platform>-<arch>.json` plus `summary.md`, including Desktop/Electron versions, core hashes, pin and artifact sizes. `coreReleaseVersion` is supplied by CI's `CORE_VERSION`; local builds without it are explicitly unverified, even when a pin exists. `--dir` builds report an empty artifact list. Reports stay in Actions artifacts and the job summary, not the release/update feed; an audit failure blocks publication of the draft.
+Packaging hooks check locales, application/preload entries, declared production dependency entries, runtime licenses and the core's platform/architecture and managed-protocol marker before signing. They also compare the bundled core with the staged bytes at that point; signing can legitimately change the executable afterwards. After artifacts finish, the hooks recheck the final app and write `<output>/size-reports/<platform>-<arch>.json` plus `summary.md`, including Desktop/Electron versions, core hashes, pin and artifact sizes. `coreReleaseVersion` is supplied by CI's `CORE_VERSION`; local builds without it are explicitly unverified, even when a pin exists. `--dir` builds report an empty artifact list. Reports stay in Actions artifacts and the job summary, not the release/update feed; an audit failure blocks publication of the draft.
 
 Size reports use bytes and MiB (1 MiB = 1,048,576 bytes). Expanded size sums regular file lengths without following framework symlinks; it is not filesystem allocation or a sum of every installer format. Compare builds with identical Electron/core/lockfiles, architecture, target formats and signing settings. Structural checks prevent leaked payload and missing files; there is no arbitrary total-size cap. `npm run check` also runs build-cleanup and package-audit regression tests. On packaging changes, verify native startup in all four languages and an unsupported system language, OAuth/captcha, image loading, downloads/SSE, quit, and an older installation's update path. Validate macOS signatures/notarization separately; cross-packaging cannot prove native behavior.
 

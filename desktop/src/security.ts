@@ -128,7 +128,22 @@ export function failurePage(detail: string): string {
         "<meta name=\"referrer\" content=\"no-referrer\"></head>" +
         `<body style="margin:0;font:14px/1.6 system-ui,sans-serif;padding:3rem;background:#0b0b0c;color:#e7e7ea">` +
         `<h2 style="font-weight:500">PixivBiu couldn't start its core service.</h2>` +
-        `<p style="color:#a0a0a8">Try relaunching the app. If this persists, please report it.</p>` +
-        `<pre style="white-space:pre-wrap;color:#8a8a92;margin-top:1.5rem">${escapeHTML(detail)}</pre></body></html>`;
+        `<p style="color:#a0a0a8">${escapeHTML(detail)}</p>` +
+        `<p><a href="pixivbiu://desktop/retry" style="color:#c4b5fd;margin-right:24px">Try again</a>` +
+        `<a href="pixivbiu://desktop/logs" style="color:#c4b5fd">Open logs folder</a></p></body></html>`;
     return `data:text/html;charset=utf-8,${encodeURIComponent(body)}`;
+}
+
+export function startingPage(): string {
+    const html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${APP_CONTENT_SECURITY_POLICY}"></head><body style="margin:0;font:14px/1.6 system-ui,sans-serif;padding:3rem;background:#0b0b0c;color:#e7e7ea"><h2>PixivBiu</h2><p>Opening PixivBiu…</p></body></html>`;
+    return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+}
+
+// Data documents get no broader bridge privileges. Actions are main-process
+// navigation intercepts, accepted only from the exact failure document.
+export function desktopFailureAction(source: string, failureURL: string | null, target: string): "retry" | "logs" | null {
+    if (!failureURL || source !== failureURL) return null;
+    if (target === "pixivbiu://desktop/retry") return "retry";
+    if (target === "pixivbiu://desktop/logs") return "logs";
+    return null;
 }

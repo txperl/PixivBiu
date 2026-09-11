@@ -1,31 +1,11 @@
-import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
-import net from "node:net";
 import path from "node:path";
 import { app } from "electron";
+import { CoreSupervisor, type CoreState, type CoreFailure } from "./core-supervisor";
+import { CoreDiagnostics } from "./core-diagnostics";
 
-// The PixivBiu core is the existing single Go binary. The desktop shell runs it
-// as a child ("sidecar"): it serves the embedded SPA + REST API on a loopback
-// port, and the pixivbiu:// protocol handler (core-protocol.ts) proxies the
-// window to it. Keeping the core untouched is the whole point — every knob we
-// set here is a pre-existing flag/env var. The core never computes OS paths
-// itself (it stays portable); the shell owns OS placement and passes it in.
-
-// No loopback URL in the handle on purpose: the port changes every launch and
-// web storage is keyed by origin including the port, so the renderer must only
-// ever load CORE_BASE_URL — the protocol handler dereferences `port` per
-// request (a future respawn on a new port is picked up automatically).
-export type CoreHandle = {
-    child: ChildProcess;
-    port: number;
-};
-
-// How long to wait for the core to bind + answer /health before giving up on
-// one spawn attempt. Boot is normally well under a second on localhost.
-const HEALTH_TIMEOUT_MS = 20_000;
-// A fresh free port is picked per attempt, so a lost bind race just retries.
-const SPAWN_ATTEMPTS = 3;
-
+// The shell owns OS paths; the same portable core opts into a private,
+// versioned lifecycle protocol when launched as a desktop sidecar.
 function coreBinaryName(): string {
     return process.platform === "win32" ? "pixivbiu.exe" : "pixivbiu";
 }
@@ -39,30 +19,6 @@ function coreBinaryPath(): string {
         return path.join(process.resourcesPath, name);
     }
     return process.env.PIXIVBIU_CORE_BIN || path.join(__dirname, "..", "..", "bin", name);
-}
-
-// findFreePort asks the OS for an ephemeral port and immediately releases it.
-// There is a small TOCTOU window before the core binds it; startCore guards
-// that by retrying with a new port if the child exits before becoming healthy.
-function findFreePort(): Promise<number> {
-    return new Promise((resolve, reject) => {
-        const srv = net.createServer();
-        srv.unref();
-        srv.once("error", reject);
-        srv.listen(0, "127.0.0.1", () => {
-            const addr = srv.address();
-            if (addr && typeof addr === "object") {
-                const { port } = addr;
-                srv.close(() => resolve(port));
-            } else {
-                srv.close(() => reject(new Error("could not determine a free port")));
-            }
-        });
-    });
-}
-
-function delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // seedFirstRunDefaults gives desktop users a sensible default download folder.
@@ -113,125 +69,21 @@ function osCacheDir(): string {
     return path.join(process.env.XDG_CACHE_HOME || path.join(app.getPath("home"), ".cache"), name);
 }
 
-// waitForHealth polls the core's /health endpoint until it answers 200, the
-// deadline passes, or the child process exits (signalled via `aborted`).
-async function waitForHealth(port: number, aborted: () => boolean): Promise<void> {
-    const url = `http://127.0.0.1:${port}/api/v1/health`;
-    const deadline = Date.now() + HEALTH_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-        if (aborted()) throw new Error("core process exited before becoming ready");
-        try {
-            const res = await fetch(url, { signal: AbortSignal.timeout(1_000) });
-            if (res.ok) return;
-        } catch {
-            // Not listening yet — keep polling until the deadline.
-        }
-        await delay(150);
-    }
-    throw new Error("core did not become healthy in time");
-}
-
-export async function startCore(): Promise<CoreHandle> {
+export function createCore(onState: (state: CoreState, failure?: CoreFailure) => void): CoreSupervisor {
     seedFirstRunDefaults();
-    const bin = coreBinaryPath();
-    // OS-derived paths are loop-invariant — compute them once, not per retry.
-    const dataDir = app.getPath("userData");
-    const cacheDir = osCacheDir();
-    const logFile = path.join(app.getPath("logs"), "pixivbiu.log");
-    let lastErr: unknown;
-
-    for (let attempt = 0; attempt < SPAWN_ATTEMPTS; attempt++) {
-        const port = await findFreePort();
-        const child = spawn(bin, [], {
-            env: {
-                ...process.env,
-                // Relocate runtime state (settings, auth state, download index,
-                // default downloads) outside the read-only app bundle.
-                PIXIVBIU_DATA_DIR: dataDir,
-                // Carve the purgeable image cache out of the app-data dir into
-                // the OS cache dir, so a large regenerable cache isn't backed up
-                // (macOS Time Machine) or roamed (Windows %APPDATA%).
-                PIXIVBIU_CACHE_DIR: cacheDir,
-                // A packaged app has no visible stdout; tee the core's slog to a
-                // rotating file in the OS logs dir so it stays diagnosable.
-                PIXIVBIU_LOG_FILE: logFile,
-                // The shell owns the window — never auto-open the OS browser.
-                PIXIVBIU_APP_OPEN_BROWSER: "false",
-                // Pin to loopback (don't inherit an ambient PIXIVBIU_SERVER_HOST):
-                // the window + health poll use 127.0.0.1, and a `0.0.0.0` bind
-                // would expose the authenticated API to the LAN.
-                PIXIVBIU_SERVER_HOST: "127.0.0.1",
-                // Deterministic port: we picked it, so disable the walk-forward
-                // fallback and poll the exact port for readiness.
-                PIXIVBIU_SERVER_PORT: String(port),
-                PIXIVBIU_SERVER_PORT_FALLBACK: "false",
-                // electron-updater owns updates in desktop builds; silence the
-                // core's own update loop.
-                PIXIVBIU_APP_UPDATE_ENABLED: "false",
-            },
-            // Forward the core's stdout/stderr (slog + boot banner) to ours so
-            // they show up in the terminal / Console for diagnostics.
-            stdio: ["ignore", "inherit", "inherit"],
-        });
-
-        let exited = false;
-        const onExit = () => {
-            exited = true;
-        };
-        child.once("exit", onExit);
-        child.once("error", onExit);
-
-        try {
-            await waitForHealth(port, () => exited);
-            return { child, port };
-        } catch (err) {
-            lastErr = err;
-            try {
-                child.kill();
-            } catch {
-                // Already gone.
-            }
-            // Loop: pick a new port and try again (covers the rare bind race).
-        } finally {
-            // The readiness listeners have done their job either way; main.ts
-            // owns the child's lifecycle from here.
-            child.removeListener("exit", onExit);
-            child.removeListener("error", onExit);
-        }
-    }
-
-    throw lastErr ?? new Error("failed to start the PixivBiu core");
-}
-
-// stopCore terminates the sidecar. On Windows SIGTERM is not honored, so kill
-// the whole process tree; elsewhere ask politely, then escalate.
-export function stopCore(handle: CoreHandle): void {
-    const { child } = handle;
-    if (child.exitCode !== null || child.signalCode !== null) return;
-
-    if (process.platform === "win32") {
-        const pid = child.pid;
-        if (pid !== undefined) {
-            try {
-                spawn("taskkill", ["/pid", String(pid), "/T", "/F"]);
-                return;
-            } catch {
-                // Fall through to child.kill().
-            }
-        }
-        child.kill();
-        return;
-    }
-
-    child.kill("SIGTERM");
-    // Escalate to SIGKILL only if it's still alive after a grace period. unref()
-    // + clear-on-exit so this timer never keeps the app alive during a clean quit
-    // where the child already exited on SIGTERM.
-    const killTimer = setTimeout(() => {
-        if (child.exitCode === null && child.signalCode === null) {
-            child.kill("SIGKILL");
-        }
-    }, 3_000);
-    killTimer.unref();
-    child.once("exit", () => clearTimeout(killTimer));
+    return new CoreSupervisor({
+        binary: coreBinaryPath(),
+        diagnostics: new CoreDiagnostics(path.join(app.getPath("logs"), "core-startup.log")),
+        onState,
+        env: {
+            ...process.env,
+            PIXIVBIU_DATA_DIR: app.getPath("userData"),
+            PIXIVBIU_CACHE_DIR: osCacheDir(),
+            PIXIVBIU_LOG_FILE: path.join(app.getPath("logs"), "pixivbiu.log"),
+            PIXIVBIU_APP_OPEN_BROWSER: "false",
+            PIXIVBIU_SERVER_HOST: "127.0.0.1",
+            PIXIVBIU_SERVER_PORT_FALLBACK: "false",
+            PIXIVBIU_APP_UPDATE_ENABLED: "false",
+        },
+    });
 }

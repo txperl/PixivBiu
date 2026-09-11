@@ -46,7 +46,13 @@ func (a *app) serve(ctx context.Context) (bool, error) {
 			slog.Int("configured", a.cfg.Server.Port), slog.Int("actual", actual))
 	}
 
-	printBanner(a.cfg, a.svc, ln, a.cfgMgr.StorePath(), a.stateFile, a.storeFile)
+	if !a.desktopManaged {
+		printBanner(a.cfg, a.svc, ln, a.cfgMgr.StorePath(), a.stateFile, a.storeFile)
+	} else {
+		// The shell must not mistake a competing listener's health response for
+		// ours. Announce ownership only after this process successfully binds.
+		fmt.Fprintln(os.Stdout, desktopReadyMarker)
+	}
 
 	if a.openBrowser {
 		// Best-effort: a failed launch must never block or fail boot. Open

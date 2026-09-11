@@ -31,8 +31,9 @@
         "start": "npm run build && electron .",
         "dist": "npm run build && electron-builder",
         "dist:dir": "npm run build && electron-builder --dir",
-        "test": "node --test ../scripts/desktop-release.test.mjs ../scripts/desktop-security.test.mjs ../scripts/desktop-sessions.test.mjs ../scripts/build-output.test.mjs ../scripts/desktop-package.test.mjs",
-        "test:native": "npm run build && electron ../scripts/desktop-session-smoke.cjs",
+        "test": "node --test ../scripts/desktop-release.test.mjs ../scripts/desktop-security.test.mjs ../scripts/desktop-sessions.test.mjs ../scripts/desktop-core.test.mjs ../scripts/build-output.test.mjs ../scripts/desktop-package.test.mjs",
+        "test:native-core": "npm run build && electron ../scripts/desktop-core-smoke.cjs",
+    "test:native": "npm run build && electron ../scripts/desktop-session-smoke.cjs",
         "typecheck": "tsc -p tsconfig.json --noEmit"
     },
     "dependencies": {

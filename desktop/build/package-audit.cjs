@@ -39,6 +39,8 @@ function regularFile(file) {
 function verifyBinary(file, platform, arch) {
     regularFile(file);
     const data = fs.readFileSync(file);
+    assert.ok(data.includes(Buffer.from("pixivbiu-desktop/1")),
+        "Core lacks desktop lifecycle protocol v1: release the updated core and bump desktop/.core-version before packaging");
     if (platform === "darwin") {
         assert.equal(data.readUInt32LE(0), 0xfeedfacf, "Core must be a thin 64-bit Mach-O");
         assert.equal(data.readUInt32LE(4), arch === "arm64" ? 0x0100000c : 0x01000007, "Core CPU mismatch");

@@ -28,6 +28,7 @@ function fixture(t, platform = "linux") {
   for (const name of ["icon.png", "icon.ico", "app-update.yml"]) write(path.join(resources, name));
   for (const name of ["LICENSE.electron.txt", "LICENSES.chromium.html"]) write(path.join(platform === "darwin" ? resources : appRoot, name));
   const core = Buffer.alloc(128);
+  core.write("pixivbiu-desktop/1", 96);
   if (platform === "darwin") { core.writeUInt32LE(0xfeedfacf); core.writeUInt32LE(0x01000007, 4); }
   else if (platform === "win32") { core.write("MZ"); core.writeUInt32LE(64, 0x3c); core.write("PE\0\0", 64); core.writeUInt16LE(0x8664, 68); }
   else { Buffer.from("7f454c460201", "hex").copy(core); core.writeUInt16LE(62, 18); }
@@ -57,6 +58,14 @@ test("package audit accepts the platform layouts and rejects a mismatched core",
     f.write(path.join(f.layout.resources, "nested", path.basename(f.corePath)));
     assert.throws(() => verifyPackage(f.layout), /exactly one core/);
   }
+});
+
+test("package audit refuses a core predating the managed lifecycle protocol", t => {
+  const f = fixture(t);
+  const data = fs.readFileSync(f.corePath);
+  data.fill(0, 96);
+  fs.writeFileSync(f.corePath, data);
+  assert.throws(() => verifyBinary(f.corePath, "linux", "x64"), /lacks desktop lifecycle protocol/);
 });
 
 test("locale audit covers platform names, variants, missing fallback and empty packs", t => {
