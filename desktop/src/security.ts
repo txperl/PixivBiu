@@ -2,7 +2,9 @@
 // Keep this module free of Electron imports so its decisions can be exercised
 // directly by Node's test runner.
 
+import { createHash } from "node:crypto";
 import { shellPageChrome } from "./window-chrome";
+import { STARTUP_SCRIPT, startupScreen } from "./startup-screen";
 
 export const CORE_SCHEME = "pixivbiu";
 export const CORE_ORIGIN = `${CORE_SCHEME}://core`;
@@ -137,7 +139,11 @@ export function failurePage(detail: string): string {
 }
 
 export function startingPage(): string {
-    const html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${APP_CONTENT_SECURITY_POLICY}">${shellPageChrome()}</head><body><div class="window-titlebar" aria-hidden="true"><span>PixivBiu</span></div><main><h2>PixivBiu</h2><p>Opening PixivBiu…</p></main></body></html>`;
+    // Authorize only the fixed reveal script, without enabling arbitrary inline
+    // scripts or changing the SPA/failure document's shared policy.
+    const scriptHash = createHash("sha256").update(STARTUP_SCRIPT).digest("base64");
+    const policy = APP_CONTENT_SECURITY_POLICY.replace("script-src 'self'", `script-src 'self' 'sha256-${scriptHash}'`);
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${policy}"><title>PixivBiu</title>${shellPageChrome({ nativeBackdrop: true })}</head><body><div class="window-titlebar" aria-hidden="true"></div>${startupScreen()}</body></html>`;
     return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
 }
 

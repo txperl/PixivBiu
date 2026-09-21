@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import test from "node:test";
 
@@ -9,6 +10,7 @@ const {
   escapeHTML,
   extractPixivOAuthCode,
   failurePage,
+  startingPage,
   desktopFailureAction,
   isAllowedExternalURL,
   isPixivOAuthCallbackURL,
@@ -133,4 +135,18 @@ test("failure actions require the exact shell document and allow only fixed dest
     assert.equal(desktopFailureAction(failure, failure, target), null);
   }
   assert.equal(desktopFailureAction(failure, null, "pixivbiu://desktop/retry"), null);
+});
+
+test("startup CSP authorizes only its fixed reveal script without changing other documents", () => {
+  const raw = startingPage();
+  const html = decodeURIComponent(raw.slice(raw.indexOf(",") + 1));
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+  assert.equal(scripts.length, 1);
+  const hash = createHash("sha256").update(scripts[0][1]).digest("base64");
+  const policy = html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
+  assert.equal(policy, APP_CONTENT_SECURITY_POLICY.replace("script-src 'self'", `script-src 'self' 'sha256-${hash}'`));
+  assert.doesNotMatch(APP_CONTENT_SECURITY_POLICY, /sha256-/);
+  const failure = decodeURIComponent(failurePage("Start failed"));
+  assert.ok(failure.includes(`content="${APP_CONTENT_SECURITY_POLICY}"`));
+  assert.doesNotMatch(failure, /<script>/);
 });

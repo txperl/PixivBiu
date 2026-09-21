@@ -17,6 +17,8 @@ The scheme enables fetch and streaming. The response body is wrapped so consumer
 
 The core starts on a selected loopback port with fallback disabled. Startup retries only a confirmed port conflict (three attempts maximum), requires the managed protocol handshake and bound-port acknowledgement, and polls health for up to 20 seconds per attempt. A single-instance lock prevents another shell from spawning a second core against the same data directory. The window appears with a startup page while readiness is pending. Startup failures and unexpected runtime exits show an authored failure page with retry and log-folder actions; raw child diagnostics never become page content. There is no general automatic crash-restart watchdog.
 
+The startup page initially shows a centered 4×4 matrix of square dots, pulsing diagonally from top-left to bottom-right. It uses the transitions-dev Matrix dot loader and Texts reveal patterns: after three seconds, `Opening PixivBiu…` rises 12px into place while fading in and clearing a 3px blur over 500ms, without moving the loader. The startup document leaves both the root and body transparent on macOS and Mica-capable Windows, exposing the same native backdrop configured for the sidebar; its dots and status follow the system light/dark appearance before the SPA loads. Linux and older Windows retain the solid surface fallback, and forced-colors mode uses the system Canvas background. Failure pages retain their solid background. Browser previews cannot reproduce the native material. The status is available to assistive technology from the start. Reduced-motion and forced-colors modes keep the dots static and reveal the text after the same delay without a transition. The page requires no core, external assets or new IPC; its small, fixed reveal script is authorized by a SHA-256 hash in the startup document's CSP, while arbitrary inline scripts remain blocked. Core readiness navigates directly to the SPA with no minimum splash duration or animation-completion gate. Failure/retry behavior and the native title-bar/fullscreen reservation remain owned by the existing lifecycle and chrome helpers.
+
 Security decisions live in [security.ts](src/security.ts) and their callers:
 
 - Main and OAuth renderers are sandboxed, with context isolation and Node integration disabled. The main renderer receives only the typed preload bridge.
@@ -49,6 +51,7 @@ This internal-test transition does not import or delete old Chromium profiles or
 | `src/core-protocol.ts` | Stable renderer origin, HTTP forwarding, streamed response cancellation |
 | `src/security.ts` | Shared URL, CSP, OAuth, and IPC sender policies |
 | `src/window-chrome.ts` | Platform title bars/backdrops, fullscreen notifications and startup-page chrome |
+| `src/startup-screen.ts` | Self-contained, accessible pre-core loading presentation |
 | `src/preferences.ts` | Versioned, bounded and atomic persistence of non-credential UI preferences |
 | `src/window-state.ts` | Persist/restore window bounds (`userData/window-state.json`) |
 | `src/menu.ts` | Application menu (standard macOS roles; none in packaged win/linux) |

@@ -101,13 +101,31 @@ export function chromeArgs(): string[] {
 
 // Startup/failure documents load before the SPA. Give them the same reserved
 // strip without granting these data documents access to core-origin IPC.
-export function shellPageChrome(): string {
+export function shellPageChrome({ nativeBackdrop = false }: { nativeBackdrop?: boolean } = {}): string {
     const height = process.platform === "win32" ? WCO_HEIGHT : process.platform === "darwin" ? 44 : 0;
+    const frost = nativeBackdrop && frostCapable();
     return `<style>
-        :root { --chrome-height: ${height}px; }
+        :root {
+            --chrome-height: ${height}px;
+            --shell-page-background: ${frost ? "transparent" : SOLID_BG};
+            --shell-page-muted: #625d68;
+            --shell-page-matrix-base: #c4becf;
+            --shell-page-accent: #65558f;
+            background: transparent;
+        }
+        ${frost ? `@media (prefers-color-scheme: dark) {
+            :root {
+                --shell-page-muted: #e6e1e9;
+                --shell-page-matrix-base: #696270;
+                --shell-page-accent: #d0bcff;
+            }
+        }` : ""}
+        @media (forced-colors: active) {
+            :root { --shell-page-background: Canvas; }
+        }
         ${process.platform === "win32" ? `:root { --chrome-height: max(${WCO_HEIGHT}px, calc(env(titlebar-area-y, 0px) + env(titlebar-area-height, ${WCO_HEIGHT}px))); }` : ""}
         :root[data-window-fullscreen] { --chrome-height: 0px; }
-        body { margin: 0; font: 14px/1.6 system-ui,sans-serif; background: ${SOLID_BG}; color: ${WCO_SYMBOL}; }
+        body { margin: 0; font: 14px/1.6 system-ui,sans-serif; background: var(--shell-page-background); color: ${WCO_SYMBOL}; }
         .window-titlebar { height: var(--chrome-height); overflow: hidden; app-region: drag; -webkit-app-region: drag; user-select: none; }
         .window-titlebar span { display: block; box-sizing: border-box; margin-left: env(titlebar-area-x, 0px); width: env(titlebar-area-width, 0px); padding: 0 16px; overflow: hidden; white-space: nowrap; font-size: 12px; line-height: var(--chrome-height); opacity: .6; }
         main { padding: 3rem; }

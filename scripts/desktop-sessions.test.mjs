@@ -270,6 +270,8 @@ test('window chrome preserves native Linux frames and Windows caption controls a
         const options = chromeOptions();
         assert.equal(chromeArgs().includes('--pixivbiu-frost'), frost);
         assert.equal(chromeArgs().includes('--pixivbiu-frameless'), platform !== 'linux');
+        assert.ok(shellPageChrome({ nativeBackdrop: true }).includes(`--shell-page-background: ${frost ? 'transparent' : '#fdf7ff'}`));
+        assert.match(shellPageChrome(), /--shell-page-background: #fdf7ff/);
         if (platform === 'linux') {
             assert.equal(options.titleBarStyle, undefined);
             assert.equal(options.titleBarOverlay, undefined);
