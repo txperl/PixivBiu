@@ -1,11 +1,9 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { SEARCH_PARAM_KEYS } from "@/features/search/api";
 import { useMessages } from "@/i18n";
-import { FilterIcon, GridIcon, SearchIcon } from "@/lib/icons";
+import { SearchIcon } from "@/lib/icons";
 
 type SearchBarProps = {
     defaultValue?: string;
@@ -72,41 +70,6 @@ function SearchBar({ defaultValue = "", autoFocus = false }: SearchBarProps) {
                 />
                 {/*<kbd className="rounded-md bg-card px-2 py-[3px] font-mono text-[11px] text-muted-foreground">⌘K</kbd>*/}
             </div>
-
-            <div className="flex-1" />
-
-            <Tooltip>
-                <TooltipTrigger
-                    render={
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            aria-label={m.search_bar_filter()}
-                            className="size-10 rounded-full"
-                        >
-                            <HugeiconsIcon icon={FilterIcon} size={18} strokeWidth={1.5} />
-                        </Button>
-                    }
-                />
-                <TooltipContent>{m.search_bar_filter()}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-                <TooltipTrigger
-                    render={
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            aria-label={m.search_bar_layout()}
-                            className="size-10 rounded-full"
-                        >
-                            <HugeiconsIcon icon={GridIcon} size={18} strokeWidth={1.5} />
-                        </Button>
-                    }
-                />
-                <TooltipContent>{m.search_bar_layout()}</TooltipContent>
-            </Tooltip>
         </form>
     );
 }

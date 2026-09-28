@@ -22,7 +22,6 @@ export {
     FilterIcon,
     FireIcon,
     Folder01Icon as FolderIcon,
-    GridViewIcon as GridIcon,
     Home09Icon as HomeIcon,
     Image01Icon as ImageIcon,
     Layers01Icon as PagesIcon,
