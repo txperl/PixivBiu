@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import ListLoadingOverlay from "@/components/list-loading-overlay";
+import PageBeyondEnd from "@/components/page-beyond-end";
+import Pager from "@/components/pager";
 import { useFilterPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
 import { FilteredEmpty, useFilteredIllusts } from "@/features/filter";
@@ -20,9 +22,10 @@ import {
 import RankingDatePicker from "@/features/ranking/components/ranking-date-picker";
 import RankingFilters from "@/features/ranking/components/ranking-filters";
 import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/illust-grid";
-import SearchPager from "@/features/search/components/search-pager";
 import { SearchError } from "@/features/search/components/search-states";
 import { useMessages } from "@/i18n";
+import { pageOutcome, pagerStateOf } from "@/lib/pagination";
+import { usePageFrontier, useRecordPage } from "@/lib/query/page-frontier";
 import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
 
@@ -66,6 +69,16 @@ function RankingPage() {
     const { data, isPending, isError, error, isPlaceholderData } = useQuery(
         rankingQueryOptions({ mode, date, offset }),
     );
+
+    const queryClient = useQueryClient();
+    const { frontier, record } = usePageFrontier(["ranking", { mode, date }]);
+    const observed =
+        data && !isPlaceholderData
+            ? { page, outcome: pageOutcome(data.next_offset != null, data.illusts.length) }
+            : undefined;
+    useRecordPage(record, observed);
+    const pagerState = pagerStateOf(frontier, page, observed);
+    const beyondEnd = page > 1 && observed?.outcome === "empty";
 
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
 
@@ -117,6 +130,13 @@ function RankingPage() {
         scrollAppToTop();
     };
 
+    const onPageIntent = (p: number) => {
+        queryClient
+            .fetchQuery(rankingQueryOptions({ mode, date, offset: (p - 1) * RANKING_PAGE_SIZE }))
+            .then((d) => record({ page: p, outcome: pageOutcome(d.next_offset != null, d.illusts.length) }))
+            .catch(() => {});
+    };
+
     return (
         <div className="relative flex flex-col gap-4 px-7 pt-7 pb-7">
             <header className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
@@ -136,6 +156,8 @@ function RankingPage() {
                     <IllustGridSkeleton />
                 ) : isError ? (
                     <SearchError error={error} />
+                ) : beyondEnd ? (
+                    <PageBeyondEnd target={pagerState.knownMax} onJump={onJumpPage} />
                 ) : data.illusts.length === 0 ? (
                     <RankingEmpty date={date} />
                 ) : filtered.length === 0 ? (
@@ -145,8 +167,8 @@ function RankingPage() {
                 )}
             </ListLoadingOverlay>
 
-            {!isPending && !isError && data.illusts.length > 0 && (
-                <SearchPager currentPage={page} hasNext={data.next_offset != null} onJump={onJumpPage} />
+            {!isPending && !isError && (data.illusts.length > 0 || beyondEnd) && (
+                <Pager state={pagerState} onJump={onJumpPage} onIntent={onPageIntent} />
             )}
         </div>
     );

@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import ListLoadingOverlay from "@/components/list-loading-overlay";
+import PageBeyondEnd from "@/components/page-beyond-end";
+import Pager from "@/components/pager";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFilterPanel } from "@/features/activity-bar";
 import { useIllustSelection } from "@/features/downloads";
@@ -22,7 +24,6 @@ import {
     searchUsersQueryOptions,
 } from "@/features/search/api";
 import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/illust-grid";
-import SearchPager from "@/features/search/components/search-pager";
 import {
     SearchIllustSpecialFilters,
     SearchUserSpecialFilters,
@@ -32,6 +33,8 @@ import UserList, { UserListSkeleton } from "@/features/search/components/user-li
 import { useRankedPageSize } from "@/features/search/hooks/use-ranked-page-size";
 import { useSearchHistory } from "@/features/search/hooks/use-search-history";
 import { useMessages } from "@/i18n";
+import { type PageObservation, pageOutcome, pagerStateOf } from "@/lib/pagination";
+import { usePageFrontier, useRecordPage } from "@/lib/query/page-frontier";
 import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
 
@@ -115,28 +118,52 @@ function SearchResults({ keyword }: SearchResultsProps) {
     // returns the next window's offset); a normal sort uses the plain page size.
     const ranked = type === "illust" && isRankedSearchSort(sort);
     const rankedPageSize = useRankedPageSize(ranked);
-    const offset = (page - 1) * (ranked ? rankedPageSize : SEARCH_PAGE_SIZE);
+    const pageSize = ranked ? rankedPageSize : SEARCH_PAGE_SIZE;
+    const offsetOf = (p: number) => (p - 1) * pageSize;
+    const illustParams = {
+        word: keyword,
+        searchTarget: target,
+        sort,
+        duration,
+        startDate,
+        endDate,
+        excludeAi: excludeAi || undefined,
+    };
+    const userParams = { word: keyword, sort, duration };
     // Two queries, one per mode; only the active mode fetches (`enabled`). The factories bake
     // in keepPreviousPage, so paging keeps the prior page (no skeleton flash) while a new
     // keyword/filter shows a skeleton instead of stale results.
     const illustQuery = useQuery({
-        ...searchIllustsQueryOptions({
-            word: keyword,
-            searchTarget: target,
-            sort,
-            duration,
-            startDate,
-            endDate,
-            excludeAi: excludeAi || undefined,
-            offset,
-        }),
+        ...searchIllustsQueryOptions({ ...illustParams, offset: offsetOf(page) }),
         enabled: type === "illust",
     });
     const userQuery = useQuery({
-        ...searchUsersQueryOptions({ word: keyword, sort, duration, offset }),
+        ...searchUsersQueryOptions({ ...userParams, offset: offsetOf(page) }),
         enabled: type === "user",
     });
     const activeQuery = type === "illust" ? illustQuery : userQuery;
+
+    // The page stride is part of the list identity: a ranked window size change (settings)
+    // re-slices the results, so pages learned under the old stride no longer apply.
+    const queryClient = useQueryClient();
+    const { frontier, record } = usePageFrontier(
+        type === "illust" ? ["search-illusts", illustParams, pageSize] : ["search-users", userParams],
+    );
+    const observed: PageObservation | undefined =
+        activeQuery.data && !activeQuery.isPlaceholderData
+            ? {
+                  page,
+                  outcome: pageOutcome(
+                      activeQuery.data.next_offset != null,
+                      "illusts" in activeQuery.data
+                          ? activeQuery.data.illusts.length
+                          : activeQuery.data.user_previews.length,
+                  ),
+              }
+            : undefined;
+    useRecordPage(record, observed);
+    const pagerState = pagerStateOf(frontier, page, observed);
+    const beyondEnd = page > 1 && observed?.outcome === "empty";
 
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
     const { push: pushHistory } = useSearchHistory();
@@ -240,7 +267,21 @@ function SearchResults({ keyword }: SearchResultsProps) {
         scrollAppToTop();
     };
 
-    const hasNext = activeQuery.data?.next_offset != null;
+    // Prefetch on intent. Ranked sorts are skipped: one ranked page fans out to several
+    // upstream requests, too costly to spend on a hover.
+    const onPageIntent = (p: number) => {
+        const fetched =
+            type === "illust"
+                ? ranked
+                    ? null
+                    : queryClient
+                          .fetchQuery(searchIllustsQueryOptions({ ...illustParams, offset: offsetOf(p) }))
+                          .then((d) => pageOutcome(d.next_offset != null, d.illusts.length))
+                : queryClient
+                      .fetchQuery(searchUsersQueryOptions({ ...userParams, offset: offsetOf(p) }))
+                      .then((d) => pageOutcome(d.next_offset != null, d.user_previews.length));
+        fetched?.then((outcome) => record({ page: p, outcome })).catch(() => {});
+    };
 
     return (
         <>
@@ -269,6 +310,8 @@ function SearchResults({ keyword }: SearchResultsProps) {
                         <IllustGridSkeleton />
                     ) : illustQuery.isError ? (
                         <SearchError error={illustQuery.error} />
+                    ) : beyondEnd ? (
+                        <PageBeyondEnd target={pagerState.knownMax} onJump={onJumpPage} />
                     ) : illustQuery.data.illusts.length === 0 ? (
                         <SearchNoResults word={keyword} />
                     ) : filtered.length === 0 ? (
@@ -280,6 +323,8 @@ function SearchResults({ keyword }: SearchResultsProps) {
                     <UserListSkeleton />
                 ) : userQuery.isError ? (
                     <SearchError error={userQuery.error} />
+                ) : beyondEnd ? (
+                    <PageBeyondEnd target={pagerState.knownMax} onJump={onJumpPage} />
                 ) : userQuery.data.user_previews.length === 0 ? (
                     <SearchNoResults word={keyword} />
                 ) : (
@@ -287,7 +332,7 @@ function SearchResults({ keyword }: SearchResultsProps) {
                 )}
             </ListLoadingOverlay>
 
-            {activeQuery.isSuccess && <SearchPager currentPage={page} hasNext={hasNext} onJump={onJumpPage} />}
+            {activeQuery.isSuccess && <Pager state={pagerState} onJump={onJumpPage} onIntent={onPageIntent} />}
         </>
     );
 }

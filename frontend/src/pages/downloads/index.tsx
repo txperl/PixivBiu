@@ -1,6 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
+import Pager from "@/components/pager";
 import { Sheet } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
 import type { DownloadStatus } from "@/features/downloads";
@@ -12,7 +13,6 @@ import {
     useDownloadsPage,
 } from "@/features/downloads";
 import ConfirmPopover from "@/features/downloads/components/confirm-popover";
-import DownloadsPager from "@/features/downloads/components/downloads-pager";
 import DownloadsTable from "@/features/downloads/components/downloads-table";
 import { useMessages } from "@/i18n";
 import { DeleteIcon, RefreshIcon } from "@/lib/icons";
@@ -200,8 +200,11 @@ function DownloadsPage() {
                 )}
             </Sheet>
 
-            {!isLoading && totalPages > 1 && (
-                <DownloadsPager currentPage={currentPage} totalPages={totalPages} onJump={handleJump} />
+            {!isLoading && (
+                <Pager
+                    state={{ current: currentPage, knownMax: totalPages, lastPage: totalPages }}
+                    onJump={handleJump}
+                />
             )}
         </div>
     );

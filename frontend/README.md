@@ -54,7 +54,7 @@ Feature query-options factories own query keys and fetching. Adapt `{data, error
 
 | List type | Pattern |
 | --- | --- |
-| Numbered offset/cursor lists | Factory owns `keepPreviousPage(params, pageKeys)`; keep data only across pagination changes |
+| Numbered offset/cursor lists | Factory owns `keepPreviousPage(params, pageKeys)`; keep data only across pagination changes. Pixiv reports no totals, so the page records what each fetched page proves in `usePageFrontier` (bookmark cursor chains included) and renders the shared `Pager` from it: only confirmed pages, profile totals as a hint, prefetch on hover/focus, `PageBeyondEnd` for an empty page past the first |
 | Details | No previous-entity placeholder on identity changes |
 | Home load-more feeds | `offsetInfiniteQueryOptions` centralizes numeric offsets and next-page extraction |
 | Settings | Deliberate `FetchState` form loader plus shared config-query synchronization |
