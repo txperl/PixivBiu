@@ -33,10 +33,12 @@ import FollowButton from "@/features/users/components/follow-button";
 import UserBookmarksSpecialFilters from "@/features/users/components/user-bookmarks-special-filters";
 import { useMessages } from "@/i18n";
 import { formatCount, hueFromId } from "@/lib/format";
+import { usePageRefresh } from "@/lib/page-refresh";
 import { cursorFrontier, type PageObservation, pageOutcome, pagerStateOf } from "@/lib/pagination";
-import { usePageFrontier, useRecordPage } from "@/lib/query/page-frontier";
+import { resetNumberedList, usePageFrontier, useRecordPage } from "@/lib/query/page-frontier";
 import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
+import { useChangeEffect } from "@/lib/use-change-effect";
 import { cn } from "@/lib/utils";
 import { isBookmarkTab, isOwnerOnlyTab, isTab, readTab, TAB_ICONS, TABS, type Tab, tabToParam } from "./tabs";
 
@@ -271,9 +273,20 @@ function UserPage() {
     const restrict = tab === "bookmarks_private" ? "private" : "public";
     // One frontier per list. A bookmark chain is specific to its restrict and tag (Pixiv
     // returns different cursors for each), so both are part of its identity.
-    const { frontier, record } = usePageFrontier(
-        isBookmarkTab(tab) ? ["user-bookmarks", userId, restrict, bookmarkTag] : ["user-list", userId, tab],
-    );
+    const frontierIdentity = isBookmarkTab(tab)
+        ? ["user-bookmarks", userId, restrict, bookmarkTag]
+        : ["user-list", userId, tab];
+    const { frontier, record } = usePageFrontier(frontierIdentity);
+    // Refresh re-pulls the profile in place and the current tab's list from page 1.
+    usePageRefresh(() => {
+        const listKey = isBookmarkTab(tab)
+            ? ["user-bookmarks", { userId, restrict }]
+            : tab === "following"
+              ? ["user-following", { userId }]
+              : ["user-illusts", { userId, type: tab === "manga" ? "manga" : "illust" }];
+        void queryClient.invalidateQueries({ queryKey: userDetailQueryOptions(userId).queryKey });
+        void resetNumberedList(queryClient, listKey, frontierIdentity);
+    });
 
     // Pixiv paginates bookmarks by cursor (max_bookmark_id): a page's cursor only comes from
     // the previous page's response, so numbered pages rely on the page→cursor chain the
@@ -385,10 +398,7 @@ function UserPage() {
     const beyondEnd = page > 1 && !isWalking && observed?.outcome === "empty";
 
     // Reset selection whenever the list identity (user/tab/page/tag) changes.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on navigation, not on body deps.
-    useEffect(() => {
-        clearSelection();
-    }, [userId, tab, page, bookmarkTag, clearSelection]);
+    useChangeEffect(JSON.stringify([userId, tab, page, bookmarkTag]), clearSelection);
 
     const updateParams = (patch: Record<string, string | undefined>, resetPage = false) => {
         setSearchParams(patchParams(searchParams, patch, resetPage));

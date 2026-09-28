@@ -16,6 +16,7 @@ import ConfirmPopover from "@/features/downloads/components/confirm-popover";
 import DownloadsTable from "@/features/downloads/components/downloads-table";
 import { useMessages } from "@/i18n";
 import { DeleteIcon, RefreshIcon } from "@/lib/icons";
+import { usePageRefresh } from "@/lib/page-refresh";
 import { patchParams, readPage } from "@/lib/url-params";
 import { useDelayedFlag } from "@/lib/use-delayed-flag";
 import { cn } from "@/lib/utils";
@@ -129,6 +130,7 @@ function DownloadsPage() {
         await refetch();
         setRefreshing(false);
     };
+    usePageRefresh(() => void onRefresh());
 
     const onClear = async () => {
         if (filter === "active" || clearing) return;

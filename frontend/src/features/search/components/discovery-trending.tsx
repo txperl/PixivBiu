@@ -9,6 +9,7 @@ import {
     writeTrendingCache,
 } from "@/features/search/trending-tags";
 import { useMessages } from "@/i18n";
+import { usePageRefresh } from "@/lib/page-refresh";
 
 const TRENDING_LIMIT = 18;
 
@@ -39,6 +40,9 @@ function DiscoveryTrending() {
             cancelled = true;
         };
     }, [state.status]);
+
+    // Refresh drops the cached tags and re-derives them from today's ranking.
+    usePageRefresh(() => setState({ status: "loading" }));
 
     const go = (name: string) => {
         navigate(`/search/${encodeURIComponent(name)}`);

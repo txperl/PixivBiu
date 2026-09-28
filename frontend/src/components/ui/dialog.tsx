@@ -3,10 +3,11 @@ import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type * as React from "react";
 import { Button } from "@/components/ui/button";
+import { useCloseOnHide } from "@/lib/use-close-on-hide";
 import { cn } from "@/lib/utils";
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-    return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+function Dialog({ actionsRef, ...props }: DialogPrimitive.Root.Props) {
+    return <DialogPrimitive.Root data-slot="dialog" actionsRef={useCloseOnHide(actionsRef)} {...props} />;
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {

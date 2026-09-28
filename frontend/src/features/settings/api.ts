@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { api, type components, unwrap } from "@/lib/api";
+import { SKIP_LIST_INVALIDATION } from "@/lib/query/use-invalidate-illust-lists";
 import type { ConfigSchema } from "./types";
 
 export type ConfigView = components["schemas"]["ConfigView"];
@@ -18,7 +19,9 @@ export async function getConfig(): Promise<Result<ConfigView>> {
 // Cached read of the live config for non-settings consumers (e.g. search sizing
 // its ranked-sort windows from search.sample.pages). The settings page keeps its
 // own FetchState loader, so this is a separate, lighter cache; it may briefly lag
-// a settings PATCH until it refetches on the next mount/focus.
+// a settings PATCH until it refetches on the next mount (or return to a kept-alive
+// page) after going stale — `refetchOnMount: true` restores that time-based refresh,
+// which the client default (refetch on mount only when invalidated) would skip.
 export const CONFIG_QUERY_KEY = ["config"] as const;
 
 export function configQueryOptions() {
@@ -26,6 +29,8 @@ export function configQueryOptions() {
         queryKey: CONFIG_QUERY_KEY,
         queryFn: () => getConfig().then(unwrap),
         staleTime: 60_000,
+        refetchOnMount: true,
+        meta: SKIP_LIST_INVALIDATION,
     });
 }
 

@@ -1,11 +1,12 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import type * as React from "react";
 
+import { useCloseOnHide } from "@/lib/use-close-on-hide";
 import { cn } from "@/lib/utils";
 import { useWindowContentBoundary } from "@/lib/window-layout";
 
-function Popover({ ...props }: PopoverPrimitive.Root.Props) {
-    return <PopoverPrimitive.Root data-slot="popover" {...props} />;
+function Popover({ actionsRef, ...props }: PopoverPrimitive.Root.Props) {
+    return <PopoverPrimitive.Root data-slot="popover" actionsRef={useCloseOnHide(actionsRef)} {...props} />;
 }
 
 function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {

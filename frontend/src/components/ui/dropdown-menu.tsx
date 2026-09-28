@@ -2,11 +2,12 @@ import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { ArrowRight01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type * as React from "react";
+import { useCloseOnHide } from "@/lib/use-close-on-hide";
 import { cn } from "@/lib/utils";
 import { useWindowContentBoundary } from "@/lib/window-layout";
 
-function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
-    return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
+function DropdownMenu({ actionsRef, ...props }: MenuPrimitive.Root.Props) {
+    return <MenuPrimitive.Root data-slot="dropdown-menu" actionsRef={useCloseOnHide(actionsRef)} {...props} />;
 }
 
 function DropdownMenuPortal({ ...props }: MenuPrimitive.Portal.Props) {

@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import { api, type components, unwrap } from "@/lib/api";
 import { offsetInfiniteQueryOptions } from "@/lib/query/offset-infinite-query-options";
+import { SKIP_LIST_INVALIDATION } from "@/lib/query/use-invalidate-illust-lists";
 
 export type Restrict = components["schemas"]["Restrict"];
 export type IllustType = components["schemas"]["IllustType"];
@@ -80,11 +81,20 @@ export async function listFollowingIllusts(
 }
 
 // Infinite query factories for the home feeds (load-more UX). Both are offset-paged.
+// Recommendations are non-deterministic, so re-pulling the loaded pages reshuffles the
+// grid under the reader: the feed never refreshes on its own (no time staleness, no
+// refetch on mount/return, opted out of useInvalidateIllustLists) — only the refresh button
+// (resetQueries) or a param change loads a new one.
 export function recommendedInfiniteQueryOptions(params: ListRecommendedParams) {
-    return offsetInfiniteQueryOptions<IllustPage>({
-        queryKey: ["recommended-infinite", params],
-        fetchPage: (offset) => listRecommended({ ...params, offset }).then(unwrap),
-    });
+    return {
+        ...offsetInfiniteQueryOptions<IllustPage>({
+            queryKey: ["recommended-infinite", params],
+            fetchPage: (offset) => listRecommended({ ...params, offset }).then(unwrap),
+        }),
+        staleTime: Number.POSITIVE_INFINITY,
+        refetchOnMount: false,
+        meta: SKIP_LIST_INVALIDATION,
+    };
 }
 
 export function followingInfiniteQueryOptions(params: ListFollowingIllustsParams) {
@@ -142,7 +152,9 @@ export function illustDetailQueryKey(illustId: number) {
 // viewer renders from, so optimistic bookmark writes (which patch the cache) show up
 // immediately instead of being shadowed by a placeholder. `initialDataUpdatedAt: 0`
 // marks that seed already-stale so it still refetches on mount to backfill detail-only
-// fields the list payload omits (meta_pages, meta_single_page.original_image_url).
+// fields the list payload omits (meta_pages, meta_single_page.original_image_url);
+// `refetchOnMount: true` opts back into that time-based refetch, which the client
+// default (refetch on mount only when invalidated) would otherwise skip.
 // A cold deep-link (?illust=<id> on first load) has no seed and fetches normally.
 export function illustDetailQueryOptions(illustId: number, seed?: Illust | null) {
     return queryOptions<IllustDetailResponse, IllustApiError>({
@@ -151,5 +163,6 @@ export function illustDetailQueryOptions(illustId: number, seed?: Illust | null)
         initialData: seed ? { illust: seed } : undefined,
         initialDataUpdatedAt: 0,
         staleTime: 60_000,
+        refetchOnMount: true,
     });
 }

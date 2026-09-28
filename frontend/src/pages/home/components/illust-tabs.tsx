@@ -20,6 +20,7 @@ import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/ill
 import { SearchError } from "@/features/search/components/search-states";
 import { useMessages } from "@/i18n";
 import { RefreshIcon } from "@/lib/icons";
+import { usePageRefresh } from "@/lib/page-refresh";
 import { cn } from "@/lib/utils";
 
 export type TabId = "for-you" | "week" | "follow";
@@ -165,6 +166,7 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
         if (query.isFetching) return;
         queryClient.resetQueries({ queryKey: activeOptions.queryKey });
     };
+    usePageRefresh(handleRefresh);
 
     // Spin the refresh icon on an initial/refresh fetch, but not while loading more (the
     // load-more button shows its own spinner) — matching the previous behavior.

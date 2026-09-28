@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRefreshOnReconnect } from "@/features/events";
 import type { FetchState } from "@/lib/fetch-state";
 import { pollUntil } from "@/lib/poll";
@@ -53,7 +53,13 @@ export function useConfig(): UseConfigResult {
         }
     }, []);
 
+    // Once per mount: effects re-run when the kept-alive settings page is shown again,
+    // and reloading there would flash the loader and reset in-progress edits. Later
+    // refreshes come from reconnects and the restart flow below.
+    const loadedRef = useRef(false);
     useEffect(() => {
+        if (loadedRef.current) return;
+        loadedRef.current = true;
         void load();
     }, [load]);
 

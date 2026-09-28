@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "react-router";
 import ListLoadingOverlay from "@/components/list-loading-overlay";
 import PageBeyondEnd from "@/components/page-beyond-end";
@@ -24,10 +24,12 @@ import RankingFilters from "@/features/ranking/components/ranking-filters";
 import IllustGrid, { IllustGridSkeleton } from "@/features/search/components/illust-grid";
 import { SearchError } from "@/features/search/components/search-states";
 import { useMessages } from "@/i18n";
+import { usePageRefresh } from "@/lib/page-refresh";
 import { pageOutcome, pagerStateOf } from "@/lib/pagination";
-import { usePageFrontier, useRecordPage } from "@/lib/query/page-frontier";
+import { resetNumberedList, usePageFrontier, useRecordPage } from "@/lib/query/page-frontier";
 import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
+import { useChangeEffect } from "@/lib/use-change-effect";
 
 function readMode(sp: URLSearchParams): RankingMode {
     const v = sp.get("mode");
@@ -72,6 +74,7 @@ function RankingPage() {
 
     const queryClient = useQueryClient();
     const { frontier, record } = usePageFrontier(["ranking", { mode, date }]);
+    usePageRefresh(() => void resetNumberedList(queryClient, ["ranking", { mode, date }], ["ranking", { mode, date }]));
     const observed =
         data && !isPlaceholderData
             ? { page, outcome: pageOutcome(data.next_offset != null, data.illusts.length) }
@@ -83,13 +86,8 @@ function RankingPage() {
     const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
 
     // Reset selection whenever the list identity (mode/date/page) changes — the
-    // previous list's selection must not bleed across a navigation. Replaces the
-    // clearSelection() that used to live in the now-gone fetch effect. mode/date/
-    // page are intentional re-run triggers (the effect body doesn't read them).
-    // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on navigation, not on body deps.
-    useEffect(() => {
-        clearSelection();
-    }, [mode, date, page, clearSelection]);
+    // previous list's selection must not bleed across a navigation.
+    useChangeEffect(JSON.stringify([mode, date, page]), clearSelection);
 
     const { filtered, totalBefore, totalAfter } = useFilteredIllusts(data?.illusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);

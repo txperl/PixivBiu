@@ -2,6 +2,7 @@
 
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
+import { useCloseOnHide } from "@/lib/use-close-on-hide";
 import { cn } from "@/lib/utils";
 import { useWindowContentBoundary } from "@/lib/window-layout";
 
@@ -9,8 +10,8 @@ function TooltipProvider({ delay = 0, ...props }: TooltipPrimitive.Provider.Prop
     return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} {...props} />;
 }
 
-function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
-    return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
+function Tooltip({ actionsRef, ...props }: TooltipPrimitive.Root.Props) {
+    return <TooltipPrimitive.Root data-slot="tooltip" actionsRef={useCloseOnHide(actionsRef)} {...props} />;
 }
 
 function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {

@@ -1,6 +1,7 @@
-import { hashKey, type QueryKey, useQuery, useQueryClient } from "@tanstack/react-query";
+import { hashKey, type QueryClient, type QueryKey, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
 import { advanceFrontier, type Frontier, INITIAL_FRONTIER, type PageObservation } from "@/lib/pagination";
+import { SKIP_LIST_INVALIDATION } from "@/lib/query/use-invalidate-illust-lists";
 
 // Holds one list's Frontier (see lib/pagination.ts) in the Query cache under
 // ["page-frontier", ...identity]. Living there instead of in component state means the
@@ -13,10 +14,11 @@ export function usePageFrontier(identity: QueryKey) {
     const keyHash = hashKey(queryKey);
     const { data } = useQuery<Frontier>({
         queryKey,
-        // Never fetched for real; a blanket invalidation just re-reads what is cached.
+        // Never fetched for real; the queryFn only re-reads what is cached.
         queryFn: () => queryClient.getQueryData<Frontier>(queryKey) ?? INITIAL_FRONTIER,
         initialData: INITIAL_FRONTIER,
         staleTime: Number.POSITIVE_INFINITY,
+        meta: SKIP_LIST_INVALIDATION,
     });
     // biome-ignore lint/correctness/useExhaustiveDependencies: keyHash stands in for queryKey, which is rebuilt every render.
     const record = useCallback(
@@ -36,4 +38,14 @@ export function useRecordPage(record: (obs: PageObservation) => void, observed: 
     useEffect(() => {
         if (page != null && outcome != null) record({ page, outcome, nextCursor });
     }, [record, page, outcome, nextCursor]);
+}
+
+// Refreshes a numbered list from page 1: drops every cached page of it (`listKey` is a
+// prefix matching all its pages) together with its learned frontier, which would
+// otherwise advertise pages the fresh list may no longer have.
+export function resetNumberedList(queryClient: QueryClient, listKey: QueryKey, frontierIdentity: QueryKey) {
+    return Promise.all([
+        queryClient.resetQueries({ queryKey: ["page-frontier", ...frontierIdentity] }),
+        queryClient.resetQueries({ queryKey: listKey }),
+    ]);
 }

@@ -46,6 +46,17 @@ QueryClientProvider → TooltipProvider → LocaleProvider → AuthProvider
 
 Locale synchronization and account-cache reset are auth-gated children. The Query client is a singleton so it survives component rerenders.
 
+## Routing and page lifecycle
+
+The data router ([router.tsx](src/app/router.tsx)) only mounts `/login` and `RootLayout` at `/*`. Authenticated pages live in [routes.tsx](src/app/routes.tsx) and are rendered by `KeepAliveOutlet` ([app/keep-alive](src/app/keep-alive)), which keeps visited pages mounted behind React's `<Activity>` so switching sections or going Back/Forward returns to a page exactly as it was left: component state, loaded content, and scroll.
+
+- Each page instance renders the route table against its own frozen location, so a hidden page's `useLocation`/`useSearchParams`/`useParams` keep reading its own URL. Instances are keyed by pathname (search params update the visible instance in place); the signed-in user's `/user/:id` splits by sidebar section (works/bookmarks/following). Routes with `handle: { keepAlive: false }` (redirects, the fallback) render uncached.
+- At most eight instances are kept (least recently shown evicted first), and one hidden longer than the idle TTL is remounted fresh; the TTL stays below `QUERY_GC_TIME` so a returning page never finds its data half-collected. The outlet and section memory are keyed by account.
+- Scroll of `[data-app-scroller]` is saved per instance and restored on return; new instances start at the top.
+- The sidebar ([sections.ts](src/app/sections.ts), `SectionMemoryProvider`) links each item to its section's last visited URL, minus overlay params such as `?illust`. Clicking the active item steps back one level per click: to the section's landing view, then to its top, then refreshes it. Refresh is opt-in: a page registers `usePageRefresh` with what refreshing means for it (re-pull its current list from page 1, keeping filters and tabs; numbered lists use `resetNumberedList`). Pages without a handler, such as settings with its unsaved drafts, are left alone.
+- A hidden page's effects are torn down and re-run when it is shown again. Mount-time work must therefore be idempotent: guard one-time loads, react to navigation with `useChangeEffect` rather than a plain effect, and never reset user state just because an effect ran. Hidden pages still re-render for context changes at low priority.
+- `<Activity>` does not hide portals. The shared popup roots (popover, tooltip, menu, dialog) close and unmount themselves when their page is hidden via `useCloseOnHide`; a new portal-based primitive should do the same.
+
 ## API and query state
 
 Components call feature `api.ts` adapters rather than openapi-fetch directly. The shared client uses `/api/v1`, adds `X-PixivBiu-App`, and normalizes transport failures or empty non-success responses into the error contract. Preserve that behavior so a dead backend cannot be mistaken for a successful mutation.
@@ -62,7 +73,7 @@ Feature query-options factories own query keys and fetching. Adapt `{data, error
 
 Plain `keepPreviousData` also keeps data across filter/user changes, so it is not a replacement for the numbered-list helper. Home feeds use it only where their separate hook lifecycle prevents another list's data from bleeding in. Use ranking, user tabs, and home illust tabs as examples.
 
-The default Query policy is a one-minute stale time, five-minute unused cache, one retry, and no window-focus refetch. The authority is [client.ts](src/lib/query/client.ts). This is client caching; a backend search-result cache remains unimplemented.
+The default Query policy is a one-minute stale time, thirty-minute unused cache, refetch on mount only when invalidated, one retry, and no window-focus refetch. The authority is [client.ts](src/lib/query/client.ts). Returning to a page (remount or `<Activity>` reveal) therefore shows it as left; time-based staleness still applies to parameter changes and newly enabled queries. Factories that must refresh on open opt back in with `refetchOnMount` (illust detail, config). The recommended feed never refreshes on its own (infinite stale time, no mount refetch, skipped by list invalidation) because re-pulling reshuffles it; only its refresh button or a filter change loads a new one. This is client caching; a backend search-result cache remains unimplemented.
 
 ### Account boundaries and mutations
 
@@ -70,7 +81,7 @@ The default Query policy is a one-minute stale time, five-minute unused cache, o
 
 Bookmark state belongs to cached illustrations. The shared `useIllustBookmark` hook serves cards and the viewer: it cancels conflicting full refetches, patches every cached illustration copy through `usePatchCachedIllust`, rolls back on failure, and reconciles detail/list state on settlement. Preserve its exceptions for initial loads and infinite "load more" requests so those are not stranded. Do not introduce a parallel local bookmark flag/count.
 
-Follow buttons use local optimism via `usePropSyncedState`, adopting fresh server props when no mutation is pending. Successful mutations invalidate affected lists through `useInvalidateIllustLists`. The helper marks them stale without immediate refetch storms; the next mount refreshes them.
+Follow buttons use local optimism via `usePropSyncedState`, adopting fresh server props when no mutation is pending. Successful mutations invalidate affected lists through `useInvalidateIllustLists`. The helper marks them stale without immediate refetch storms; the next mount or return to a kept page refreshes them in the background. Non-list queries and lists that must not refresh opt out with `meta: SKIP_LIST_INVALIDATION`.
 
 Settings' `applyView` mirrors adopted saves/resets/refetches into `CONFIG_QUERY_KEY`. Keep that path so consumers such as ranked-search page-size calculation immediately see settings changes. Restart and update flows use `pollUntil` for authoritative catch-up rather than relying only on an SSE edge.
 
@@ -129,4 +140,4 @@ Portal UI must respect the same content viewport. Shared Dialog CSS centers and 
 
 ## Behavioral checks
 
-In addition to Biome/build, exercise the behavior touched by a UI change: account switches, bookmark card/viewer agreement and rollback, pagination versus filter changes, slow loading, SSE reconnect/resync, language changes without reload, image fallback/lazy loading, and scroll-root behavior. For bridge changes, check both browser and native desktop paths. The build does not verify these interactions automatically.
+In addition to Biome/build, exercise the behavior touched by a UI change: account switches, bookmark card/viewer agreement and rollback, pagination versus filter changes, slow loading, SSE reconnect/resync, language changes without reload, image fallback/lazy loading, scroll-root behavior, and page keep-alive (switch sections and go Back/Forward, then check that state, scroll, and open popups behave and nothing refetches unexpectedly). For bridge changes, check both browser and native desktop paths. The build does not verify these interactions automatically.

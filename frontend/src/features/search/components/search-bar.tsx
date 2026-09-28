@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { SEARCH_PARAM_KEYS } from "@/features/search/api";
 import { useMessages } from "@/i18n";
 import { SearchIcon } from "@/lib/icons";
+import { useChangeEffect } from "@/lib/use-change-effect";
 
 type SearchBarProps = {
     defaultValue?: string;
@@ -17,9 +18,9 @@ function SearchBar({ defaultValue = "", autoFocus = false }: SearchBarProps) {
     const [value, setValue] = useState(defaultValue);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        setValue(defaultValue);
-    }, [defaultValue]);
+    // Follow a changed defaultValue (e.g. a new keyword) without clobbering typed text
+    // when a kept-alive page is shown again.
+    useChangeEffect(defaultValue, () => setValue(defaultValue));
 
     useEffect(() => {
         if (autoFocus) inputRef.current?.focus();

@@ -19,6 +19,7 @@ function PximgImage({ src, alt, fallback, className, fit = "cover", onLoad }: Px
     const imgRef = useRef<HTMLImageElement>(null);
     const [loaded, setLoaded] = useState(false);
     const [errored, setErrored] = useState(false);
+    const settledUrl = useRef<string | undefined>(undefined);
 
     // Reveal only after the full frame is decoded, so images don't paint
     // top-to-bottom. decode() is driven by the load event / cache-hit check
@@ -36,8 +37,12 @@ function PximgImage({ src, alt, fallback, className, fit = "cover", onLoad }: Px
     // event never fires and the <img> would stay opacity-0 forever. Reveal the
     // already-complete case here (this also notifies onLoad — the popover
     // preview reads naturalWidth/naturalHeight from the element to size its box).
+    // Guarded by the last handled url: effects re-run when a kept-alive page is shown
+    // again, and resetting there would fade every already-revealed card back in.
     // biome-ignore lint/correctness/useExhaustiveDependencies: re-run only on url change; handleLoaded/onLoad are recreated each render
     useEffect(() => {
+        if (settledUrl.current === url) return;
+        settledUrl.current = url;
         setLoaded(false);
         setErrored(false);
         const img = imgRef.current;

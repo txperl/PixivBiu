@@ -100,9 +100,15 @@ export function useConfigForm({ view, sections, onView }: UseConfigFormParams): 
 
     // Reconcile form state whenever a fresh view arrives (initial load, save,
     // reset, or post-restart reconnect): adopt the new baseline, keep the
-    // user's unsaved edits, but re-sync untouched/just-reset fields.
+    // user's unsaved edits, but re-sync untouched/just-reset fields. Only once
+    // per view/fields pair: effects re-run when the kept-alive settings page is
+    // shown again, and reconciling then would wipe in-progress sensitive edits.
+    const reconciledRef = useRef<{ view: ConfigView; fields: typeof fields } | null>(null);
     useEffect(() => {
         if (!view || fields.length === 0) return;
+        const last = reconciledRef.current;
+        if (last?.view === view && last.fields === fields) return;
+        reconciledRef.current = { view, fields };
         const nextBaseline: FormValues = {};
         for (const f of fields) nextBaseline[f.key] = baselineString(f, view);
 

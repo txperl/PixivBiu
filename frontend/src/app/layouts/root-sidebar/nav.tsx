@@ -1,6 +1,10 @@
 import type { IconSvgElement } from "@hugeicons/react";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { NavLink, useLocation, useSearchParams } from "react-router";
+import type { MouseEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { useKeepAliveControl } from "@/app/keep-alive/keep-alive-outlet";
+import { useSectionUrl } from "@/app/layouts/section-memory";
+import { isAtSectionRoot, type SectionId, sectionDefaultUrl, sectionOf } from "@/app/sections";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/features/auth";
 import { useDownloadCounts } from "@/features/downloads";
@@ -16,21 +20,18 @@ import {
     SearchIcon,
     SettingsIcon,
 } from "@/lib/icons";
+import { useRefreshPage } from "@/lib/page-refresh";
+import { isAppScrolledToTop, scrollAppToTop } from "@/lib/scroll";
 import { cn } from "@/lib/utils";
-import { readTab, type Tab } from "@/pages/user/tabs";
-
-type ActiveMatch = (pathname: string, search: URLSearchParams) => boolean;
 
 type NavItemDef = {
-    id: string;
+    id: SectionId;
     label: string;
     icon: IconSvgElement;
-    to?: string;
     count?: number;
     badge?: number;
     // A small status dot (e.g. "update available"), shown when no numeric badge.
     dot?: boolean;
-    activeMatch?: ActiveMatch;
 };
 
 type NavGroupDef = {
@@ -61,8 +62,24 @@ const activeClass = "bg-secondary text-secondary-foreground";
 const inactiveClass = "text-muted-foreground hover:bg-sidebar-accent";
 const disabledClass = "text-muted-foreground/60 cursor-not-allowed";
 
-function NavItem({ item, pathname, search }: { item: NavItemDef; pathname: string; search: URLSearchParams }) {
-    if (!item.to) {
+type NavItemProps = {
+    item: NavItemDef;
+    active: boolean;
+    selfUserId: number | null | undefined;
+};
+
+// Links to the section's last visited URL. Clicking the active item steps back toward a
+// fresh view, one level per click: to the section's landing view, then to its top, then
+// refreshes it (the page's own refresh, if it registered one). Handled here rather than
+// by navigating to the same URL, which would push a duplicate history entry.
+function NavItem({ item, active, selfUserId }: NavItemProps) {
+    const to = useSectionUrl(item.id, selfUserId);
+    const location = useLocation();
+    const navigate = useNavigate();
+    const { requestScrollReset } = useKeepAliveControl();
+    const refreshPage = useRefreshPage();
+
+    if (!to) {
         return (
             <button type="button" disabled className={cn(baseClass, disabledClass)} aria-disabled="true">
                 <ItemBody item={item} active={false} />
@@ -70,16 +87,29 @@ function NavItem({ item, pathname, search }: { item: NavItemDef; pathname: strin
         );
     }
 
-    const externallyActive = item.activeMatch ? item.activeMatch(pathname, search) : false;
+    const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
+        if (!active || e.button !== 0 || e.metaKey || e.altKey || e.ctrlKey || e.shiftKey) return;
+        e.preventDefault();
+        if (isAtSectionRoot(item.id, location, selfUserId)) {
+            if (isAppScrolledToTop()) refreshPage();
+            else scrollAppToTop();
+            return;
+        }
+        const landing = sectionDefaultUrl(item.id, selfUserId);
+        if (!landing) return;
+        requestScrollReset();
+        navigate(landing);
+    };
 
     return (
-        <NavLink
-            to={item.to}
-            end={item.to === "/"}
-            className={({ isActive }) => cn(baseClass, isActive || externallyActive ? activeClass : inactiveClass)}
+        <Link
+            to={to}
+            onClick={handleClick}
+            aria-current={active ? "page" : undefined}
+            className={cn(baseClass, active ? activeClass : inactiveClass)}
         >
-            {({ isActive }) => <ItemBody item={item} active={isActive || externallyActive} />}
-        </NavLink>
+            <ItemBody item={item} active={active} />
+        </Link>
     );
 }
 
@@ -88,26 +118,18 @@ function Nav() {
     const { status } = useAuth();
     const { activeCount } = useDownloadCounts();
     const { updateAvailable } = useUpdate();
-    const { pathname } = useLocation();
-    const [search] = useSearchParams();
+    const location = useLocation();
 
-    const isLoggedIn = !!status?.authenticated && !!status.user_id;
-    const myUserPath = isLoggedIn ? `/user/${status.user_id}` : null;
-
-    const matchMyUserTab =
-        (tabs: Tab[]): ActiveMatch =>
-        (path, sp) => {
-            if (!myUserPath || path !== myUserPath) return false;
-            return tabs.includes(readTab(sp));
-        };
+    const selfUserId = status?.authenticated ? status.user_id : null;
+    const activeSection = sectionOf(location, selfUserId);
 
     const browseGroup: NavGroupDef = {
         id: "browse",
         label: m.nav_group_browse(),
         items: [
-            { id: "home", label: m.nav_home(), icon: HomeIcon, to: "/" },
-            { id: "search", label: m.nav_search(), icon: SearchIcon, to: "/search" },
-            { id: "rank", label: m.nav_ranking(), icon: RankIcon, to: "/ranking" },
+            { id: "home", label: m.nav_home(), icon: HomeIcon },
+            { id: "search", label: m.nav_search(), icon: SearchIcon },
+            { id: "rank", label: m.nav_ranking(), icon: RankIcon },
         ],
     };
 
@@ -115,7 +137,6 @@ function Nav() {
         id: "settings",
         label: m.nav_settings(),
         icon: SettingsIcon,
-        to: "/settings",
         dot: updateAvailable,
     };
 
@@ -124,22 +145,16 @@ function Nav() {
             id: "bookmark",
             label: m.nav_bookmarks(),
             icon: HeartIcon,
-            to: isLoggedIn ? "/me/bookmarks" : undefined,
-            activeMatch: matchMyUserTab(["bookmarks"]),
         },
         {
             id: "follow",
             label: m.nav_following(),
             icon: FollowIcon,
-            to: isLoggedIn ? "/me/following" : undefined,
-            activeMatch: matchMyUserTab(["following"]),
         },
         {
             id: "self",
             label: m.nav_my_works(),
             icon: ImageIcon,
-            to: isLoggedIn ? "/me" : undefined,
-            activeMatch: matchMyUserTab(["illust", "manga"]),
         },
     ];
 
@@ -147,7 +162,6 @@ function Nav() {
         id: "dl",
         label: m.nav_downloads(),
         icon: DownloadIcon,
-        to: "/downloads",
         badge: activeCount > 0 ? activeCount : undefined,
     };
 
@@ -166,7 +180,12 @@ function Nav() {
                     </div>
                     <div className="flex flex-col gap-1">
                         {g.items.map((item) => (
-                            <NavItem key={item.id} item={item} pathname={pathname} search={search} />
+                            <NavItem
+                                key={item.id}
+                                item={item}
+                                active={item.id === activeSection}
+                                selfUserId={selfUserId}
+                            />
                         ))}
                     </div>
                 </div>

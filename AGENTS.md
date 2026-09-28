@@ -86,6 +86,7 @@ Run checks appropriate to the change. CI also runs Go race tests on Linux and Wi
 - Render localized text through `useMessages()`; use explicit static message maps, never dynamic indexing or module-level evaluated UI text.
 - Use `cn(...)` for class composition and existing shadcn/Base UI primitives. Icon-only controls need accessible labels; preserve provider dependencies.
 - Pixiv images use `PximgImage`, including proxy rewriting and decoded reveal. Use its `fit` prop; its `className` styles the wrapper.
+- Pages stay mounted across navigation behind `<Activity>` (`KeepAliveOutlet`); effects re-run when a page is shown again, so mount-time work must be idempotent and navigation reactions use `useChangeEffect`. New routes go in `app/routes.tsx`.
 - Page scroll tools target `[data-app-scroller]`, not window or main. Reuse the existing list loading, filter, selection, and download state helpers.
 - Feature-detect `window.pixivbiu`; keep preload and frontend bridge types in sync. Renderer code never receives unrestricted Node/Electron capabilities.
 - Preserve the stable `pixivbiu://core` origin, streaming proxy cancellation, sandbox/context isolation, trusted-main-frame IPC checks, OAuth URL validation, and external navigation policy.

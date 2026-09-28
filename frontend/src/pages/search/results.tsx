@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router";
 import ListLoadingOverlay from "@/components/list-loading-overlay";
 import PageBeyondEnd from "@/components/page-beyond-end";
@@ -37,6 +37,7 @@ import { type PageObservation, pageOutcome, pagerStateOf } from "@/lib/paginatio
 import { usePageFrontier, useRecordPage } from "@/lib/query/page-frontier";
 import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
+import { useChangeEffect } from "@/lib/use-change-effect";
 
 type SearchType = "illust" | "user";
 
@@ -243,19 +244,23 @@ function SearchResults({ keyword }: SearchResultsProps) {
                 : null,
     });
 
-    // Record the keyword once the active query succeeds (v5 has no onSuccess).
-    // pushHistory dedupes, so re-runs across paging are no-ops.
+    // Record the keyword once the active query succeeds (v5 has no onSuccess). Once per
+    // keyword: effects re-run when this kept-alive page is shown again, and pushing then
+    // would move an old search back to the top of the history.
+    const pushedKeyword = useRef<string | null>(null);
     useEffect(() => {
-        if (activeQuery.isSuccess) pushHistory(keyword);
+        if (!activeQuery.isSuccess || pushedKeyword.current === keyword) return;
+        pushedKeyword.current = keyword;
+        pushHistory(keyword);
     }, [keyword, activeQuery.isSuccess, pushHistory]);
 
     // Reset selection whenever the list identity changes — the previous list's selection
     // must not bleed across a navigation. `keyword` is part of the identity (a new keyword
     // is a different result set), so it must trigger a clear like the other search params.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: re-run on navigation, not on body deps.
-    useEffect(() => {
-        clearSelection();
-    }, [keyword, type, target, sort, duration, startDate, endDate, excludeAi, page, clearSelection]);
+    useChangeEffect(
+        JSON.stringify([keyword, type, target, sort, duration, startDate, endDate, excludeAi, page]),
+        clearSelection,
+    );
 
     const onTabChange = (v: string) => {
         if (v !== "illust" && v !== "user") return;

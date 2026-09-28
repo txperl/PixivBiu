@@ -10,3 +10,9 @@ export const APP_SCROLLER_SELECTOR = "[data-app-scroller]";
 export function scrollAppToTop() {
     document.querySelector<HTMLElement>(APP_SCROLLER_SELECTOR)?.scrollTo({ top: 0, behavior: "smooth" });
 }
+
+/** Whether the app's page scroller is at (or within a hair of) the top. */
+export function isAppScrolledToTop() {
+    const el = document.querySelector<HTMLElement>(APP_SCROLLER_SELECTOR);
+    return !el || el.scrollTop < 2;
+}
