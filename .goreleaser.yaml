@@ -96,13 +96,13 @@ changelog:
     - title: Others
       order: 999
   filters:
+    # Maintenance types are dropped with or without a scope ("chore(desktop):"
+    # too). Desktop-scoped commits ship in the desktop train's own changelog
+    # (scripts/desktop-release.mjs uses the same scope rule), so they never
+    # appear in core notes. With use: github each entry is "<sha>: <subject>".
     exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
-      - "^ci:"
-      - "^style:"
-      - "^build:"
+      - '^(?:[0-9a-f]{7,40}: )?(?:docs|test|chore|ci|style|build)(?:\(.+\))?!?:'
+      - '^(?:[0-9a-f]{7,40}: )?\w+\(desktop\)!?:'
       - "Merge "
 
 release:

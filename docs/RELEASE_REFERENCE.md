@@ -130,7 +130,7 @@ For deliberately checksum-only releases, leaving keys unset is insufficient: the
 
 ## Changelogs
 
-Core notes are generated from commit subjects: `feat` → Features, `fix` → Bug fixes, `refactor` → Refactors, other included commits → Others. The current filters exclude unscoped `docs:`, `test:`, `chore:`, `ci:`, `style:`, `build:`, and subjects containing `Merge `. Scoped variants such as `docs(api):` are not excluded by those regexes; see [.goreleaser.yaml](../.goreleaser.yaml).
+Core notes are generated from commit subjects: `feat` → Features, `fix` → Bug fixes, `refactor` → Refactors, other included commits → Others. The filters exclude `docs`, `test`, `chore`, `ci`, `style`, and `build` subjects with or without a scope, every `desktop`-scoped subject (those ship in the desktop notes), and subjects containing `Merge `; see [.goreleaser.yaml](../.goreleaser.yaml). The commit scope therefore decides which release train announces a change: use `(desktop)` only for shell changes.
 
 The [Release workflow](../.github/workflows/release.yml) binds `GORELEASER_CURRENT_TAG` to the triggering `github.ref_name`, so stable, prerelease, and desktop tags can share a commit without changing the release destination or stamped version. Before building/signing, [previous-core-tag.sh](../scripts/previous-core-tag.sh) validates the core tag and checks that it points at HEAD. It sets `GORELEASER_PREVIOUS_TAG` to the highest strictly lower qualifying ancestor tag so stable notes include the entire prerelease cycle:
 
