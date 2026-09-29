@@ -23,13 +23,25 @@ function alive(pid) {
         throw error;
     }
 }
+// Windows quickly reuses exited PIDs, so fixture children are judged by their handles.
+function exited(child) {
+    return child.exitCode !== null || child.signalCode !== null;
+}
 function fixture(t, mode = 'normal', overrides = {}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pixivbiu-core-'));
     const pids = path.join(dir, 'pids');
     const file = path.join(dir, 'startup.log');
     const diagnostics = new CoreDiagnostics(file);
     const states = [];
-    const core = new CoreSupervisor({
+    const children = new Map();
+    class TrackedSupervisor extends CoreSupervisor {
+        spawn(port) {
+            const attempt = super.spawn(port);
+            if (attempt.child.pid !== undefined) children.set(attempt.child.pid, attempt.child);
+            return attempt;
+        }
+    }
+    const core = new TrackedSupervisor({
         binary: process.execPath, args: [path.join(import.meta.dirname, 'fixtures/desktop-core.cjs')],
         env: { ...process.env, CORE_FIXTURE_MODE: mode, CORE_FIXTURE_PIDS: pids },
         diagnostics, onState: (state, failure) => states.push({ state, failure }),
@@ -38,10 +50,10 @@ function fixture(t, mode = 'normal', overrides = {}) {
     const launched = () => fs.existsSync(pids) ? fs.readFileSync(pids, 'utf8').trim().split('\n').map(Number) : [];
     t.after(async () => {
         await core.stop();
-        for (const pid of launched()) assert.equal(alive(pid), false, `left child ${pid} alive`);
+        for (const [pid, child] of children) assert.equal(exited(child), true, `left child ${pid} alive`);
         fs.rmSync(dir, { recursive: true, force: true });
     });
-    return { core, states, file, diagnostics, launched };
+    return { core, states, file, diagnostics, launched, children };
 }
 async function request(core, route) {
     const response = await fetch(`http://127.0.0.1:${core.port}${route}`);
@@ -49,7 +61,7 @@ async function request(core, route) {
 }
 
 test('single-flight startup, repeated managed restarts and quit track the current child', async t => {
-    const { core, states, launched } = fixture(t);
+    const { core, states, launched, children } = fixture(t);
     await Promise.all([core.start(), core.start(), core.start()]);
     assert.equal(core.state, 'ready');
     assert.equal(launched().length, 1);
@@ -57,7 +69,7 @@ test('single-flight startup, repeated managed restarts and quit track the curren
         const old = await request(core, '/restart');
         await until(() => states.filter(s => s.state === 'ready').length === generation);
         assert.notEqual((await request(core, '/')).pid, old.pid);
-        assert.equal(alive(old.pid), false);
+        assert.equal(exited(children.get(old.pid)), true);
     }
     await Promise.all([core.stop(), core.stop()]);
     assert.equal(core.state, 'stopped');
@@ -91,11 +103,11 @@ test('quit during readiness cancels startup and waits for child cleanup', async 
 });
 
 test('readiness timeout force-stops an uncooperative child before reporting failure', async t => {
-    const { core, launched } = fixture(t, 'stubborn', { startupTimeout: 500 });
+    const { core, launched, children } = fixture(t, 'stubborn', { startupTimeout: 500 });
     await core.start();
     assert.equal(core.failure, 'startup_timeout');
     assert.equal(launched().length, 1);
-    assert.equal(alive(launched()[0]), false);
+    assert.equal(exited(children.get(launched()[0])), true);
 });
 
 test('only port conflicts retry; retries are bounded', async t => {
