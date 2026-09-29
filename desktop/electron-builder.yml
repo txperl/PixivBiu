@@ -75,7 +75,8 @@ extraResources:
 # publishes in CI (`--publish always`; releaseType keeps it a draft until the
 # publish job in .github/workflows/desktop.yml verifies all platforms and flips
 # it live). A fork points owner/repo at its own releases repo (and updates
-# DESKTOP_REPO in the workflow to match).
+# DESKTOP_REPO in the workflow to match). CI also passes
+# -c.releaseInfo.releaseNotesFile so latest*.yml embeds the generated changelog.
 publish:
   provider: github
   owner: txperl

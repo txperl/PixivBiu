@@ -46,11 +46,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history + tags: the changelog diffs against prior desktop and core tags
 
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           package-manager-cache: false
+
+      # One changelog per release, generated once and shared by every job: the
+      # matrix embeds it in latest*.yml (what the in-app updater shows) and the
+      # publish job fences it into the release page. Conventional commits scoped
+      # `desktop` since the previous desktop tag, plus non-desktop commits between
+      # the previously and newly pinned core; an annotated tag's message becomes
+      # the Highlights section. checkout rewrites the triggering tag as a
+      # lightweight ref, so refetch tags to restore the annotated object.
+      - name: Generate changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          node scripts/desktop-release.mjs notes "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY" desktop-changelog.md
+          cat desktop-changelog.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-changelog
+          path: desktop-changelog.md
+          if-no-files-found: error
 
       - name: Create draft release in the desktop repo
         env:
@@ -118,6 +141,11 @@ jobs:
         shell: bash
         run: cd desktop && npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#desktop-v}"
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-changelog
+          path: ${{ runner.temp }}/changelog
+
       - name: Install desktop deps
         # npm ci (not install): clean, lockfile-exact, faster in CI. The version
         # bump above updates package-lock.json too, so the two stay in sync.
@@ -162,7 +190,9 @@ jobs:
           # `always` publishes even though this is a tag build (electron-builder
           # only auto-publishes on tag pushes of the SAME repo layout it expects);
           # the release stays a draft until the publish job below flips it live.
-          args=(--publish always)
+          # Embed the shared changelog as releaseNotes in latest*.yml. electron-updater
+          # prefers it over scraping the whole release page from the GitHub feed.
+          args=(--publish always -c.releaseInfo.releaseNotesFile="$RUNNER_TEMP/changelog/desktop-changelog.md")
           # Inject Azure Trusted Signing only on Windows and only when provisioned.
           if [ "${RUNNER_OS:-}" = "Windows" ] && [ -n "${WIN_AZURE_ENDPOINT:-}" ]; then
             # publisherName is a top-level win option; only endpoint/account/profile
@@ -187,8 +217,9 @@ jobs:
           if-no-files-found: error
 
   # Flip the draft live only after every platform uploaded all expected assets,
-  # the updater metadata references those exact filenames, and the user-facing
-  # release notes have been rendered from the verified manifest.
+  # the updater metadata references those exact filenames and embeds the
+  # changelog, and the user-facing release notes have been rendered from the
+  # verified manifest.
   publish:
     name: Publish release
     needs: desktop
@@ -205,6 +236,11 @@ jobs:
       - name: Read pinned core version
         shell: bash
         run: echo "CORE_VERSION=$(tr -d '[:space:]' < desktop/.core-version)" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-changelog
+          path: ${{ runner.temp }}/changelog
 
       - name: Verify completeness & publish
         env:
@@ -230,7 +266,7 @@ jobs:
 
           node scripts/desktop-release.mjs verify \
             "$GITHUB_REF_NAME" "$CORE_VERSION" "$GITHUB_REPOSITORY" "$DESKTOP_REPO" \
-            "$work/assets.json" "$metadata" "$work/release-notes.md"
+            "$work/assets.json" "$metadata" "$RUNNER_TEMP/changelog/desktop-changelog.md" "$work/release-notes.md"
           TITLE="$(node scripts/desktop-release.mjs title "$GITHUB_REF_NAME")"
 
           # A prerelease desktop tag (desktop-v1.2.0-beta.1) must not become the

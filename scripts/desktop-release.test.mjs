@@ -1,25 +1,36 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
   artifactNames,
+  changelogEndMarker,
+  changelogStartMarker,
+  generateChangelog,
+  parseCommitSubject,
   parseDesktopTag,
+  previousDesktopTag,
+  renderChangelog,
   renderReleaseNotes,
   verifyRelease,
 } from "./desktop-release.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const require = createRequire(import.meta.url);
+const changelog = "### Features\n\n- Add a thing\n";
 
 function fixture(tag = "desktop-v1.2.0", coreVersion = "v3.1.0-alpha.1") {
   const info = parseDesktopTag(tag);
   const names = artifactNames(info.version);
   const metadata = {
-    "latest-mac.yml": `version: ${info.version}\nfiles:\n  - url: ${names.macX64Zip}\n  - url: ${names.macArmZip}\n  - url: ${names.macX64Dmg}\n  - url: ${names.macArmDmg}\n`,
-    "latest.yml": `version: ${info.version}\nfiles:\n  - url: ${names.windowsSetup}\n`,
-    "latest-linux.yml": `version: ${info.version}\nfiles:\n  - url: ${names.linuxAppImage}\n  - url: ${names.linuxDeb}\n  - url: ${names.linuxRpm}\n`,
+    "latest-mac.yml": `version: ${info.version}\nfiles:\n  - url: ${names.macX64Zip}\n  - url: ${names.macArmZip}\n  - url: ${names.macX64Dmg}\n  - url: ${names.macArmDmg}\nreleaseNotes: |-\n  ### Features\n`,
+    "latest.yml": `version: ${info.version}\nfiles:\n  - url: ${names.windowsSetup}\nreleaseNotes: |-\n  ### Features\n`,
+    "latest-linux.yml": `version: ${info.version}\nfiles:\n  - url: ${names.linuxAppImage}\n  - url: ${names.linuxDeb}\n  - url: ${names.linuxRpm}\nreleaseNotes: |-\n  ### Features\n`,
   };
   const assets = [
     ...Object.values(names),
@@ -39,6 +50,7 @@ function fixture(tag = "desktop-v1.2.0", coreVersion = "v3.1.0-alpha.1") {
     desktopRepository: "txperl/PixivBiu-Desktop",
     assets,
     metadata,
+    changelog,
   };
 }
 
@@ -128,9 +140,12 @@ test("release notes use user-facing platform names and traceable build links", (
     "v3.1.0-alpha.1",
     "txperl/PixivBiu",
     "txperl/PixivBiu-Desktop",
+    changelog,
   );
 
   assert.match(notes, /This is an Alpha preview/);
+  assert.ok(notes.includes(`${changelogStartMarker}\n\n### Features\n\n- Add a thing\n\n${changelogEndMarker}`));
+  assert.ok(notes.indexOf(changelogEndMarker) < notes.indexOf("## Downloads"));
   assert.match(notes, /macOS — Apple silicon/);
   assert.match(notes, /macOS 13\+/);
   assert.match(notes, /PixivBiu-Desktop-1\.2\.0-alpha\.1-darwin-arm64\.dmg/);
@@ -182,7 +197,124 @@ test("verification refuses retired aliases and metadata drift", () => {
   );
   assert.throws(() => verifyRelease(wrongUrl), /latest-linux\.yml files contains/);
 
+  const noNotes = fixture();
+  noNotes.metadata["latest-mac.yml"] = noNotes.metadata["latest-mac.yml"].replace(/releaseNotes:[\s\S]*$/, "");
+  assert.throws(() => verifyRelease(noNotes), /latest-mac\.yml has no releaseNotes/);
+
+  const emptyChangelog = fixture();
+  emptyChangelog.changelog = "  \n";
+  assert.throws(() => verifyRelease(emptyChangelog), /changelog must be non-empty/);
+
   const wrongCore = fixture();
   wrongCore.coreVersion = "not-a-core-tag";
   assert.throws(() => verifyRelease(wrongCore), /invalid bundled core version/);
+});
+
+test("changelog baselines: stable compares to stable, prereleases to any lower tag", () => {
+  const tags = [
+    "desktop-v1.0.0-alpha.1",
+    "desktop-v1.0.0",
+    "desktop-v1.0.1",
+    "desktop-v1.1.0-alpha.1",
+    "desktop-v1.1.0-beta.1",
+    "desktop-v1.1.0-beta.2",
+    "desktop-vnot-a-tag",
+  ];
+  assert.equal(previousDesktopTag("desktop-v1.1.0", tags), "desktop-v1.0.1");
+  assert.equal(previousDesktopTag("desktop-v1.1.0-beta.2", tags), "desktop-v1.1.0-beta.1");
+  assert.equal(previousDesktopTag("desktop-v1.1.0-alpha.1", tags), "desktop-v1.0.1");
+  assert.equal(previousDesktopTag("desktop-v1.0.0", tags), undefined);
+  assert.equal(previousDesktopTag("desktop-v1.0.0-alpha.1", tags), undefined);
+});
+
+test("conventional subjects parse type, scope, and breaking marker", () => {
+  assert.deepEqual(parseCommitSubject("feat(desktop)!: drop legacy flag"), {
+    type: "feat",
+    scope: "desktop",
+    breaking: true,
+    description: "drop legacy flag",
+  });
+  assert.equal(parseCommitSubject("fix: plain").scope, "");
+  assert.equal(parseCommitSubject("Update README"), undefined);
+});
+
+test("changelog groups user-facing changes and never renders empty", () => {
+  const commit = (subject) => parseCommitSubject(subject);
+  const notes = renderChangelog({
+    highlights: "A big one.",
+    commits: [
+      commit("fix: repair b"),
+      commit("feat(desktop): add a"),
+      commit("chore(desktop): pin core"),
+      commit("perf: faster c"),
+      commit("feat!: remove d"),
+      commit("feat(desktop): add a"),
+    ],
+    coreChange: { from: "v3.1.2", to: "v3.1.3", repository: "txperl/PixivBiu" },
+  });
+  assert.equal(
+    notes,
+    [
+      "### Highlights\n\nA big one.",
+      "### Features\n\n- Add a\n- **Breaking:** Remove d",
+      "### Bug fixes\n\n- Repair b",
+      "### Performance\n\n- Faster c",
+      "Bundled core updated from `v3.1.2` to [`v3.1.3`](https://github.com/txperl/PixivBiu/releases/tag/v3.1.3).\n",
+    ].join("\n\n"),
+  );
+  assert.equal(renderChangelog({}), "Maintenance release with internal improvements.\n");
+  assert.equal(renderChangelog({ initial: true }), "Initial release.\n");
+});
+
+test("changelog generation reads desktop and pinned-core history from git", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pixivbiu-changelog-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const git = (...args) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+  const commit = (subject, core) => {
+    if (core) {
+      fs.mkdirSync(path.join(dir, "desktop"), { recursive: true });
+      fs.writeFileSync(path.join(dir, "desktop/.core-version"), `${core}\n`);
+      git("add", "-A");
+    }
+    git("commit", "--allow-empty", "-q", "-m", subject);
+  };
+  git("init", "-q");
+  git("config", "user.email", "test@example.com");
+  git("config", "user.name", "Test");
+  git("config", "commit.gpgsign", "false");
+  git("config", "tag.gpgsign", "false");
+
+  commit("feat: core one");
+  git("tag", "v3.1.0");
+  commit("chore(desktop): pin core to v3.1.0", "v3.1.0");
+  git("tag", "desktop-v1.0.0");
+  commit("feat(desktop): shell feature");
+  commit("fix(frontend): core fix");
+  commit("feat(desktop): core-side desktop commit");
+  commit("docs: core docs");
+  git("tag", "v3.1.1");
+  commit("chore(desktop): pin core to v3.1.1", "v3.1.1");
+  git("tag", "-a", "desktop-v1.0.1", "-m", "Big release.\n\nDetails here.");
+  commit("fix(desktop): only shell");
+  git("tag", "desktop-v1.0.2");
+
+  const first = generateChangelog({ tag: "desktop-v1.0.0", sourceRepository: "txperl/PixivBiu", cwd: dir });
+  assert.match(first, /^Initial release\./);
+  assert.match(first, /Bundles core \[`v3\.1\.0`\]/);
+
+  const second = generateChangelog({ tag: "desktop-v1.0.1", sourceRepository: "txperl/PixivBiu", cwd: dir });
+  assert.match(second, /^### Highlights\n\nBig release\.\n\nDetails here\./);
+  assert.match(second, /### Features\n\n- Shell feature\n- Core-side desktop commit\n/);
+  assert.match(second, /### Bug fixes\n\n- Core fix\n/);
+  assert.doesNotMatch(second, /Core docs|Pin core/);
+  assert.match(second, /Bundled core updated from `v3\.1\.0` to \[`v3\.1\.1`\]/);
+
+  const third = generateChangelog({ tag: "desktop-v1.0.2", sourceRepository: "txperl/PixivBiu", cwd: dir });
+  assert.equal(third, "### Bug fixes\n\n- Only shell\n");
+});
+
+test("release-notes markers match the desktop updater's stitching contract", () => {
+  const notes = require("../desktop/dist/release-notes.js");
+  assert.equal(notes.CHANGELOG_START, changelogStartMarker);
+  assert.equal(notes.CHANGELOG_END, changelogEndMarker);
 });

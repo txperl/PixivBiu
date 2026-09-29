@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -9,6 +10,25 @@ const desktopTagPattern =
 const coreTagPattern =
   /^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const repositoryPattern = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+const conventionalSubjectPattern = /^(\w+)(?:\(([^)]*)\))?(!)?:\s*(.+)$/;
+
+// Markers fence the user-facing changelog inside the GitHub release body so the
+// desktop main process can stitch skipped versions from the Releases API
+// without the downloads table. Mirrored in desktop/src/release-notes.ts.
+export const changelogStartMarker = "<!-- pixivbiu:changelog:start -->";
+export const changelogEndMarker = "<!-- pixivbiu:changelog:end -->";
+
+// Only user-visible change types reach the changelog. Everything else
+// (chore/ci/build/docs/test/style/refactor) is maintenance noise for users.
+// Group headings are h3 so the SPA's release-notes dialog renders them as group
+// labels beneath stitched "## vX" version headings.
+const changelogGroups = [
+  { type: "feat", title: "Features" },
+  { type: "fix", title: "Bug fixes" },
+  { type: "perf", title: "Performance" },
+];
+
+const channelRank = { alpha: 0, beta: 1, stable: 2 };
 
 export function parseDesktopTag(tag) {
   const match = desktopTagPattern.exec(tag);
@@ -25,9 +45,157 @@ export function parseDesktopTag(tag) {
     tag,
     version,
     channel,
+    precedence: [Number(match[1]), Number(match[2]), Number(match[3]), channelRank[channel], Number(match[5] ?? 0)],
     prerelease: channel !== "stable",
     title: `PixivBiu Desktop v${version}${channelLabel}`,
   };
+}
+
+function comparePrecedence(a, b) {
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return a[i] - b[i];
+  }
+  return 0;
+}
+
+// previousDesktopTag picks the changelog baseline for tag: the closest lower
+// desktop tag, where a stable release only compares against the previous
+// stable one so its notes cover every alpha/beta that led up to it.
+export function previousDesktopTag(tag, tags) {
+  const current = parseDesktopTag(tag);
+  let best;
+  for (const candidate of tags) {
+    let parsed;
+    try {
+      parsed = parseDesktopTag(candidate);
+    } catch {
+      continue;
+    }
+    if (!current.prerelease && parsed.prerelease) continue;
+    if (comparePrecedence(parsed.precedence, current.precedence) >= 0) continue;
+    if (!best || comparePrecedence(parsed.precedence, best.precedence) > 0) best = parsed;
+  }
+  return best?.tag;
+}
+
+// parseCommitSubject reads a Conventional Commit subject. Non-conforming
+// subjects return undefined and are left out of user-facing notes.
+export function parseCommitSubject(subject) {
+  const match = conventionalSubjectPattern.exec(subject.trim());
+  if (!match) return undefined;
+  return { type: match[1].toLowerCase(), scope: match[2] ?? "", breaking: Boolean(match[3]), description: match[4].trim() };
+}
+
+function isDesktopScope(commit) {
+  return commit.scope === "desktop";
+}
+
+function commitLine(commit) {
+  const text = commit.description[0].toUpperCase() + commit.description.slice(1);
+  return commit.breaking ? `- **Breaking:** ${text}` : `- ${text}`;
+}
+
+// renderChangelog turns the selected commits into the user-facing changelog
+// Markdown shared by the in-app updater (via latest*.yml) and the release page.
+export function renderChangelog({ highlights = "", commits = [], coreChange, initial = false }) {
+  const sections = [];
+  const trimmedHighlights = highlights.trim();
+  if (trimmedHighlights) {
+    sections.push(`### Highlights\n\n${trimmedHighlights}`);
+  }
+
+  const seen = new Set();
+  for (const group of changelogGroups) {
+    const lines = [];
+    for (const commit of commits) {
+      if (commit.type !== group.type) continue;
+      const line = commitLine(commit);
+      if (seen.has(line)) continue;
+      seen.add(line);
+      lines.push(line);
+    }
+    if (lines.length > 0) {
+      sections.push(`### ${group.title}\n\n${lines.join("\n")}`);
+    }
+  }
+
+  if (sections.length === 0) {
+    sections.push(initial ? "Initial release." : "Maintenance release with internal improvements.");
+  }
+  if (coreChange) {
+    const link = `[\`${coreChange.to}\`](https://github.com/${coreChange.repository}/releases/tag/${encodeURIComponent(coreChange.to)})`;
+    sections.push(
+      coreChange.from
+        ? `Bundled core updated from \`${coreChange.from}\` to ${link}.`
+        : `Bundles core ${link}.`,
+    );
+  }
+  return `${sections.join("\n\n")}\n`;
+}
+
+function git(cwd, args) {
+  return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+
+function commitsInRange(cwd, range) {
+  const output = git(cwd, ["log", "--reverse", "--no-merges", "--format=%s%x1e", range]);
+  return output
+    .split("\x1e")
+    .map((subject) => parseCommitSubject(subject))
+    .filter(Boolean);
+}
+
+function coreVersionAt(cwd, ref) {
+  try {
+    return git(cwd, ["show", `${ref}:desktop/.core-version`]).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+// Annotated tag messages become hand-written highlights; lightweight tags
+// (and the tag's signature block) contribute nothing.
+function tagHighlights(cwd, tag) {
+  const ref = `refs/tags/${tag}`;
+  if (git(cwd, ["for-each-ref", "--format=%(objecttype)", ref]).trim() !== "tag") return "";
+  const contents = git(cwd, ["for-each-ref", "--format=%(contents)", ref]);
+  return contents.split(/^-----BEGIN [A-Z ]*SIGNATURE-----$/m)[0].trim();
+}
+
+// generateChangelog builds a desktop release's changelog from local git
+// history. Shell changes are desktop-scoped commits since the previous desktop
+// tag; core changes are the non-desktop commits between the previously and
+// newly pinned core tags — the same scope rule that keeps desktop commits out
+// of the core's own GoReleaser changelog.
+export function generateChangelog({ tag, sourceRepository, cwd = process.cwd() }) {
+  parseDesktopTag(tag);
+  assertRepository(sourceRepository, "source");
+  const ref = `refs/tags/${tag}`;
+  const tags = git(cwd, ["tag", "--list", "desktop-v*"]).split(/\r?\n/).filter(Boolean);
+  const previous = previousDesktopTag(tag, tags);
+  const highlights = tagHighlights(cwd, tag);
+  const newCore = coreVersionAt(cwd, ref);
+  if (!newCore || !coreTagPattern.test(newCore)) {
+    throw new Error(`invalid bundled core version ${JSON.stringify(newCore)} at ${tag}`);
+  }
+
+  if (!previous) {
+    return renderChangelog({
+      highlights,
+      initial: true,
+      coreChange: { to: newCore, repository: sourceRepository },
+    });
+  }
+
+  const commits = commitsInRange(cwd, `refs/tags/${previous}..${ref}`).filter(isDesktopScope);
+  const oldCore = coreVersionAt(cwd, `refs/tags/${previous}`);
+  let coreChange;
+  if (oldCore !== newCore) {
+    coreChange = { from: oldCore, to: newCore, repository: sourceRepository };
+    const range = oldCore ? `refs/tags/${oldCore}..refs/tags/${newCore}` : `refs/tags/${newCore}`;
+    commits.push(...commitsInRange(cwd, range).filter((commit) => !isDesktopScope(commit)));
+  }
+  return renderChangelog({ highlights, commits, coreChange });
 }
 
 export function artifactNames(version) {
@@ -89,12 +257,15 @@ function releaseAssetUrl(repository, version, filename) {
   return `https://github.com/${repository}/releases/download/v${version}/${encodeURIComponent(filename)}`;
 }
 
-export function renderReleaseNotes(info, coreVersion, sourceRepository, desktopRepository) {
+export function renderReleaseNotes(info, coreVersion, sourceRepository, desktopRepository, changelog) {
   if (!coreTagPattern.test(coreVersion)) {
     throw new Error(`invalid bundled core version ${JSON.stringify(coreVersion)}; expected a v-prefixed SemVer tag`);
   }
   assertRepository(sourceRepository, "source");
   assertRepository(desktopRepository, "desktop release");
+  if (typeof changelog !== "string" || changelog.trim() === "") {
+    throw new Error("desktop release changelog must be non-empty Markdown");
+  }
 
   const names = artifactNames(info.version);
   const download = (name) => `[\`${name}\`](${releaseAssetUrl(desktopRepository, info.version, name)})`;
@@ -111,6 +282,14 @@ export function renderReleaseNotes(info, coreVersion, sourceRepository, desktopR
 
   lines.push(
     "PixivBiu Desktop is the native desktop distribution of PixivBiu, with one-click Pixiv sign-in and app-managed updates.",
+    "",
+    "## What's changed",
+    "",
+    changelogStartMarker,
+    "",
+    changelog.trim(),
+    "",
+    changelogEndMarker,
     "",
     "## Downloads",
     "",
@@ -146,6 +325,7 @@ export function verifyRelease({
   desktopRepository,
   assets,
   metadata,
+  changelog,
 }) {
   const info = parseDesktopTag(tag);
   if (!Array.isArray(assets) || assets.some((name) => typeof name !== "string" || name.length === 0)) {
@@ -193,6 +373,11 @@ export function verifyRelease({
       throw new Error(`missing downloaded update metadata ${filename}`);
     }
     const parsed = parseUpdateMetadata(metadata[filename], filename);
+    // Without embedded notes electron-updater falls back to scraping the whole
+    // release page (downloads table included) from the GitHub Atom feed.
+    if (!/^releaseNotes:/m.test(metadata[filename])) {
+      throw new Error(`${filename} has no releaseNotes; package with -c.releaseInfo.releaseNotesFile`);
+    }
     if (parsed.version !== info.version) {
       throw new Error(`${filename} version is ${JSON.stringify(parsed.version)}; expected ${JSON.stringify(info.version)}`);
     }
@@ -205,7 +390,7 @@ export function verifyRelease({
 
   return {
     info,
-    notes: renderReleaseNotes(info, coreVersion, sourceRepository, desktopRepository),
+    notes: renderReleaseNotes(info, coreVersion, sourceRepository, desktopRepository, changelog),
   };
 }
 
@@ -213,7 +398,8 @@ function usage() {
   return [
     "usage:",
     "  node scripts/desktop-release.mjs title <desktop-tag>",
-    "  node scripts/desktop-release.mjs verify <desktop-tag> <core-version> <source-repo> <desktop-repo> <assets-json> <metadata-dir> <notes-output>",
+    "  node scripts/desktop-release.mjs notes <desktop-tag> <source-repo> <changelog-output>",
+    "  node scripts/desktop-release.mjs verify <desktop-tag> <core-version> <source-repo> <desktop-repo> <assets-json> <metadata-dir> <changelog> <notes-output>",
   ].join("\n");
 }
 
@@ -224,8 +410,15 @@ function main(argv) {
     return;
   }
 
-  if (command === "verify" && args.length === 7) {
-    const [tag, coreVersion, sourceRepository, desktopRepository, assetsPath, metadataDir, notesPath] = args;
+  if (command === "notes" && args.length === 3) {
+    const [tag, sourceRepository, outputPath] = args;
+    fs.writeFileSync(outputPath, generateChangelog({ tag, sourceRepository }), "utf8");
+    process.stdout.write(`wrote changelog for ${tag} to ${outputPath}\n`);
+    return;
+  }
+
+  if (command === "verify" && args.length === 8) {
+    const [tag, coreVersion, sourceRepository, desktopRepository, assetsPath, metadataDir, changelogPath, notesPath] = args;
     const assets = JSON.parse(fs.readFileSync(assetsPath, "utf8"));
     const metadata = Object.fromEntries(
       ["latest-mac.yml", "latest.yml", "latest-linux.yml"].map((filename) => [
@@ -240,6 +433,7 @@ function main(argv) {
       desktopRepository,
       assets,
       metadata,
+      changelog: fs.readFileSync(changelogPath, "utf8"),
     });
     fs.writeFileSync(notesPath, result.notes, "utf8");
     process.stdout.write(`verified ${assets.length} assets for ${result.info.title}\n`);

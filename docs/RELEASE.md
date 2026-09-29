@@ -79,7 +79,7 @@ GoReleaser builds the embedded web UI and generates the release notes automatica
 
 1. **Prepare the core:** the shell requires desktop lifecycle protocol v1 (`pixivbiu-desktop/1`). Release the updated core first, then update the pin; older binaries are rejected by the package audit. Confirm the release in [`desktop/.core-version`](../desktop/.core-version) exists and has all required platform archives. To bundle a newer core, edit that file to its published `v*` tag and commit it before tagging desktop.
 2. **Verify:** confirm CI and relevant [desktop smoke checks](../desktop/README.md#develop) pass. `make desktop-fetch-core` reproduces pinned-core staging locally (requires authenticated `gh`); `make desktop-dev` and `make desktop-dist` instead build core from the working tree. CI staging downloads/extracts assets but does not verify minisign/checksums itself.
-3. **Choose a tag:** stable `desktop-v1.0.0`, beta `desktop-v1.1.0-beta.1`, or alpha `desktop-v1.1.0-alpha.1`. **Desktop does not support RC tags.** CI sets the package version from the tag; no manual `package.json` version bump is required.
+3. **Choose a tag:** stable `desktop-v1.0.0`, beta `desktop-v1.1.0-beta.1`, or alpha `desktop-v1.1.0-alpha.1`. **Desktop does not support RC tags.** CI sets the package version from the tag; no manual `package.json` version bump is required. Release notes are generated from Conventional Commits (`desktop`-scoped shell changes plus the bundled core's changes); to add hand-written highlights, create an annotated tag with `git tag -a desktop-v1.0.0 -m "…"`. See [desktop changelog](RELEASE_REFERENCE.md#desktop-changelog).
 4. **Publish from the tested commit:**
 
 ```bash
@@ -88,7 +88,7 @@ git push origin desktop-v1.0.0
 ```
 
 5. **Watch Actions → Desktop:** **Create draft release → all three platform builds → Publish release** must succeed. Each platform's packaging hooks validate contents and save size reports in the job summary and `desktop-size-<OS>` Actions artifact. Review installer and expanded-byte changes against comparable builds. Audit or report-upload failure keeps the release in draft. The final job checks installers and update metadata before making the draft public; leave publication to that job.
-6. **Confirm the result:** the desktop releases repository has `v1.0.0` with the correct source tag and pinned core in its release notes, working installer links, and `latest-mac.yml`, `latest.yml`, and `latest-linux.yml`. Stable releases become latest; prereleases leave the previous stable latest. Only versioned assets are published. Use the [artifact reference](RELEASE_REFERENCE.md#desktop-artifacts) if inspecting uploads manually.
+6. **Confirm the result:** the desktop releases repository has `v1.0.0` with the expected changelog, correct source tag, and pinned core in its release notes, working installer links, and `latest-mac.yml`, `latest.yml`, and `latest-linux.yml`. Stable releases become latest; prereleases leave the previous stable latest. Only versioned assets are published. Use the [artifact reference](RELEASE_REFERENCE.md#desktop-artifacts) if inspecting uploads manually.
 
 ## Failed release recovery
 

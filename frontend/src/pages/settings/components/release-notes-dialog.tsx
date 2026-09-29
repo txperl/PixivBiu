@@ -19,8 +19,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMessages } from "@/i18n";
 import { ExternalLinkIcon } from "@/lib/icons";
 
-// Core notes are Markdown; electron-updater's GitHub feed supplies HTML.
-// Parse raw HTML before sanitizing it, then render through the same components.
+// Core and desktop notes are Markdown (desktop embeds its changelog in
+// latest*.yml); desktop releases published before that fell back to the GitHub
+// feed's HTML. Parse raw HTML before sanitizing it, then render through the
+// same components.
 // The project ships no @tailwindcss/typography plugin, so each element is mapped
 // here to a compact, muted scale.
 //

@@ -32,7 +32,7 @@ Keep `preload.ts` aligned with [frontend/src/lib/desktop.ts](../frontend/src/lib
 
 ## Sessions and UI preferences
 
-Normal startup never opens a persistent Chromium session or initializes `safeStorage`. The main window, protocol handler, permission policy and core proxy all use `pixivbiu-main` (no `persist:` prefix). Use that session’s `protocol` and `fetch`; global `protocol.handle` and `net.fetch` would reintroduce the persistent default session. Electron-updater uses its own in-memory session. Cookie encryption stays enabled as defense in depth for any future persistent session, but normal application and OAuth traffic have no on-disk cookie store to encrypt.
+Normal startup never opens a persistent Chromium session or initializes `safeStorage`. The main window, protocol handler, permission policy and core proxy all use `pixivbiu-main` (no `persist:` prefix). Use that session’s `protocol` and `fetch`; global `protocol.handle` and `net.fetch` would reintroduce the persistent default session. Electron-updater uses its own in-memory session, and release-notes stitching fetches through the in-memory `pixivbiu-release-notes` session. Cookie encryption stays enabled as defense in depth for any future persistent session, but normal application and OAuth traffic have no on-disk cookie store to encrypt.
 
 Each OAuth attempt creates a unique in-memory session with caching disabled. Completion, cancellation and timeout close the window and clear storage, cache, HTTP authentication and connections. Popups are denied so they cannot create default-session windows. Pixiv’s remembered-account/device cookies do not survive authorization attempts; occasional reauthorization may require credentials, captcha or 2FA again. The core’s persisted refresh token still maintains PixivBiu login across restarts and is separate from Electron cookies. The core token state remains a permission-restricted JSON file, not encrypted by Electron’s Cookie fuse.
 
@@ -58,6 +58,7 @@ This internal-test transition does not import or delete old Chromium profiles or
 | `src/oauth-window.ts` | OAuth window that intercepts the Pixiv callback → returns the code |
 | `src/preload.ts` | `contextBridge` → `window.pixivbiu` (the SPA mirrors this in `frontend/src/lib/desktop.ts`) |
 | `src/updater.ts` | `electron-updater` wiring + IPC to the renderer |
+| `src/release-notes.ts` | Pure helpers stitching changelogs across skipped versions |
 | `electron-builder.yml` | Packaging / signing / publish config |
 | `build/icon.icns` / `icon.png` | macOS bundle icon and Linux/runtime icon, generated from the Unix artwork |
 | `build/icon.ico` | Multi-size Windows executable, installer, and runtime icon |

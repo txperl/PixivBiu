@@ -142,7 +142,13 @@ The [Release workflow](../.github/workflows/release.yml) binds `GORELEASER_CURRE
 
 Newer tags on the same commit are excluded, including when an older prerelease is rerun. Only strict core tags with stable or `alpha.N`/`beta.N`/`rc.N` versions participate; desktop and legacy tags are excluded. If no qualifying base exists, the workflow retains GoReleaser’s default first-release behavior. The temporary-repository tests in `node --test scripts/build-version.test.mjs` cover promotion, reruns, numeric prerelease ordering, unrelated branches, annotated tags, checkout validation, and local version overrides.
 
-Keep this selection aligned with the core updater's maturity rules. The app renders the release body in Settings → About when an update is available. Desktop uses a separate generated download table and source/core references from [desktop-release.mjs](../scripts/desktop-release.mjs).
+Keep this selection aligned with the core updater's maturity rules. The app renders the release body in Settings → About when an update is available.
+
+### Desktop changelog
+
+The Desktop workflow's draft job runs `node scripts/desktop-release.mjs notes` once per release and shares the result with every job. Its baseline is the highest lower desktop tag: stable compares with the previous stable (covering the whole prerelease cycle); alpha and beta compare with any lower desktop tag. It collects `desktop`-scoped commits since that baseline plus non-`desktop` commits between the previously and newly pinned core tags, keeps `feat` → Features, `fix` → Bug fixes, and `perf` → Performance, and notes the core bump. An annotated tag's message becomes a leading Highlights section (`git tag -a desktop-v1.2.0 -m "…"`); lightweight tags add none. With nothing user-facing, the notes say it is a maintenance release. Preview locally with `node scripts/desktop-release.mjs notes desktop-v1.2.0 txperl/PixivBiu /dev/stdout` after creating the tag.
+
+Every platform packages the same file with `-c.releaseInfo.releaseNotesFile`, so `latest*.yml` carries `releaseNotes` and electron-updater shows it instead of scraping the release page; publish verification rejects metadata without it. The release body wraps the changelog in `<!-- pixivbiu:changelog:start/end -->` markers above the generated download table and source/core references. When a user skips versions, the shell reads those marked sections from the releases API and stitches them under per-version headings, like the core's aggregated notes; releases without markers are skipped, and any failure keeps the newest release's notes. See [desktop-release.mjs](../scripts/desktop-release.mjs) and [release-notes.ts](../desktop/src/release-notes.ts).
 
 ## Local rehearsal
 
