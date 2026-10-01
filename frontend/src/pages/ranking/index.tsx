@@ -29,7 +29,6 @@ import { pageOutcome, pagerStateOf } from "@/lib/pagination";
 import { resetNumberedList, usePageFrontier, useRecordPage } from "@/lib/query/page-frontier";
 import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
-import { useChangeEffect } from "@/lib/use-change-effect";
 
 function readMode(sp: URLSearchParams): RankingMode {
     const v = sp.get("mode");
@@ -83,26 +82,21 @@ function RankingPage() {
     const pagerState = pagerStateOf(frontier, page, observed);
     const beyondEnd = page > 1 && observed?.outcome === "empty";
 
-    const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
-
-    // Reset selection whenever the list identity (mode/date/page) changes — the
-    // previous list's selection must not bleed across a navigation.
-    useChangeEffect(JSON.stringify([mode, date, page]), clearSelection);
-
     const { filtered, totalBefore, totalAfter } = useFilteredIllusts(data?.illusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
+    const selection = useIllustSelection({
+        identity: JSON.stringify([mode, date, page]),
+        visibleIds: currentIllustIds,
+        enabled: !isPending && !isError && !isPlaceholderData,
+        scope: "page",
+    });
+    const { selected, toggle } = selection;
     useFilterPanel({
         specialFilters: null,
         specialFiltersActiveCount: 0,
         onResetSpecialFilters: null,
         totalBefore,
         totalAfter,
-        quickAction: {
-            selected,
-            allIllustIds: currentIllustIds,
-            onReplaceSelection: replaceSelection,
-            onClearSelection: clearSelection,
-        },
     });
 
     const updateParams = (patch: Record<string, string | undefined>, resetPage = false) => {
@@ -161,7 +155,13 @@ function RankingPage() {
                 ) : filtered.length === 0 ? (
                     <FilteredEmpty totalBefore={totalBefore} />
                 ) : (
-                    <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
+                    <IllustGrid
+                        illusts={filtered}
+                        selected={selected}
+                        onToggle={toggle}
+                        selectMode={selection.mode}
+                        selectionDisabled={!selection.enabled || selection.pending !== null}
+                    />
                 )}
             </ListLoadingOverlay>
 

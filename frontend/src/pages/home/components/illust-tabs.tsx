@@ -65,7 +65,6 @@ type HomeIllustTabsProps = {
 function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
     const m = useMessages();
     const queryClient = useQueryClient();
-    const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
     const [forYou, setForYou] = useState<ForYouParams>(DEFAULT_FOR_YOU);
     const [follow, setFollow] = useState<FollowParams>(DEFAULT_FOLLOW);
 
@@ -110,6 +109,13 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
     const illusts = useMemo(() => query.data?.pages.flatMap((p) => p.illusts) ?? [], [query.data?.pages]);
     const { filtered, totalBefore, totalAfter } = useFilteredIllusts(illusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
+    const selection = useIllustSelection({
+        identity: JSON.stringify([activeTab, activeOptions.queryKey]),
+        visibleIds: currentIllustIds,
+        enabled: !query.isPending && !query.isPlaceholderData && illusts.length > 0,
+        scope: "loaded",
+    });
+    const { selected, toggle } = selection;
 
     const specialFilters: ReactNode | null = useMemo(() => {
         if (activeTab === "for-you") {
@@ -147,17 +153,10 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
         onResetSpecialFilters: resetSpecialFilters,
         totalBefore,
         totalAfter,
-        quickAction: {
-            selected,
-            allIllustIds: currentIllustIds,
-            onReplaceSelection: replaceSelection,
-            onClearSelection: clearSelection,
-        },
     });
 
     const handleTabChange = (v: string) => {
         if (v === activeTab) return;
-        clearSelection();
         onActiveTabChange(v as TabId);
     };
 
@@ -188,7 +187,7 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
                         ))}
                     </TabsList>
                 </Tabs>
-                <div className="pb-1.5">
+                <div className="flex items-center gap-1 pb-1.5">
                     <Button
                         variant="ghost"
                         size="icon-xs"
@@ -221,7 +220,13 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
                 <FilteredEmpty totalBefore={totalBefore} />
             ) : (
                 <>
-                    <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
+                    <IllustGrid
+                        illusts={filtered}
+                        selected={selected}
+                        onToggle={toggle}
+                        selectMode={selection.mode}
+                        selectionDisabled={!selection.enabled || selection.pending !== null}
+                    />
                     {query.hasNextPage && (
                         <div className="flex justify-end pt-6 pb-2">
                             <button

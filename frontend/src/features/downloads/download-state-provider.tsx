@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/features/auth";
 import type { InboxEvent } from "@/features/events";
 import { useEventStream, useRefreshOnReconnect } from "@/features/events";
@@ -17,6 +17,7 @@ import {
 } from "./api";
 import { TRACKED_INITIAL_FETCH_LIMIT, TRACKED_SWEEP_INTERVAL_MS, TRACKED_TTL_MS } from "./constants";
 import { DownloadStateContext, type DownloadStateContextValue, type TrackedJob } from "./download-state-context";
+import { ScopedSubmissions } from "./scoped-submissions";
 import { patchJobTask } from "./task-patch";
 import type {
     JobEventData,
@@ -51,6 +52,21 @@ export function DownloadStateProvider({ children }: { children: ReactNode }) {
     const { subscribe } = useEventStream();
     const authResolved = authStatus !== null;
     const authenticated = !!authStatus?.authenticated;
+    const sessionKey = !authResolved ? "loading" : authenticated ? `user:${authStatus?.user_id ?? "unknown"}` : "anon";
+    const session = useMemo(() => ({ key: sessionKey, authenticated }), [sessionKey, authenticated]);
+    const sessionRef = useRef<typeof session | null>(session);
+    sessionRef.current = session;
+    const submissions = useRef(new ScopedSubmissions<Awaited<ReturnType<typeof submitDownload>>>());
+    submissions.current.setScope(session);
+
+    useLayoutEffect(() => {
+        sessionRef.current = session;
+        submissions.current.setScope(session);
+        return () => {
+            if (sessionRef.current === session) sessionRef.current = null;
+            submissions.current.setScope(null);
+        };
+    }, [session]);
 
     const [tracked, setTracked] = useState<Map<number, TrackedJob>>(new Map());
     const [activeCount, setActiveCount] = useState(0);
@@ -61,7 +77,7 @@ export function DownloadStateProvider({ children }: { children: ReactNode }) {
     const trackedRef = useRef(tracked);
     trackedRef.current = tracked;
 
-    const refreshingRef = useRef(false);
+    const refreshingRef = useRef<typeof session | null>(null);
 
     // The job_id check guards against late events landing on a slot that a
     // newer job has already claimed (same illust, fresh submission).
@@ -112,8 +128,9 @@ export function DownloadStateProvider({ children }: { children: ReactNode }) {
     );
 
     const refresh = useCallback(async () => {
-        if (refreshingRef.current) return;
-        refreshingRef.current = true;
+        const currentSession = sessionRef.current;
+        if (!currentSession?.authenticated || refreshingRef.current === currentSession) return;
+        refreshingRef.current = currentSession;
         try {
             const since = new Date(Date.now() - TRACKED_TTL_MS);
             const [activeResp, recentResp] = await Promise.all([
@@ -124,6 +141,7 @@ export function DownloadStateProvider({ children }: { children: ReactNode }) {
                     perPage: TRACKED_INITIAL_FETCH_LIMIT,
                 }),
             ]);
+            if (sessionRef.current !== currentSession) return;
             const counts = activeResp.data ?? recentResp.data;
             if (counts) {
                 setActiveCount(counts.active_count);
@@ -147,23 +165,24 @@ export function DownloadStateProvider({ children }: { children: ReactNode }) {
             for (const j of recentResp.data?.jobs ?? []) insert(j, true);
             setTracked(next);
         } finally {
-            refreshingRef.current = false;
-            setInitialLoaded(true);
+            if (refreshingRef.current === currentSession) refreshingRef.current = null;
+            if (sessionRef.current === currentSession) setInitialLoaded(true);
         }
     }, []);
 
     useEffect(() => {
-        if (!authResolved) return;
-        if (authenticated) {
+        if (session.key === "loading") return;
+        setTracked(new Map());
+        setActiveCount(0);
+        setDoneCount(0);
+        setLastError({});
+        if (session.authenticated) {
+            setInitialLoaded(false);
             void refresh();
         } else {
-            setTracked(new Map());
-            setActiveCount(0);
-            setDoneCount(0);
-            setLastError({});
             setInitialLoaded(true);
         }
-    }, [authResolved, authenticated, refresh]);
+    }, [refresh, session]);
 
     // refreshingRef coalesces a reconnect-driven refresh with an in-flight
     // auth-in refresh if they happen to race.
@@ -185,8 +204,9 @@ export function DownloadStateProvider({ children }: { children: ReactNode }) {
                     const cur = trackedRef.current.get(d.illust_id);
                     if (cur?.id === d.job_id) return;
                     // Cross-tab submission; fetch the full job to populate the map.
+                    const currentSession = sessionRef.current;
                     void getDownload(d.job_id).then(({ data }) => {
-                        if (data) upsertJob(data);
+                        if (data && currentSession === sessionRef.current) upsertJob(data);
                     });
                     return;
                 }
@@ -283,15 +303,19 @@ export function DownloadStateProvider({ children }: { children: ReactNode }) {
 
     const submit = useCallback(
         async (illustId: number) => {
-            const key = `submit:${illustId}`;
-            clearError(key);
-            const { data, error } = await submitDownload(illustId);
-            if (error) {
-                setError(key, error);
-                return null;
-            }
-            if (data) upsertJob(data);
-            return data;
+            if (!sessionRef.current?.authenticated) return null;
+            const response = await submissions.current.run(
+                illustId,
+                () => {
+                    clearError(`submit:${illustId}`);
+                    return submitDownload(illustId);
+                },
+                ({ data, error }) => {
+                    if (error) setError(`submit:${illustId}`, error);
+                    else if (data) upsertJob(data);
+                },
+            );
+            return response?.error ? null : (response?.data ?? null);
         },
         [clearError, setError, upsertJob],
     );

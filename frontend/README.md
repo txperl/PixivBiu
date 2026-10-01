@@ -17,6 +17,7 @@ The install compiles i18n messages. Vite normally serves on 5173 and proxies `/a
 
 | Command | Effect |
 | --- | --- |
+| `bun run test` | Selection and submission state tests (Bun, no DOM or Pixiv calls) |
 | `bun run build` | Compile messages, type-check, and build into `../internal/web/dist` |
 | `bunx @biomejs/biome ci .` | Read-only lint/format check used by CI |
 | `bun run check` | Apply Biome lint/format fixes |
@@ -99,6 +100,14 @@ Settings' `applyView` mirrors adopted saves/resets/refetches into `CONFIG_QUERY_
 
 Only `download.job.*` events update client job status. Task events update tasks, not a client-derived job aggregation. Use `ACTIVE_STATUSES` for in-flight status. Artwork progress is a byte ratio, indeterminate when any size is unknown; `DownloadsTable` job progress is count-weighted. Don't interchange them.
 
+### Batch selection and submission
+
+`IllustSelectionProvider` lives inside the account-keyed root layout. Each kept page owns an `IllustSelectionStore`; its layout-effect registration is removed while the page is hidden and restored on reveal without resetting state. The shared action bar is a sibling of the main ScrollArea, anchored to the main panel's bottom-right corner below popup layers. Its measured height reserves scroll content and focus-scroll space; do not portal it to the window or attach it to the filter panel. Use equally sized compact buttons with consistent gaps; show the count in the selection status and keep the download label short. The bar provides select-all, download, and exit; there is no separate clear button.
+
+Artwork card checkboxes enter selection mode; there is no selection control in the list header. The action bar follows the original filter-panel toggle: any nonempty selection offers deselect, while zero selection offers select-all. Deselect clears the selected items while keeping the bar open, so the user can select all again; the close control exits, and deselecting the last card also exits. The select-all label stays short with its scope in the tooltip. All-select covers filtered works on the current numbered page or already loaded feed pages; loading more never adds selection automatically. Server-side list identities (including page, user, tab, and search/filter parameters) reset selection, while same-list filtering/refetch intersects it with the current results. Kept-page navigation preserves it. Pending batches lock selection editing but allow exit/navigation; results never restore an exited selection or update another list version.
+
+Batch enqueue uses at most four workers and checks current tracked queued/running jobs before each submit. Successful/existing jobs leave the selection; failed submits remain selected for retry. Counts describe enqueue outcomes, not download completion. The shared download submit path coalesces in-flight calls per artwork and session; account changes revoke unsent batch work and prevent adopting old responses. Already dispatched requests and accepted downloads are not rolled back. Escape respects inputs and open popup layers, and selection controls retain native checkbox semantics with localized names. The selection hook remembers the last artwork selection control for focus restoration; returning focus when selection exits must use `preventScroll` so the browser does not pull the current artwork viewport to that card.
+
 ## Localization and errors
 
 Read text in render paths using `const m = useMessages()` from `@/i18n`. It subscribes to locale changes. Module-level imports/evaluated UI text freeze the language; move UI constants into render or memoized work with correct dependencies. Dynamic message selection uses explicit static maps.
@@ -116,7 +125,7 @@ Settings labels use explicit `useFieldText/useSectionTitle` maps. Missing transl
 - Compose classes with `cn(...)`, not template literals. Reuse Base UI/shadcn primitives, Material You tokens, root tooltips, and accessible control labels.
 - Render Pixiv images with `PximgImage`. It rewrites to the same-origin proxy, keeps a caller-sized fallback underlay, and fades in after load/decode. `fit="cover"` suits thumbnails; `fit="contain"` suits the viewer. `className` styles the wrapper, not the inner image. Use `onLoad(img)` for natural dimensions; don't force eager decode and defeat lazy loading.
 - Numbered lists wrap results in `ListLoadingOverlay`, active on `query.isPlaceholderData`. This explains slow page steps while previous data remains visible. Cursor-walk skeletons take precedence. Cold settings/download loaders use `useDelayedFlag` to avoid flashes and premature empty states.
-- Pipe list results through `useFilteredIllusts`; register `useFilterPanel` with filter rows, counts, reset, and quick actions. Use `useIllustSelection` for batch work and clear selection on list-identity/page changes.
+- Pipe list results through `useFilteredIllusts`; register `useFilterPanel` with filter rows, counts, and reset. Batch actions are independent of the filter panel: use `useIllustSelection` with the list identity, filtered IDs, readiness, and page/loaded scope. Pass its toggle handler and explicit mode/disabled state to `IllustGrid`; artwork cards provide the selection entry.
 - New activity-bar panels use typed item hooks/payloads, a panel component, and registration in `ITEM_DEFS`. Export typed panel/data hooks from the barrel.
 - Reuse `DownloadsTable`; its compact mode hides headers/size/actions.
 - The page scroll root is the Base UI ScrollArea viewport tagged `data-app-scroller`, not `main` or window. Use shared scroll helpers for pagers, scroll-spy, and observers. New persistent scroll regions use ScrollArea with appropriate flex sizing; transient popups keep their scoped native bars.

@@ -37,7 +37,6 @@ import { type PageObservation, pageOutcome, pagerStateOf } from "@/lib/paginatio
 import { usePageFrontier, useRecordPage } from "@/lib/query/page-frontier";
 import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
-import { useChangeEffect } from "@/lib/use-change-effect";
 
 type SearchType = "illust" | "user";
 
@@ -166,11 +165,17 @@ function SearchResults({ keyword }: SearchResultsProps) {
     const pagerState = pagerStateOf(frontier, page, observed);
     const beyondEnd = page > 1 && observed?.outcome === "empty";
 
-    const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
     const { push: pushHistory } = useSearchHistory();
 
     const { filtered, totalBefore, totalAfter } = useFilteredIllusts(illustQuery.data?.illusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
+    const selection = useIllustSelection({
+        identity: JSON.stringify([keyword, type, target, sort, duration, startDate, endDate, excludeAi, page]),
+        visibleIds: currentIllustIds,
+        enabled: type === "illust" && illustQuery.isSuccess && !illustQuery.isPlaceholderData,
+        scope: "page",
+    });
+    const { selected, toggle } = selection;
 
     const patch = useCallback(
         (p: Record<string, string | undefined>, resetPage = true) =>
@@ -233,15 +238,6 @@ function SearchResults({ keyword }: SearchResultsProps) {
         onResetSpecialFilters: resetSpecialFilters,
         totalBefore: type === "illust" ? totalBefore : 0,
         totalAfter: type === "illust" ? totalAfter : 0,
-        quickAction:
-            type === "illust"
-                ? {
-                      selected,
-                      allIllustIds: currentIllustIds,
-                      onReplaceSelection: replaceSelection,
-                      onClearSelection: clearSelection,
-                  }
-                : null,
     });
 
     // Record the keyword once the active query succeeds (v5 has no onSuccess). Once per
@@ -253,14 +249,6 @@ function SearchResults({ keyword }: SearchResultsProps) {
         pushedKeyword.current = keyword;
         pushHistory(keyword);
     }, [keyword, activeQuery.isSuccess, pushHistory]);
-
-    // Reset selection whenever the list identity changes — the previous list's selection
-    // must not bleed across a navigation. `keyword` is part of the identity (a new keyword
-    // is a different result set), so it must trigger a clear like the other search params.
-    useChangeEffect(
-        JSON.stringify([keyword, type, target, sort, duration, startDate, endDate, excludeAi, page]),
-        clearSelection,
-    );
 
     const onTabChange = (v: string) => {
         if (v !== "illust" && v !== "user") return;
@@ -291,7 +279,10 @@ function SearchResults({ keyword }: SearchResultsProps) {
     return (
         <>
             <Tabs value={type} onValueChange={onTabChange}>
-                <div className="border-muted/60 border-b">
+                <div
+                    data-app-controls=""
+                    className="flex flex-wrap items-center justify-between gap-2 border-muted/60 border-b"
+                >
                     <TabsList variant="line" className="h-12 gap-0">
                         <TabsTrigger
                             value="illust"
@@ -322,7 +313,13 @@ function SearchResults({ keyword }: SearchResultsProps) {
                     ) : filtered.length === 0 ? (
                         <FilteredEmpty totalBefore={totalBefore} />
                     ) : (
-                        <IllustGrid illusts={filtered} selected={selected} onToggle={toggle} />
+                        <IllustGrid
+                            illusts={filtered}
+                            selected={selected}
+                            onToggle={toggle}
+                            selectMode={selection.mode}
+                            selectionDisabled={!selection.enabled || selection.pending !== null}
+                        />
                     )
                 ) : userQuery.isPending ? (
                     <UserListSkeleton />

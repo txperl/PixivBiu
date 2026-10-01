@@ -38,7 +38,6 @@ import { cursorFrontier, type PageObservation, pageOutcome, pagerStateOf } from 
 import { resetNumberedList, usePageFrontier, useRecordPage } from "@/lib/query/page-frontier";
 import { scrollAppToTop } from "@/lib/scroll";
 import { patchParams, readPage } from "@/lib/url-params";
-import { useChangeEffect } from "@/lib/use-change-effect";
 import { cn } from "@/lib/utils";
 import { isBookmarkTab, isOwnerOnlyTab, isTab, readTab, TAB_ICONS, TABS, type Tab, tabToParam } from "./tabs";
 
@@ -222,6 +221,8 @@ function TabBody({
     data,
     selected,
     onToggle,
+    selectMode,
+    selectionDisabled,
     filteredIllusts,
     totalBefore,
 }: {
@@ -230,7 +231,9 @@ function TabBody({
     isError: boolean;
     error: UserApiError | null;
     data: TabData | undefined;
-    selected: Set<number>;
+    selected: ReadonlySet<number>;
+    selectMode: boolean;
+    selectionDisabled: boolean;
     onToggle: (id: number) => void;
     filteredIllusts: Illust[];
     totalBefore: number;
@@ -246,7 +249,15 @@ function TabBody({
     }
     if (data.illusts.length === 0) return <NoResults tab={tab} />;
     if (filteredIllusts.length === 0) return <FilteredEmpty totalBefore={totalBefore} />;
-    return <IllustGrid illusts={filteredIllusts} selected={selected} onToggle={onToggle} />;
+    return (
+        <IllustGrid
+            illusts={filteredIllusts}
+            selected={selected}
+            onToggle={onToggle}
+            selectMode={selectMode}
+            selectionDisabled={selectionDisabled}
+        />
+    );
 }
 
 function UserPage() {
@@ -266,8 +277,6 @@ function UserPage() {
     const bookmarkTag = searchParams.get("tag")?.trim() || "";
 
     const visibleTabs = TABS.filter((t) => !isOwnerOnlyTab(t) || isMe);
-
-    const { selected, toggle, replaceSelection, clearSelection } = useIllustSelection();
 
     const queryClient = useQueryClient();
     const restrict = tab === "bookmarks_private" ? "private" : "public";
@@ -339,6 +348,13 @@ function UserPage() {
     const rawTabIllusts = !isWalking && list.data && "illusts" in list.data ? list.data.illusts : undefined;
     const { filtered, totalBefore, totalAfter } = useFilteredIllusts(rawTabIllusts);
     const currentIllustIds = useMemo(() => filtered.map((il) => il.id), [filtered]);
+    const selection = useIllustSelection({
+        identity: JSON.stringify([userId, tab, page, bookmarkTag]),
+        visibleIds: currentIllustIds,
+        enabled: tab !== "following" && list.isSuccess && !list.isPlaceholderData && !isWalking,
+        scope: "page",
+    });
+    const { selected, toggle } = selection;
 
     const specialFilters = useMemo(() => {
         if (tab === "bookmarks" || tab === "bookmarks_private") {
@@ -368,12 +384,6 @@ function UserPage() {
                   onResetSpecialFilters: resetSpecialFilters,
                   totalBefore,
                   totalAfter,
-                  quickAction: {
-                      selected,
-                      allIllustIds: currentIllustIds,
-                      onReplaceSelection: replaceSelection,
-                      onClearSelection: clearSelection,
-                  },
               },
     );
 
@@ -396,9 +406,6 @@ function UserPage() {
     const lastPageHint = total ? Math.ceil(total / USER_PAGE_SIZE) : undefined;
     const pagerState = pagerStateOf(frontier, page, isWalking ? undefined : observed, lastPageHint);
     const beyondEnd = page > 1 && !isWalking && observed?.outcome === "empty";
-
-    // Reset selection whenever the list identity (user/tab/page/tag) changes.
-    useChangeEffect(JSON.stringify([userId, tab, page, bookmarkTag]), clearSelection);
 
     const updateParams = (patch: Record<string, string | undefined>, resetPage = false) => {
         setSearchParams(patchParams(searchParams, patch, resetPage));
@@ -457,7 +464,10 @@ function UserPage() {
             {profileQuery.isSuccess && <ProfileHeader data={profileQuery.data} isMe={isMe} onSelectTab={selectTab} />}
 
             <Tabs value={tab} onValueChange={onTabChange}>
-                <div className="border-muted/60 border-b">
+                <div
+                    data-app-controls=""
+                    className="flex flex-wrap items-center justify-between gap-2 border-muted/60 border-b"
+                >
                     <TabsList variant="line" className="h-12 gap-1">
                         {visibleTabs.map((t) => (
                             <TabsTrigger
@@ -485,6 +495,8 @@ function UserPage() {
                         data={list.data}
                         selected={selected}
                         onToggle={toggle}
+                        selectMode={selection.mode}
+                        selectionDisabled={!selection.enabled || selection.pending !== null}
                         filteredIllusts={filtered}
                         totalBefore={totalBefore}
                     />

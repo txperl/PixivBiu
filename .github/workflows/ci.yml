@@ -99,6 +99,9 @@ jobs:
       - name: Lint and format check (Biome)
         run: bunx @biomejs/biome ci .
 
+      - name: Selection and submission tests
+        run: bun run test
+
       # `bun run build` is `paraglide:compile && tsc -b && vite build`, so this
       # type-checks (tsc) and bundles in one pass — no separate tsc step needed.
       - name: Type check and build

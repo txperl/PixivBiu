@@ -1,22 +1,38 @@
-import { useCallback, useState } from "react";
+import { useCallback, useLayoutEffect, useState, useSyncExternalStore } from "react";
+import { APP_SCROLLER_SELECTOR } from "@/lib/scroll";
+import { useSelectionContext } from "./selection-context";
+import { IllustSelectionStore, type SelectionOptions } from "./selection-state";
 
-export function useIllustSelection() {
-    const [selected, setSelected] = useState<Set<number>>(new Set());
+export function useIllustSelection(options: SelectionOptions) {
+    const [store] = useState(() => new IllustSelectionStore(options));
+    const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
+    const { register } = useSelectionContext();
+    const { identity, visibleIds, enabled, scope } = options;
 
-    const toggle = useCallback((id: number) => {
-        setSelected((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
-    }, []);
+    useLayoutEffect(() => {
+        store.configure({ identity, visibleIds, enabled, scope });
+    }, [store, identity, visibleIds, enabled, scope]);
 
-    const replaceSelection = useCallback((ids: readonly number[]) => {
-        setSelected(new Set(ids));
-    }, []);
+    // Activity tears this effect down while hidden, keeping the controller's state.
+    useLayoutEffect(() => register(store), [register, store]);
 
-    const clearSelection = useCallback(() => setSelected(new Set()), []);
+    const toggle = useCallback(
+        (id: number) => {
+            const element = document.activeElement;
+            if (element instanceof HTMLElement && element.closest(APP_SCROLLER_SELECTOR)) {
+                store.restoreFocus = () => {
+                    if (!element.isConnected) return;
+                    const target =
+                        element instanceof HTMLInputElement && element.disabled
+                            ? element.closest<HTMLElement>('[role="button"]')
+                            : element;
+                    target?.focus({ preventScroll: true });
+                };
+            }
+            store.toggle(id);
+        },
+        [store],
+    );
 
-    return { selected, toggle, replaceSelection, clearSelection };
+    return { ...snapshot, store, toggle };
 }

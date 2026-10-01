@@ -10,6 +10,7 @@ import type { Illust } from "@/features/search/api";
 import IllustBookmarkButton from "@/features/search/components/illust-bookmark-button";
 import IllustPlaceholderArt from "@/features/search/components/illust-placeholder-art";
 import UserLink from "@/features/users/components/user-link";
+import { useMessages } from "@/i18n";
 import { hueFromId } from "@/lib/format";
 import { CheckIcon, PagesIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -18,13 +19,21 @@ type IllustCardProps = {
     illust: Illust;
     selected?: boolean;
     selectMode?: boolean;
+    selectionDisabled?: boolean;
     onSelect?: (id: number) => void;
 };
 
 const MAX_DOTS = 10;
 const PREVIEW_SIDE = "min(75vw, 75vh)";
 
-function IllustCard({ illust, selected = false, selectMode = false, onSelect }: IllustCardProps) {
+function IllustCard({
+    illust,
+    selected = false,
+    selectMode = false,
+    selectionDisabled = false,
+    onSelect,
+}: IllustCardProps) {
+    const m = useMessages();
     const selectable = onSelect != null;
     const selectActive = selectable && selectMode;
     const hue = hueFromId(illust.id);
@@ -61,8 +70,9 @@ function IllustCard({ illust, selected = false, selectMode = false, onSelect }: 
 
     // Plain click/Enter/Space either selects (in select mode) or opens the viewer.
     const activate = () => {
-        if (selectActive) onSelect?.(illust.id);
-        else openViewer(illust);
+        if (selectActive) {
+            if (!selectionDisabled) onSelect?.(illust.id);
+        } else openViewer(illust);
     };
 
     return (
@@ -98,24 +108,37 @@ function IllustCard({ illust, selected = false, selectMode = false, onSelect }: 
                 <div className="pointer-events-none absolute inset-2 rounded-xl bg-black/4 opacity-0 transition-opacity group-hover:opacity-100" />
 
                 {selectable && (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onSelect?.(illust.id);
-                        }}
+                    <span
                         className={cn(
-                            "absolute top-3.5 left-3.5 flex size-6 items-center justify-center rounded-md backdrop-blur-sm transition-opacity",
+                            "absolute top-3.5 left-3.5 flex size-6 items-center justify-center rounded-md backdrop-blur-sm transition-opacity has-focus-visible:ring-2 has-focus-visible:ring-ring has-focus-visible:ring-offset-2",
                             selected
                                 ? "bg-primary text-primary-foreground opacity-100"
                                 : cn(
                                       "border-2 border-white/95 bg-black/30 text-white",
-                                      selectActive ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+                                      selectActive
+                                          ? "opacity-100"
+                                          : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
                                   ),
                         )}
                     >
-                        {selected && <HugeiconsIcon icon={CheckIcon} size={14} strokeWidth={2.5} />}
-                    </button>
+                        <input
+                            type="checkbox"
+                            checked={selected}
+                            disabled={selectionDisabled}
+                            aria-label={m.downloads_selection_select_work({ title: illust.title })}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={() => onSelect?.(illust.id)}
+                            className="absolute -top-2.5 -left-2.5 size-11 cursor-pointer opacity-0 disabled:cursor-wait"
+                        />
+                        {selected && (
+                            <HugeiconsIcon
+                                icon={CheckIcon}
+                                size={14}
+                                strokeWidth={2.5}
+                                className="pointer-events-none"
+                            />
+                        )}
+                    </span>
                 )}
 
                 <div className="pointer-events-none absolute top-3.5 right-3.5">

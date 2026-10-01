@@ -4,12 +4,13 @@ import IllustCard from "./illust-card";
 
 type IllustGridProps = {
     illusts: Illust[];
-    selected?: Set<number>;
+    selected?: ReadonlySet<number>;
+    selectMode?: boolean;
+    selectionDisabled?: boolean;
     onToggle?: (id: number) => void;
 };
 
-function IllustGrid({ illusts, selected, onToggle }: IllustGridProps) {
-    const selectMode = (selected?.size ?? 0) > 0;
+function IllustGrid({ illusts, selected, onToggle, selectMode = false, selectionDisabled = false }: IllustGridProps) {
     return (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
             {illusts.map((il) => (
@@ -19,6 +20,7 @@ function IllustGrid({ illusts, selected, onToggle }: IllustGridProps) {
                     selected={selected?.has(il.id)}
                     selectMode={selectMode}
                     onSelect={onToggle}
+                    selectionDisabled={selectionDisabled}
                 />
             ))}
         </div>

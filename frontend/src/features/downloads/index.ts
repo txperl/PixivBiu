@@ -7,8 +7,10 @@ export type {
     DownloadTask,
 } from "./api";
 export { ACTIVE_STATUSES, isTerminalStatus, TERMINAL_STATUSES } from "./api";
+export { SelectionActionBar } from "./components/selection-action-bar";
 export { DOWNLOADS_PAGE_SIZE } from "./constants";
 export { DownloadStateProvider } from "./download-state-provider";
+export { IllustSelectionProvider } from "./selection-context";
 export { useDownloadCounts } from "./use-download-counts";
 export { useDownloadMutations } from "./use-download-mutations";
 export { type UseDownloadsPageResult, useDownloadsPage } from "./use-downloads-page";

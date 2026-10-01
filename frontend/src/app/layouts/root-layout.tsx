@@ -9,6 +9,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ActivityBar, ActivityPanel, useActivityBar } from "@/features/activity-bar";
 import { useAuth } from "@/features/auth";
+import { IllustSelectionProvider, SelectionActionBar } from "@/features/downloads";
 import { IllustViewerProvider } from "@/features/illusts/illust-viewer";
 import { PageRefreshProvider } from "@/lib/page-refresh";
 
@@ -71,30 +72,41 @@ function RootLayout() {
             <KeepAliveControlProvider>
                 <PageRefreshProvider>
                     <SectionMemoryProvider key={accountKey} selfUserId={status.user_id}>
-                        <div className="window-root-layout flex h-full overflow-hidden">
-                            <ResizablePanelGroup className="min-w-0 flex-1" orientation="horizontal">
-                                <ResizablePanel id="sidebar" defaultSize="14%" minSize="10%" maxSize="22%">
-                                    <RootSidebar />
-                                </ResizablePanel>
-                                <ResizableHandle className="window-sidebar-handle" />
-                                <ResizablePanel id="main" className="window-main-panel">
-                                    {/* The ScrollArea viewport (not <main>) is the real page scroller — see
+                        <IllustSelectionProvider>
+                            <div className="window-root-layout flex h-full overflow-hidden">
+                                <ResizablePanelGroup className="min-w-0 flex-1" orientation="horizontal">
+                                    <ResizablePanel id="sidebar" defaultSize="14%" minSize="10%" maxSize="22%">
+                                        <RootSidebar />
+                                    </ResizablePanel>
+                                    <ResizableHandle className="window-sidebar-handle" />
+                                    <ResizablePanel id="main" className="window-main-panel">
+                                        {/* The ScrollArea viewport (not <main>) is the real page scroller — see
                                     [data-app-scroller] consumers in settings scroll-spy, pager scroll-to-top
                                     and KeepAliveOutlet's per-page scroll restore. */}
-                                    <main className="window-main-surface h-full min-h-0 bg-background">
-                                        <ScrollArea className="h-full" viewportProps={{ "data-app-scroller": "" }}>
-                                            <KeepAliveOutlet
-                                                key={accountKey}
-                                                routes={appRoutes}
-                                                selfUserId={status.user_id}
-                                            />
-                                        </ScrollArea>
-                                    </main>
-                                </ResizablePanel>
-                                <ActivityPanelSlot />
-                            </ResizablePanelGroup>
-                            <ActivityBar />
-                        </div>
+                                        <main className="window-main-surface relative h-full min-h-0 bg-background">
+                                            <ScrollArea
+                                                className="h-full"
+                                                viewportProps={{
+                                                    "data-app-scroller": "",
+                                                    className: "scroll-pb-[var(--selection-bar-space,0px)]",
+                                                }}
+                                            >
+                                                <div className="min-h-full pb-[var(--selection-bar-space,0px)]">
+                                                    <KeepAliveOutlet
+                                                        key={accountKey}
+                                                        routes={appRoutes}
+                                                        selfUserId={status.user_id}
+                                                    />
+                                                </div>
+                                            </ScrollArea>
+                                            <SelectionActionBar />
+                                        </main>
+                                    </ResizablePanel>
+                                    <ActivityPanelSlot />
+                                </ResizablePanelGroup>
+                                <ActivityBar />
+                            </div>
+                        </IllustSelectionProvider>
                     </SectionMemoryProvider>
                 </PageRefreshProvider>
             </KeepAliveControlProvider>
