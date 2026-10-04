@@ -16,6 +16,17 @@ import (
 
 const apiBase = "/api/v1"
 
+// imageProxyPath serves every artwork thumbnail, so a single scroll through a
+// feed issues hundreds of requests to it.
+const imageProxyPath = apiBase + "/proxy/img"
+
+// skipRequestLog drops the request log line for successful image-proxy
+// responses, which otherwise made up most of the business log. Failures (and
+// panics, which surface as 5xx) are still recorded with their error attributes.
+func skipRequestLog(req *http.Request, status int) bool {
+	return req.URL.Path == imageProxyPath && status > 0 && status < http.StatusBadRequest
+}
+
 func New(cfg *config.Config, logger *slog.Logger, h *api.APIHandler) http.Handler {
 	r := chi.NewRouter()
 
@@ -25,6 +36,7 @@ func New(cfg *config.Config, logger *slog.Logger, h *api.APIHandler) http.Handle
 		Level:         slog.LevelInfo,
 		Schema:        httplog.SchemaECS,
 		RecoverPanics: true,
+		Skip:          skipRequestLog,
 	}))
 
 	// Dev docs. /docs renders Scalar API Reference; /openapi.json feeds it
