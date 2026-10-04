@@ -16,7 +16,7 @@ require (
 	github.com/knadh/koanf/v2 v2.3.4
 	github.com/minio/selfupdate v0.6.0
 	github.com/oapi-codegen/runtime v1.4.0
-	github.com/txperl/pixivgo v0.1.2-0.20261001043143-3c7d1e3ff2fb
+	github.com/txperl/pixivgo v0.1.2
 	golang.org/x/mod v0.38.0
 	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0
