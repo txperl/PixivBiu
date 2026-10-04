@@ -51,9 +51,11 @@ function patchIllusts(value: unknown, id: number, apply: (illust: Illust) => Ill
 export function usePatchCachedIllust() {
     const queryClient = useQueryClient();
     return useCallback(
-        (illustId: number, patch: Partial<Illust>) => {
+        (illustId: number, patch: Partial<Illust> | ((illust: Illust) => Illust)) => {
             queryClient.setQueriesData({}, (data: unknown) =>
-                patchIllusts(data, illustId, (illust) => ({ ...illust, ...patch })),
+                patchIllusts(data, illustId, (illust) =>
+                    typeof patch === "function" ? patch(illust) : { ...illust, ...patch },
+                ),
             );
         },
         [queryClient],

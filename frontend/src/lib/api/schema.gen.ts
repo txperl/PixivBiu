@@ -521,7 +521,7 @@ export interface paths {
         };
         /** Get current user's bookmark detail for an illust */
         get: operations["GetBookmarkDetail"];
-        /** Bookmark an illust */
+        /** Add or update an illust bookmark, preserving omitted fields */
         put: operations["AddBookmark"];
         post?: never;
         /** Remove an illust bookmark */
@@ -730,6 +730,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/{id}/bookmark-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List bookmark tags and upstream counts for one visibility partition */
+        get: operations["ListUserBookmarkTags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{id}/bookmarks": {
         parameters: {
             query?: never;
@@ -821,9 +838,22 @@ export interface components {
         BookmarkDetail: {
             is_bookmarked: boolean;
             restrict: components["schemas"]["Restrict"];
+            tags: components["schemas"]["BookmarkTag"][];
         };
         BookmarkRequest: {
+            /** @description Preserve an existing bookmark's visibility when omitted; new bookmarks default to public. */
             restrict?: components["schemas"]["Restrict"];
+            /** @description Complete replacement tag set. Omit to preserve existing registered tags; an empty array clears them. Tag names cannot contain whitespace because the App-API uses a space-separated field. */
+            tags?: string[];
+        };
+        BookmarkTag: {
+            is_registered: boolean;
+            name: string;
+        };
+        BookmarkTagsPage: {
+            bookmark_tags: components["schemas"]["UserBookmarkTag"][];
+            /** Format: int64 */
+            next_offset: number | null;
         };
         ClearDownloadsResponse: {
             /** @description Number of jobs deleted from history. */
@@ -1408,6 +1438,10 @@ export interface components {
             is_followed: boolean | null;
             name: string;
             profile_image_urls: components["schemas"]["ProfileImageUrls"];
+        };
+        UserBookmarkTag: {
+            count: number;
+            name: string;
         };
         UserDetailPage: {
             profile: components["schemas"]["Profile"];
@@ -2251,6 +2285,7 @@ export interface operations {
         };
         responses: {
             204: components["responses"]["NoContent"];
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
             502: components["responses"]["Upstream"];
@@ -2525,6 +2560,38 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    ListUserBookmarkTags: {
+        parameters: {
+            query?: {
+                /** @description Visibility scope (public or private). */
+                restrict?: components["parameters"]["RestrictQuery"];
+                /** @description Offset for offset-paginated list endpoints. */
+                offset?: components["parameters"]["OffsetQuery"];
+            };
+            header?: never;
+            path: {
+                /** @description Pixiv user ID. */
+                id: components["parameters"]["UserIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bookmark tags. Counts may lag behind writes; null next_offset means the end. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookmarkTagsPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             502: components["responses"]["Upstream"];
         };
     };

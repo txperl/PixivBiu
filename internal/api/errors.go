@@ -19,6 +19,12 @@ type UserError interface {
 	APICode() ErrorCode
 }
 
+// ValidationError contains only authored field messages, never decoder or
+// upstream text. It uses the same wire shape as settings validation.
+type ValidationError struct{ Fields map[string]string }
+
+func (e *ValidationError) Error() string { return "invalid request fields" }
+
 // UnknownStatusError covers the `?status=…` CSV in the downloads
 // handlers — the only inline `Error{}` construction outside writeError
 // before this refactor. Promoting it to a typed error puts both call

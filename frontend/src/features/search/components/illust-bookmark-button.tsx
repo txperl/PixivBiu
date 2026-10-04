@@ -1,113 +1,68 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import type { MouseEvent } from "react";
-import { Popover, PopoverContent } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { BookmarkRestrictOptions } from "@/features/illusts/components/bookmark-restrict-options";
+import type { Illust } from "@/features/illusts/api";
+import { BookmarkPopover } from "@/features/illusts/components/bookmark-popover";
 import { useIllustBookmark } from "@/features/illusts/use-illust-bookmark";
+import { useMessages } from "@/i18n";
 import { formatCount } from "@/lib/format";
 import { HeartIcon, MagnetIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
-type IllustBookmarkButtonProps = {
-    illustId: number;
-    isBookmarked: boolean;
-    bookmarkCount: number;
-    className?: string;
-};
-
-function IllustBookmarkButton({ illustId, isBookmarked, bookmarkCount, className }: IllustBookmarkButtonProps) {
-    const {
-        bookmarked,
-        count,
-        pending,
-        errorTitle,
-        currentRestrict,
-        restrictLoading,
-        popoverOpen,
-        setPopoverOpen,
-        popVersion,
-        buttonRef,
-        openPopover,
-        scheduleClose,
-        toggle,
-        pickRestrict,
-    } = useIllustBookmark({ illustId, isBookmarked, bookmarkCount });
-
-    const onClick = (e: MouseEvent<HTMLButtonElement>) => {
-        e.stopPropagation();
-        toggle();
-    };
-
+function IllustBookmarkButton({ illust, className }: { illust: Illust; className?: string }) {
+    const m = useMessages();
+    const bookmark = useIllustBookmark({
+        illustId: illust.id,
+        isBookmarked: illust.is_bookmarked,
+        bookmarkCount: illust.total_bookmarks,
+    });
     const button = (
         <button
-            ref={buttonRef}
+            ref={bookmark.buttonRef}
             type="button"
-            onClick={onClick}
-            onMouseEnter={openPopover}
-            onMouseLeave={scheduleClose}
-            disabled={pending}
-            aria-pressed={bookmarked}
+            onClick={(event) => {
+                event.stopPropagation();
+                bookmark.toggle();
+            }}
+            onMouseEnter={bookmark.openPopover}
+            onMouseLeave={bookmark.scheduleClose}
+            onKeyDown={bookmark.onPopoverKeyDown}
+            disabled={bookmark.pending}
+            aria-pressed={bookmark.bookmarked}
+            aria-haspopup="dialog"
+            aria-expanded={bookmark.popoverOpen}
+            aria-label={bookmark.bookmarked ? m.illust_action_unbookmark() : m.illust_action_bookmark()}
             className={cn(
                 "inline-flex cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 font-mono outline-none disabled:cursor-wait disabled:opacity-70",
-                bookmarked ? "text-rose-500" : "text-muted-foreground hover:text-rose-500/70",
-                errorTitle && "ring-1 ring-destructive/40",
+                bookmark.bookmarked ? "text-rose-500" : "text-muted-foreground hover:text-rose-500/70",
+                bookmark.errorTitle && "ring-1 ring-destructive/40",
                 className,
             )}
         >
             <span
-                key={popVersion}
+                key={bookmark.popVersion}
                 className={cn(
                     "inline-flex origin-center transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:-rotate-6 group-hover:scale-125",
-                    popVersion > 0 && "animate-bookmark-pop",
+                    bookmark.popVersion > 0 && "animate-bookmark-pop",
                 )}
             >
                 <HugeiconsIcon
-                    icon={bookmarked && currentRestrict === "private" ? MagnetIcon : HeartIcon}
+                    icon={bookmark.bookmarked && bookmark.currentRestrict === "private" ? MagnetIcon : HeartIcon}
                     size={11}
                     strokeWidth={1.5}
-                    fill={bookmarked ? "currentColor" : "none"}
+                    fill={bookmark.bookmarked ? "currentColor" : "none"}
                 />
             </span>
-            {formatCount(count)}
+            {formatCount(bookmark.count)}
         </button>
     );
-
     return (
         <>
-            {errorTitle ? (
-                <Tooltip>
-                    <TooltipTrigger render={button} />
-                    <TooltipContent>{errorTitle}</TooltipContent>
-                </Tooltip>
-            ) : (
-                button
-            )}
-            {/* In the error state the error tooltip is the only hover affordance —
-                don't also surface the public/private chooser. */}
-            {!errorTitle && (
-                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                    <PopoverContent
-                        anchor={buttonRef}
-                        side="top"
-                        align="end"
-                        sideOffset={6}
-                        className="w-auto p-1"
-                        initialFocus={false}
-                        finalFocus={false}
-                        onMouseEnter={openPopover}
-                        onMouseLeave={scheduleClose}
-                    >
-                        <BookmarkRestrictOptions
-                            currentRestrict={currentRestrict}
-                            restrictLoading={restrictLoading}
-                            pending={pending}
-                            onPick={pickRestrict}
-                        />
-                    </PopoverContent>
-                </Popover>
-            )}
+            <Tooltip disabled={!bookmark.errorTitle}>
+                <TooltipTrigger render={button} />
+                <TooltipContent>{bookmark.errorTitle}</TooltipContent>
+            </Tooltip>
+            <BookmarkPopover bookmark={bookmark} illust={illust} />
         </>
     );
 }
-
 export default IllustBookmarkButton;

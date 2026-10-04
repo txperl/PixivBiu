@@ -145,3 +145,43 @@ func (h *APIHandler) DeleteFollow(w http.ResponseWriter, r *http.Request, id Use
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *APIHandler) ListUserBookmarkTags(w http.ResponseWriter, r *http.Request, id UserIdPath, params ListUserBookmarkTagsParams) {
+	if err := h.requireAuth(); err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	restrict := pixivgo.Restrict(derefEnum(params.Restrict))
+	if restrict == "" {
+		restrict = pixivgo.RestrictPublic
+	}
+	if restrict != pixivgo.RestrictPublic && restrict != pixivgo.RestrictPrivate {
+		WriteError(w, r, &ValidationError{Fields: map[string]string{"restrict": "Choose public or private."}})
+		return
+	}
+	if params.Offset != nil && *params.Offset < 0 {
+		WriteError(w, r, &ValidationError{Fields: map[string]string{"offset": "Must not be negative."}})
+		return
+	}
+	resp, err := h.svc.BookmarkTags(r.Context(), int(id), restrict, i64OptToIntOpt(params.Offset))
+	if err != nil {
+		WriteError(w, r, err)
+		return
+	}
+	tags := resp.BookmarkTags
+	if tags == nil {
+		tags = []pixivgo.UserBookmarkTag{}
+	}
+	next := pixiv.NextOffset(resp.NextURL)
+	if next != nil && *next <= int64Value(params.Offset) {
+		next = nil
+	}
+	writeJSON(w, http.StatusOK, BookmarkTagsPage{BookmarkTags: tags, NextOffset: next})
+}
+
+func int64Value(v *int64) int64 {
+	if v == nil {
+		return 0
+	}
+	return *v
+}

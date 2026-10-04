@@ -44,6 +44,7 @@ type Service struct {
 	// a burst of 401s into one refresh. NOT held across a retry (that uses a
 	// pinned client Clone), so retries still run in parallel. Order: refreshMu before mu.
 	refreshMu sync.Mutex
+	bookmarks bookmarkLocks
 
 	wg   sync.WaitGroup
 	stop context.CancelFunc

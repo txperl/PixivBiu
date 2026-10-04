@@ -106,8 +106,10 @@ export function followingInfiniteQueryOptions(params: ListFollowingIllustsParams
 
 export async function getBookmarkDetail(
     illustId: number,
+    signal?: AbortSignal,
 ): Promise<{ data: BookmarkDetail | null; error: IllustApiError | null }> {
     const { data, error } = await api.GET("/illusts/{id}/bookmark", {
+        signal,
         params: { path: { id: illustId } },
     });
     return { data: data ?? null, error: error ?? null };
@@ -115,17 +117,23 @@ export async function getBookmarkDetail(
 
 export async function addBookmark(
     illustId: number,
-    restrict: Restrict = "public",
+    body: { restrict?: Restrict; tags?: string[] } = {},
+    signal?: AbortSignal,
 ): Promise<{ error: IllustApiError | null }> {
     const { error } = await api.PUT("/illusts/{id}/bookmark", {
         params: { path: { id: illustId } },
-        body: { restrict },
+        body,
+        signal,
     });
     return { error: error ?? null };
 }
 
-export async function deleteBookmark(illustId: number): Promise<{ error: IllustApiError | null }> {
+export async function deleteBookmark(
+    illustId: number,
+    signal?: AbortSignal,
+): Promise<{ error: IllustApiError | null }> {
     const { error } = await api.DELETE("/illusts/{id}/bookmark", {
+        signal,
         params: { path: { id: illustId } },
     });
     return { error: error ?? null };

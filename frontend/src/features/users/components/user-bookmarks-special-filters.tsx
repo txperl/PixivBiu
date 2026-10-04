@@ -20,6 +20,7 @@ function UserBookmarksSpecialFilters({ tag, onTagChange }: Props) {
     };
 
     const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
         if (e.key === "Enter") {
             e.preventDefault();
             commit();

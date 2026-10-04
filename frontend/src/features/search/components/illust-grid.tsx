@@ -27,18 +27,20 @@ function IllustGrid({ illusts, selected, onToggle, selectMode = false, selection
     );
 }
 
-export function IllustGridSkeleton() {
+export function IllustGridSkeleton({ count = 15 }: { count?: number }) {
     return (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
-            {Array.from({ length: 15 }).map((_, i) => (
+            {Array.from({ length: count }).map((_, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders
                 <div key={i} className="overflow-hidden rounded-2xl bg-card">
                     <div className="p-2">
                         <Skeleton className="aspect-square w-full rounded-xl" />
                     </div>
                     <div className="px-3.5 pt-1 pb-3.5">
-                        <Skeleton className="h-4 w-3/4" />
-                        <div className="mt-2 flex items-center gap-1.5">
+                        <div className="flex h-5 items-center">
+                            <Skeleton className="h-3 w-3/4" />
+                        </div>
+                        <div className="mt-1.5 flex h-5 items-center gap-1.5">
                             <Skeleton className="size-[18px] rounded-full" />
                             <Skeleton className="h-3 flex-1" />
                             <Skeleton className="h-3 w-8" />

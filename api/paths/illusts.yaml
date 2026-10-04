@@ -119,7 +119,7 @@ bookmark:
       '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
   put:
     operationId: addBookmark
-    summary: Bookmark an illust
+    summary: Add or update an illust bookmark, preserving omitted fields
     tags: [illusts]
     parameters:
       - $ref: '../openapi.yaml#/components/parameters/IllustIdPath'
@@ -130,6 +130,7 @@ bookmark:
           schema: { $ref: '../openapi.yaml#/components/schemas/BookmarkRequest' }
     responses:
       '204': { $ref: '../openapi.yaml#/components/responses/NoContent' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
       '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
       '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }

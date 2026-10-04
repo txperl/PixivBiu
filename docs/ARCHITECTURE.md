@@ -59,6 +59,16 @@ Pixiv-backed pagination returns `next_offset` or `next_max_bookmark_id`; send no
 
 Bookmark/view-count search sorts sample date-ordered upstream pages and rank them locally. They are approximations, not Pixiv Premium popularity sorting or a global ranking. Window size and bounded parallelism come from `search.sample.*`.
 
+### Bookmark tags
+
+`GET /illusts/{id}/bookmark` aliases pixivgo's bookmark detail, including `name` and `is_registered`. Only registered tags belong to the saved bookmark; other tags are upstream suggestions. `PUT` keeps the `addBookmark` operation and 204 response: omitted fields preserve the existing value, `tags: []` explicitly clears tags, and a new bookmark defaults to public. Public/private belongs to the bookmark record. `GET /users/{id}/bookmark-tags` returns upstream `bookmark_tags` and `next_offset` for one visibility partition; private directories require the current account.
+
+The Pixiv service pins credentials and identity for both initial requests and the existing single auth-refresh retry. A reference-counted, cancellable lock per account/artwork serializes detail reads, read/modify/write, and cancellation; entries are removed after their last waiter. Failed preservation reads never fall back to defaults. Ordinary write failures are not replayed. This protects this core's requests; concurrent Pixiv website changes still use last-save-wins behavior.
+
+Tags are trimmed, empty entries removed, and deduplicated by their original spelling, with a maximum of ten. The App-API joins names with spaces, so internal whitespace cannot be represented without loss and is rejected with a field validation error. Unicode and punctuation otherwise use ordinary form encoding. The SDK must distinguish nil tags (omit the parameter) from a non-nil empty slice (send an explicit empty `tags[]`); see its bookmark encoding tests. Do not clear by deleting and re-adding the bookmark.
+
+Upstream tag counts can lag and overlap. Never sum them into a bookmark total. Keep unavailable counts nullable in Query data; bookmark-tag controls render them as `0` while showing loading and errors separately. Before release, verify clear/replace and Unicode round-trips with an isolated Pixiv account. Local fixtures verify UI and wire behavior but cannot establish Pixiv's production interpretation of an empty parameter.
+
 ### Errors and logs
 
 Handlers call `WriteError`; `classify` is the central wire-error projection. Generated parameter-validation failures use the same path. Add a known sentinel for a localized error code or implement `UserError` for safe dynamic authored text. Do not construct response errors independently or copy raw upstream bodies.

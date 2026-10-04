@@ -61,6 +61,26 @@ bookmarks:
       '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
       '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
 
+bookmarkTags:
+  get:
+    operationId: listUserBookmarkTags
+    summary: List bookmark tags and upstream counts for one visibility partition
+    tags: [users]
+    parameters:
+      - $ref: '../openapi.yaml#/components/parameters/UserIdPath'
+      - $ref: '../openapi.yaml#/components/parameters/RestrictQuery'
+      - $ref: '../openapi.yaml#/components/parameters/OffsetQuery'
+    responses:
+      '200':
+        description: Bookmark tags. Counts may lag behind writes; null next_offset means the end.
+        content:
+          application/json:
+            schema: { $ref: '../openapi.yaml#/components/schemas/BookmarkTagsPage' }
+      '400': { $ref: '../openapi.yaml#/components/responses/BadRequest' }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '502': { $ref: '../openapi.yaml#/components/responses/Upstream' }
+
 following:
   get:
     operationId: listUserFollowing

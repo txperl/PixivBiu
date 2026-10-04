@@ -81,9 +81,11 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
     const applyLanguage = useCallback((configured: string) => {
         const next = resolveLocale(configured);
+        const current = getLocale();
         writePreference(PARAGLIDE_LOCALE_KEY, next);
-        if (next === getLocale()) return;
-        paraglideSetLocale(next, { reload: false });
+        if (next !== current) paraglideSetLocale(next, { reload: false });
+        // Storage can already resolve to `next`; React consumers still need the
+        // matching context value, including when a config read changes language.
         setLocaleState(next);
     }, []);
 

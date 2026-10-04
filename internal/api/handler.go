@@ -101,6 +101,7 @@ var sentinelErrors = []struct {
 	status int
 }{
 	{pixiv.ErrNotAuthenticated, ErrorCodeUnauthenticated, http.StatusUnauthorized},
+	{pixiv.ErrPrivateBookmarkTags, ErrorCodeForbidden, http.StatusForbidden},
 	{pixivgo.ErrAuthRequired, ErrorCodeUnauthenticated, http.StatusUnauthorized},
 	{pixiv.ErrNoRefreshToken, ErrorCodeBadRequest, http.StatusBadRequest},
 	{pixiv.ErrNoAuthCode, ErrorCodeBadRequest, http.StatusBadRequest},
@@ -120,6 +121,16 @@ var sentinelErrors = []struct {
 // specific user-facing string (UserError opt-ins) set Message directly.
 // err.Error() is never read.
 func classify(err error) (int, Error) {
+	if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+		return http.StatusBadRequest, Error{Code: ErrorCodeBadRequest, Kind: ErrorKindValidation}
+	}
+	if validation, ok := errors.AsType[*ValidationError](err); ok {
+		return http.StatusBadRequest, Error{Code: ErrorCodeBadRequest, Kind: ErrorKindValidation, Fields: &validation.Fields}
+	}
+	if errors.Is(err, pixiv.ErrInvalidBookmarkTags) {
+		fields := map[string]string{"tags": "Use at most 10 tags without internal whitespace."}
+		return http.StatusBadRequest, Error{Code: ErrorCodeBadRequest, Kind: ErrorKindValidation, Fields: &fields}
+	}
 	// Sentinel lookup first — explicit, ordered, fastest to extend.
 	for _, s := range sentinelErrors {
 		if errors.Is(err, s.err) {

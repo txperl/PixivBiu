@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AuthApiError, AuthStatus } from "./api";
 import * as authApi from "./api";
 import { AuthContext, type AuthContextValue } from "./auth-context";
@@ -6,6 +6,20 @@ import { AuthContext, type AuthContextValue } from "./auth-context";
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [status, setStatus] = useState<AuthStatus | null>(null);
     const [pending, setPending] = useState(false);
+    const sessionController = useRef(new AbortController());
+    const session = useRef({ key: "loading", generation: 0, signal: sessionController.current.signal });
+    const sessionKey =
+        status == null ? "loading" : !status.authenticated ? "anon" : `user:${status.user_id ?? "unknown"}`;
+    if (session.current.key !== sessionKey) {
+        sessionController.current = new AbortController();
+        session.current = {
+            key: sessionKey,
+            generation: session.current.generation + 1,
+            signal: sessionController.current.signal,
+        };
+    }
+    const controller = sessionController.current;
+    useEffect(() => () => controller.abort(), [controller]);
 
     const refresh = useCallback(async () => {
         const { data, error } = await authApi.getAuthStatus();
@@ -61,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const value = useMemo<AuthContextValue>(
-        () => ({ status, pending, refresh, login, logout, startOAuth, exchangeOAuth }),
+        () => ({ status, session, pending, refresh, login, logout, startOAuth, exchangeOAuth }),
         [status, pending, refresh, login, logout, startOAuth, exchangeOAuth],
     );
 

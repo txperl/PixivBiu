@@ -6,7 +6,7 @@ import PximgImage from "@/components/pximg-image";
 import { DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Illust } from "@/features/illusts/api";
-import { useIllustBookmark } from "@/features/illusts/use-illust-bookmark";
+import { MyBookmark } from "@/features/illusts/components/my-bookmark";
 import FollowButton from "@/features/users/components/follow-button";
 import UserLink from "@/features/users/components/user-link";
 import { useLocale, useMessages } from "@/i18n";
@@ -175,6 +175,8 @@ function IllustInfo({ illust }: { illust: Illust }) {
                 </div>
             )}
 
+            <MyBookmark illust={illust} />
+
             {/* Meta */}
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-border/60 border-t pt-4 text-xs">
                 <MetaRow label={m.illust_meta_size()}>
@@ -202,27 +204,20 @@ function IllustInfo({ illust }: { illust: Illust }) {
 }
 
 // Pinned to the bottom of the info pane (outside the scroll area): read-only stats
-// on the left, the icon action group on the right. Stays visible so bookmark/download
-// are always reachable; kept small and subtle so the scrollable content leads.
+// on the left, download/Pixiv actions on the right. Bookmark management lives in
+// MyBookmark; these stats follow its optimistic patches to the cached artwork.
 export function IllustEngagementFooter({ illust }: { illust: Illust }) {
     const m = useMessages();
-    // Owned here so the bookmark Stat and the toggle cell share one optimistic
-    // source — toggling updates the visible count immediately.
-    const bookmark = useIllustBookmark({
-        illustId: illust.id,
-        isBookmarked: illust.is_bookmarked,
-        bookmarkCount: illust.total_bookmarks,
-    });
     return (
         <div className="flex shrink-0 items-center justify-between gap-3 border-border/60 border-t bg-popover px-5 py-2.5">
             <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1">
                 <Stat icon={ViewsIcon} value={illust.total_view} label={m.illust_stat_views()} />
-                <Stat icon={HeartIcon} value={bookmark.count} label={m.illust_stat_bookmarks()} />
+                <Stat icon={HeartIcon} value={illust.total_bookmarks} label={m.illust_stat_bookmarks()} />
                 {illust.total_comments != null && (
                     <Stat icon={CommentIcon} value={illust.total_comments} label={m.illust_stat_comments()} />
                 )}
             </div>
-            <IllustActionBar illust={illust} bookmark={bookmark} />
+            <IllustActionBar illustId={illust.id} />
         </div>
     );
 }

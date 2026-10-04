@@ -11,6 +11,14 @@ export type IllustPage = components["schemas"]["IllustPage"];
 
 export const USER_PAGE_SIZE = 30;
 
+export async function listUserBookmarkTags(userId: number, restrict: Restrict, offset: number, signal?: AbortSignal) {
+    const { data, error } = await api.GET("/users/{id}/bookmark-tags", {
+        params: { path: { id: userId }, query: { restrict, offset } },
+        signal,
+    });
+    return { data: data ?? null, error: error ?? null };
+}
+
 export type UserIllustsType = "illust" | "manga";
 
 export async function getUser(userId: number): Promise<{ data: UserDetailPage | null; error: UserApiError | null }> {
@@ -43,6 +51,7 @@ export type ListUserBookmarksParams = {
     restrict?: Restrict;
     tag?: string;
     maxBookmarkId?: number;
+    revision?: number;
 };
 
 export async function listUserBookmarks(

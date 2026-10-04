@@ -1,8 +1,9 @@
-import { createContext } from "react";
+import { createContext, type RefObject } from "react";
 import type { AuthApiError, AuthStatus, OAuthStartResponse } from "./api";
 
 export interface AuthContextValue {
     status: AuthStatus | null;
+    session: RefObject<{ key: string; generation: number; signal: AbortSignal }>;
     pending: boolean;
     refresh: () => Promise<AuthApiError | null>;
     login: (refreshToken: string) => Promise<AuthApiError | null>;

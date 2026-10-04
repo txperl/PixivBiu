@@ -108,19 +108,15 @@ func (h *APIHandler) GetBookmarkDetail(w http.ResponseWriter, r *http.Request, i
 		WriteError(w, r, err)
 		return
 	}
-	resp, err := pixiv.Call(r.Context(), h.svc, func(c *pixivgo.Client) (*pixivgo.BookmarkDetailResponse, error) {
-		return c.IllustBookmarkDetail(r.Context(), pixivgo.IllustBookmarkDetailParams{
-			IllustID: int(id),
-		})
-	})
+	resp, err := h.svc.BookmarkDetail(r.Context(), int(id))
 	if err != nil {
 		WriteError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, BookmarkDetail{
-		IsBookmarked: resp.BookmarkDetail.IsBookmarked,
-		Restrict:     Restrict(resp.BookmarkDetail.Restrict),
-	})
+	if resp.BookmarkDetail.Tags == nil {
+		resp.BookmarkDetail.Tags = []pixivgo.BookmarkTag{}
+	}
+	writeJSON(w, http.StatusOK, resp.BookmarkDetail)
 }
 
 func (h *APIHandler) AddBookmark(w http.ResponseWriter, r *http.Request, id IllustIdPath) {
@@ -128,21 +124,56 @@ func (h *APIHandler) AddBookmark(w http.ResponseWriter, r *http.Request, id Illu
 		WriteError(w, r, err)
 		return
 	}
-	restrict := pixivgo.RestrictPublic
-	var body BookmarkRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
+	var fields map[string]json.RawMessage
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&fields)
+	if err != nil && !errors.Is(err, io.EOF) {
 		WriteError(w, r, err)
 		return
 	}
-	if body.Restrict != nil {
-		restrict = pixivgo.Restrict(*body.Restrict)
+	if err == nil {
+		if fields == nil {
+			WriteError(w, r, &ValidationError{Fields: map[string]string{"_": "Expected an object."}})
+			return
+		}
+		if err := decoder.Decode(new(any)); !errors.Is(err, io.EOF) {
+			WriteError(w, r, &ValidationError{Fields: map[string]string{"_": "Expected one JSON object."}})
+			return
+		}
 	}
-	if err := pixiv.Exec(r.Context(), h.svc, func(c *pixivgo.Client) error {
-		return c.IllustBookmarkAdd(r.Context(), pixivgo.IllustBookmarkAddParams{
-			IllustID: int(id),
-			Restrict: restrict,
-		})
-	}); err != nil {
+	var update pixiv.BookmarkUpdate
+	if raw, ok := fields["restrict"]; ok {
+		var value Restrict
+		if err := json.Unmarshal(raw, &value); err != nil {
+			WriteError(w, r, err)
+			return
+		}
+		if value != "public" && value != "private" {
+			WriteError(w, r, &ValidationError{Fields: map[string]string{"restrict": "Choose public or private."}})
+			return
+		}
+		v := pixivgo.Restrict(value)
+		update.Restrict = &v
+	}
+	if raw, ok := fields["tags"]; ok {
+		var tags []string
+		if err := json.Unmarshal(raw, &tags); err != nil {
+			WriteError(w, r, err)
+			return
+		}
+		if tags == nil {
+			WriteError(w, r, &ValidationError{Fields: map[string]string{"tags": "Expected an array, not null."}})
+			return
+		}
+		tags, err = pixiv.NormalizeBookmarkTags(tags)
+		if err != nil {
+			WriteError(w, r, err)
+			return
+		}
+		update.Tags = &tags
+	}
+	if err := h.svc.SaveBookmark(r.Context(), int(id), update); err != nil {
 		WriteError(w, r, err)
 		return
 	}
@@ -154,11 +185,7 @@ func (h *APIHandler) DeleteBookmark(w http.ResponseWriter, r *http.Request, id I
 		WriteError(w, r, err)
 		return
 	}
-	if err := pixiv.Exec(r.Context(), h.svc, func(c *pixivgo.Client) error {
-		return c.IllustBookmarkDelete(r.Context(), pixivgo.IllustBookmarkDeleteParams{
-			IllustID: int(id),
-		})
-	}); err != nil {
+	if err := h.svc.DeleteBookmark(r.Context(), int(id)); err != nil {
 		WriteError(w, r, err)
 		return
 	}

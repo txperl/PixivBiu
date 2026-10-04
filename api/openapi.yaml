@@ -76,6 +76,8 @@ paths:
     $ref: './paths/users.yaml#/illusts'
   /users/{id}/bookmarks:
     $ref: './paths/users.yaml#/bookmarks'
+  /users/{id}/bookmark-tags:
+    $ref: './paths/users.yaml#/bookmarkTags'
   /users/{id}/following:
     $ref: './paths/users.yaml#/following'
   /users/{id}/follow:
@@ -561,14 +563,55 @@ components:
     BookmarkRequest:
       type: object
       properties:
-        restrict: { $ref: '#/components/schemas/Restrict' }
+        restrict:
+          allOf: [{ $ref: '#/components/schemas/Restrict' }]
+          description: Preserve an existing bookmark's visibility when omitted; new bookmarks default to public.
+        tags:
+          type: array
+          maxItems: 10
+          items: { type: string, minLength: 1 }
+          description: Complete replacement tag set. Omit to preserve existing registered tags; an empty array clears them. Tag names cannot contain whitespace because the App-API uses a space-separated field.
 
     BookmarkDetail:
+      x-go-type: pixivgo.BookmarkDetail
+      x-go-type-import: &pixivgoImport
+        name: pixivgo
+        path: github.com/txperl/pixivgo
       type: object
-      required: [is_bookmarked, restrict]
+      required: [is_bookmarked, restrict, tags]
       properties:
         is_bookmarked: { type: boolean }
         restrict:      { $ref: '#/components/schemas/Restrict' }
+        tags:
+          type: array
+          items: { $ref: '#/components/schemas/BookmarkTag' }
+
+    BookmarkTag:
+      x-go-type: pixivgo.BookmarkTag
+      x-go-type-import: *pixivgoImport
+      type: object
+      required: [name, is_registered]
+      properties:
+        name: { type: string }
+        is_registered: { type: boolean }
+
+    UserBookmarkTag:
+      x-go-type: pixivgo.UserBookmarkTag
+      x-go-type-import: *pixivgoImport
+      type: object
+      required: [name, count]
+      properties:
+        name: { type: string }
+        count: { type: integer }
+
+    BookmarkTagsPage:
+      type: object
+      required: [bookmark_tags, next_offset]
+      properties:
+        bookmark_tags:
+          type: array
+          items: { $ref: '#/components/schemas/UserBookmarkTag' }
+        next_offset: { type: integer, format: int64, nullable: true }
 
     FollowRequest:
       type: object
@@ -583,9 +626,7 @@ components:
     # format. Keep `properties` in sync with pixivgo's models.go on upgrades.
     Illust:
       x-go-type: pixivgo.IllustrationInfo
-      x-go-type-import: &pixivgoImport
-        name: pixivgo
-        path: github.com/txperl/pixivgo
+      x-go-type-import: *pixivgoImport
       type: object
       description: Pixiv illustration metadata. Shape mirrors pixivgo.IllustrationInfo.
       required:

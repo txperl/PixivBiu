@@ -222,12 +222,7 @@ function IllustCard({
                         <Avatar hue={hueFromId(illust.user.id)} initial={illust.user.name[0] ?? "?"} size={18} />
                         <span className="truncate hover:underline">{illust.user.name}</span>
                     </UserLink>
-                    <IllustBookmarkButton
-                        key={illust.id}
-                        illustId={illust.id}
-                        isBookmarked={illust.is_bookmarked}
-                        bookmarkCount={illust.total_bookmarks}
-                    />
+                    <IllustBookmarkButton key={illust.id} illust={illust} />
                 </div>
             </div>
         </div>
