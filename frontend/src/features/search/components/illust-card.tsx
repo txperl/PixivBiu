@@ -20,7 +20,7 @@ type IllustCardProps = {
     selected?: boolean;
     selectMode?: boolean;
     selectionDisabled?: boolean;
-    onSelect?: (id: number) => void;
+    onSelect?: (id: number, control: HTMLElement) => void;
 };
 
 const MAX_DOTS = 10;
@@ -69,9 +69,9 @@ function IllustCard({
     const activeDot = Math.min(displayedDots - 1, Math.floor((activePage / totalPages) * displayedDots));
 
     // Plain click/Enter/Space either selects (in select mode) or opens the viewer.
-    const activate = () => {
+    const activate = (control: HTMLElement) => {
         if (selectActive) {
-            if (!selectionDisabled) onSelect?.(illust.id);
+            if (!selectionDisabled) onSelect?.(illust.id, control);
         } else openViewer(illust);
     };
 
@@ -85,7 +85,7 @@ function IllustCard({
             {/* biome-ignore lint/a11y/useSemanticElements: a <button> can't wrap the nested bookmark/download/author controls; div+role=button is intentional. Selects in select mode, else opens the viewer. */}
             <div
                 className="relative p-2"
-                onClick={activate}
+                onClick={(event) => activate(event.currentTarget)}
                 onKeyDown={(e) => {
                     // Only the card itself activates; ignore Enter/Space bubbling up from
                     // nested controls (author link, bookmark/download/select buttons) so
@@ -93,7 +93,7 @@ function IllustCard({
                     if (e.target !== e.currentTarget) return;
                     if (e.key !== "Enter" && e.key !== " ") return;
                     e.preventDefault();
-                    activate();
+                    activate(e.currentTarget);
                 }}
                 role="button"
                 tabIndex={0}
@@ -127,7 +127,7 @@ function IllustCard({
                             disabled={selectionDisabled}
                             aria-label={m.downloads_selection_select_work({ title: illust.title })}
                             onClick={(event) => event.stopPropagation()}
-                            onChange={() => onSelect?.(illust.id)}
+                            onChange={(event) => onSelect?.(illust.id, event.currentTarget)}
                             className="absolute -top-2.5 -left-2.5 size-11 cursor-pointer opacity-0 disabled:cursor-wait"
                         />
                         {selected && (

@@ -4,33 +4,43 @@ import { Button } from "@/components/ui/button";
 import { useMessages } from "@/i18n";
 import { CloseIcon, DownloadIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
-import { useSelectionContext } from "../selection-context";
-import type { IllustSelectionStore } from "../selection-state";
+import { type SelectionController, useSelectionContext } from "../selection-context";
 
-function ActiveSelectionActionBar({ store }: { store: IllustSelectionStore }) {
+const RESULT_DURATION_MS = 3_000;
+
+function ActiveSelectionActionBar({ controller }: { controller: SelectionController }) {
+    const { store, restoreFocus } = controller;
     const m = useMessages();
     const { download } = useSelectionContext();
-    const { mode, selected, visibleIds, scope, pending, result } = useSyncExternalStore(
+    const { mode, selected, visibleIds, enabled, scope, pending, result } = useSyncExternalStore(
         store.subscribe,
         store.getSnapshot,
     );
     const root = useRef<HTMLDivElement>(null);
-    const focusWithin = useRef(false);
-    const visible = mode || (result !== null && Date.now() - result.finishedAt < 3000);
+    const returnFocusOnExit = useRef(false);
+    const wasSelecting = useRef(mode);
+    const visible = mode || (result !== null && Date.now() - result.finishedAt < RESULT_DURATION_MS);
     const hasSelection = selected.size > 0;
 
     useEffect(() => {
         if (mode || !result) return;
-        const timer = setTimeout(store.dismissResult, Math.max(0, 3000 - (Date.now() - result.finishedAt)));
+        const timer = setTimeout(
+            store.dismissResult,
+            Math.max(0, RESULT_DURATION_MS - (Date.now() - result.finishedAt)),
+        );
         return () => clearTimeout(timer);
     }, [mode, result, store]);
 
     useLayoutEffect(() => {
-        if (!mode && result && focusWithin.current) {
-            store.restoreFocus?.();
-            focusWithin.current = false;
+        if (wasSelecting.current && !mode) {
+            const focused = document.activeElement;
+            if (returnFocusOnExit.current && (focused === document.body || root.current?.contains(focused))) {
+                restoreFocus();
+            }
+            returnFocusOnExit.current = false;
         }
-    }, [mode, result, store]);
+        wasSelecting.current = mode;
+    }, [mode, restoreFocus]);
 
     useLayoutEffect(() => {
         const element = root.current;
@@ -58,7 +68,7 @@ function ActiveSelectionActionBar({ store }: { store: IllustSelectionStore }) {
             if (
                 target instanceof Element &&
                 target.closest(
-                    "input, textarea, select, [contenteditable=true], [role=dialog], [role=menu], [role=listbox]",
+                    "input:not([type=checkbox]):not([type=radio]), textarea, select, [contenteditable=true], [role=dialog], [role=menu], [role=listbox]",
                 )
             )
                 return;
@@ -70,17 +80,12 @@ function ActiveSelectionActionBar({ store }: { store: IllustSelectionStore }) {
                 return;
             event.preventDefault();
             store.exit();
-            store.restoreFocus?.();
         };
         window.addEventListener("keydown", onEscape);
         return () => window.removeEventListener("keydown", onEscape);
     }, [mode, store]);
 
     if (!visible) return null;
-    const exit = () => {
-        store.exit();
-        store.restoreFocus?.();
-    };
     const resultText = result
         ? [
               result.added.length > 0 ? m.downloads_selection_added({ count: result.added.length }) : null,
@@ -101,10 +106,14 @@ function ActiveSelectionActionBar({ store }: { store: IllustSelectionStore }) {
                     data-app-controls=""
                     aria-label={m.downloads_selection_actions()}
                     onFocusCapture={() => {
-                        focusWithin.current = true;
+                        returnFocusOnExit.current = true;
                     }}
                     onBlurCapture={(event) => {
-                        if (!event.currentTarget.contains(event.relatedTarget)) focusWithin.current = false;
+                        // Disabling the submit control may blur to body. Preserve its return
+                        // target, but relinquish focus when the user moves to another control.
+                        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+                            returnFocusOnExit.current = false;
+                        }
                     }}
                     className="pointer-events-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2 rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-lg"
                 >
@@ -116,8 +125,8 @@ function ActiveSelectionActionBar({ store }: { store: IllustSelectionStore }) {
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={hasSelection ? store.clear : store.selectAll}
-                        disabled={pending !== null || (!hasSelection && visibleIds.length === 0)}
+                        onClick={store.toggleAll}
+                        disabled={!enabled || pending !== null || (!hasSelection && visibleIds.length === 0)}
                         title={
                             hasSelection
                                 ? m.downloads_selection_deselect()
@@ -133,12 +142,17 @@ function ActiveSelectionActionBar({ store }: { store: IllustSelectionStore }) {
                         onClick={() => {
                             void download(store);
                         }}
-                        disabled={pending !== null || selected.size === 0}
+                        disabled={!enabled || pending !== null || selected.size === 0}
                     >
                         <HugeiconsIcon icon={DownloadIcon} />
                         {m.downloads_selection_download()}
                     </Button>
-                    <Button variant="ghost" size="icon-sm" onClick={exit} aria-label={m.downloads_selection_exit()}>
+                    <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={store.exit}
+                        aria-label={m.downloads_selection_exit()}
+                    >
                         <HugeiconsIcon icon={CloseIcon} className="size-3.5" />
                     </Button>
                 </fieldset>
@@ -161,5 +175,5 @@ function ActiveSelectionActionBar({ store }: { store: IllustSelectionStore }) {
 
 export function SelectionActionBar() {
     const { active } = useSelectionContext();
-    return active ? <ActiveSelectionActionBar key={active.id} store={active} /> : null;
+    return active ? <ActiveSelectionActionBar key={active.store.id} controller={active} /> : null;
 }

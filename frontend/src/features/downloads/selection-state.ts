@@ -52,9 +52,9 @@ export async function enqueueSelection(
 export class IllustSelectionStore {
     private static nextId = 0;
     readonly id = IllustSelectionStore.nextId++;
-    restoreFocus: (() => void) | undefined;
     private identity: string;
-    private version = 0;
+    private revision = 0;
+    private batch: { revision: number } | null = null;
     private listeners = new Set<() => void>();
     private snapshot: SelectionSnapshot;
 
@@ -63,7 +63,7 @@ export class IllustSelectionStore {
         this.snapshot = {
             mode: false,
             selected: new Set(),
-            visibleIds: [...new Set(options.visibleIds)],
+            visibleIds: options.enabled ? [...new Set(options.visibleIds)] : [],
             enabled: options.enabled,
             scope: options.scope ?? "page",
             pending: null,
@@ -86,67 +86,74 @@ export class IllustSelectionStore {
     }
 
     configure(options: SelectionOptions) {
-        const ids = [...new Set(options.visibleIds)];
         const scope = options.scope ?? "page";
         const changedIdentity = this.identity !== options.identity;
+        // Loading/placeholder data is not an authoritative empty result. Keep the last
+        // same-list IDs until usable results arrive, while disabling selection edits.
+        const ids = options.enabled
+            ? [...new Set(options.visibleIds)]
+            : changedIdentity
+              ? []
+              : this.snapshot.visibleIds;
         const allowed = new Set(ids);
         const selected = new Set([...this.snapshot.selected].filter((id) => allowed.has(id)));
         const pruned = selected.size !== this.snapshot.selected.size;
-        const disabled = (!options.enabled || ids.length === 0) && this.snapshot.mode;
+        const reset = changedIdentity || (options.enabled && ids.length === 0);
+        const needsReset = reset && this.snapshot.mode;
         this.identity = options.identity;
-        if (changedIdentity || pruned || disabled) this.version++;
-        const reset = changedIdentity || !options.enabled || ids.length === 0;
         const sameIds =
             ids.length === this.snapshot.visibleIds.length && ids.every((id, i) => id === this.snapshot.visibleIds[i]);
         if (
             !changedIdentity &&
             !pruned &&
-            !disabled &&
+            !needsReset &&
             sameIds &&
             options.enabled === this.snapshot.enabled &&
             scope === this.snapshot.scope
         )
             return;
+        // A new list owns its own lock; the captured old batch continues independently.
+        if (reset) {
+            this.revision++;
+            this.batch = null;
+        } else if (pruned && selected.size === 0) {
+            this.revision++;
+        }
         this.update({
             visibleIds: ids,
             enabled: options.enabled,
             scope,
             selected: reset ? new Set() : selected,
             mode: reset || (pruned && selected.size === 0) ? false : this.snapshot.mode,
-            result: changedIdentity || pruned || disabled ? null : this.snapshot.result,
+            pending: reset ? null : this.snapshot.pending,
+            result: reset || pruned ? null : this.snapshot.result,
         });
     }
 
-    enter = () => {
-        if (!this.snapshot.enabled || this.snapshot.pending || this.snapshot.visibleIds.length === 0) return;
-        this.version++;
-        this.update({ mode: true, result: null });
-    };
-
     exit = () => {
-        this.version++;
+        this.revision++;
         this.update({ mode: false, selected: new Set(), result: null });
     };
 
+    private get editable() {
+        return this.snapshot.enabled && !this.snapshot.pending && this.snapshot.visibleIds.length > 0;
+    }
+
     toggle = (id: number) => {
-        if (!this.snapshot.enabled || this.snapshot.pending || !this.snapshot.visibleIds.includes(id)) return;
+        if (!this.editable || !this.snapshot.visibleIds.includes(id)) return;
         const selected = new Set(this.snapshot.selected);
         if (selected.has(id)) selected.delete(id);
         else selected.add(id);
-        this.version++;
+        this.revision++;
         this.update({ selected, mode: selected.size > 0, result: null });
     };
 
-    selectAll = () => {
-        if (!this.snapshot.enabled || this.snapshot.pending || this.snapshot.visibleIds.length === 0) return;
-        this.version++;
-        this.update({ selected: new Set(this.snapshot.visibleIds), mode: true, result: null });
-    };
-
-    clear = () => {
-        if (this.snapshot.pending) return;
-        this.version++;
-        this.update({ selected: new Set(), result: null });
+    // Match the filter-panel action: any selection clears, zero selection selects all.
+    toggleAll = () => {
+        if (!this.editable) return;
+        const selected = new Set(this.snapshot.selected.size > 0 ? [] : this.snapshot.visibleIds);
+        this.revision++;
+        this.update({ selected, mode: true, result: null });
     };
 
     dismissResult = () => {
@@ -154,21 +161,25 @@ export class IllustSelectionStore {
     };
 
     download = async (enqueue: (id: number) => Promise<EnqueueResult>, isCurrent: () => boolean) => {
-        if (!this.snapshot.enabled || this.snapshot.pending || this.snapshot.selected.size === 0 || !isCurrent())
-            return;
+        if (!this.editable || this.snapshot.selected.size === 0 || !isCurrent()) return;
         const ids = [...this.snapshot.selected];
-        const version = this.version;
+        const batch = { revision: this.revision };
+        this.batch = batch;
+        const ownsSelection = () => this.batch === batch && batch.revision === this.revision && isCurrent();
         this.update({ pending: { completed: 0, total: ids.length }, result: null });
         try {
             const result = await enqueueSelection(ids, enqueue, isCurrent, (completed) => {
-                if (isCurrent()) this.update({ pending: { completed, total: ids.length } });
+                if (ownsSelection()) this.update({ pending: { completed, total: ids.length } });
             });
-            if (!isCurrent() || version !== this.version) return;
+            if (!ownsSelection()) return;
             const allowed = new Set(this.snapshot.visibleIds);
             const selected = new Set(result.failed.filter((id) => allowed.has(id)));
             this.update({ selected, mode: selected.size > 0, result: { ...result, finishedAt: Date.now() } });
         } finally {
-            this.update({ pending: null });
+            if (this.batch === batch) {
+                this.batch = null;
+                this.update({ pending: null });
+            }
         }
     };
 }

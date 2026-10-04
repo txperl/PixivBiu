@@ -55,18 +55,16 @@ export function DownloadStateProvider({ children }: { children: ReactNode }) {
     const sessionKey = !authResolved ? "loading" : authenticated ? `user:${authStatus?.user_id ?? "unknown"}` : "anon";
     const session = useMemo(() => ({ key: sessionKey, authenticated }), [sessionKey, authenticated]);
     const sessionRef = useRef<typeof session | null>(session);
-    sessionRef.current = session;
-    const submissions = useRef(new ScopedSubmissions<Awaited<ReturnType<typeof submitDownload>>>());
-    submissions.current.setScope(session);
+    const [submissions] = useState(() => new ScopedSubmissions<Awaited<ReturnType<typeof submitDownload>>>());
 
     useLayoutEffect(() => {
         sessionRef.current = session;
-        submissions.current.setScope(session);
+        submissions.setScope(session);
         return () => {
             if (sessionRef.current === session) sessionRef.current = null;
-            submissions.current.setScope(null);
+            submissions.setScope(null);
         };
-    }, [session]);
+    }, [session, submissions]);
 
     const [tracked, setTracked] = useState<Map<number, TrackedJob>>(new Map());
     const [activeCount, setActiveCount] = useState(0);
@@ -304,7 +302,7 @@ export function DownloadStateProvider({ children }: { children: ReactNode }) {
     const submit = useCallback(
         async (illustId: number) => {
             if (!sessionRef.current?.authenticated) return null;
-            const response = await submissions.current.run(
+            const response = await submissions.run(
                 illustId,
                 () => {
                     clearError(`submit:${illustId}`);
@@ -317,7 +315,7 @@ export function DownloadStateProvider({ children }: { children: ReactNode }) {
             );
             return response?.error ? null : (response?.data ?? null);
         },
-        [clearError, setError, upsertJob],
+        [clearError, setError, upsertJob, submissions],
     );
 
     // cancel/remove are fire-and-forget; SSE drives state. We only stash

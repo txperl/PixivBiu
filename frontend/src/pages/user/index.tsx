@@ -234,7 +234,7 @@ function TabBody({
     selected: ReadonlySet<number>;
     selectMode: boolean;
     selectionDisabled: boolean;
-    onToggle: (id: number) => void;
+    onToggle: (id: number, control: HTMLElement) => void;
     filteredIllusts: Illust[];
     totalBefore: number;
 }) {
@@ -496,7 +496,7 @@ function UserPage() {
                         selected={selected}
                         onToggle={toggle}
                         selectMode={selection.mode}
-                        selectionDisabled={!selection.enabled || selection.pending !== null}
+                        selectionDisabled={selection.disabled}
                         filteredIllusts={filtered}
                         totalBefore={totalBefore}
                     />

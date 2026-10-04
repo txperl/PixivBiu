@@ -318,7 +318,7 @@ function SearchResults({ keyword }: SearchResultsProps) {
                             selected={selected}
                             onToggle={toggle}
                             selectMode={selection.mode}
-                            selectionDisabled={!selection.enabled || selection.pending !== null}
+                            selectionDisabled={selection.disabled}
                         />
                     )
                 ) : userQuery.isPending ? (

@@ -7,7 +7,7 @@ type IllustGridProps = {
     selected?: ReadonlySet<number>;
     selectMode?: boolean;
     selectionDisabled?: boolean;
-    onToggle?: (id: number) => void;
+    onToggle?: (id: number, control: HTMLElement) => void;
 };
 
 function IllustGrid({ illusts, selected, onToggle, selectMode = false, selectionDisabled = false }: IllustGridProps) {

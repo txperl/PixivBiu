@@ -13,21 +13,28 @@ import type { EnqueueResult, IllustSelectionStore } from "./selection-state";
 import { useDownloadMutations } from "./use-download-mutations";
 import { useTrackedDownloads } from "./use-tracked-downloads";
 
+export type SelectionController = {
+    store: IllustSelectionStore;
+    restoreFocus: () => void;
+};
+
 type SelectionContextValue = {
-    active: IllustSelectionStore | null;
-    register: (store: IllustSelectionStore) => () => void;
+    active: SelectionController | null;
+    register: (controller: SelectionController) => () => void;
     download: (store: IllustSelectionStore) => Promise<void>;
 };
 
 const SelectionContext = createContext<SelectionContextValue | null>(null);
 
 export function IllustSelectionProvider({ children }: { children: ReactNode }) {
-    const [active, setActive] = useState<IllustSelectionStore | null>(null);
+    const [active, setActive] = useState<SelectionController | null>(null);
     const alive = useRef(true);
     const { submit } = useDownloadMutations();
     const { tracked } = useTrackedDownloads();
     const latest = useRef({ submit, tracked });
-    latest.current = { submit, tracked };
+    useLayoutEffect(() => {
+        latest.current = { submit, tracked };
+    }, [submit, tracked]);
 
     useLayoutEffect(() => {
         alive.current = true;
@@ -36,9 +43,9 @@ export function IllustSelectionProvider({ children }: { children: ReactNode }) {
         };
     }, []);
 
-    const register = useCallback((store: IllustSelectionStore) => {
-        setActive(store);
-        return () => setActive((current) => (current === store ? null : current));
+    const register = useCallback((controller: SelectionController) => {
+        setActive(controller);
+        return () => setActive((current) => (current === controller ? null : current));
     }, []);
 
     const download = useCallback(async (store: IllustSelectionStore) => {

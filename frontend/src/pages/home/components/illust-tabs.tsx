@@ -187,21 +187,20 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
                         ))}
                     </TabsList>
                 </Tabs>
-                <div className="flex items-center gap-1 pb-1.5">
-                    <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={handleRefresh}
-                        disabled={query.isFetching}
-                        aria-label={m.common_refresh()}
-                    >
-                        <HugeiconsIcon
-                            icon={RefreshIcon}
-                            strokeWidth={2.5}
-                            className={cn(refreshSpinning && "animate-spin")}
-                        />
-                    </Button>
-                </div>
+                <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="mb-1.5"
+                    onClick={handleRefresh}
+                    disabled={query.isFetching}
+                    aria-label={m.common_refresh()}
+                >
+                    <HugeiconsIcon
+                        icon={RefreshIcon}
+                        strokeWidth={2.5}
+                        className={cn(refreshSpinning && "animate-spin")}
+                    />
+                </Button>
             </div>
 
             {query.isPending ? (
@@ -225,7 +224,7 @@ function HomeIllustTabs({ activeTab, onActiveTabChange }: HomeIllustTabsProps) {
                         selected={selected}
                         onToggle={toggle}
                         selectMode={selection.mode}
-                        selectionDisabled={!selection.enabled || selection.pending !== null}
+                        selectionDisabled={selection.disabled}
                     />
                     {query.hasNextPage && (
                         <div className="flex justify-end pt-6 pb-2">
