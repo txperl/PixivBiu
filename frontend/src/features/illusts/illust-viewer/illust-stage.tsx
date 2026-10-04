@@ -1,7 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import PximgImage from "@/components/pximg-image";
-import { type Illust, illustPageUrls, illustZoomUrl } from "@/features/illusts/api";
+import { type Illust, illustPageThumbUrls, illustPageUrls, illustZoomUrl } from "@/features/illusts/api";
 import { useMessages } from "@/i18n";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -53,6 +53,7 @@ function containFraction(clientX: number, clientY: number, img: HTMLImageElement
 function IllustStage({ illust }: { illust: Illust }) {
     const m = useMessages();
     const pages = useMemo(() => illustPageUrls(illust), [illust]);
+    const thumbs = useMemo(() => illustPageThumbUrls(illust), [illust]);
     const total = pages.length;
 
     const [active, setActive] = useState(0);
@@ -165,7 +166,7 @@ function IllustStage({ illust }: { illust: Illust }) {
                             )}
                         >
                             <PximgImage
-                                src={src}
+                                src={thumbs[i]}
                                 alt=""
                                 fallback={<div className="size-full bg-muted-foreground/10" />}
                                 className="size-full"

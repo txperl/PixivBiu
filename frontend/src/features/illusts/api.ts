@@ -19,12 +19,22 @@ function isMultiPage(illust: Illust): boolean {
 }
 
 // The large-image URL for each page of a work. Shared by the card's hover preview
-// and the viewer stage (fit-view + thumbnail strip).
+// and the viewer stage's fit view.
 export function illustPageUrls(illust: Illust): string[] {
     if (isMultiPage(illust)) {
         return illust.meta_pages.map((p) => p.image_urls.large);
     }
     return [illust.image_urls.large];
+}
+
+// The square thumbnail for each page, index-aligned with illustPageUrls. Small
+// previews such as the viewer's page strip use these so a long manga doesn't
+// fetch and decode every large page up front.
+export function illustPageThumbUrls(illust: Illust): string[] {
+    if (isMultiPage(illust)) {
+        return illust.meta_pages.map((p) => p.image_urls.square_medium);
+    }
+    return [illust.image_urls.square_medium];
 }
 
 // Best-available "view large" source for one page, symmetric across single- and
