@@ -1,4 +1,5 @@
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Illust } from "@/features/illusts/api";
 import { BookmarkPopover } from "@/features/illusts/components/bookmark-popover";
@@ -15,6 +16,13 @@ function IllustBookmarkButton({ illust, className }: { illust: Illust; className
         isBookmarked: illust.is_bookmarked,
         bookmarkCount: illust.total_bookmarks,
     });
+    // A popup root per card is costly across hundreds of cards, so the chooser
+    // mounts on intent (pointer or focus, which precede the hover/ArrowDown that
+    // opens it) and unmounts once it has finished closing.
+    const [chooserArmed, setChooserArmed] = useState(false);
+    const disarmIfClosed = () => {
+        if (!bookmark.popoverOpen) setChooserArmed(false);
+    };
     const button = (
         <button
             ref={bookmark.buttonRef}
@@ -23,6 +31,10 @@ function IllustBookmarkButton({ illust, className }: { illust: Illust; className
                 event.stopPropagation();
                 bookmark.toggle();
             }}
+            onPointerEnter={() => setChooserArmed(true)}
+            onFocus={() => setChooserArmed(true)}
+            onPointerLeave={disarmIfClosed}
+            onBlur={disarmIfClosed}
             onMouseEnter={bookmark.openPopover}
             onMouseLeave={bookmark.scheduleClose}
             onKeyDown={bookmark.onPopoverKeyDown}
@@ -61,7 +73,15 @@ function IllustBookmarkButton({ illust, className }: { illust: Illust; className
                 <TooltipTrigger render={button} />
                 <TooltipContent>{bookmark.errorTitle}</TooltipContent>
             </Tooltip>
-            <BookmarkPopover bookmark={bookmark} illust={illust} />
+            {(chooserArmed || bookmark.popoverOpen) && (
+                <BookmarkPopover
+                    bookmark={bookmark}
+                    illust={illust}
+                    onOpenChangeComplete={(open) => {
+                        if (!open) setChooserArmed(false);
+                    }}
+                />
+            )}
             {bookmark.engaged && <BookmarkNavigationReset illustId={illust.id} onNavigate={bookmark.resetEditors} />}
         </>
     );

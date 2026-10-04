@@ -16,17 +16,20 @@ export function BookmarkPopover({
     illust,
     align = "end",
     sideOffset = 6,
+    onOpenChangeComplete,
 }: {
     bookmark: IllustBookmark;
     illust: Illust;
     align?: "center" | "end";
     sideOffset?: number;
+    onOpenChangeComplete?: (open: boolean) => void;
 }) {
     const m = useMessages();
     const [pinned, setPinned] = useState(false);
     return (
         <Popover
             open={bookmark.popoverOpen}
+            onOpenChangeComplete={onOpenChangeComplete}
             onOpenChange={(open, details) => {
                 if (
                     !open &&

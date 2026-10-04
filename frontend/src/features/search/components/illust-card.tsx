@@ -2,7 +2,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { type MouseEvent, memo, useRef, useState } from "react";
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverContent } from "@/components/ui/popover";
 import IllustDownloadButton from "@/features/downloads/components/illust-download-button";
 import { illustPageUrls } from "@/features/illusts/api";
 import { useIllustViewer } from "@/features/illusts/illust-viewer";
@@ -46,6 +46,10 @@ function IllustCard({
     const displayedDots = Math.min(totalPages, MAX_DOTS);
 
     const [open, setOpen] = useState(false);
+    // The preview popover root mounts on intent and unmounts after closing; one
+    // per card was a large share of a long feed's JS heap.
+    const [previewArmed, setPreviewArmed] = useState(false);
+    const previewTriggerRef = useRef<HTMLDivElement>(null);
     const [activePage, setActivePage] = useState(0);
     const activePageRef = useRef(0);
     const dotsRef = useRef<HTMLDivElement>(null);
@@ -67,6 +71,11 @@ function IllustCard({
     };
 
     const activeDot = Math.min(displayedDots - 1, Math.floor((activePage / totalPages) * displayedDots));
+
+    const togglePreview = () => {
+        setPreviewArmed(true);
+        setOpen((value) => !value);
+    };
 
     // Plain click/Enter/Space either selects (in select mode) or opens the viewer.
     const activate = (control: HTMLElement) => {
@@ -150,65 +159,108 @@ function IllustCard({
                     )}
 
                     <div className="pointer-events-auto absolute top-0 right-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                        <Popover open={open} onOpenChange={setOpen}>
-                            <PopoverTrigger
-                                render={<div />}
-                                nativeButton={false}
-                                aria-label={totalPages > 1 ? `Preview (${totalPages} pages)` : "Preview"}
-                                className={cn(
-                                    "flex cursor-default items-center rounded-full bg-[rgba(30,20,15,0.8)] px-2.5 py-2 outline-none",
-                                    illust.page_count <= 1 && "px-2",
-                                )}
-                                onMouseEnter={(e) => {
-                                    updateActivePage(e);
-                                    setOpen(true);
-                                }}
-                                onMouseLeave={() => setOpen(false)}
-                                onMouseMove={updateActivePage}
-                            >
-                                <div ref={dotsRef} className="flex items-center gap-1">
-                                    {allPages.slice(0, displayedDots).map((page, i) => (
-                                        <span
-                                            key={page.key}
-                                            className={cn(
-                                                "block h-1.5 w-1.5 rounded-full transition-colors",
-                                                open && i === activeDot ? "bg-white" : "bg-white/55",
-                                            )}
-                                        />
-                                    ))}
-                                </div>
-                            </PopoverTrigger>
-                            <PopoverContent side="right" sideOffset={8} className="w-auto p-1.5">
-                                <div
-                                    className="relative overflow-hidden rounded-md bg-muted"
-                                    style={{
-                                        aspectRatio: currentAspect,
-                                        width: currentIsWide ? PREVIEW_SIDE : undefined,
-                                        height: currentIsWide ? undefined : PREVIEW_SIDE,
-                                    }}
-                                >
-                                    <PximgImage
-                                        key={allPages[activePage].src}
-                                        src={allPages[activePage].src}
-                                        alt={illust.title}
-                                        fallback={<IllustPlaceholderArt hue={hue} rounded={6} fill />}
-                                        className="block h-full w-full object-cover"
-                                        onLoad={(img) => {
-                                            if (!img.naturalWidth || !img.naturalHeight) return;
-                                            const ratio = img.naturalWidth / img.naturalHeight;
-                                            setPageAspects((prev) =>
-                                                prev[activePage] === ratio ? prev : { ...prev, [activePage]: ratio },
-                                            );
-                                        }}
+                        {/* biome-ignore lint/a11y/useSemanticElements: nested inside the card's role="button" div, where a <button> is invalid. */}
+                        <div
+                            ref={previewTriggerRef}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={totalPages > 1 ? `Preview (${totalPages} pages)` : "Preview"}
+                            aria-haspopup="dialog"
+                            aria-expanded={open}
+                            className={cn(
+                                "flex cursor-default items-center rounded-full bg-[rgba(30,20,15,0.8)] px-2.5 py-2 outline-none",
+                                illust.page_count <= 1 && "px-2",
+                            )}
+                            onPointerEnter={() => setPreviewArmed(true)}
+                            onFocus={() => setPreviewArmed(true)}
+                            onBlur={() => {
+                                if (!open) setPreviewArmed(false);
+                            }}
+                            onMouseEnter={(e) => {
+                                updateActivePage(e);
+                                setPreviewArmed(true);
+                                setOpen(true);
+                            }}
+                            onMouseLeave={() => setOpen(false)}
+                            onMouseMove={updateActivePage}
+                            onClick={togglePreview}
+                            onKeyDown={(e) => {
+                                if (e.key !== "Enter" && e.key !== " ") return;
+                                e.preventDefault();
+                                togglePreview();
+                            }}
+                        >
+                            <div ref={dotsRef} className="flex items-center gap-1">
+                                {allPages.slice(0, displayedDots).map((page, i) => (
+                                    <span
+                                        key={page.key}
+                                        className={cn(
+                                            "block h-1.5 w-1.5 rounded-full transition-colors",
+                                            open && i === activeDot ? "bg-white" : "bg-white/55",
+                                        )}
                                     />
-                                    {totalPages > 1 && (
-                                        <div className="absolute top-2 right-2 rounded-full bg-[rgba(30,20,15,0.8)] px-2 py-[3px] font-mono text-[10.5px] text-white">
-                                            {activePage + 1}/{totalPages}
-                                        </div>
-                                    )}
-                                </div>
-                            </PopoverContent>
-                        </Popover>
+                                ))}
+                            </div>
+                        </div>
+                        {previewArmed && (
+                            <Popover
+                                open={open}
+                                onOpenChange={(next, details) => {
+                                    // The trigger isn't a Base UI trigger, so a press on it reads as
+                                    // outside; its own click handler toggles instead.
+                                    if (
+                                        !next &&
+                                        details.reason === "outside-press" &&
+                                        details.event.target instanceof Node &&
+                                        previewTriggerRef.current?.contains(details.event.target)
+                                    )
+                                        return;
+                                    setOpen(next);
+                                }}
+                                onOpenChangeComplete={(next) => {
+                                    if (!next) setPreviewArmed(false);
+                                }}
+                            >
+                                <PopoverContent
+                                    anchor={previewTriggerRef}
+                                    finalFocus={previewTriggerRef}
+                                    side="right"
+                                    sideOffset={8}
+                                    className="w-auto p-1.5"
+                                >
+                                    <div
+                                        className="relative overflow-hidden rounded-md bg-muted"
+                                        style={{
+                                            aspectRatio: currentAspect,
+                                            width: currentIsWide ? PREVIEW_SIDE : undefined,
+                                            height: currentIsWide ? undefined : PREVIEW_SIDE,
+                                        }}
+                                    >
+                                        <PximgImage
+                                            key={allPages[activePage].src}
+                                            src={allPages[activePage].src}
+                                            alt={illust.title}
+                                            fallback={<IllustPlaceholderArt hue={hue} rounded={6} fill />}
+                                            className="block h-full w-full object-cover"
+                                            onLoad={(img) => {
+                                                if (!img.naturalWidth || !img.naturalHeight) return;
+                                                const ratio = img.naturalWidth / img.naturalHeight;
+                                                setPageAspects((prev) =>
+                                                    prev[activePage] === ratio
+                                                        ? prev
+                                                        : { ...prev, [activePage]: ratio },
+                                                );
+                                            }}
+                                        />
+                                        {totalPages > 1 && (
+                                            <div className="absolute top-2 right-2 rounded-full bg-[rgba(30,20,15,0.8)] px-2 py-[3px] font-mono text-[10.5px] text-white">
+                                                {activePage + 1}/{totalPages}
+                                            </div>
+                                        )}
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                        )}
                     </div>
                 </div>
 
