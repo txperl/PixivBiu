@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useDownloadMutations, useIllustDownloadStatus } from "@/features/downloads";
+import { useDownloadActions, useIllustDownloadStatus } from "@/features/downloads";
 import { useMessages } from "@/i18n";
 
 // Shared download state machine for an illust's download control — the card's
@@ -11,7 +11,7 @@ import { useMessages } from "@/i18n";
 export type IllustDownload = ReturnType<typeof useIllustDownload>;
 export function useIllustDownload(illustId: number) {
     const m = useMessages();
-    const { submit } = useDownloadMutations();
+    const { submit } = useDownloadActions();
     const { job, active, percent } = useIllustDownloadStatus(illustId);
     const jobRef = useRef(job);
     jobRef.current = job;

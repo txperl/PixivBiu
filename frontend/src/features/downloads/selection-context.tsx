@@ -10,8 +10,7 @@ import {
 } from "react";
 import { ACTIVE_STATUSES } from "./api";
 import type { EnqueueResult, IllustSelectionStore } from "./selection-state";
-import { useDownloadMutations } from "./use-download-mutations";
-import { useTrackedDownloads } from "./use-tracked-downloads";
+import { useDownloadActions } from "./use-download-mutations";
 
 export type SelectionController = {
     store: IllustSelectionStore;
@@ -29,12 +28,7 @@ const SelectionContext = createContext<SelectionContextValue | null>(null);
 export function IllustSelectionProvider({ children }: { children: ReactNode }) {
     const [active, setActive] = useState<SelectionController | null>(null);
     const alive = useRef(true);
-    const { submit } = useDownloadMutations();
-    const { tracked } = useTrackedDownloads();
-    const latest = useRef({ submit, tracked });
-    useLayoutEffect(() => {
-        latest.current = { submit, tracked };
-    }, [submit, tracked]);
+    const { store: downloads, submit } = useDownloadActions();
 
     useLayoutEffect(() => {
         alive.current = true;
@@ -48,15 +42,19 @@ export function IllustSelectionProvider({ children }: { children: ReactNode }) {
         return () => setActive((current) => (current === controller ? null : current));
     }, []);
 
-    const download = useCallback(async (store: IllustSelectionStore) => {
-        const enqueue = async (id: number): Promise<EnqueueResult> => {
-            const job = latest.current.tracked.get(id);
-            if (job && ACTIVE_STATUSES.includes(job.status)) return "existing";
-            const created = await latest.current.submit(id);
-            return created ? "added" : null;
-        };
-        await store.download(enqueue, () => alive.current);
-    }, []);
+    const download = useCallback(
+        async (store: IllustSelectionStore) => {
+            const enqueue = async (id: number): Promise<EnqueueResult> => {
+                // Read at call time: each enqueue sees jobs the batch already submitted.
+                const job = downloads.get(id);
+                if (job && ACTIVE_STATUSES.includes(job.status)) return "existing";
+                const created = await submit(id);
+                return created ? "added" : null;
+            };
+            await store.download(enqueue, () => alive.current);
+        },
+        [downloads, submit],
+    );
 
     const value = useMemo(() => ({ active, register, download }), [active, register, download]);
     return <SelectionContext.Provider value={value}>{children}</SelectionContext.Provider>;

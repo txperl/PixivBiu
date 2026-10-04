@@ -1,16 +1,19 @@
 import { useContext } from "react";
-import { DownloadStateContext } from "./download-state-context";
+import { DownloadActionsContext, DownloadErrorsContext } from "./download-state-context";
 
-// submit / cancel / remove and the per-key error stash. lastError keys
-// are `submit:${illustId}` for submits and the job_id for cancel/remove.
+// Stable submit / cancel / remove / clear plus the tracked-job store. Never
+// changes after mount, so action-only consumers skip SSE-driven renders.
+export function useDownloadActions() {
+    const ctx = useContext(DownloadActionsContext);
+    if (!ctx) throw new Error("useDownloadActions must be used inside <DownloadStateProvider>");
+    return ctx;
+}
+
+// Actions plus the per-key error stash. lastError keys are
+// `submit:${illustId}` for submits and the job_id for cancel/remove.
 export function useDownloadMutations() {
-    const ctx = useContext(DownloadStateContext);
-    if (!ctx) throw new Error("useDownloadMutations must be used inside <DownloadStateProvider>");
-    return {
-        submit: ctx.submit,
-        cancel: ctx.cancel,
-        remove: ctx.remove,
-        clear: ctx.clear,
-        lastError: ctx.lastError,
-    };
+    const { submit, cancel, remove, clear } = useDownloadActions();
+    const lastError = useContext(DownloadErrorsContext);
+    if (!lastError) throw new Error("useDownloadMutations must be used inside <DownloadStateProvider>");
+    return { submit, cancel, remove, clear, lastError };
 }

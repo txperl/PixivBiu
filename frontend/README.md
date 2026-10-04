@@ -108,11 +108,14 @@ Settings' `applyView` mirrors adopted saves/resets/refetches into `CONFIG_QUERY_
 
 | Hook | Responsibility |
 | --- | --- |
-| `useTrackedDownloads` | Global artwork-to-job map for active and recent terminal jobs |
+| `useTrackedJob` / `useIllustDownloadStatus` | One artwork's active or recent terminal job (and its progress) from the provider's store |
 | `useDownloadCounts` | Global active/done counts from job events |
-| `useDownloadMutations` | Submit/cancel/remove/clear actions; events drive resulting state |
+| `useDownloadActions` | Stable submit/cancel/remove/clear plus the tracked-job store; events drive resulting state |
+| `useDownloadMutations` | The same actions plus the per-key error stash |
 | `useDownloadsPage` | Instance-local server pagination; job events refetch, task events patch |
 | `useIllustDownload` | Shared card/viewer enqueue, status, just-sent and error behavior |
+
+`DownloadStateProvider` keeps tracked jobs in a `DownloadStateStore` with per-artwork subscriptions, so a progress tick re-renders only the controls showing that artwork. Read it through these hooks; don't put the job map back into context, which made every card in every kept page re-render on each tick. Event handling lives in the pure `applyDownloadEvent`.
 
 Only `download.job.*` events update client job status. Task events update tasks, not a client-derived job aggregation. Use `ACTIVE_STATUSES` for in-flight status. Artwork progress is a byte ratio, indeterminate when any size is unknown; `DownloadsTable` job progress is count-weighted. Don't interchange them.
 

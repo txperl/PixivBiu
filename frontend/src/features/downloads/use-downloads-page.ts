@@ -30,7 +30,7 @@ const TASK_EVENT_STATUS: Record<string, DownloadStatus> = {
 // Drives the Downloads management page off the server's paginated endpoint.
 // Filter/page changes refetch; SSE job.* events trigger a debounced refetch;
 // SSE task.* events patch items in place. State is local to each instance
-// (not shared via context), unlike useTrackedDownloads.
+// (not shared via context), unlike the provider's tracked-job store.
 export function useDownloadsPage(params: UseDownloadsPageParams): UseDownloadsPageResult {
     const { status, page: requestedPage, perPage = DOWNLOADS_PAGE_SIZE } = params;
     const { subscribe } = useEventStream();
