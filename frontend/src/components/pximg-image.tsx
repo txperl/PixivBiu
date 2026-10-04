@@ -2,6 +2,9 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { rewritePximgUrl } from "@/lib/pixiv-image";
 import { cn } from "@/lib/utils";
 
+// Matches the <img> `duration-300` reveal below.
+const FADE_MS = 300;
+
 type PximgImageProps = {
     src: string | null | undefined;
     alt: string;
@@ -19,6 +22,7 @@ function PximgImage({ src, alt, fallback, className, fit = "cover", onLoad }: Px
     const imgRef = useRef<HTMLImageElement>(null);
     const [loaded, setLoaded] = useState(false);
     const [errored, setErrored] = useState(false);
+    const [fallbackGone, setFallbackGone] = useState(false);
     const settledUrl = useRef<string | undefined>(undefined);
 
     // Reveal only after the full frame is decoded, so images don't paint
@@ -45,16 +49,28 @@ function PximgImage({ src, alt, fallback, className, fit = "cover", onLoad }: Px
         settledUrl.current = url;
         setLoaded(false);
         setErrored(false);
+        setFallbackGone(false);
         const img = imgRef.current;
         if (img?.complete && img.naturalWidth > 0) handleLoaded(img);
     }, [url]);
+
+    // Drop the fallback once the image has faded in: placeholder art carries blur
+    // filters, and keeping one under every revealed thumbnail costs paint and
+    // compositing for nothing. A timer (not transitionend) so a kept-alive page
+    // hidden mid-fade re-arms it when shown again.
+    useEffect(() => {
+        if (!loaded) return;
+        const timer = setTimeout(() => setFallbackGone(true), FADE_MS + 50);
+        return () => clearTimeout(timer);
+    }, [loaded]);
 
     if (!url) return <>{fallback}</>;
 
     return (
         <div className={cn("relative overflow-hidden", className)}>
-            {/* In-flow fallback: underlays the image and (with className) holds the box open. */}
-            {fallback}
+            {/* Underlays the image until it is revealed. The box size comes from
+                className, so removing it afterwards doesn't shift layout. */}
+            {(!fallbackGone || errored) && fallback}
             {!errored && (
                 <img
                     ref={imgRef}

@@ -25,7 +25,7 @@ function StageArrow({
             disabled={disabled}
             aria-label={label}
             className={cn(
-                "absolute top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition hover:bg-black/60 disabled:pointer-events-none disabled:opacity-0",
+                "absolute top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition hover:bg-black/70 disabled:pointer-events-none disabled:opacity-0",
                 side === "left" ? "left-3" : "right-3",
             )}
         >
@@ -131,7 +131,7 @@ function IllustStage({ illust }: { illust: Illust }) {
                             onClick={() => go(active + 1)}
                             label={m.common_next_page()}
                         />
-                        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/45 px-2.5 py-1 font-mono text-[11px] text-white backdrop-blur-sm">
+                        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-1 font-mono text-[11px] text-white">
                             {m.illust_page_counter({ current: active + 1, total })}
                         </div>
                     </>

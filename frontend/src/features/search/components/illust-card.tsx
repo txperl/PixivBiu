@@ -110,11 +110,11 @@ function IllustCard({
                 {selectable && (
                     <span
                         className={cn(
-                            "absolute top-3.5 left-3.5 flex size-6 items-center justify-center rounded-md backdrop-blur-sm transition-opacity has-focus-visible:ring-2 has-focus-visible:ring-ring has-focus-visible:ring-offset-2",
+                            "absolute top-3.5 left-3.5 flex size-6 items-center justify-center rounded-md transition-opacity has-focus-visible:ring-2 has-focus-visible:ring-ring has-focus-visible:ring-offset-2",
                             selected
                                 ? "bg-primary text-primary-foreground opacity-100"
                                 : cn(
-                                      "border-2 border-white/95 bg-black/30 text-white",
+                                      "border-2 border-white/95 bg-black/45 text-white",
                                       selectActive
                                           ? "opacity-100"
                                           : "opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
@@ -143,7 +143,7 @@ function IllustCard({
 
                 <div className="pointer-events-none absolute top-3.5 right-3.5">
                     {illust.page_count > 1 && (
-                        <div className="flex items-center gap-1 rounded-full bg-[rgba(30,20,15,0.7)] px-2 py-[3px] font-mono text-[10.5px] text-white backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-0">
+                        <div className="flex items-center gap-1 rounded-full bg-[rgba(30,20,15,0.8)] px-2 py-[3px] font-mono text-[10.5px] text-white transition-opacity duration-150 group-hover:opacity-0">
                             <HugeiconsIcon icon={PagesIcon} size={11} strokeWidth={1.5} />
                             {illust.page_count}
                         </div>
@@ -156,7 +156,7 @@ function IllustCard({
                                 nativeButton={false}
                                 aria-label={totalPages > 1 ? `Preview (${totalPages} pages)` : "Preview"}
                                 className={cn(
-                                    "flex cursor-default items-center rounded-full bg-[rgba(30,20,15,0.7)] px-2.5 py-2 outline-none backdrop-blur-sm",
+                                    "flex cursor-default items-center rounded-full bg-[rgba(30,20,15,0.8)] px-2.5 py-2 outline-none",
                                     illust.page_count <= 1 && "px-2",
                                 )}
                                 onMouseEnter={(e) => {
@@ -202,7 +202,7 @@ function IllustCard({
                                         }}
                                     />
                                     {totalPages > 1 && (
-                                        <div className="absolute top-2 right-2 rounded-full bg-[rgba(30,20,15,0.7)] px-2 py-[3px] font-mono text-[10.5px] text-white backdrop-blur-sm">
+                                        <div className="absolute top-2 right-2 rounded-full bg-[rgba(30,20,15,0.8)] px-2 py-[3px] font-mono text-[10.5px] text-white">
                                             {activePage + 1}/{totalPages}
                                         </div>
                                     )}

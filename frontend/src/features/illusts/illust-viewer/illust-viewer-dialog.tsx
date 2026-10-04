@@ -136,7 +136,7 @@ function IllustViewerDialog({
                         <button
                             type="button"
                             aria-label="Close"
-                            className="absolute top-3 right-3 z-30 flex size-8 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-colors hover:bg-black/60"
+                            className="absolute top-3 right-3 z-30 flex size-8 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/70"
                         />
                     }
                 >

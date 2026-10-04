@@ -493,10 +493,7 @@ function UserPage() {
                     value={tab}
                     onValueChange={onTabChange}
                     data-bookmark-tag-bar={isMe && isBookmarkTab(tab) ? "" : undefined}
-                    className={cn(
-                        "gap-0",
-                        isMe && isBookmarkTab(tab) && "sticky top-0 z-20 bg-background/95 backdrop-blur-xl",
-                    )}
+                    className={cn("gap-0", isMe && isBookmarkTab(tab) && "sticky top-0 z-20 bg-background")}
                 >
                     <div data-app-controls="" className="min-w-0 border-muted/60 border-b">
                         <TabsList variant="line" className="scrollbar-none h-12 max-w-full gap-1 overflow-x-auto">
