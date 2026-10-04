@@ -115,6 +115,10 @@ Run the checks relevant to the changed behavior. These are the current CI comman
 
 CI runs Go tests on Linux and Windows and cross-compiles Windows/amd64 and Darwin/arm64. Platform helpers live in `cmd/server/platform_{unix,windows}.go`; changes to port fallback, startup errors, signals, or restart need platform coverage. Electron checks build TypeScript and run release/security contracts plus real child-process lifecycle tests on Linux and Windows. They require loopback socket access and do not replace native window, OAuth, or [Electron/core smoke tests](../desktop/README.md#develop).
 
+### Desktop rendering probe
+
+For rendering or memory changes, measure the desktop app before and after with `scripts/desktop-perf-probe.mjs`. Build with `make dist`, start the shell with a DevTools port (`cd desktop && npm run build && npx electron . --remote-debugging-port=9333`), sign in and leave it on Home, then run `node scripts/desktop-perf-probe.mjs` from the repository root (`--load-more N`, `--port`, `--json`). It grows the Home feed, records scroll frame pacing and compositor layerization, visits each sidebar section, and samples DOM/image counts and per-process memory (macOS `footprint`, otherwise RSS). Restart the shell between runs and compare on the same machine and account; results depend on feed content and display refresh rate. It is a development tool, not a CI check.
+
 Formatting is explicit: `make fmt` rewrites Go, and frontend `bun run check` rewrites lint/format fixes. `bun run check:unsafe` also permits unsafe fixes. Review their diffs instead of treating them as read-only checks.
 
 ### Line endings
