@@ -158,7 +158,7 @@ Settings labels use explicit `useFieldText/useSectionTitle` maps. Missing transl
 
 Feature-detect the [desktop bridge](src/lib/desktop.ts); browser builds have none. The login page uses captured OAuth codes in desktop and manual callback/token entry in a browser. UpdateProvider maps its existing UI onto `window.pixivbiu.updates` instead of the core update endpoints.
 
-The release-notes dialog accepts core Markdown and the HTML notes supplied by electron-updater's GitHub feed. Run `rehype-raw` before `rehype-sanitize` so both formats share the same styled React elements while scripts, event handlers, unsafe URLs and embedded SVG are removed by the default sanitization schema. Keep sanitization after HTML parsing.
+The release-notes dialog accepts core Markdown and the HTML notes supplied by electron-updater's GitHub feed. Its renderer (`release-notes-markdown.tsx`) is a lazily loaded chunk, prefetched when the trigger is hovered or focused, because the Markdown/HTML pipeline was over a fifth of the main bundle; import it only through the dialog. Run `rehype-raw` before `rehype-sanitize` so both formats share the same styled React elements while scripts, event handlers, unsafe URLs and embedded SVG are removed by the default sanitization schema. Keep sanitization after HTML parsing.
 
 Desktop restores an explicit set of UI preferences through `lib/preferences.ts` before dynamically importing App. Use `writePreference` for persisted UI writes; direct localStorage writes in desktop are memory-only. The shell owns a versioned, bounded file and validates every IPC request. Browser builds continue using localStorage. Paraglide’s locale cache is restored before its runtime initializes and is saved by LocaleProvider when applying language.
 
