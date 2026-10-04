@@ -30,6 +30,15 @@ export function normalizeBookmarkTags(tags: readonly string[]) {
 export function validBookmarkTags(tags: readonly string[]) {
     return tags.length <= MAX_BOOKMARK_TAGS && tags.every((tag) => !/\s/u.test(tag));
 }
+// Whether a bookmark control has anything a navigation would need to reset.
+export function bookmarkEditorEngaged(state: {
+    popoverOpen: boolean;
+    editorOpen: boolean;
+    quickEditorOpen: boolean;
+    errorTitle: string | null;
+}) {
+    return state.popoverOpen || state.editorOpen || state.quickEditorOpen || state.errorTitle !== null;
+}
 // A collection reset changes the page behind the viewer, not the work being edited.
 // Card editors still follow pagination; viewer editors follow the work and route.
 export function bookmarkEditorNavigationIdentity(illustId: number, pathname: string, search: string) {

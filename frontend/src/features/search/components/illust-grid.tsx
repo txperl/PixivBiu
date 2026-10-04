@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Illust } from "@/features/search/api";
 import IllustCard from "./illust-card";
@@ -52,4 +53,4 @@ export function IllustGridSkeleton({ count = 15 }: { count?: number }) {
     );
 }
 
-export default IllustGrid;
+export default memo(IllustGrid);

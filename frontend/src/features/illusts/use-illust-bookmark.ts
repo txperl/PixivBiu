@@ -17,6 +17,7 @@ import {
 import {
     bookmarkDetailKey,
     bookmarkDetailOptions,
+    bookmarkEditorEngaged,
     bookmarkEditorNavigationIdentity,
     invalidateBookmarkMembership,
     normalizeBookmarkTags,
@@ -58,15 +59,14 @@ export function useIllustBookmark({ illustId, isBookmarked, bookmarkCount, loadD
     });
     const bookmarked = detailQuery.data?.is_bookmarked ?? isBookmarked;
     const generation = session.current.generation;
-    const location = useLocation();
-    const navigationIdentity = bookmarkEditorNavigationIdentity(illustId, location.pathname, location.search);
-    useChangeEffect(JSON.stringify([generation, illustId, navigationIdentity]), () => {
+    const resetEditors = () => {
         setEditorOpen(false);
         setPopoverOpen(false);
         quickOpen.current = false;
         setQuickEditorOpenState(false);
         setErrorTitle(null);
-    });
+    };
+    useChangeEffect(JSON.stringify([generation, illustId]), resetEditors);
     useEffect(
         () => () => {
             if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -244,6 +244,10 @@ export function useIllustBookmark({ illustId, isBookmarked, bookmarkCount, loadD
     };
     const restrict = detailQuery.data?.restrict;
     return {
+        // Navigation resets only matter while something is open or shown; see
+        // BookmarkNavigationReset.
+        engaged: bookmarkEditorEngaged({ popoverOpen, editorOpen, quickEditorOpen, errorTitle }),
+        resetEditors,
         bookmarked,
         count: bookmarkCount,
         pending: pendingCount > 0,
@@ -283,4 +287,14 @@ export function useIllustBookmark({ illustId, isBookmarked, bookmarkCount, loadD
         save: (value: Restrict | undefined, tags?: string[]) => submit(true, value, tags),
         remove: () => submit(false),
     };
+}
+
+// Closes a bookmark's editors and clears its error when the URL moves to a
+// different list or artwork (see bookmarkEditorNavigationIdentity). Render it
+// only while the bookmark is engaged: reading the location in every card made
+// each URL change, such as opening the viewer, re-render whole artwork grids.
+export function BookmarkNavigationReset({ illustId, onNavigate }: { illustId: number; onNavigate: () => void }) {
+    const location = useLocation();
+    useChangeEffect(bookmarkEditorNavigationIdentity(illustId, location.pathname, location.search), onNavigate);
+    return null;
 }

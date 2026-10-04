@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { QueryClient } from "@tanstack/react-query";
 import type { BookmarkDetail, Restrict } from "../src/features/illusts/api";
 import {
+    bookmarkEditorEngaged,
     bookmarkEditorNavigationIdentity,
     bookmarkRevisionKey,
     bookmarkStatus,
@@ -226,6 +227,14 @@ describe("bookmark contracts", () => {
         expect(identity("/user/123", "?tab=bookmarks&page=2&illust=43")).not.toBe(
             identity("/user/123", "?tab=bookmarks&illust=43"),
         );
+    });
+    test("only an open or failed bookmark control needs navigation resets", () => {
+        const idle = { popoverOpen: false, editorOpen: false, quickEditorOpen: false, errorTitle: null };
+        expect(bookmarkEditorEngaged(idle)).toBe(false);
+        expect(bookmarkEditorEngaged({ ...idle, popoverOpen: true })).toBe(true);
+        expect(bookmarkEditorEngaged({ ...idle, editorOpen: true })).toBe(true);
+        expect(bookmarkEditorEngaged({ ...idle, quickEditorOpen: true })).toBe(true);
+        expect(bookmarkEditorEngaged({ ...idle, errorTitle: "" })).toBe(true);
     });
     test("normalization preserves spelling and rejects lossy input", () => {
         expect(normalizeBookmarkTags([" 猫 ", "猫", "", "Case", "case", "花&鳥/+ "])).toEqual([

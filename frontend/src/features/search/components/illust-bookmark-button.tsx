@@ -2,7 +2,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Illust } from "@/features/illusts/api";
 import { BookmarkPopover } from "@/features/illusts/components/bookmark-popover";
-import { useIllustBookmark } from "@/features/illusts/use-illust-bookmark";
+import { BookmarkNavigationReset, useIllustBookmark } from "@/features/illusts/use-illust-bookmark";
 import { useMessages } from "@/i18n";
 import { formatCount } from "@/lib/format";
 import { HeartIcon, MagnetIcon } from "@/lib/icons";
@@ -62,6 +62,7 @@ function IllustBookmarkButton({ illust, className }: { illust: Illust; className
                 <TooltipContent>{bookmark.errorTitle}</TooltipContent>
             </Tooltip>
             <BookmarkPopover bookmark={bookmark} illust={illust} />
+            {bookmark.engaged && <BookmarkNavigationReset illustId={illust.id} onNavigate={bookmark.resetEditors} />}
         </>
     );
 }

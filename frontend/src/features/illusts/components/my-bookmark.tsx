@@ -12,7 +12,7 @@ import { HeartIcon, MagnetIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import type { Illust } from "../api";
 import { registeredBookmarkTags } from "../bookmark-state";
-import { useIllustBookmark } from "../use-illust-bookmark";
+import { BookmarkNavigationReset, useIllustBookmark } from "../use-illust-bookmark";
 import { BookmarkEditorContent } from "./bookmark-editor";
 
 export function MyBookmark({ illust }: { illust: Illust }) {
@@ -43,6 +43,7 @@ export function MyBookmark({ illust }: { illust: Illust }) {
           : triggerLabel;
     return (
         <section className="space-y-2 border-border/60 border-t pt-4" aria-label={m.bookmark_my_bookmark()}>
+            <BookmarkNavigationReset illustId={illust.id} onNavigate={bookmark.resetEditors} />
             <div className="flex items-center justify-between gap-2">
                 <h3 className="font-medium text-sm">{m.bookmark_my_bookmark()}</h3>
                 <Popover

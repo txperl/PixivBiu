@@ -1,5 +1,5 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { type MouseEvent, useRef, useState } from "react";
+import { type MouseEvent, memo, useRef, useState } from "react";
 import Avatar from "@/components/avatar";
 import PximgImage from "@/components/pximg-image";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -229,4 +229,6 @@ function IllustCard({
     );
 }
 
-export default IllustCard;
+// Memoized: grids hold hundreds of cards, and their props (cached illust objects,
+// a per-card selected flag, stable handlers) only change for the card affected.
+export default memo(IllustCard);
