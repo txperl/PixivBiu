@@ -1,7 +1,8 @@
-import { memo } from "react";
+import { memo, useLayoutEffect, useRef } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Illust } from "@/features/search/api";
 import IllustCard from "./illust-card";
+import { estimateCardHeight, ILLUST_GRID_CLASS } from "./illust-grid-layout";
 
 type IllustGridProps = {
     illusts: Illust[];
@@ -12,8 +13,25 @@ type IllustGridProps = {
 };
 
 function IllustGrid({ illusts, selected, onToggle, selectMode = false, selectionDisabled = false }: IllustGridProps) {
+    const gridRef = useRef<HTMLDivElement>(null);
+    // Cards use content-visibility:auto, so off-screen ones skip style, layout and
+    // paint and take this estimated height until they first render. Written to the
+    // DOM directly, not through state, to avoid re-rendering the grid on resize. A
+    // hidden kept-alive page measures 0 and keeps its last estimate.
+    useLayoutEffect(() => {
+        const grid = gridRef.current;
+        if (!grid) return;
+        const apply = () => {
+            const height = estimateCardHeight(grid.clientWidth);
+            if (height !== null) grid.style.setProperty("--illust-card-h", `${height}px`);
+        };
+        apply();
+        const observer = new ResizeObserver(apply);
+        observer.observe(grid);
+        return () => observer.disconnect();
+    }, []);
     return (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+        <div ref={gridRef} className={ILLUST_GRID_CLASS}>
             {illusts.map((il) => (
                 <IllustCard
                     key={il.id}
@@ -30,7 +48,7 @@ function IllustGrid({ illusts, selected, onToggle, selectMode = false, selection
 
 export function IllustGridSkeleton({ count = 15 }: { count?: number }) {
     return (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
+        <div className={ILLUST_GRID_CLASS}>
             {Array.from({ length: count }).map((_, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders
                 <div key={i} className="overflow-hidden rounded-2xl bg-card">

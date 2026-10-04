@@ -87,7 +87,9 @@ function IllustCard({
     return (
         <div
             className={cn(
-                "group relative cursor-pointer overflow-hidden rounded-2xl bg-card transition-colors",
+                // Off-screen cards skip rendering; IllustGrid supplies the height they
+                // reserve until first rendered, after which `auto` remembers the real one.
+                "group relative cursor-pointer overflow-hidden rounded-2xl bg-card transition-colors [contain-intrinsic-block-size:auto_var(--illust-card-h,285px)] [content-visibility:auto]",
                 selectable && selected && "outline outline-2 outline-primary -outline-offset-2",
             )}
         >
