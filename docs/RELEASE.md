@@ -11,6 +11,8 @@ Use this checklist to configure publishing and cut releases. Commands run from t
 
 The web UI ships inside the core. Desktop bundles the already-published core pinned in [`desktop/.core-version`](../desktop/.core-version); it does not rebuild the core or web UI. To deliver a web UI change to desktop users, release core first, then update the pin and release desktop.
 
+The two-stage update UI must be included in that published Core before shipping the matching shell. Keep the current pin until the new Core release actually exists. Release notes explain **Download update → Restart & update**, the deb/rpm package-manager policy (no apt/yum repository), and the transition: a client predating the silent-install fix may still display its installation wizard once when upgrading to the first fixed shell. Subsequent upgrades use the new flow.
+
 ## One-time setup
 
 You need permission to configure Actions secrets/variables and push release tags in the source repository. Local signing-key creation needs `minisign`; CI installs its own build tools. For a fork, first align the [publishing targets](RELEASE_REFERENCE.md#forking-and-rebranding).
@@ -78,7 +80,7 @@ GoReleaser builds the embedded web UI and generates the release notes automatica
 ## Desktop release train
 
 1. **Prepare the core:** the shell requires desktop lifecycle protocol v1 (`pixivbiu-desktop/1`). Release the updated core first, then update the pin; older binaries are rejected by the package audit. Confirm the release in [`desktop/.core-version`](../desktop/.core-version) exists and has all required platform archives. To bundle a newer core, edit that file to its published `v*` tag and commit it before tagging desktop.
-2. **Verify:** confirm CI and relevant [desktop smoke checks](../desktop/README.md#develop) pass. `make desktop-fetch-core` reproduces pinned-core staging locally (requires authenticated `gh`); `make desktop-dev` and `make desktop-dist` instead build core from the working tree. CI staging downloads/extracts assets but does not verify minisign/checksums itself.
+2. **Verify:** confirm CI and relevant [desktop smoke checks](../desktop/README.md#develop) pass. For update changes, also run the [two-stage renderer and real-install matrix](../desktop/README.md#desktop-updates) using two successive Desktop releases; check ordinary exit never installs, explicit restart reopens, and configuration/login/download recovery survive. `make desktop-fetch-core` reproduces pinned-core staging locally (requires authenticated `gh`); `make desktop-dev` and `make desktop-dist` instead build core from the working tree. CI staging downloads/extracts assets but does not verify minisign/checksums itself.
 3. **Choose a tag:** stable `desktop-v1.0.0`, beta `desktop-v1.1.0-beta.1`, or alpha `desktop-v1.1.0-alpha.1`. **Desktop does not support RC tags.** CI sets the package version from the tag; no manual `package.json` version bump is required. Release notes are generated from Conventional Commits (`desktop`-scoped shell changes plus the bundled core's changes); to add hand-written highlights, create an annotated tag with `git tag -a desktop-v1.0.0 -m "…"`. See [desktop changelog](RELEASE_REFERENCE.md#desktop-changelog).
 4. **Publish from the tested commit:**
 

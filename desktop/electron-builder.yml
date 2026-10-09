@@ -146,8 +146,9 @@ linux:
   desktop:
     entry:
       Keywords: Pixiv;artwork;illustration;browser;downloader;
-  # AppImage is the auto-updating format (electron-updater); deb + rpm are
-  # install-only (managed by the system package manager). rpm covers
+  # AppImage uses explicit download + restart (electron-updater). Project policy
+  # routes deb/rpm upgrades to the system package manager; main refuses apply.
+  # No apt/yum repository is supplied. rpm covers
   # Fedora/RHEL/openSUSE — same x64 core, no extra infra (ubuntu runner has
   # rpmbuild via electron-builder's fpm).
   target:

@@ -135,71 +135,15 @@ test("OAuth attempts isolate memory sessions and clean success, dismissal, load 
     assert.equal(windows.every(w => w.isDestroyed()), true);
 });
 
-function updaterFixture(prepareQuit, resumeAfterFailedUpdate = () => {}) {
-    const handlers = new Map();
-    const mainFrame = { url: 'pixivbiu://core/' };
-    const win = { webContents: { mainFrame, send() {} } };
-    const updater = new EventEmitter();
-    updater.checkForUpdates = async () => {};
-    updater.downloadUpdate = async () => {};
-    updater.quitAndInstall = () => {};
-    const filename = path.resolve(import.meta.dirname, '../desktop/dist/updater.js');
-    const localRequire = createRequire(filename);
-    const electron = { app: { isPackaged: false }, ipcMain: { handle: (name, fn) => handlers.set(name, fn) } };
-    const { initUpdater } = loadWithElectron('updater.js', electron, {
-        require: name => name === 'electron' ? electron : name === 'electron-updater' ? { autoUpdater: updater } : localRequire(name),
-    });
-    initUpdater(() => win, prepareQuit, resumeAfterFailedUpdate);
-    const install = () => handlers.get('pixivbiu:update-install')({ sender: win.webContents, senderFrame: mainFrame });
-    return { updater, install };
-}
-
-test('updater waits for the core shutdown barrier before installation and coalesces duplicate requests', async () => {
-    let release;
-    const order = [];
-    const barrier = new Promise(resolve => { release = resolve; });
-    const { updater, install } = updaterFixture(async () => { order.push('stop'); await barrier; });
-    updater.downloadUpdate = async () => { order.push('download'); };
-    updater.quitAndInstall = () => { order.push('install'); };
-    const first = install();
-    const second = install();
-    await new Promise(resolve => setImmediate(resolve));
-    assert.deepEqual(order, ['download', 'stop']);
-    release();
-    await Promise.all([first, second]);
-    assert.deepEqual(order, ['download', 'stop', 'install']);
-});
-
-test('download/shutdown errors prevent installation; installer failure resumes the core', async () => {
-    let stopped = 0;
-    let installed = 0;
-    let resumed = 0;
-    const { updater, install } = updaterFixture(async () => { stopped++; }, () => { resumed++; });
-    updater.downloadUpdate = async () => { throw new Error('fixture download failed'); };
-    updater.quitAndInstall = () => { installed++; };
-    await assert.rejects(install(), /download failed/);
-    assert.equal(stopped, 0);
-    assert.equal(installed, 0);
-    assert.equal(updater.listenerCount('update-downloaded'), 1, 'only the status listener remains');
-    updater.downloadUpdate = async () => {};
-    updater.quitAndInstall = () => updater.emit('error', new Error('fixture installer failed'));
-    await install();
-    assert.equal(stopped, 1);
-    assert.equal(resumed, 1);
-    updater.emit('error', new Error('unrelated error'));
-    assert.equal(resumed, 1);
-    const blocked = updaterFixture(async () => { throw new Error('stop failed'); });
-    blocked.updater.quitAndInstall = () => assert.fail('installed before cleanup');
-    await assert.rejects(blocked.install(), /stop failed/);
-});
-
-test('Windows window close waits for core cleanup and duplicate close requests share one barrier', async () => {
+for (const updatePreparing of [false, true]) {
+test('Windows window close waits for cleanup and cancels updates (already preparing: ' + updatePreparing + ')', async () => {
     const windows = [];
     let release;
     const barrier = new Promise(resolve => { release = resolve; });
     let stops = 0;
     let completedQuits = 0;
     let updateBarrier;
+    let cancelledUpdate = false;
     const app = Object.assign(new EventEmitter(), {
         isPackaged: true, getPath: () => '/fixture', enableSandbox() {}, setAppUserModelId() {},
         requestSingleInstanceLock: () => true, whenReady: () => Promise.resolve(),
@@ -224,7 +168,7 @@ test('Windows window close waits for core cleanup and duplicate close requests s
     const core = {
         state: 'ready', port: 4000,
         async start() { notify('ready'); },
-        async stop() { stops++; await barrier; this.state = 'stopped'; this.port = null; },
+        async stop() { if (!updatePreparing) assert.equal(cancelledUpdate, true, 'ordinary quit cancels pending updates before cleanup'); stops++; await barrier; this.state = 'stopped'; this.port = null; },
     };
     const ses = { setPermissionRequestHandler() {}, setPermissionCheckHandler() {} };
     const electron = { app, BrowserWindow: Window, dialog: { showErrorBox: () => assert.fail('unexpected quit failure') },
@@ -235,7 +179,7 @@ test('Windows window close waits for core cleanup and duplicate close requests s
         './core-process': { createCore(fn) { notify = fn; return core; } },
         './core-protocol': { installCoreProtocol() {}, registerCoreScheme() {} },
         './menu': { installMenu() {} }, './oauth-window': { captureOAuthCode() {} },
-        './updater': { initUpdater(_window, prepareQuit) { updateBarrier = prepareQuit; } },
+        './updater': { initUpdater(_window, prepareQuit) { updateBarrier = prepareQuit; return { beginQuit() { cancelledUpdate = true; }, cancelQuit() {} }; } },
         './window-chrome': { chromeArgs: () => [], chromeOptions: () => ({}), trackWindowChrome: () => () => ({ fullscreen: false }) },
         './preferences': { PreferenceStore: class {} },
         './window-state': { restoreWindowState: () => ({ bounds: {} }), trackWindowState() {} },
@@ -250,17 +194,21 @@ test('Windows window close waits for core cleanup and duplicate close requests s
         windows[0].emit('close', event);
         return event.prevented;
     };
+    const priorUpdate = updatePreparing ? updateBarrier() : undefined;
     assert.equal(close(), true);
     assert.equal(close(), true);
+    assert.equal(cancelledUpdate, true, 'closing during explicit preparation must cancel the pending install');
     const updaterAlsoQuitting = updateBarrier();
     assert.equal(stops, 1);
     assert.equal(completedQuits, 0);
     release();
+    await priorUpdate;
     await updaterAlsoQuitting;
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(completedQuits, 1);
     assert.equal(close(), false);
 });
+}
 
 test('window chrome preserves native Linux frames and Windows caption controls across OS versions', () => {
     for (const [platform, release, frost] of [['linux', '6.8.0', false], ['win32', '10.0.19045', false], ['win32', '10.0.22621', true], ['darwin', '24.0.0', true]]) {

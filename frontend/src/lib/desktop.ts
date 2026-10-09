@@ -3,13 +3,50 @@
 // truth for the bridge contract on the SPA side; the SPA feature-detects the
 // bridge and falls back to the normal web behaviour when it is absent.
 
+// Keep the snapshot/error contract aligned with desktop/src/update-types.ts.
+export type DesktopUpdateErrorCode =
+    | "check_failed"
+    | "download_failed"
+    | "verification_failed"
+    | "stop_failed"
+    | "install_failed"
+    | "not_supported";
+export interface DesktopUpdateSnapshot {
+    sequence: number;
+    currentVersion: string;
+    format: "nsis" | "mac" | "appimage" | "deb" | "rpm" | "unsupported";
+    installMode: "in-app" | "external" | "disabled";
+    state:
+        | "idle"
+        | "checking"
+        | "not-available"
+        | "available"
+        | "downloading"
+        | "downloaded"
+        | "preparing-install"
+        | "installing"
+        | "error";
+    version?: string;
+    notes?: string;
+    releaseUrl?: string;
+    installerUrl?: string;
+    publishedAt?: string;
+    lastChecked?: string;
+    percent?: number;
+    readyToInstall?: boolean;
+    error?: DesktopUpdateErrorCode;
+    previousInstallFailed?: boolean;
+    installRecoveryRequired?: boolean;
+}
+
 export type DesktopUpdateStatus =
     | { state: "checking" }
     | { state: "available"; version: string; notes?: string }
     | { state: "not-available" }
     | { state: "downloading"; percent: number }
     | { state: "downloaded"; version: string; notes?: string }
-    | { state: "error"; message: string };
+    | { state: "error"; message: string }
+    | DesktopUpdateSnapshot;
 
 export interface DesktopWindowChromeState {
     fullscreen: boolean;
@@ -25,6 +62,10 @@ export interface DesktopBridge {
     // OAuth callback redirect, and resolves the authorization code.
     captureOAuthCode(loginUrl: string): Promise<string>;
     updates: {
+        // Optional so a newer embedded SPA can still use an older shell.
+        read?(): Promise<DesktopUpdateSnapshot>;
+        download?(): Promise<void>;
+        restartAndInstall?(): Promise<void>;
         check(): Promise<void>;
         downloadAndInstall(): Promise<void>;
         onStatus(cb: (status: DesktopUpdateStatus) => void): () => void;

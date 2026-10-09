@@ -58,6 +58,9 @@ This internal-test transition does not import or delete old Chromium profiles or
 | `src/oauth-window.ts` | OAuth window that intercepts the Pixiv callback → returns the code |
 | `src/preload.ts` | `contextBridge` → `window.pixivbiu` (the SPA mirrors this in `frontend/src/lib/desktop.ts`) |
 | `src/updater.ts` | `electron-updater` wiring + IPC to the renderer |
+| `src/update-controller.ts` | Sequenced snapshots, download/install single flights and shutdown coordination |
+| `src/update-store.ts` | Atomic cache index, SHA-512 verification and next-launch installation receipts |
+| `src/update-types.ts` | Main/preload update contract and safe error categories |
 | `src/release-notes.ts` | Pure helpers stitching changelogs across skipped versions |
 | `electron-builder.yml` | Packaging / signing / publish config |
 | `build/icon.icns` / `icon.png` | macOS bundle icon and Linux/runtime icon, generated from the Unix artwork |
@@ -125,7 +128,51 @@ Stdin is a private parent-lifetime pipe. `stop\n`, EOF or a read error requests 
 
 For settings restart, the managed core drains and completes worker cleanup, then exits with code 75 instead of creating its own successor. The shell clears the old port and starts a new managed child, keeping the SPA mounted so REST/SSE reconnect through the same `pixivbiu://core` origin. Only a healthy managed child exiting with this code requests restart; ordinary crashes require an explicit retry. Code 76 identifies a startup port conflict. Stopping the application takes precedence over a simultaneous restart.
 
-The same shutdown barrier runs before explicit updater installation: electron-updater can launch the Windows installer before Electron's `before-quit`. If installer startup fails, the shell resumes the core. Normal quit still supports the updater's install-on-quit path after child cleanup. Failure-page actions are intercepted in the main process only from the exact current failure document and only for fixed retry/log destinations; they do not grant data documents access to privileged IPC.
+The same shutdown barrier runs before explicit updater installation: electron-updater can launch the Windows installer before Electron's `before-quit`. If installer startup fails while the shell is still alive, the shell resumes the core. Normal quit and system shutdown never install an update; a pending explicit update is cancelled when ordinary quit takes ownership of the barrier. Failure-page actions are intercepted in the main process only from the exact current failure document and only for fixed retry/log destinations; they do not grant data documents access to privileged IPC.
+
+## Desktop updates
+
+Updates have two explicit actions: **Download update**, then **Restart & update**. Both `autoDownload` and `autoInstallOnAppQuit` are false. Downloading and the downloaded state leave the core running, and progress does not block browsing. Only preparing/installing shows the global waiting layer. About and release notes share the same operation state. Desktop version comes from `app.getVersion()`; the embedded core's version is displayed separately. Browser builds retain the core update API.
+
+On packaged Windows, the shell sets NsisUpdater's public `installDirectory` to the directory containing the currently running executable. Real consecutive NSIS upgrades exposed a second-upgrade fallback to the default Programs directory while the custom directory retained the previous version. Passing the actual executable directory keeps successive upgrades in the user's existing location, including paths with spaces; first-install scope, directory selection and Windows elevation behavior remain owned by NSIS.
+
+| Installed format | Apply behavior |
+| --- | --- |
+| Windows NSIS | `quitAndInstall(true, true)`: silent install and reopen; necessary UAC still belongs to Windows. First installation retains the directory chooser and existing install scope. |
+| macOS | Native update installation and reopen, using the updater's cached ZIP. |
+| Linux AppImage | Replace and reopen through electron-updater, after checking that the current AppImage and its directory are writable. |
+| Linux deb/rpm | Notify and show release notes, a corresponding package download and upgrade instructions. Apply with the system package installer/manager, then reopen. Main refuses in-app download/install; the project does not supply an apt/yum repository. |
+
+The main process owns snapshots with an increasing sequence, current Desktop version, format/capability, target version, progress, last successful check, safe error category and readiness. `updates.read()`, `check()`, `download()` and `restartAndInstall()` retain trusted-window/main-frame checks. The frontend subscribes before reading and rejects stale sequences, including delayed reads after a reload. Legacy `downloadAndInstall()` combines both operations for older embedded UIs; a newer UI feature-detects the three new methods to support older shells. Checks, downloads and installations each coalesce duplicate requests; late events/notes cannot regress another operation's state.
+
+Before restarting, the frontend re-reads the queued/running artwork count from REST. A non-empty queue or unavailable/invalid response requires application-dialog confirmation: interrupted tasks are requeued, and the current file may download again because byte-range resume is not supported. Cache verification and library cache preparation happen before stopping the core. The shared shutdown barrier waits for process cleanup before starting the installer. Download, verification or barrier errors release the UI; an installer error emitted while the process remains alive restores the core. An OS installer may outlive the shell, so later failures are diagnosed on the next launch and offer the official package for repair; no automatic rollback is promised.
+
+`userData/update-state.json` is a versioned, atomically replaced main-private cache index and installation receipt. Download completion records the event's actual cached path, version, format and SHA-512, including macOS where `downloadUpdate()` can return an empty array. Startup must obtain a fresh eligible offer from the configured feed and hash the entire file before restoring downloaded readiness. Missing/tampered cache, a changed or withdrawn offer and offline startup never enable installation or automatically redownload. A later explicit download may fetch again. Persisted paths are never executed; installation always uses electron-updater's public API after rehydrating its cache. A receipt is successful only if the next launch runs the exact target Desktop version.
+
+Detailed errors stay in `app.getPath("logs")/desktop-update.log`, a 64 KiB bounded local snapshot with credentials and URL queries removed; renderer errors are localized categories. Raw diagnostics never cross the bridge. Existing core/preference/login paths are preserved across updates.
+
+After an installer handoff fails while the shell is alive, `installRecoveryRequired` prevents another installation attempt in that process: the public library APIs cannot reliably reset Windows' quit flag or native macOS callbacks. Core resumes, the waiting layer closes, and the official installer remains available. Reopen PixivBiu for a fresh updater session before retrying. Download and verification failures can retry without reopening. If Core cannot be stopped, main keeps ownership of the existing child and shows its retry/log failure page; it never spawns a second Core beside an unconfirmed live process.
+
+Run `npm run check` for state, cache, failure, quit-race, unauthorized IPC and compatibility tests. After `bun run build` in `frontend`, run `npm run test:native-updates` for the production SPA/preload in isolated Electron windows with synthetic APIs and no installer/account data. It covers background browsing, navigation/reload recovery, task/unknown-status confirmation, retry, package-manager capability, four locales and keyboard consent. It does not prove native installation: rehearse two successive releases on Windows 10/11 (user/machine scope, custom directory, UAC acceptance/cancellation), both macOS architectures and writable/read-only AppImage locations. Verify reopen, requeued tasks and preserved configuration/login. From a client predating this fix, the first upgrade may show the installer wizard once; the new flow starts when the fixed shell runs.
+
+### Isolated Windows installer E2E
+
+From the repository root, with the locked Desktop dependencies and a built frontend available, run:
+
+```powershell
+npm.cmd run build --prefix desktop
+New-Item -ItemType Directory -Force desktop/out/update-e2e | Out-Null
+go build -o desktop/out/update-e2e/pixivbiu.exe ./cmd/server
+node scripts/desktop-install-e2e.cjs
+```
+
+This native Windows test packages three unsigned NSIS fixtures (`0.0.1` → `0.0.2` → `0.0.3`) using the current production `UpdateController`, `UpdateStore`, `CoreSupervisor` and Windows installation-directory helper, a real locally built Go Core, and the locked Electron/electron-updater dependencies. Each run owns its app ID/GUID, product/executable/package names, installation directory, userData, LOCALAPPDATA/cache, NSIS installer store, loopback update feed and synthetic session; it creates no shortcuts, installs explicitly for the current user, and invokes its own uninstaller on completion. Cleanup verifies fixture ownership before stopping processes/uninstalling and validates the cached NSIS installer's bytes before removal. Installer and command waits have deadlines. First-time packaging may download electron-builder's NSIS tools. It does not change the production update feed, Core pin or package versions.
+
+Assertions cover actual feed download and SHA512 cache verification, a healthy unchanged Core PID during downloads, ordinary exit without installation, reopening and revalidating a cached offer, both real silent installer handoffs and automatic relaunches in the same custom directory containing spaces, actual Windows executable FileVersion/ProductVersion and executable/ASAR SHA256 changes, successful installation receipts, persisted settings read back through REST, synthetic authenticated session recovery, and shutdown without old shell/Core processes. Evidence is saved under `desktop/out/update-e2e/<run>/` in `result.json`, `events.jsonl`, `feed-requests.jsonl`, `compiled-identities.jsonl`, `registry.jsonl`, `second-upgrade-paths.json` and `cleanup.json`, alongside the installers. The three-version test passed on Windows 11 Pro 10.0.26300 x64 after the installation-directory fix; it previously reproduced the custom-directory fallback.
+
+The installer fixture has its own main entry and command transport; it does not exercise the production main window, SPA, preload or trusted IPC. Combine it with `test:native-updates` and `test:native-core` for those complementary checks. It disables NSIS elevation, so it does not cover machine installations, UAC consent/cancellation, signing/SmartScreen, actual Pixiv OAuth, download-job recovery, macOS or Linux installation. Native results from one Windows host do not establish Windows 10 behavior.
+
+The [validation record](UPDATE_VALIDATION.md) preserves the tested scope, outcomes and installed-byte hashes after cleaning the task's temporary packages and caches.
 
 ### Troubleshooting
 

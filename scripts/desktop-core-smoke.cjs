@@ -99,6 +99,9 @@ app.whenReady().then(async () => {
     await core?.stop();
     clearTimeout(timeout);
     if (win && !win.isDestroyed()) win.destroy();
-    fs.rmSync(dir, { recursive: true, force: true });
+    // Chromium may retain a temporary profile handle until app.exit on Windows.
+    // Cleanup must not strand the app after the lifecycle assertions finish.
+    try { fs.rmSync(dir, { recursive: true, force: true }); }
+    catch (error) { console.warn("Temporary core profile locked at exit: " + error.code); }
     app.exit(process.exitCode || 0);
 });

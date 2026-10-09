@@ -152,6 +152,10 @@ test("release notes use user-facing platform names and traceable build links", (
   assert.match(notes, /\/tree\/desktop-v1\.2\.0-alpha\.1/);
   assert.match(notes, /\/releases\/tag\/v3\.1\.0-alpha\.1/);
   assert.doesNotMatch(notes, /darwin —/);
+  assert.match(notes, /Download update/);
+  assert.match(notes, /Ordinary exit does not install/);
+  assert.match(notes, /installer wizard once/);
+  assert.match(notes, /does not provide an apt\/yum repository/);
 });
 
 test("a complete release verifies and renders notes", () => {

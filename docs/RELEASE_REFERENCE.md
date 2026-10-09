@@ -27,7 +27,7 @@ Docker publishing runs independently from the binary release. Its [workflow](../
 | Windows | x64 | NSIS `.exe` | `.exe` + `.blockmap`; `latest.yml` | Azure Trusted Signing if configured |
 | Linux | x64 | AppImage, `.deb`, `.rpm` | AppImage; `latest-linux.yml` | Unsigned |
 
-AppImage has an embedded differential block map, not a separate `.AppImage.blockmap`. `.deb` and `.rpm` are install-only; their updates belong to the system package manager. macOS builds both architectures in one run, with a shared `latest-mac.yml`; electron-updater selects the architecture. Separate packages avoid doubling each download with a second core/runtime slice.
+AppImage has an embedded differential block map, not a separate `.AppImage.blockmap`. The project's `.deb`/`.rpm` policy is notification, release notes and corresponding package download followed by a system package-manager upgrade; in-app installation is refused even though the underlying updater library supports these formats. No apt/yum software repository is configured or published. NSIS/macOS/AppImage use explicit background download followed by restart-and-install; ordinary quit never installs. See [Desktop updates](../desktop/README.md#desktop-updates) for cache verification, failure recovery and the real-install matrix. macOS builds both architectures in one run, with a shared `latest-mac.yml`; electron-updater selects the architecture. Separate packages avoid doubling each download with a second core/runtime slice.
 
 ```text
 PixivBiu-Desktop-<ver>-darwin-{arm64,x64}.{dmg,zip}

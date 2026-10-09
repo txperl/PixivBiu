@@ -1,4 +1,5 @@
 import { createContext } from "react";
+import type { DesktopUpdateErrorCode, DesktopUpdateSnapshot } from "@/lib/desktop";
 import type { SystemVersion, UpdateApiError, UpdateStatus } from "./api";
 
 export interface UpdateContextValue {
@@ -13,6 +14,10 @@ export interface UpdateContextValue {
     checking: boolean;
     // True after apply() is accepted, while we wait for the restarted binary.
     applying: boolean;
+    actionPending: boolean;
+    twoPhaseUpdates: boolean;
+    desktopUpdate: DesktopUpdateSnapshot | null;
+    desktopError: DesktopUpdateErrorCode | null;
 
     // Convenience: status?.update_available ?? false. Drives the sidebar dot.
     updateAvailable: boolean;
