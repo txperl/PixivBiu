@@ -54,6 +54,9 @@ let mainDocumentURL: string | null = null;
 let quitting = false;
 let quitReady = false;
 let quitOperation: Promise<void> | null = null;
+let cancelUpdateQuit: (() => void) | undefined;
+let beginUpdateQuit: (() => void) | undefined;
+let ordinaryQuitPending = false;
 
 const PRELOAD = path.join(__dirname, "preload.js");
 const APP_ICON_NAME = process.platform === "win32" ? "icon.ico" : "icon.png";
@@ -115,6 +118,7 @@ async function prepareQuit(): Promise<void> {
         quitReady = true;
     })().catch(error => {
         quitting = false;
+        if (core?.state === "failed") showCoreState(core.state, core.failure);
         throw error;
     }).finally(() => { quitOperation = null; });
     return quitOperation;
@@ -184,7 +188,7 @@ function createMainWindow(): void {
         // macOS window dismissal still keeps downloads alive in the Dock.
         if (process.platform !== "darwin" && !quitReady) {
             event.preventDefault();
-            if (!quitting) app.quit();
+            if (!ordinaryQuitPending) app.quit();
         }
     });
     win.on("closed", () => {
@@ -261,7 +265,9 @@ if (gotInstanceLock) {
             return captureOAuthCode(loginUrl, mainWindow ?? undefined);
         });
 
-        initUpdater(() => mainWindow, prepareQuit, resumeAfterFailedUpdate);
+        const updateLifecycle = initUpdater(() => mainWindow, prepareQuit, resumeAfterFailedUpdate);
+        cancelUpdateQuit = updateLifecycle?.cancelQuit;
+        beginUpdateQuit = updateLifecycle?.beginQuit;
         createMainWindow();
         void core.start();
 
@@ -284,9 +290,13 @@ app.on("window-all-closed", () => {
 
 // The core is a child tied to this app — never leave it orphaned.
 app.on("before-quit", (event) => {
+    beginUpdateQuit?.();
     if (quitReady || !gotInstanceLock) return;
+    ordinaryQuitPending = true;
     event.preventDefault();
     void prepareQuit().then(() => app.quit()).catch(error => {
+        ordinaryQuitPending = false;
+        cancelUpdateQuit?.();
         dialog.showErrorBox("PixivBiu could not close", String(error.message));
     });
 });

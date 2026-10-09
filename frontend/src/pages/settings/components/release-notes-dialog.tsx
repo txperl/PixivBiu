@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UpdateActions } from "@/features/system/update-actions";
 import { useMessages } from "@/i18n";
 import { ExternalLinkIcon } from "@/lib/icons";
 
@@ -29,7 +30,7 @@ interface ReleaseNotesDialogProps {
 }
 
 // The "What's new" preview launched from the update banner. Renders the cleaned
-// release notes in a focused modal and offers the same one-click Update & restart
+// release notes in a focused modal and offers the shared download/restart action
 // from its footer, so the user can act straight from the preview.
 export function ReleaseNotesDialog({
     version,
@@ -91,17 +92,13 @@ export function ReleaseNotesDialog({
                             {m.settings_about_release_notes_view_github()}
                         </a>
                     )}
-                    <Button
-                        type="button"
-                        size="sm"
+                    <UpdateActions
                         disabled={applying}
-                        onClick={() => {
+                        onApply={() => {
                             setOpen(false);
                             onApply();
                         }}
-                    >
-                        {m.settings_about_apply()}
-                    </Button>
+                    />
                 </DialogFooter>
             </DialogContent>
         </Dialog>

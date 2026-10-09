@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { WindowChromeState } from "./window-chrome";
+import type { UpdateSnapshot } from "./update-types";
 
 // Authored startup/failure data documents have no SPA and cannot invoke core
 // IPC. They only consume the shell's notification after load/state changes.
@@ -19,7 +20,8 @@ export type UpdateStatus =
     | { state: "not-available" }
     | { state: "downloading"; percent: number }
     | { state: "downloaded"; version: string; notes?: string }
-    | { state: "error"; message: string };
+    | { state: "error"; message: string }
+    | UpdateSnapshot;
 
 const pixivbiu = {
     windowChrome: {
@@ -38,7 +40,10 @@ const pixivbiu = {
     // Whole-app updates are owned by electron-updater; the SPA renders status
     // through its existing update UI instead of the core's /system/update path.
     updates: {
+        read: (): Promise<UpdateSnapshot> => ipcRenderer.invoke("pixivbiu:update-read"),
         check: (): Promise<void> => ipcRenderer.invoke("pixivbiu:update-check"),
+        download: (): Promise<void> => ipcRenderer.invoke("pixivbiu:update-download"),
+        restartAndInstall: (): Promise<void> => ipcRenderer.invoke("pixivbiu:update-restart"),
         downloadAndInstall: (): Promise<void> => ipcRenderer.invoke("pixivbiu:update-install"),
         onStatus: (cb: (status: UpdateStatus) => void): (() => void) => {
             const listener = (_e: unknown, status: UpdateStatus) => cb(status);

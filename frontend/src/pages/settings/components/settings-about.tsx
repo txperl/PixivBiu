@@ -6,6 +6,7 @@ import { Sheet, SheetHead } from "@/components/sheet";
 import { Button } from "@/components/ui/button";
 import { type FieldSpec, SCROLL_OFFSET, SECTION_ICONS } from "@/features/settings";
 import { type UpdateApiError, useUpdate } from "@/features/system";
+import { DesktopUpdateFeedback, UpdateActions } from "@/features/system/update-actions";
 import { useLocale, useMessages } from "@/i18n";
 import { useApiErrorMessage } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
@@ -25,7 +26,7 @@ interface SettingsAboutProps extends FieldRowProps {
 }
 
 // SettingsAbout is a custom (non-schema) settings card: it shows the running
-// version + build info and drives the one-click update flow. It participates
+// version + build info and drives the shared update flow. It participates
 // in the settings nav / scroll-spy via the shared data-section-id contract.
 export function SettingsAbout({
     fields,
@@ -42,12 +43,26 @@ export function SettingsAbout({
     const m = useMessages();
     const { locale } = useLocale();
     const resolveApiError = useApiErrorMessage();
-    const { status, systemVersion, checking, applying, updateAvailable, checkNow, apply } = useUpdate();
+    const {
+        status,
+        systemVersion,
+        loading,
+        checking,
+        applying,
+        actionPending,
+        desktopUpdate,
+        twoPhaseUpdates,
+        updateAvailable,
+        checkNow,
+        apply,
+    } = useUpdate();
     const [checkFailed, setCheckFailed] = useState(false);
     const [applyError, setApplyError] = useState<UpdateApiError | null>(null);
 
     const isDev = status?.is_dev ?? false;
-    const currentVersion = status?.current_version ?? systemVersion?.version ?? "—";
+    const currentVersion = twoPhaseUpdates
+        ? (desktopUpdate?.currentVersion ?? "—")
+        : (status?.current_version ?? systemVersion?.version ?? "—");
     const latest = status?.latest_version ?? "";
     const lastChecked = status?.last_checked;
     const released = formatRelativeTime(status?.published_at, locale);
@@ -66,7 +81,9 @@ export function SettingsAbout({
 
     // Precomputed to avoid a nested ternary in JSX.
     let statusNode: ReactNode;
-    if (isDev) {
+    if (loading || (twoPhaseUpdates && !lastChecked && !updateAvailable && !isDev)) {
+        statusNode = null;
+    } else if (isDev) {
         statusNode = <p className="m-0 text-muted-foreground">{m.settings_about_dev_build()}</p>;
     } else if (updateAvailable) {
         statusNode = (
@@ -96,9 +113,7 @@ export function SettingsAbout({
 
                 {/* Actions */}
                 <div className="flex flex-wrap items-center gap-2">
-                    <Button onClick={onApply} disabled={applying} size="sm">
-                        {m.settings_about_apply()}
-                    </Button>
+                    <UpdateActions onApply={onApply} />
                     {status?.release_notes && (
                         <ReleaseNotesDialog
                             version={latest}
@@ -121,7 +136,9 @@ export function SettingsAbout({
                         </a>
                     )}
                 </div>
-                {applyError && <p className="m-0 text-destructive text-xs">{resolveApiError(applyError)}</p>}
+                {!twoPhaseUpdates && applyError && (
+                    <p className="m-0 text-destructive text-xs">{resolveApiError(applyError)}</p>
+                )}
             </div>
         );
     } else {
@@ -140,7 +157,18 @@ export function SettingsAbout({
                     icon={SECTION_ICONS.about}
                     title={m.settings_about_title()}
                     actions={
-                        <Button variant="outline" size="sm" onClick={onCheck} disabled={checking}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={onCheck}
+                            disabled={
+                                checking ||
+                                applying ||
+                                actionPending ||
+                                desktopUpdate?.state === "downloading" ||
+                                desktopUpdate?.installRecoveryRequired
+                            }
+                        >
                             {checking ? m.settings_about_checking() : m.settings_about_check_now()}
                         </Button>
                     }
@@ -148,7 +176,9 @@ export function SettingsAbout({
                 <div className="space-y-3 px-[18px] py-4 text-sm">
                     {/* Version is the first item under About. */}
                     <div className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">{m.settings_about_version_label()}</span>
+                        <span className="text-muted-foreground">
+                            {twoPhaseUpdates ? m.settings_about_desktop_version() : m.settings_about_version_label()}
+                        </span>
                         <span className="font-mono text-muted-foreground text-xs">{currentVersion}</span>
                     </div>
 
@@ -158,6 +188,13 @@ export function SettingsAbout({
                             <span className="font-mono text-muted-foreground text-xs">
                                 {systemVersion.go_version} · {systemVersion.os}/{systemVersion.arch}
                             </span>
+                        </div>
+                    )}
+
+                    {twoPhaseUpdates && systemVersion && (
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="text-muted-foreground">{m.settings_about_core_version()}</span>
+                            <span className="font-mono text-muted-foreground text-xs">{systemVersion.version}</span>
                         </div>
                     )}
 
@@ -192,6 +229,7 @@ export function SettingsAbout({
                         </div>
                     </div>
                     {statusNode && <div className="text-muted-foreground text-xs">{statusNode}</div>}
+                    <DesktopUpdateFeedback />
                     <div className="text-muted-foreground text-xs">
                         {checkFailed
                             ? m.settings_about_check_failed()
@@ -218,7 +256,7 @@ export function SettingsAbout({
                     onResetField={onResetField}
                 />
             </Sheet>
-            {applying && <LeapyOverlay label={m.settings_about_updating()} />}
+            {!twoPhaseUpdates && applying && <LeapyOverlay label={m.settings_about_updating()} />}
         </section>
     );
 }
