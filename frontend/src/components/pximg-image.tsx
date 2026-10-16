@@ -1,4 +1,5 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
+import { observeImageReadiness } from "@/lib/image-readiness";
 import { rewritePximgUrl } from "@/lib/pixiv-image";
 import { cn } from "@/lib/utils";
 
@@ -10,79 +11,83 @@ type PximgImageProps = {
     alt: string;
     fallback: ReactNode;
     className?: string;
-    // How the <img> fills its box. Defaults to "cover" (thumbnails/cards). The
-    // viewer stage passes "contain" so the whole artwork is visible — note
-    // `className` styles the wrapper, not the <img>, so fit can't be a className.
+    // className sizes the wrapper; fit controls the image inside it.
     fit?: "cover" | "contain";
+    loading?: "lazy" | "eager";
+    reveal?: "fade" | "instant";
     onLoad?: (img: HTMLImageElement) => void;
+    onReady?: (img: HTMLImageElement) => void;
+    onError?: () => void;
 };
 
-function PximgImage({ src, alt, fallback, className, fit = "cover", onLoad }: PximgImageProps) {
-    const url = rewritePximgUrl(src);
+function ImageContent({
+    src,
+    alt,
+    fallback,
+    className,
+    fit = "cover",
+    loading = "lazy",
+    reveal = "fade",
+    onLoad,
+    onReady,
+    onError,
+}: PximgImageProps & { src: string }) {
     const imgRef = useRef<HTMLImageElement>(null);
+    const settled = useRef(false);
+    const loadNotified = useRef(false);
     const [loaded, setLoaded] = useState(false);
     const [errored, setErrored] = useState(false);
     const [fallbackGone, setFallbackGone] = useState(false);
-    const settledUrl = useRef<string | undefined>(undefined);
+    const notifyLoad = useEffectEvent((img: HTMLImageElement) => onLoad?.(img));
+    const notifyReady = useEffectEvent((img: HTMLImageElement) => onReady?.(img));
+    const notifyError = useEffectEvent(() => onError?.());
 
-    // Reveal only after the full frame is decoded, so images don't paint
-    // top-to-bottom. decode() is driven by the load event / cache-hit check
-    // below, never eagerly on mount, so off-screen loading="lazy" images aren't
-    // force-loaded.
-    const handleLoaded = (img: HTMLImageElement) => {
-        img.decode().then(
-            () => setLoaded(true),
-            () => setLoaded(true), // decode() can reject (e.g. src swapped); reveal anyway
-        );
-        onLoad?.(img);
-    };
-
-    // A cached image can finish loading before React attaches onLoad, so the
-    // event never fires and the <img> would stay opacity-0 forever. Reveal the
-    // already-complete case here (this also notifies onLoad — the popover
-    // preview reads naturalWidth/naturalHeight from the element to size its box).
-    // Guarded by the last handled url: effects re-run when a kept-alive page is shown
-    // again, and resetting there would fade every already-revealed card back in.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: re-run only on url change; handleLoaded/onLoad are recreated each render
     useEffect(() => {
-        if (settledUrl.current === url) return;
-        settledUrl.current = url;
-        setLoaded(false);
-        setErrored(false);
-        setFallbackGone(false);
         const img = imgRef.current;
-        if (img?.complete && img.naturalWidth > 0) handleLoaded(img);
-    }, [url]);
+        // Activity restores settled images without replaying their reveal. A
+        // decode interrupted by hiding is retried against the same cached element.
+        if (!img || settled.current) return;
+        return observeImageReadiness(img, {
+            onLoad: () => {
+                if (loadNotified.current) return;
+                loadNotified.current = true;
+                notifyLoad(img);
+            },
+            onReady: () => {
+                settled.current = true;
+                setLoaded(true);
+                notifyReady(img);
+            },
+            onError: () => {
+                settled.current = true;
+                setErrored(true);
+                notifyError();
+            },
+        });
+    }, []);
 
-    // Drop the fallback once the image has faded in: placeholder art carries blur
-    // filters, and keeping one under every revealed thumbnail costs paint and
-    // compositing for nothing. A timer (not transitionend) so a kept-alive page
-    // hidden mid-fade re-arms it when shown again.
+    // Remove expensive placeholder art once covered. Re-arm on Activity reveal
+    // if hiding interrupted the timer; instant consumers need no fade timer.
     useEffect(() => {
-        if (!loaded) return;
+        if (!loaded || reveal === "instant") return;
         const timer = setTimeout(() => setFallbackGone(true), FADE_MS + 50);
         return () => clearTimeout(timer);
-    }, [loaded]);
-
-    if (!url) return <>{fallback}</>;
+    }, [loaded, reveal]);
 
     return (
         <div className={cn("relative overflow-hidden", className)}>
-            {/* Underlays the image until it is revealed. The box size comes from
-                className, so removing it afterwards doesn't shift layout. */}
-            {(!fallbackGone || errored) && fallback}
+            {((!fallbackGone && !(loaded && reveal === "instant")) || errored) && fallback}
             {!errored && (
                 <img
                     ref={imgRef}
-                    src={url}
+                    src={src}
                     alt={alt}
-                    loading="lazy"
+                    loading={loading}
                     decoding="async"
                     referrerPolicy="no-referrer"
-                    onLoad={(e) => handleLoaded(e.currentTarget)}
-                    onError={() => setErrored(true)}
                     className={cn(
-                        "absolute inset-0 size-full transition-opacity duration-300",
+                        "absolute inset-0 size-full",
+                        reveal === "fade" && "transition-opacity duration-300",
                         fit === "contain" ? "object-contain" : "object-cover",
                         loaded ? "opacity-100" : "opacity-0",
                     )}
@@ -90,6 +95,13 @@ function PximgImage({ src, alt, fallback, className, fit = "cover", onLoad }: Px
             )}
         </div>
     );
+}
+
+function PximgImage(props: PximgImageProps) {
+    const url = rewritePximgUrl(props.src);
+    if (!url) return <>{props.fallback}</>;
+    // Source changes reset before paint and revoke the previous element's decode.
+    return <ImageContent key={url} {...props} src={url} />;
 }
 
 export default PximgImage;

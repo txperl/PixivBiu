@@ -1,14 +1,20 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import PximgImage from "@/components/pximg-image";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type Illust, illustPageThumbUrls, illustPageUrls, illustZoomUrl } from "@/features/illusts/api";
 import { useMessages } from "@/i18n";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/lib/icons";
+import { useDelayedFlag } from "@/lib/use-delayed-flag";
 import { cn } from "@/lib/utils";
 import IllustZoomLayer, { type ZoomAnchor } from "./illust-zoom-layer";
+import { createStageTransition, stageTransition } from "./stage-transition";
 import { useViewerKeyboard, type ViewerKeyboardScope } from "./use-viewer-keyboard";
 import { clampViewerPage } from "./viewer-navigation";
+
+// Keep in sync with the frame's duration-150 below.
+const TRANSITION_MS = 150;
 
 function StageArrow({
     side,
@@ -74,28 +80,73 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
     const thumbs = useMemo(() => illustPageThumbUrls(illust), [illust]);
     const total = pages.length;
 
-    const [page, setPage] = useState(0);
-    const active = clampViewerPage(page, total);
+    const [transition, dispatch] = useReducer(stageTransition, { index: 0, src: pages[0] }, createStageTransition);
+    const { target, displayed, candidate, phase } = transition;
+    const active = clampViewerPage(target.index, total);
+    const busy = phase !== "idle";
+    const showLoading = useDelayedFlag(phase === "loading", 200);
     const [zoomed, setZoomed] = useState(false);
     const [anchor, setAnchor] = useState<ZoomAnchor | null>(null);
     const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
     const stageRef = useRef<HTMLDivElement>(null); // the area the zoom layer overlays
-    const fitImgRef = useRef<HTMLImageElement | null>(null); // current fit-view <img>
 
-    // Detail refreshes may replace a seeded page list. Clamp before looking up
-    // the zoom URL, and persist the correction so later growth won't jump back.
-    if (page !== active) {
-        setPage(active);
-        setZoomed(false);
-    }
+    const shownIndex = displayed?.index ?? 0;
+    const zoomSrc = useMemo(() => illustZoomUrl(illust, clampViewerPage(shownIndex, total)), [illust, shownIndex, total]);
 
-    const zoomSrc = useMemo(() => illustZoomUrl(illust, active), [illust, active]);
+    // Same-work metadata refreshes may replace a source or change the page count.
+    useEffect(() => {
+        const index = active;
+        dispatch({ type: "select", target: { index, src: pages[index] } });
+    }, [active, pages, total]);
 
-    const go = (next: number | ((current: number) => number)) => {
-        setPage((current) => clampViewerPage(typeof next === "function" ? next(current) : next, total));
+    const candidateId = candidate?.id;
+    const candidateSrc = candidate?.src;
+    useEffect(() => {
+        if (candidateId != null && phase === "loading" && !candidateSrc) {
+            dispatch({ type: "fail", id: candidateId });
+        }
+    }, [candidateId, candidateSrc, phase]);
+
+    useEffect(() => {
+        if (candidateId == null || (phase !== "ready" && phase !== "fading")) return;
+        const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const finish = () => dispatch({ type: "finish", id: candidateId });
+        const motionChanged = () => {
+            if (motion.matches) finish();
+        };
+        if (motion.matches) {
+            finish();
+            return;
+        }
+        motion.addEventListener("change", motionChanged);
+        let firstFrame = 0;
+        let secondFrame = 0;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        if (phase === "ready") {
+            // Give the decoded, transparent candidate a painted starting frame,
+            // including cache hits. The old frame stays fully opaque underneath.
+            firstFrame = requestAnimationFrame(() => {
+                secondFrame = requestAnimationFrame(() => dispatch({ type: "fade", id: candidateId }));
+            });
+        } else {
+            // transitionend can be lost when Activity hides the tree. Re-arm on
+            // reveal; reduced motion never depends on an event or this timeout.
+            timer = setTimeout(finish, TRANSITION_MS + 50);
+        }
+        return () => {
+            motion.removeEventListener("change", motionChanged);
+            cancelAnimationFrame(firstFrame);
+            cancelAnimationFrame(secondFrame);
+            clearTimeout(timer);
+        };
+    }, [candidateId, phase]);
+
+    const go = (next: number) => {
+        const index = clampViewerPage(next, total);
+        dispatch({ type: "select", target: { index, src: pages[index] } });
         setZoomed(false);
     };
-    const step = (delta: -1 | 1) => go((current) => current + delta);
+    const step = (delta: -1 | 1) => go(active + delta);
     useViewerKeyboard({ dialogRef, keyDownRef, open, zoomed, total, active, step });
     const shortcutsEnabled = open && !zoomed;
 
@@ -105,8 +156,9 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
     // image isn't measurable yet (clicked before it loaded) or a synthetic click reports
     // detail 0 / clientX-Y 0, which aren't real coordinates.
     const openZoom = (e: ReactMouseEvent<HTMLDivElement>) => {
+        if (busy || !displayed) return;
         const stage = stageRef.current;
-        const img = fitImgRef.current;
+        const img = stage?.querySelector<HTMLImageElement>(`[data-stage-frame="${displayed.id}"] img`);
         if (e.detail > 0 && stage && img?.isConnected && img.naturalWidth > 0) {
             const view = stage.getBoundingClientRect();
             const { fracX, fracY } = containFraction(e.clientX, e.clientY, img);
@@ -122,20 +174,6 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
         thumbRefs.current[active]?.scrollIntoView({ inline: "center", block: "nearest" });
     }, [active]);
 
-    const imageEl = (
-        <PximgImage
-            key={pages[active]}
-            src={pages[active]}
-            alt={illust.title}
-            fit="contain"
-            fallback={<div className="size-full bg-foreground/5" />}
-            className="size-full"
-            onLoad={(img) => {
-                fitImgRef.current = img;
-            }}
-        />
-    );
-
     return (
         <div className="relative flex h-[45vh] shrink-0 flex-col overflow-hidden bg-muted md:h-full md:min-w-0 md:flex-1">
             <div ref={stageRef} className="relative flex min-h-0 flex-1 items-center justify-center">
@@ -143,9 +181,66 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
                     isn't keyboard-activatable. */}
                 {/* biome-ignore lint/a11y/noStaticElementInteractions: mouse-only zoom by design */}
                 {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard activation intentionally removed */}
-                <div onClick={openZoom} className="size-full cursor-zoom-in p-2 md:p-4">
-                    {imageEl}
+                <div
+                    onClick={openZoom}
+                    aria-busy={phase === "loading" || phase === "ready" || phase === "fading"}
+                    className={cn("relative size-full", !busy && displayed && "cursor-zoom-in")}
+                >
+                    {[displayed, candidate].map((frame) => {
+                        if (!frame) return null;
+                        const isCandidate = frame.id === candidateId;
+                        return (
+                            <div
+                                key={frame.id}
+                                data-stage-frame={frame.id}
+                                aria-hidden={isCandidate}
+                                onTransitionEnd={(e) => {
+                                    if (e.target === e.currentTarget && e.propertyName === "opacity" && isCandidate) {
+                                        dispatch({ type: "finish", id: frame.id });
+                                    }
+                                }}
+                                className={cn(
+                                    "absolute inset-0 bg-muted p-2 md:p-4",
+                                    isCandidate &&
+                                        "pointer-events-none transition-opacity duration-150 ease-out motion-reduce:transition-none",
+                                    isCandidate && phase !== "fading" ? "opacity-0" : "opacity-100",
+                                )}
+                            >
+                                <PximgImage
+                                    src={frame.src}
+                                    alt={illust.title}
+                                    fit="contain"
+                                    loading="eager"
+                                    reveal="instant"
+                                    fallback={null}
+                                    className="size-full"
+                                    onReady={() => dispatch({ type: "ready", id: frame.id })}
+                                    onError={() => dispatch({ type: "fail", id: frame.id })}
+                                />
+                            </div>
+                        );
+                    })}
                 </div>
+
+                {((phase === "loading" && showLoading) || phase === "error") && (
+                    <div className="absolute inset-x-12 top-3 z-10 flex justify-center">
+                        <div
+                            role="status"
+                            className="flex items-center gap-2 rounded-md bg-popover px-3 py-2 text-popover-foreground text-xs shadow-sm"
+                        >
+                            {phase === "error" ? (
+                                <>
+                                    {m.illust_page_load_error({ page: active + 1 })}
+                                    <Button size="sm" variant="outline" onClick={() => dispatch({ type: "retry" })}>
+                                        {m.illust_page_retry()}
+                                    </Button>
+                                </>
+                            ) : (
+                                m.illust_page_loading({ page: active + 1 })
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {total > 1 && (
                     <>
@@ -163,18 +258,20 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
                             label={m.common_next_page()}
                             shortcut={shortcutsEnabled ? "ArrowRight" : undefined}
                         />
-                        <div
-                            role="status"
-                            aria-live="polite"
-                            aria-atomic="true"
-                            className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-1 font-mono text-[11px] text-white"
-                        >
-                            {m.illust_page_counter({ current: active + 1, total })}
-                        </div>
+                        {displayed && (
+                            <div
+                                role="status"
+                                aria-live="polite"
+                                aria-atomic="true"
+                                className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-1 font-mono text-[11px] text-white"
+                            >
+                                {m.illust_page_counter({ current: displayed.index + 1, total })}
+                            </div>
+                        )}
                     </>
                 )}
 
-                {zoomed && (
+                {zoomed && !busy && (
                     // key remounts on page/source change so a new image re-anchors cleanly.
                     <IllustZoomLayer
                         key={zoomSrc}
@@ -195,6 +292,7 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
                                 thumbRefs.current[i] = el;
                             }}
                             type="button"
+                            aria-pressed={i === active}
                             onClick={() => go(i)}
                             aria-label={m.illust_go_to_page({ page: i + 1 })}
                             aria-current={i === active ? "true" : undefined}
