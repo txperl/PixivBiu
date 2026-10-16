@@ -309,6 +309,7 @@
     "illust_zoom_fit": "画面に合わせる",
     "illust_load_error": "この作品を読み込めませんでした",
     "illust_page_counter": "{current} / {total}",
+    "illust_go_to_page": "{page} 枚目の画像を表示",
     "cfg_server_host": "待ち受けアドレス",
     "cfg_server_host_hint": "デフォルト 127.0.0.1（ローカルのみ）；0.0.0.0 はすべてのインターフェースで待ち受け",
     "cfg_server_port": "待ち受けポート",

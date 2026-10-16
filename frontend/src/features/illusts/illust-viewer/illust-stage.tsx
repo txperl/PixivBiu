@@ -1,36 +1,54 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import PximgImage from "@/components/pximg-image";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type Illust, illustPageThumbUrls, illustPageUrls, illustZoomUrl } from "@/features/illusts/api";
 import { useMessages } from "@/i18n";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import IllustZoomLayer, { type ZoomAnchor } from "./illust-zoom-layer";
+import { useViewerKeyboard, type ViewerKeyboardScope } from "./use-viewer-keyboard";
+import { clampViewerPage } from "./viewer-navigation";
 
 function StageArrow({
     side,
     disabled,
     onClick,
     label,
+    shortcut,
 }: {
     side: "left" | "right";
     disabled: boolean;
     onClick: () => void;
     label: string;
+    shortcut?: "ArrowLeft" | "ArrowRight";
 }) {
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            aria-label={label}
-            className={cn(
-                "absolute top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition hover:bg-black/70 disabled:pointer-events-none disabled:opacity-0",
-                side === "left" ? "left-3" : "right-3",
-            )}
-        >
-            <HugeiconsIcon icon={side === "left" ? ChevronLeftIcon : ChevronRightIcon} size={20} strokeWidth={2} />
-        </button>
+        <Tooltip>
+            <TooltipTrigger
+                render={
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (!disabled) onClick();
+                        }}
+                        aria-disabled={disabled}
+                        aria-label={label}
+                        aria-keyshortcuts={shortcut}
+                        className={cn(
+                            "absolute top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition hover:bg-black/70 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 aria-disabled:cursor-default aria-disabled:opacity-35",
+                            side === "left" ? "left-3" : "right-3",
+                        )}
+                    />
+                }
+            >
+                <HugeiconsIcon icon={side === "left" ? ChevronLeftIcon : ChevronRightIcon} size={20} strokeWidth={2} />
+            </TooltipTrigger>
+            <TooltipContent>
+                {label}
+                {shortcut && <kbd>{side === "left" ? "←" : "→"}</kbd>}
+            </TooltipContent>
+        </Tooltip>
     );
 }
 
@@ -50,25 +68,36 @@ function containFraction(clientX: number, clientY: number, img: HTMLImageElement
     };
 }
 
-function IllustStage({ illust }: { illust: Illust }) {
+function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust } & ViewerKeyboardScope) {
     const m = useMessages();
     const pages = useMemo(() => illustPageUrls(illust), [illust]);
     const thumbs = useMemo(() => illustPageThumbUrls(illust), [illust]);
     const total = pages.length;
 
-    const [active, setActive] = useState(0);
+    const [page, setPage] = useState(0);
+    const active = clampViewerPage(page, total);
     const [zoomed, setZoomed] = useState(false);
     const [anchor, setAnchor] = useState<ZoomAnchor | null>(null);
     const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
     const stageRef = useRef<HTMLDivElement>(null); // the area the zoom layer overlays
     const fitImgRef = useRef<HTMLImageElement | null>(null); // current fit-view <img>
 
+    // Detail refreshes may replace a seeded page list. Clamp before looking up
+    // the zoom URL, and persist the correction so later growth won't jump back.
+    if (page !== active) {
+        setPage(active);
+        setZoomed(false);
+    }
+
     const zoomSrc = useMemo(() => illustZoomUrl(illust, active), [illust, active]);
 
-    const go = (next: number) => {
-        setActive(Math.min(total - 1, Math.max(0, next)));
+    const go = (next: number | ((current: number) => number)) => {
+        setPage((current) => clampViewerPage(typeof next === "function" ? next(current) : next, total));
         setZoomed(false);
     };
+    const step = (delta: -1 | 1) => go((current) => current + delta);
+    useViewerKeyboard({ dialogRef, keyDownRef, open, zoomed, total, active, step });
+    const shortcutsEnabled = open && !zoomed;
 
     // Zoom in anchored on the click: record the focal point (as a fraction of the
     // painted image) and where the cursor sits in the stage, so the enlarged image
@@ -123,16 +152,23 @@ function IllustStage({ illust }: { illust: Illust }) {
                         <StageArrow
                             side="left"
                             disabled={active === 0}
-                            onClick={() => go(active - 1)}
+                            onClick={() => step(-1)}
                             label={m.common_prev_page()}
+                            shortcut={shortcutsEnabled ? "ArrowLeft" : undefined}
                         />
                         <StageArrow
                             side="right"
                             disabled={active === total - 1}
-                            onClick={() => go(active + 1)}
+                            onClick={() => step(1)}
                             label={m.common_next_page()}
+                            shortcut={shortcutsEnabled ? "ArrowRight" : undefined}
                         />
-                        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-1 font-mono text-[11px] text-white">
+                        <div
+                            role="status"
+                            aria-live="polite"
+                            aria-atomic="true"
+                            className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-1 font-mono text-[11px] text-white"
+                        >
                             {m.illust_page_counter({ current: active + 1, total })}
                         </div>
                     </>
@@ -160,6 +196,8 @@ function IllustStage({ illust }: { illust: Illust }) {
                             }}
                             type="button"
                             onClick={() => go(i)}
+                            aria-label={m.illust_go_to_page({ page: i + 1 })}
+                            aria-current={i === active ? "true" : undefined}
                             className={cn(
                                 "relative size-14 shrink-0 overflow-hidden rounded-md outline-offset-2 transition",
                                 i === active ? "outline outline-2 outline-primary" : "opacity-60 hover:opacity-100",

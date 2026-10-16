@@ -309,6 +309,7 @@
     "illust_zoom_fit": "Fit to screen",
     "illust_load_error": "Couldn't load this artwork",
     "illust_page_counter": "{current} / {total}",
+    "illust_go_to_page": "Go to image {page}",
     "cfg_server_host": "Listen address",
     "cfg_server_host_hint": "Default 127.0.0.1 (local only); 0.0.0.0 listens on all interfaces",
     "cfg_server_port": "Listen port",

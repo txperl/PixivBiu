@@ -14,6 +14,7 @@ const { setTimeout: delay } = require('node:timers/promises');
 const { registerCoreScheme, installCoreProtocol } = require('../desktop/dist/core-protocol');
 const { chromeOptions, chromeArgs, trackWindowChrome } = require('../desktop/dist/window-chrome');
 const { isTrustedIPCEvent, startingPage, failurePage } = require('../desktop/dist/security');
+const checkViewerKeyboard = require('./viewer-keyboard-smoke.cjs');
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pixivbiu-chrome-smoke-'));
 const assets = path.resolve(__dirname, '../internal/web/dist');
@@ -32,6 +33,7 @@ let readChrome;
 let authenticated = true;
 const watchdog = setTimeout(() => { console.error('Chrome smoke timed out'); app.exit(1); }, 180000);
 const runFile = promisify(execFile);
+const viewerOnly = process.argv.includes('--viewer-only');
 const artwork = Array.from({ length: 30 }, (_, i) => ({
     id: i + 1, title: `Fixture artwork ${i + 1}`, type: 'illust',
     image_urls: { square_medium: '/fixture-image.svg', medium: '/fixture-image.svg', large: '/fixture-image.svg' },
@@ -41,6 +43,14 @@ const artwork = Array.from({ length: 30 }, (_, i) => ({
     total_bookmarks: 100, total_view: 1000, is_bookmarked: false, visible: true,
     x_restrict: 0, illust_ai_type: 1, create_date: '2026-01-01T00:00:00Z', caption: '',
 }));
+function viewerArtwork(id = 2, count = 3) {
+    return { ...artwork[id - 1], page_count: count,
+        meta_pages: Array.from({ length: count }, (_, i) => ({ image_urls: {
+            square_medium: `/fixture-viewer-${i + 1}.svg`, large: `/fixture-viewer-${i + 1}.svg`,
+            original: `/fixture-viewer-${i + 1}.svg`,
+        } })),
+    };
+}
 
 async function nativeHits(points) {
     const handle = win.getNativeWindowHandle();
@@ -197,6 +207,18 @@ app.whenReady().then(async () => {
     const ses = session.fromPartition('pixivbiu-chrome-smoke');
     server = http.createServer((req, res) => {
         const pathname = new URL(req.url, 'http://fixture').pathname;
+        if (pathname === '/fixture-setup.html') {
+            res.setHeader('Content-Type', 'text/html');
+            return res.end('<!doctype html><title>Isolated viewer fixture setup</title>');
+        }
+        if (pathname.startsWith('/fixture-viewer-')) {
+            if (pathname === '/fixture-viewer-3.svg') { res.writeHead(503); return res.end(); }
+            res.setHeader('Content-Type', 'image/svg+xml');
+            const send = () => res.end('<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1200"><rect width="1600" height="1200" fill="#9180bb"/></svg>');
+            if (pathname === '/fixture-viewer-2.svg') setTimeout(send, 2000);
+            else send();
+            return;
+        }
         if (pathname === '/fixture-image.svg') {
             res.setHeader('Content-Type', 'image/svg+xml');
             return res.end('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="#9180bb"/></svg>');
@@ -205,8 +227,15 @@ app.whenReady().then(async () => {
             res.setHeader('Content-Type', 'application/json');
             if (pathname === '/api/v1/auth/status') return res.end(JSON.stringify({ authenticated, user_id: 1 }));
             if (pathname === '/api/v1/downloads') return res.end(JSON.stringify({ jobs: [], total: 0, page: 1, per_page: 20 }));
-            if (pathname === '/api/v1/illusts/ranking') return res.end(JSON.stringify({ illusts: artwork, next_offset: null }));
+            if (pathname === '/api/v1/illusts/ranking') return res.end(JSON.stringify({ illusts: artwork.map(work => viewerOnly && [2, 3].includes(work.id) ? viewerArtwork(work.id) : work), next_offset: null }));
             if (pathname === '/api/v1/illusts/1') return res.end(JSON.stringify({ illust: artwork[0] }));
+            if (pathname === '/api/v1/illusts/2') return res.end(JSON.stringify({ illust: viewerArtwork() }));
+            if (pathname === '/api/v1/illusts/3') {
+                setTimeout(() => res.end(JSON.stringify({ illust: viewerArtwork(3, 2) })), 1500);
+                return;
+            }
+            if (viewerOnly && /\/illusts\/\d+\/bookmark$/.test(pathname)) return res.end(JSON.stringify({ is_bookmarked: false, restrict: 'public', tags: [] }));
+            if (viewerOnly && pathname === '/api/v1/users/1/bookmark-tags') return res.end(JSON.stringify({ bookmark_tags: [], next_offset: null }));
             res.writeHead(503);
             return res.end(JSON.stringify({ code: 'unavailable', kind: 'app', message: 'Synthetic offline fixture' }));
         }
@@ -225,7 +254,7 @@ app.whenReady().then(async () => {
     ipcMain.handle('pixivbiu:preferences-write', () => {});
     ipcMain.handle('pixivbiu:update-check', () => {});
 
-    const modes = ['win32', 'darwin', 'linux', 'browser', 'old-shell', ...(process.argv.includes('--layout-only') ? [] : ['native'])];
+    const modes = viewerOnly ? ['browser', 'native'] : ['win32', 'darwin', 'linux', 'browser', 'old-shell', ...(process.argv.includes('--layout-only') ? [] : ['native'])];
     for (const mode of modes) {
         const args = mode === 'native' ? chromeArgs() : ['win32', 'darwin'].includes(mode) ? ['--pixivbiu-frameless'] : [];
         if (mode !== 'native') args.push(`--fixture-os=${mode === 'old-shell' ? 'win32' : mode}`);
@@ -235,6 +264,14 @@ app.whenReady().then(async () => {
                 sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, additionalArguments: args },
         });
         readChrome = trackWindowChrome(win);
+        if (viewerOnly) {
+            const baseUrl = mode === 'browser' ? `http://127.0.0.1:${server.address().port}` : 'pixivbiu://core';
+            await win.loadURL(`${baseUrl}/fixture-setup.html`);
+            await win.webContents.executeJavaScript('localStorage.setItem("PARAGLIDE_LOCALE", "en")');
+            await checkViewerKeyboard({ win, click, waitFor, mode, baseUrl });
+            win.destroy();
+            continue;
+        }
         await win.loadURL('pixivbiu://core/downloads');
         await waitFor(`!!document.querySelector('button[aria-label="Filter"]')`);
         const inset = mode === 'win32' || (mode === 'native' && process.platform === 'win32');
@@ -301,6 +338,12 @@ app.whenReady().then(async () => {
     }
 }).catch(error => {
     console.error(error);
+    if (viewerOnly && win && !win.isDestroyed()) {
+        return win.webContents.executeJavaScript('document.body.innerText').then(text => {
+            console.error(text.slice(0, 4000));
+            process.exitCode = 1;
+        });
+    }
     process.exitCode = 1;
 }).finally(async () => {
     clearTimeout(watchdog);

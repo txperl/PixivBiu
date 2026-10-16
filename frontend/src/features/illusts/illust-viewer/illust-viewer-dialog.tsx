@@ -1,6 +1,6 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,12 +10,13 @@ import { useMessages } from "@/i18n";
 import { CloseIcon, ExternalLinkIcon } from "@/lib/icons";
 import IllustInfo, { IllustEngagementFooter } from "./illust-info";
 import IllustStage from "./illust-stage";
+import type { ViewerKeyboardScope } from "./use-viewer-keyboard";
 
-function ViewerContent({ illust }: { illust: Illust }) {
+function ViewerContent({ illust, open, dialogRef, keyDownRef }: { illust: Illust } & ViewerKeyboardScope) {
     return (
         <div className="flex h-full flex-col overflow-hidden md:flex-row">
             {/* key remounts the stage on a new work so page/zoom reset */}
-            <IllustStage key={illust.id} illust={illust} />
+            <IllustStage key={illust.id} illust={illust} open={open} dialogRef={dialogRef} keyDownRef={keyDownRef} />
             <aside className="flex min-h-0 flex-1 flex-col bg-popover md:h-full md:w-[360px] md:flex-none">
                 <ScrollArea className="min-h-0 flex-1">
                     <IllustInfo illust={illust} />
@@ -77,12 +78,18 @@ function ViewerError({ illustId }: { illustId: number }) {
     );
 }
 
-function ViewerBody({ illustId, seed }: { illustId: number; seed: Illust | null }) {
+function ViewerBody({
+    illustId,
+    seed,
+    open,
+    dialogRef,
+    keyDownRef,
+}: { illustId: number; seed: Illust | null } & ViewerKeyboardScope) {
     // Seeded from the clicked card -> instant render; a cold deep-link has no seed
     // and fetches /illusts/{id}.
     const query = useQuery(illustDetailQueryOptions(illustId, seed));
     const illust = query.data?.illust ?? seed ?? null;
-    if (illust) return <ViewerContent illust={illust} />;
+    if (illust) return <ViewerContent illust={illust} open={open} dialogRef={dialogRef} keyDownRef={keyDownRef} />;
     if (query.isPending) return <ViewerSkeleton />;
     return <ViewerError illustId={illustId} />;
 }
@@ -99,6 +106,8 @@ function IllustViewerDialog({
     onClose: () => void;
 }) {
     const open = illustId != null;
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const keyDownRef = useRef<((event: KeyboardEvent) => void) | null>(null);
 
     // Retain the last opened work so the content stays painted through the close
     // animation (illustId/URL clears immediately on close). Adjust-state-during-render
@@ -128,6 +137,8 @@ function IllustViewerDialog({
             }}
         >
             <DialogContent
+                ref={dialogRef}
+                onKeyDown={(event) => keyDownRef.current?.(event.nativeEvent)}
                 showCloseButton={false}
                 className="block h-[calc(var(--window-content-height)*0.85)] w-[calc(100%-2rem)] max-w-6xl gap-0 overflow-hidden p-0 sm:max-w-6xl"
             >
@@ -142,7 +153,15 @@ function IllustViewerDialog({
                 >
                     <HugeiconsIcon icon={CloseIcon} size={16} strokeWidth={2} />
                 </DialogClose>
-                {shown && <ViewerBody illustId={shown.id} seed={shown.seed} />}
+                {shown && (
+                    <ViewerBody
+                        illustId={shown.id}
+                        seed={shown.seed}
+                        open={open}
+                        dialogRef={dialogRef}
+                        keyDownRef={keyDownRef}
+                    />
+                )}
             </DialogContent>
         </Dialog>
     );

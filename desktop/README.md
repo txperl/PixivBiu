@@ -104,6 +104,8 @@ After `cd frontend && bun run build`, run `npm run test:native-chrome` in `deskt
 
 For a focused drag regression, use `npm run test:native-chrome -- --drag-only`. It covers sidebar empty-space dragging, navigation/account input, menus and modal backdrops over the sidebar, artwork/fallback native hit tests at 100% and 150% renderer zoom on Windows, search focus, platform layout gates and the fullscreen CSS contract without running the separate viewport/real-fullscreen scenarios. The default command still runs those scenarios; passing the focused option is not evidence that native fullscreen or the full suite passed.
 
+For artwork keyboard navigation, use `npm run test:native-chrome -- --viewer-only` after building the SPA. This opens focused, isolated test windows to send native key events through the real viewer, first over loopback HTTP without a desktop bridge and then through the host's native shell/preload and core protocol. Synthetic artwork covers multiple images, slow/failed image loads, bookmark popup controls, zoom, boundary focus, close/reopen and a delayed detail response shrinking the page list. Browser mode uses Electron's Chromium renderer; it does not establish Firefox/Safari or native macOS coverage when run on Windows. The fixture never reads real account data.
+
 In dev the shell looks for the core at `../bin/pixivbiu` (override with `PIXIVBIU_CORE_BIN`). The shell owns OS placement and passes it to the (portable) core via env, so data lands in OS-appropriate dirs, not the repo:
 
 | Data | Location | Env |

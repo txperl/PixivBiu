@@ -306,6 +306,7 @@
     "illust_zoom_fit": "符合螢幕",
     "illust_load_error": "無法載入此作品",
     "illust_page_counter": "{current} / {total}",
+    "illust_go_to_page": "查看第 {page} 張圖片",
     "cfg_server_host": "監聽位址",
     "cfg_server_host_hint": "預設 127.0.0.1（僅本機）；0.0.0.0 監聽所有網路介面",
     "cfg_server_port": "監聽連接埠",
