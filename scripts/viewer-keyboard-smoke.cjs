@@ -6,6 +6,8 @@ module.exports = async function checkViewerKeyboard({ win, click, waitFor, mode,
     const evaluate = code => win.webContents.executeJavaScript(code);
     const dialog = '[data-slot="dialog-content"]';
     const current = `${dialog} button[aria-current="true"]`;
+    const counter = `${dialog} [role="status"][aria-live="polite"]`;
+    const displayed = `${dialog} [data-stage-frame][aria-hidden="false"]`;
     const next = `${dialog} button[aria-label="Next page"]`;
     const prev = `${dialog} button[aria-label="Previous page"]`;
     const key = async keyCode => {
@@ -28,11 +30,24 @@ module.exports = async function checkViewerKeyboard({ win, click, waitFor, mode,
     win.focus();
     await waitFor('document.hasFocus()');
     await waitFor(`document.querySelector(${JSON.stringify(dialog)})?.contains(document.activeElement)`);
+    await waitFor(`document.querySelector(${JSON.stringify(counter)})?.textContent === '1 / 3'`);
+    const firstFrame = await evaluate(`document.querySelector(${JSON.stringify(displayed)}).dataset.stageFrame`);
+    const retainsFirstFrame = async () => {
+        assert.equal(await evaluate(`document.querySelector(${JSON.stringify(displayed)})?.dataset.stageFrame`), firstFrame);
+        assert.equal(await evaluate(`document.querySelector(${JSON.stringify(counter)})?.textContent`), '1 / 3');
+        assert.ok(await evaluate(`document.querySelectorAll('${dialog} [data-stage-frame]').length <= 2`));
+    };
     const scroll = await evaluate(`document.querySelector('[data-app-scroller]').scrollTop`);
     await key('Right'); // Initial close-button focus is sufficient.
     await page(2); // Page two's image is deliberately slow.
+    await retainsFirstFrame();
     await key('Right');
     await page(3); // Page three's image deliberately fails; navigation stays usable.
+    await waitFor(`Array.from(document.querySelectorAll('${dialog} button')).some(button => button.textContent === 'Retry')`);
+    await retainsFirstFrame();
+    await evaluate(`Array.from(document.querySelectorAll('${dialog} button')).find(button => button.textContent === 'Retry').click()`);
+    await waitFor(`Array.from(document.querySelectorAll('${dialog} button')).some(button => button.textContent === 'Retry')`);
+    await retainsFirstFrame();
     await focus(next);
     await key('Return');
     await key('Right');
@@ -40,6 +55,9 @@ module.exports = async function checkViewerKeyboard({ win, click, waitFor, mode,
     assert.equal(await evaluate(`document.activeElement === document.querySelector(${JSON.stringify(next)})`), true);
     await key('Left');
     await page(2);
+    await waitFor(`document.querySelector(${JSON.stringify(counter)})?.textContent === '2 / 3'`);
+    assert.equal(await evaluate(`document.querySelectorAll('${dialog} [data-stage-frame]').length`), 1);
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(displayed)})).transitionDuration`), '0s');
     await key('Left');
     await page(1);
     await focus(prev);

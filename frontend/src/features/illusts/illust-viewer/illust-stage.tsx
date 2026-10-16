@@ -102,13 +102,15 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
     const stageRef = useRef<HTMLDivElement>(null); // the area the zoom layer overlays
 
     const shownIndex = displayed?.index ?? 0;
-    const zoomSrc = useMemo(() => illustZoomUrl(illust, clampViewerPage(shownIndex, total)), [illust, shownIndex, total]);
+    const zoomSrc = useMemo(
+        () => illustZoomUrl(illust, clampViewerPage(shownIndex, total)),
+        [illust, shownIndex, total],
+    );
 
     // Same-work metadata refreshes may replace a source or change the page count.
     useEffect(() => {
-        const index = active;
-        dispatch({ type: "select", target: { index, src: pages[index] } });
-    }, [active, pages, total]);
+        dispatch({ type: "select", target: { index: active, src: pages[active] } });
+    }, [active, pages]);
 
     const candidateId = candidate?.id;
     const candidateSrc = candidate?.src;
