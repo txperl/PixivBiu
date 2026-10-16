@@ -307,7 +307,6 @@
     "illust_load_error": "無法載入此作品",
     "illust_page_counter": "{current} / {total}",
     "illust_go_to_page": "查看第 {page} 張圖片",
-    "illust_page_loading": "正在載入第 {page} 張…",
     "illust_page_load_error": "第 {page} 張載入失敗",
     "illust_page_retry": "重試",
     "cfg_server_host": "監聽位址",

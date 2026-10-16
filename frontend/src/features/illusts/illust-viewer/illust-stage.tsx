@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type Illust, illustPageThumbUrls, illustPageUrls, illustZoomUrl } from "@/features/illusts/api";
 import { useMessages } from "@/i18n";
-import { ChevronLeftIcon, ChevronRightIcon } from "@/lib/icons";
+import { ChevronLeftIcon, ChevronRightIcon, LoaderIcon } from "@/lib/icons";
 import { useDelayedFlag } from "@/lib/use-delayed-flag";
 import { cn } from "@/lib/utils";
 import IllustZoomLayer, { type ZoomAnchor } from "./illust-zoom-layer";
@@ -15,6 +15,21 @@ import { clampViewerPage } from "./viewer-navigation";
 
 // Keep in sync with the frame's duration-150 below.
 const TRANSITION_MS = 150;
+
+// Mounted only for the loading candidate and keyed by its generation: selecting
+// another page or retrying starts a fresh delay, and readiness removes it at once.
+function ThumbnailLoadingIndicator() {
+    const shown = useDelayedFlag(true, 1000);
+    if (!shown) return null;
+    return (
+        <span
+            aria-hidden="true"
+            className="pointer-events-none absolute right-1 bottom-1 flex size-4 items-center justify-center rounded-full bg-black/55 text-white"
+        >
+            <HugeiconsIcon icon={LoaderIcon} size={12} className="animate-spin motion-reduce:animate-none" />
+        </span>
+    );
+}
 
 function StageArrow({
     side,
@@ -84,7 +99,6 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
     const { target, displayed, candidate, phase } = transition;
     const active = clampViewerPage(target.index, total);
     const busy = phase !== "idle";
-    const showLoading = useDelayedFlag(phase === "loading", 200);
     const [zoomed, setZoomed] = useState(false);
     const [anchor, setAnchor] = useState<ZoomAnchor | null>(null);
     const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -222,22 +236,16 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
                     })}
                 </div>
 
-                {((phase === "loading" && showLoading) || phase === "error") && (
+                {phase === "error" && (
                     <div className="absolute inset-x-12 top-3 z-10 flex justify-center">
                         <div
                             role="status"
                             className="flex items-center gap-2 rounded-md bg-popover px-3 py-2 text-popover-foreground text-xs shadow-sm"
                         >
-                            {phase === "error" ? (
-                                <>
-                                    {m.illust_page_load_error({ page: active + 1 })}
-                                    <Button size="sm" variant="outline" onClick={() => dispatch({ type: "retry" })}>
-                                        {m.illust_page_retry()}
-                                    </Button>
-                                </>
-                            ) : (
-                                m.illust_page_loading({ page: active + 1 })
-                            )}
+                            {m.illust_page_load_error({ page: active + 1 })}
+                            <Button size="sm" variant="outline" onClick={() => dispatch({ type: "retry" })}>
+                                {m.illust_page_retry()}
+                            </Button>
                         </div>
                     </div>
                 )}
@@ -293,6 +301,7 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
                             }}
                             type="button"
                             aria-pressed={i === active}
+                            aria-busy={i === active && phase === "loading"}
                             onClick={() => go(i)}
                             aria-label={m.illust_go_to_page({ page: i + 1 })}
                             aria-current={i === active ? "true" : undefined}
@@ -307,6 +316,9 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
                                 fallback={<div className="size-full bg-muted-foreground/10" />}
                                 className="size-full"
                             />
+                            {i === active && phase === "loading" && candidate && (
+                                <ThumbnailLoadingIndicator key={candidate.id} />
+                            )}
                         </button>
                     ))}
                 </div>

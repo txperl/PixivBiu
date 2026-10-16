@@ -310,7 +310,6 @@
     "illust_load_error": "Couldn't load this artwork",
     "illust_page_counter": "{current} / {total}",
     "illust_go_to_page": "Go to image {page}",
-    "illust_page_loading": "Loading page {page}…",
     "illust_page_load_error": "Couldn't load page {page}",
     "illust_page_retry": "Retry",
     "cfg_server_host": "Listen address",
