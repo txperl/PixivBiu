@@ -4,7 +4,7 @@ Set up and change the Go core, React frontend, or Electron shell from a checkout
 
 ## Prerequisites
 
-- Go: use the `go` minimum and `toolchain` selection in [go.mod](../go.mod). It currently declares Go 1.26.1 with toolchain 1.26.6.
+- Go: use the `go` minimum and `toolchain` selection in [go.mod](../go.mod). It currently declares Go 1.26.1 with toolchain 1.26.9.
 - Bun for the frontend, and GNU Make for the root targets.
 - For desktop work, Node.js and npm: [desktop/package.json](../desktop/package.json) declares the minimum Node version; CI uses Node 24.
 - Docker/Compose, GoReleaser, minisign, and GitHub CLI are only needed for their deployment or packaging workflows.
