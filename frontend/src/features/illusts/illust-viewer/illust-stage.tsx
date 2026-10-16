@@ -13,9 +13,6 @@ import { createStageTransition, stageTransition } from "./stage-transition";
 import { useViewerKeyboard, type ViewerKeyboardScope } from "./use-viewer-keyboard";
 import { clampViewerPage } from "./viewer-navigation";
 
-// Keep in sync with the frame's duration-150 below.
-const TRANSITION_MS = 150;
-
 // Mounted only for the loading candidate and keyed by its generation: selecting
 // another page or retrying starts a fresh delay, and readiness removes it at once.
 function ThumbnailLoadingIndicator() {
@@ -121,40 +118,6 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
         }
     }, [candidateId, candidateSrc, phase]);
 
-    useEffect(() => {
-        if (candidateId == null || (phase !== "ready" && phase !== "fading")) return;
-        const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-        const finish = () => dispatch({ type: "finish", id: candidateId });
-        const motionChanged = () => {
-            if (motion.matches) finish();
-        };
-        if (motion.matches) {
-            finish();
-            return;
-        }
-        motion.addEventListener("change", motionChanged);
-        let firstFrame = 0;
-        let secondFrame = 0;
-        let timer: ReturnType<typeof setTimeout> | undefined;
-        if (phase === "ready") {
-            // Give the decoded, transparent candidate a painted starting frame,
-            // including cache hits. The old frame stays fully opaque underneath.
-            firstFrame = requestAnimationFrame(() => {
-                secondFrame = requestAnimationFrame(() => dispatch({ type: "fade", id: candidateId }));
-            });
-        } else {
-            // transitionend can be lost when Activity hides the tree. Re-arm on
-            // reveal; reduced motion never depends on an event or this timeout.
-            timer = setTimeout(finish, TRANSITION_MS + 50);
-        }
-        return () => {
-            motion.removeEventListener("change", motionChanged);
-            cancelAnimationFrame(firstFrame);
-            cancelAnimationFrame(secondFrame);
-            clearTimeout(timer);
-        };
-    }, [candidateId, phase]);
-
     const go = (next: number) => {
         const index = clampViewerPage(next, total);
         dispatch({ type: "select", target: { index, src: pages[index] } });
@@ -197,7 +160,7 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
                 {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard activation intentionally removed */}
                 <div
                     onClick={openZoom}
-                    aria-busy={phase === "loading" || phase === "ready" || phase === "fading"}
+                    aria-busy={phase === "loading"}
                     className={cn("relative size-full", !busy && displayed && "cursor-zoom-in")}
                 >
                     {[displayed, candidate].map((frame) => {
@@ -208,16 +171,9 @@ function IllustStage({ illust, open, dialogRef, keyDownRef }: { illust: Illust }
                                 key={frame.id}
                                 data-stage-frame={frame.id}
                                 aria-hidden={isCandidate}
-                                onTransitionEnd={(e) => {
-                                    if (e.target === e.currentTarget && e.propertyName === "opacity" && isCandidate) {
-                                        dispatch({ type: "finish", id: frame.id });
-                                    }
-                                }}
                                 className={cn(
                                     "absolute inset-0 bg-muted p-2 md:p-4",
-                                    isCandidate &&
-                                        "pointer-events-none transition-opacity duration-150 ease-out motion-reduce:transition-none",
-                                    isCandidate && phase !== "fading" ? "opacity-0" : "opacity-100",
+                                    isCandidate && "pointer-events-none invisible",
                                 )}
                             >
                                 <PximgImage
