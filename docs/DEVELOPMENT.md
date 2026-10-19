@@ -109,7 +109,8 @@ Run the checks relevant to the changed behavior. These are the current CI comman
 | Go | Root | `gofmt -l .`, `go vet ./...`, `go test -race ./...`, `go build ./...` |
 | Frontend | `frontend` | `bunx @biomejs/biome ci .`, `bun run build` |
 | Desktop | `desktop` | `npm ci`, then `npm run check` |
-| Vulnerabilities | Root | `make vuln` (fetches the vulnerability database) |
+| Go vulnerabilities | Root | `make vuln` (fetches the vulnerability database) |
+| Frontend vulnerabilities | `frontend` | [Bun audit and reviewed exception](../frontend/README.md#dependency-audit) (network required) |
 | Build version selection | Root | `node --test scripts/build-version.test.mjs` (Git, Bash, Make, Node required) |
 | Docs only | Root | Local links/anchors, source comparisons, `git diff --check` |
 

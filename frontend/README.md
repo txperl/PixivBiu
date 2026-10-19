@@ -31,6 +31,16 @@ After changing OpenAPI, regenerate Go and restart the backend before `gen:api`. 
 
 Use `bun run build` for distributable assets: after type checking it cleans previous output from `internal/web/dist`, preserving `.gitkeep`, before running Vite. This also covers Make, core releases and Docker. Invoking `vite build` alone bypasses cleanup and can retain stale hashed assets; `make build` embeds the output directory as it stands.
 
+### Dependency audit
+
+CI audits the complete Bun lockfile, including development dependencies, against the official npm registry. Any finding outside the explicit exception fails the frontend job. Run the same check from `frontend`:
+
+```sh
+bun audit --registry=https://registry.npmjs.org --ignore GHSA-vfj7-8cjw-p6xm
+```
+
+The single exception is [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) in `braces` 3.0.3, reviewed on 2026-10-19 when no patched release was available. shadcn's fast-glob/micromatch and ts-morph development tooling processes maintainer-controlled source paths/globs; browser and Pixiv input does not reach this parser. The CLI exclusion applies to that advisory, not a specific version or dependency path: reassess it when the dependency chain, usage, or runtime scope changes, and remove it once a fix is available. Omit `--ignore` to see the unfiltered findings during dependency review.
+
 ## Structure and providers
 
 - `src/app`: providers, router, and layouts.

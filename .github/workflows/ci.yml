@@ -76,7 +76,8 @@ jobs:
       # only fails on vulnerabilities that are actually reachable from this
       # binary. The tool is version-pinned via the go.mod `tool` directive;
       # the vulnerability database is fetched from vuln.go.dev at run time.
-      # Findings are platform-independent, so once on Linux is enough.
+      # This scans the Linux runner's build target; findings can differ on
+      # other platforms because build constraints change the analyzed code.
       - name: Vulnerability scan (govulncheck)
         if: matrix.os == 'ubuntu-latest'
         run: go tool govulncheck ./...
@@ -91,6 +92,11 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
+
+      - name: Audit locked dependencies
+        # Reviewed exception: braces 3.0.3 in shadcn's development tooling.
+        # Rationale and removal criteria: frontend/README.md#dependency-audit.
+        run: bun audit --registry=https://registry.npmjs.org --ignore GHSA-vfj7-8cjw-p6xm
 
       - name: Install dependencies
         # postinstall compiles the Paraglide i18n messages that tsc/vite need.
