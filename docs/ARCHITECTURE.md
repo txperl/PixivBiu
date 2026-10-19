@@ -51,6 +51,8 @@ Port fallback tries up to ten consecutive ports, bounded by 65535. Only platform
 
 The [OpenAPI spec](../api/openapi.yaml) owns routes, types, parameters, and response shapes. Generated methods attach to `APIHandler`; registration uses `api.HandlerWithOptions` with `/api/v1`. See the [generation workflow](DEVELOPMENT.md#openapi-workflow).
 
+`/openapi.json` serves the generator's cached `GetSpecJSON()` bytes directly. References are bundled during generation and must resolve within that document; a contract test checks this before release. Serving API documentation does not load or validate schemas at runtime, fetch external references, or round-trip the document through kin-openapi. Authentication remains in the application handlers, independent of OpenAPI validation middleware.
+
 Authentication represents the core's shared Pixiv session. It is not a separate login or authorization boundary for each browser that can reach the server. The portable core binds loopback by default. A deployment exposed to other machines needs access control at its network/reverse-proxy boundary.
 
 Open operations include health, the auth/onboarding surface, the image proxy, system version, and cached update status. Browsing, settings, downloads, events, and update check/apply require the Pixiv session. The update apply operation also requires `X-PixivBiu-App`, sent by the shared frontend API client; preserve this browser CSRF guard and the absence of cross-origin permission to send it. It is not a secret or a replacement for network access control.
