@@ -174,7 +174,17 @@ Assertions cover actual feed download and SHA512 cache verification, a healthy u
 
 The installer fixture has its own main entry and command transport; it does not exercise the production main window, SPA, preload or trusted IPC. Combine it with `test:native-updates` and `test:native-core` for those complementary checks. It disables NSIS elevation, so it does not cover machine installations, UAC consent/cancellation, signing/SmartScreen, actual Pixiv OAuth, download-job recovery, macOS or Linux installation. Native results from one Windows host do not establish Windows 10 behavior.
 
-The [validation record](UPDATE_VALIDATION.md) preserves the tested scope, outcomes and installed-byte hashes after cleaning the task's temporary packages and caches.
+### Isolated macOS installer E2E
+
+With Node, Bun, Go, OpenSSL and Xcode Command Line Tools available, install the locked dependencies (`npm ci` in `desktop`, `bun install --frozen-lockfile` in `frontend`), then run from the repository root:
+
+```sh
+npm run test:install:mac --prefix desktop
+```
+
+The command builds the SPA, shell and host Core, packages three versions with an isolated identity and disposable self-signed certificate, then tests native signature-rejection recovery and `0.0.1` → `0.0.2` → `0.0.3` updates through a loopback feed. It checks background Core health, ordinary quit without installation, cached readiness after reopening, Core shutdown before installation, relaunch in the original directory containing spaces, changed application bytes, successful receipts and preserved settings/synthetic login. It uses the host Node architecture (`arm64` or `x64`); run each architecture on its matching host. No release credentials, publishing or system trust changes are needed.
+
+Success, failure and SIGINT/SIGTERM trigger bounded cleanup of owned processes, bundles, updater caches and the temporary signing identity. Reports remain in `desktop/out/update-e2e-mac/<run>/reports/`; `cleanup.json` reports incomplete cleanup. Forced termination or power loss can prevent cleanup. The manual **Desktop macOS E2E** Actions workflow runs the complementary native UI/Core suites and installer test, retaining only reports for 14 days. This fixture uses its own main entry; it does not establish a single production-window-to-installer E2E or Developer ID/Gatekeeper/notarization acceptance.
 
 ### Troubleshooting
 

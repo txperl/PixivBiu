@@ -1,0 +1,69 @@
+name: Desktop macOS E2E
+
+on:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+# Do not cancel an active installer/keychain cleanup when another run starts.
+concurrency:
+  group: desktop-mac-e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  mac-e2e:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install locked dependencies
+        run: |
+          npm ci --prefix desktop
+          cd frontend
+          bun install --frozen-lockfile
+
+      - name: Build and check
+        run: |
+          mkdir -p desktop/out/mac-native-reports
+          npm run check --prefix desktop 2>&1 | tee desktop/out/mac-native-reports/check.log
+          cd frontend
+          bun run build 2>&1 | tee ../desktop/out/mac-native-reports/frontend-build.log
+
+      - name: Native sessions and update UI
+        run: |
+          npm run test:native --prefix desktop 2>&1 | tee desktop/out/mac-native-reports/sessions.log
+          npm run test:native-updates --prefix desktop 2>&1 | tee desktop/out/mac-native-reports/update-ui.log
+
+      - name: Native Core lifecycle
+        run: |
+          go build -o desktop/out/mac-native-core ./cmd/server
+          PIXIVBIU_SMOKE_CORE_BIN="$PWD/desktop/out/mac-native-core" npm run test:native-core --prefix desktop 2>&1 | tee desktop/out/mac-native-reports/core.log
+
+      - name: Real macOS installations
+        run: npm run test:install:mac --prefix desktop
+
+      - name: Retain diagnostics, never signing material or profiles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-macos-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            desktop/out/mac-native-reports/
+            desktop/out/update-e2e-mac/*/reports/
+          if-no-files-found: warn
+          retention-days: 14

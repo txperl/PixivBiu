@@ -113,7 +113,7 @@ Run the checks relevant to the changed behavior. These are the current CI comman
 | Build version selection | Root | `node --test scripts/build-version.test.mjs` (Git, Bash, Make, Node required) |
 | Docs only | Root | Local links/anchors, source comparisons, `git diff --check` |
 
-CI runs Go tests on Linux and Windows and cross-compiles Windows/amd64 and Darwin/arm64. Platform helpers live in `cmd/server/platform_{unix,windows}.go`; changes to port fallback, startup errors, signals, or restart need platform coverage. Electron checks build TypeScript and run release/security contracts plus real child-process lifecycle tests on Linux and Windows. They require loopback socket access and do not replace native window, OAuth, or [Electron/core smoke tests](../desktop/README.md#develop).
+CI runs Go tests on Linux and Windows and cross-compiles Windows/amd64 and Darwin/arm64. Platform helpers live in `cmd/server/platform_{unix,windows}.go`; changes to port fallback, startup errors, signals, or restart need platform coverage. Electron checks build TypeScript and run release/security contracts plus real child-process lifecycle tests on Linux, Windows and macOS. They require loopback socket access and do not replace native window, OAuth, or [Electron/core smoke tests](../desktop/README.md#develop).
 
 ### Desktop rendering probe
 

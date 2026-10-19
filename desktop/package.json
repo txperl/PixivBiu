@@ -34,6 +34,7 @@
         "test": "node --test ../scripts/desktop-release.test.mjs ../scripts/desktop-release-notes.test.mjs ../scripts/desktop-security.test.mjs ../scripts/desktop-sessions.test.mjs ../scripts/desktop-updater.test.mjs ../scripts/desktop-core.test.mjs ../scripts/build-output.test.mjs ../scripts/desktop-package.test.mjs",
         "test:native-core": "npm run build && electron ../scripts/desktop-core-smoke.cjs",
         "test:native-chrome": "npm run build && electron ../scripts/desktop-chrome-smoke.cjs",
+        "test:install:mac": "node ../scripts/desktop-mac-install-e2e.cjs",
         "test:native-updates": "npm run build && electron ../scripts/desktop-update-smoke.cjs",
     "test:native": "npm run build && electron ../scripts/desktop-session-smoke.cjs",
         "typecheck": "tsc -p tsconfig.json --noEmit"
