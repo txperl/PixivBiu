@@ -15,6 +15,8 @@ bun run dev
 
 The install compiles i18n messages. Vite normally serves on 5173 and proxies `/api` to the backend on 4001; start `make dev` separately from the repo root.
 
+Paraglide, Tailwind and shadcn are build/development dependencies; install development dependencies when building the SPA. The shadcn package also supplies `shadcn/tailwind.css`, so keep it installed even when not running the CLI. `bun run shadcn:init` uses the locked CLI version. Runtime JavaScript dependencies remain in `dependencies`; moving a package between sections does not remediate its vulnerabilities or remove the need to audit the complete build tree.
+
 | Command | Effect |
 | --- | --- |
 | `bun run test` | Selection, submission, bookmark, and image transition state tests (Bun, no DOM or Pixiv calls) |
