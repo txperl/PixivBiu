@@ -343,6 +343,8 @@
     "cfg_download_output_dir": "出力ディレクトリのテンプレート",
     "cfg_download_file_template": "単一ファイル名のテンプレート",
     "cfg_download_file_group_template": "複数ページ作品のファイル名テンプレート",
+    "cfg_download_save_metadata": "作品のメタデータを保存",
+    "cfg_download_save_metadata_hint": "新しくダウンロードする画像と一緒に作品情報を保存します。例えば「花畑.jpg」をダウンロードすると、メタデータを「花畑.jpg.json」として保存します。",
     "cfg_download_max_concurrent": "最大同時タスク数",
     "cfg_download_http_timeout": "ダウンロードリクエストのタイムアウト",
     "cfg_download_retry_max": "最大リトライ回数",

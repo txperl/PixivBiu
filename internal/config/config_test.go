@@ -40,6 +40,37 @@ func TestLoad_MissingFile_UsesDefaults(t *testing.T) {
 	}
 }
 
+func TestSaveMetadataSetting(t *testing.T) {
+	mgr := newMgr(t, "")
+	if mgr.Config().Download.SaveMetadata {
+		t.Fatal("metadata must default to disabled")
+	}
+	var live bool
+	mgr.OnReload(func(next *Config) { live = next.Download.SaveMetadata })
+	view, err := mgr.Patch(map[string]any{"download.save_metadata": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !live || nestedGet(view.Effective, "download", "save_metadata") != true || len(view.PendingRestart) != 0 {
+		t.Fatalf("metadata did not hot-reload: %+v", view)
+	}
+	if mgr.Config().Download.SaveMetadata {
+		t.Fatal("startup snapshot changed")
+	}
+	view, err = mgr.Reset([]string{"download.save_metadata"}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if live || nestedGet(view.Effective, "download", "save_metadata") != false || nestedGet(view.File, "download", "save_metadata") != nil {
+		t.Fatalf("metadata did not reset to default: %+v", view)
+	}
+	t.Setenv("PIXIVBIU_DOWNLOAD_SAVE_METADATA", "true")
+	mgr = newMgr(t, `{"download":{"save_metadata":false}}`)
+	if !mgr.Config().Download.SaveMetadata {
+		t.Fatal("environment must override file")
+	}
+}
+
 func TestDefaultUpdateChannel_BuildDerived(t *testing.T) {
 	// Simulate a pre-release build seeding the default (main.go does this from
 	// update.DefaultChannel(version)). Restore so other tests see "stable".

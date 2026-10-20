@@ -142,6 +142,7 @@ Defaults below are core defaults; Docker/Desktop overrides are documented in the
 | `PIXIVBIU_DOWNLOAD_OUTPUT_DIR` | `./downloads` | output dir template (see [Path templates](#path-templates)); may be absolute | — |
 | `PIXIVBIU_DOWNLOAD_FILE_TEMPLATE` | *(see below)* | single-file name template | — |
 | `PIXIVBIU_DOWNLOAD_FILE_GROUP_TEMPLATE` | *(see below)* | multi-page file name template | — |
+| `PIXIVBIU_DOWNLOAD_SAVE_METADATA` | `false` | save a JSON sidecar beside each output; pinned per submitted job (see [Artwork metadata](#artwork-metadata)) | — |
 | `PIXIVBIU_DOWNLOAD_MAX_CONCURRENT` | `4` | worker-pool size (1–64) | restart |
 | `PIXIVBIU_DOWNLOAD_HTTP_TIMEOUT` | `60s` | duration — per-download request timeout | — |
 | `PIXIVBIU_DOWNLOAD_RETRY_MAX` | `2` | max retries per task (0–10) | advanced |
@@ -201,6 +202,18 @@ file_group_template {{.UserID}}/{{.IllustID}}/{{.Index | pad 3}}{{.Ext}}
 
 The date format is Go's reference date layout, not strftime. Dated directories are optional, not the default. `output_dir` may be absolute, including `{{.Home}}/Downloads/PixivBiu`; relative output roots use the data root. Both filename templates are always relative to the rendered output directory.
 
-Every path segment is sanitized and clamped to at most 240 bytes, preserving normal file extensions. User titles/names cannot introduce subdirectories; literal template separators can. Existing or reserved filenames get a collision suffix rather than being deliberately overwritten.
+Every generated path segment is sanitized and clamped to at most 240 UTF-8 bytes, preserving normal file extensions. User titles/names cannot introduce subdirectories; literal template separators can. Existing or reserved filenames get a collision suffix rather than being deliberately overwritten; the suffix counts toward the 240-byte budget. A metadata sidecar appends `.json` to the complete media filename, so its name is at most 245 bytes. These are component limits, not a guarantee about the total path length supported by every filesystem or application.
 
 Use the Settings naming preview to inspect results. Its API, `POST /api/v1/config/naming/preview`, writes nothing and uses a sample artwork with the current time. Omitted templates use live download settings. Parse/render errors appear per template in a 200 response's `fields`; the preview is an editor aid, while PATCH performs authoritative validation.
+
+## Artwork metadata
+
+Enable `download.save_metadata` to save one UTF-8 JSON file beside each downloaded output, for example `12345.jpg` and `12345.jpg.json`. Multi-page works get one sidecar per page; ugoira sidecars accompany the final `.webp`, `.gif`, or `.zip`. The setting defaults to false and hot-reloads for newly submitted jobs only. Existing queued jobs retain their submission-time choice, and older history entries without a metadata snapshot keep metadata disabled. Enabling it does not scan or backfill existing artwork.
+
+The JSON format has `schema_version: 1`, `source_url` (the Pixiv artwork page), `captured_at` (UTC metadata capture time), `job_id`, `task_id`, `file_name` (the final media basename), `page_index` (zero-based upstream page position), and `illust` (the complete pixivgo artwork-detail JSON snapshot). Ugoira exports additionally contain `ugoira` (the upstream metadata, including frame names and delays in milliseconds) and `ugoira_format`. All pages share the captured artwork snapshot. Filename sanitization and truncation never affect metadata text. The existing multi-page filename template still numbers pages from one; its numbering is independent of JSON's zero-based `page_index`.
+
+Metadata uses information already fetched for the download, without extra Pixiv requests. It is a capture-time snapshot, including upstream account-relative fields, rather than a continuously synchronized record. It does not contain the application's credentials, request headers, or settings. The sidecar is a PixivBiu JSON export, not an XMP file or a promise of automatic import by third-party gallery software. Back up or move the media and JSON together; external renames are not tracked.
+
+With metadata enabled, both media and JSON must be written before a task completes. A metadata error fails the artwork job and removes files written by that job, including successful sibling pages and their JSON. Conflicting files not owned by the job are retained. Removing successful download history preserves both media and JSON. See [Downloads and recovery](ARCHITECTURE.md#downloads-and-recovery) for interruption and ownership boundaries.
+
+For compact filenames, use `{{.IllustID}}{{.Ext}}` for single files and `{{.IllustID}}/{{.Index | pad 3}}{{.Ext}}` for multi-page works, then keep complete titles, authors, and tags in the JSON. The default naming templates remain unchanged. This export does not add local browsing, indexing, or search.

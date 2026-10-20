@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -92,8 +93,34 @@ func TestHttpDownload_CancelRemovesPartial(t *testing.T) {
 	if _, err := os.Stat(dest); !os.IsNotExist(err) {
 		t.Errorf("destination should not exist after cancel: %v", err)
 	}
-	if _, err := os.Stat(dest + ".tsk_test.part"); !os.IsNotExist(err) {
+	if _, err := os.Stat(partialPath(dest, "tsk_test")); !os.IsNotExist(err) {
 		t.Errorf(".part file should be cleaned up: %v", err)
+	}
+}
+
+func TestHttpDownload_LongNameAndRenameFailureCleanup(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("image"))
+	}))
+	defer srv.Close()
+	for _, failRename := range []bool{false, true} {
+		dest := filepath.Join(t.TempDir(), strings.Repeat("a", maxNameBytes-4)+".jpg")
+		if failRename {
+			if err := os.Mkdir(dest, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		taskID := newID("tsk_")
+		_, _, err := httpDownload(context.Background(), srv.Client(), srv.URL, "", dest, taskID, nil, nil)
+		if (err != nil) != failRename {
+			t.Fatalf("failRename=%v: %v", failRename, err)
+		}
+		if len(filepath.Base(partialPath(dest, taskID))) > 255 {
+			t.Fatal("partial filename exceeds component limit")
+		}
+		if fileExists(partialPath(dest, taskID)) {
+			t.Fatal("partial file leaked")
+		}
 	}
 }
 
@@ -312,7 +339,7 @@ func TestHttpDownload_ConcurrentTasksSameDestIsolatePartFiles(t *testing.T) {
 		}
 	}
 	for _, task := range tasks {
-		got, err := os.ReadFile(dest + "." + task.id + ".part")
+		got, err := os.ReadFile(partialPath(dest, task.id))
 		if err != nil {
 			t.Fatalf("read partial for %s: %v", task.id, err)
 		}
@@ -332,7 +359,7 @@ func TestHttpDownload_ConcurrentTasksSameDestIsolatePartFiles(t *testing.T) {
 		if string(got) != string(task.body) {
 			t.Errorf("dest after %s: want %q, got %q", task.id, task.body, got)
 		}
-		if _, err := os.Stat(dest + "." + task.id + ".part"); !os.IsNotExist(err) {
+		if _, err := os.Stat(partialPath(dest, task.id)); !os.IsNotExist(err) {
 			t.Errorf(".part file for %s should not remain: %v", task.id, err)
 		}
 	}

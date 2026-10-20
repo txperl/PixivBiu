@@ -340,6 +340,8 @@
     "cfg_download_output_dir": "輸出目錄範本",
     "cfg_download_file_template": "單檔檔名範本",
     "cfg_download_file_group_template": "多頁作品檔名範本",
+    "cfg_download_save_metadata": "儲存作品中繼資料",
+    "cfg_download_save_metadata_hint": "為新下載的圖片儲存作品資訊。例如，下載「花海.jpg」時，會將中繼資料儲存為「花海.jpg.json」。",
     "cfg_download_max_concurrent": "最大並行任務數",
     "cfg_download_http_timeout": "下載請求逾時",
     "cfg_download_retry_max": "最大重試次數",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base32"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -497,9 +498,9 @@ func (m *Manager) RemoveTerminal(statuses []Status) (int, error) {
 
 // Submit creates a Job for the given illust ID. It fetches the
 // illust detail, builds tasks per page (single / multi / ugoira),
-// enqueues them, and returns the Job. The returned Job is the live
-// pointer; callers must not mutate it.
+// enqueues them, and returns a deep-copy snapshot of the Job.
 func (m *Manager) Submit(ctx context.Context, illustID int64) (*Job, error) {
+	st := m.state.Load()
 	if !m.pixiv.Authenticated() {
 		return nil, pixiv.ErrNotAuthenticated
 	}
@@ -525,6 +526,12 @@ func (m *Manager) Submit(ctx context.Context, illustID int64) (*Job, error) {
 		CreatedAt:  now,
 		UpdatedAt:  now,
 	}
+	if st.cfg.SaveMetadata {
+		job.Metadata, err = captureMetadata(info, now)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// Pre-sanitise user-supplied fields so a pixiv title like
 	// "weird/name" cannot sneak in a subdirectory via {{.Title}}.
@@ -545,11 +552,11 @@ func (m *Manager) Submit(ctx context.Context, illustID int64) (*Job, error) {
 
 	switch illustType {
 	case IllustTypeUgoira:
-		if err := m.buildUgoiraTasks(ctx, job, baseCtx); err != nil {
+		if err := m.buildUgoiraTasks(ctx, st, job, baseCtx); err != nil {
 			return nil, err
 		}
 	default:
-		if err := m.buildImageTasks(info, job, baseCtx); err != nil {
+		if err := m.buildImageTasks(st, info, job, baseCtx); err != nil {
 			return nil, err
 		}
 	}
@@ -598,8 +605,7 @@ func (m *Manager) enqueueAsync(tasks []*Task) {
 
 // buildImageTasks populates `job.Tasks` for single- or multi-page
 // illusts / manga.
-func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseCtx NameContext) error {
-	st := m.state.Load()
+func (m *Manager) buildImageTasks(st *dlState, info pixivgo.IllustrationInfo, job *Job, baseCtx NameContext) error {
 	outputDir, err := st.renderer.RenderRootPath(st.renderer.OutputDir, baseCtx)
 	if err != nil {
 		return err
@@ -660,6 +666,7 @@ func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseC
 		full := filepath.Join(outputDir, relPath)
 		job.Tasks = append(job.Tasks, &Task{
 			ID:        newID("tsk_"),
+			PageIndex: i,
 			JobID:     job.ID,
 			URL:       url,
 			FilePath:  full,
@@ -673,13 +680,18 @@ func (m *Manager) buildImageTasks(info pixivgo.IllustrationInfo, job *Job, baseC
 // buildUgoiraTasks fetches ugoira metadata and builds a single task
 // that downloads the frame zip. The conversion (zip → webp/gif) is
 // triggered by the worker post-download, not as a separate task.
-func (m *Manager) buildUgoiraTasks(ctx context.Context, job *Job, baseCtx NameContext) error {
-	st := m.state.Load()
+func (m *Manager) buildUgoiraTasks(ctx context.Context, st *dlState, job *Job, baseCtx NameContext) error {
 	meta, err := pixiv.Call(ctx, m.pixiv, func(c *pixivgo.Client) (*pixivgo.UgoiraMetadataResponse, error) {
 		return c.UgoiraMetadata(ctx, pixivgo.UgoiraMetadataParams{IllustID: int(job.IllustID)})
 	})
 	if err != nil {
 		return fmt.Errorf("ugoira metadata: %w", err)
+	}
+	if job.Metadata != nil {
+		job.Metadata.Ugoira, err = json.Marshal(meta.UgoiraMetadata)
+		if err != nil {
+			return fmt.Errorf("capture ugoira metadata: %w", err)
+		}
 	}
 	zipURL := meta.UgoiraMetadata.ZipUrls.Medium
 	if zipURL == "" {
@@ -746,7 +758,7 @@ func (m *Manager) runWorker(ctx context.Context) {
 	}
 }
 
-// executeTask: lease → download (retries) → ugoira post (if any) → finalize.
+// executeTask: lease → media → optional conversion → optional metadata → finalize.
 func (m *Manager) executeTask(parent context.Context, task *Task) {
 	taskCtx, cancel := context.WithCancel(parent)
 	defer cancel()
@@ -756,11 +768,25 @@ func (m *Manager) executeTask(parent context.Context, task *Task) {
 		return
 	}
 	isUgoira := job != nil && job.IllustType == IllustTypeUgoira
+	withMetadata := job != nil && job.Metadata != nil
+	reused, lastErr := m.reuseMedia(job, task)
+	if lastErr != nil {
+		m.mu.Lock()
+		transitionTaskTerminalLocked(task, StatusFailed, "download: unable to reuse saved media")
+		m.mu.Unlock()
+	} else if !reused {
+		lastErr = m.runDownloadWithRetries(taskCtx, parent, task, isUgoira || withMetadata)
+	}
 
-	lastErr := m.runDownloadWithRetries(taskCtx, parent, task, isUgoira)
-
-	if isUgoira {
+	if lastErr == nil && isUgoira {
 		m.runUgoiraPostProcessing(taskCtx, parent, job, task)
+	}
+	if lastErr == nil && withMetadata {
+		m.runMetadata(taskCtx, parent, job, task)
+	} else if reused && !isUgoira {
+		m.mu.Lock()
+		transitionTaskTerminalLocked(task, StatusCompleted, "")
+		m.mu.Unlock()
 	}
 
 	m.finalizeTask(task, job, lastErr)
@@ -798,9 +824,9 @@ func (m *Manager) leaseTask(task *Task, cancel context.CancelFunc) (*Job, bool) 
 }
 
 // runDownloadWithRetries runs the HTTP fetch with exponential backoff.
-// On success, non-ugoira tasks move to completed; ugoira stays running
-// for post-processing. Failure/cancel set the terminal state here.
-func (m *Manager) runDownloadWithRetries(taskCtx, parent context.Context, task *Task, isUgoira bool) error {
+// Tasks with conversion or metadata stay running for post-processing.
+// Failure/cancel set the terminal state here.
+func (m *Manager) runDownloadWithRetries(taskCtx, parent context.Context, task *Task, postProcess bool) error {
 	// Snapshot config + client once per task: an in-flight transfer keeps
 	// the retry policy, referer, and HTTP client it started with even if
 	// Reload swaps in new ones mid-download.
@@ -854,9 +880,8 @@ func (m *Manager) runDownloadWithRetries(taskCtx, parent context.Context, task *
 			// lock removes the right file.
 			task.WroteFile = true
 			var accepted bool
-			if isUgoira {
-				// Ugoira stays running through conversion; terminal
-				// transition happens in runUgoiraPostProcessing.
+			if postProcess {
+				// Stay running through conversion and/or sidecar writing.
 				accepted = !task.Status.IsTerminal()
 			} else {
 				accepted = transitionTaskTerminalLocked(task, StatusCompleted, "")
@@ -864,10 +889,9 @@ func (m *Manager) runDownloadWithRetries(taskCtx, parent context.Context, task *
 			m.mu.Unlock()
 			if accepted {
 				atomic.StoreInt64(&task.DownloadedBytes, written)
-				if isUgoira {
-					// Make WroteFile durable before the slow ugoira
-					// convert — a crash mid-encode otherwise lets the
-					// next boot's collision resolver bump the zip.
+				if postProcess {
+					// Persist ownership before conversion/metadata so recovery
+					// reuses the media instead of reserving a different path.
 					_ = m.persist()
 				}
 			} else {
@@ -911,7 +935,13 @@ func (m *Manager) runUgoiraPostProcessing(taskCtx, parent context.Context, job *
 		return
 	}
 
-	convErr := m.convertUgoira(taskCtx, job, task)
+	var convErr error
+	m.mu.RLock()
+	needsConversion := isZipPath(task.FilePath)
+	m.mu.RUnlock()
+	if needsConversion {
+		convErr = m.convertUgoira(taskCtx, job, task)
+	}
 	cancelled := errors.Is(convErr, context.Canceled)
 
 	m.mu.Lock()
@@ -924,13 +954,20 @@ func (m *Manager) runUgoiraPostProcessing(taskCtx, parent context.Context, job *
 		// Capture the converted path under the lock so a concurrent
 		// mutation can't shift the removal target.
 		orphanPath = task.FilePath
-		acceptedSuccess = transitionTaskTerminalLocked(task, StatusCompleted, "")
+		if job.Metadata != nil {
+			acceptedSuccess = !task.Status.IsTerminal()
+		} else {
+			acceptedSuccess = transitionTaskTerminalLocked(task, StatusCompleted, "")
+		}
 	case cancelled:
 		resolveCancelled(task, parent)
 	default:
 		transitionTaskTerminalLocked(task, StatusFailed, fmt.Sprintf("ugoira convert: %v", convErr))
 	}
 	m.mu.Unlock()
+	if convErr == nil && acceptedSuccess && job.Metadata != nil {
+		_ = m.persist()
+	}
 
 	if convErr == nil && !acceptedSuccess {
 		// Cancel won; drop the converted artefact. The source zip
@@ -1032,13 +1069,16 @@ func (m *Manager) transitionJobLocked(job *Job) (cleanupPaths []string, snap *Jo
 	return cleanupPaths, snap, true
 }
 
-// writtenPaths returns the FilePath of every task with WroteFile set.
+// writtenPaths returns media and metadata paths written by these tasks.
 // See Task.WroteFile for the ownership rationale. Caller must hold m.mu.
 func writtenPaths(tasks []*Task) []string {
 	out := make([]string, 0, len(tasks))
 	for _, t := range tasks {
 		if t.WroteFile && t.FilePath != "" {
 			out = append(out, t.FilePath)
+		}
+		if t.WroteMetadata && t.MetadataPath != "" {
+			out = append(out, t.MetadataPath)
 		}
 	}
 	return out
@@ -1088,6 +1128,12 @@ func (m *Manager) reservedPathsLocked() map[string]struct{} {
 			if p != "" {
 				out[p] = struct{}{}
 			}
+			if t.FilePath != "" {
+				out[t.FilePath] = struct{}{}
+			}
+			if t.MetadataPath != "" {
+				out[t.MetadataPath] = struct{}{}
+			}
 		}
 	}
 	return out
@@ -1104,7 +1150,7 @@ func (m *Manager) resolveJobCollisionsLocked(job *Job, reserved map[string]struc
 		if t.Status.IsTerminal() {
 			continue
 		}
-		if t.WroteFile {
+		if t.WroteFile || t.WroteMetadata {
 			// We already own the file at FilePath (e.g. ugoira zip
 			// downloaded before a shutdown interrupted conversion).
 			// Resolving would orphan it; reserve our paths and skip.
@@ -1114,24 +1160,30 @@ func (m *Manager) resolveJobCollisionsLocked(job *Job, reserved map[string]struc
 			if final := m.finalPathLocked(job, t); final != "" {
 				reserved[final] = struct{}{}
 			}
+			if t.MetadataPath != "" {
+				reserved[t.MetadataPath] = struct{}{}
+			}
 			continue
 		}
 		candidate := m.finalPathLocked(job, t)
 		if candidate == "" {
 			continue
 		}
+		altExt := ""
 		if isZipPath(t.FilePath) && !isZipPath(candidate) {
-			// Both paths must share a suffix so the worker's `.zip`
-			// write and the post-conversion artefact stay collision-free.
-			resolvedFinal, resolvedZip := ResolveCollisionPair(candidate, ".zip", reserved)
-			reserved[resolvedFinal] = struct{}{}
-			reserved[resolvedZip] = struct{}{}
-			t.FilePath = resolvedZip
-			continue
+			altExt = ".zip"
 		}
-		resolved := ResolveCollision(candidate, reserved)
-		reserved[resolved] = struct{}{}
-		t.FilePath = resolved
+		paths := resolveOutputPaths(candidate, altExt, job.Metadata != nil, reserved, fileExists)
+		for _, p := range paths {
+			reserved[p] = struct{}{}
+		}
+		t.FilePath = paths[0]
+		if altExt != "" {
+			t.FilePath = paths[1]
+		}
+		if job.Metadata != nil {
+			t.MetadataPath = paths[len(paths)-1]
+		}
 	}
 }
 
@@ -1200,6 +1252,9 @@ func snapshotTaskLocked(t *Task) *Task {
 		StartedAt:       t.StartedAt,
 		FinishedAt:      t.FinishedAt,
 		WroteFile:       t.WroteFile,
+		PageIndex:       t.PageIndex,
+		MetadataPath:    t.MetadataPath,
+		WroteMetadata:   t.WroteMetadata,
 	}
 	return cp
 }
@@ -1213,6 +1268,12 @@ func (m *Manager) snapshotJobLocked(j *Job) *Job {
 	}
 	if len(j.UgoiraFrames) > 0 {
 		jobCopy.UgoiraFrames = append([]UgoiraFrame(nil), j.UgoiraFrames...)
+	}
+	if j.Metadata != nil {
+		metadata := *j.Metadata
+		metadata.Illust = slices.Clone(metadata.Illust)
+		metadata.Ugoira = slices.Clone(metadata.Ugoira)
+		jobCopy.Metadata = &metadata
 	}
 	return &jobCopy
 }

@@ -343,6 +343,8 @@
     "cfg_download_output_dir": "Output directory template",
     "cfg_download_file_template": "Single-file name template",
     "cfg_download_file_group_template": "Multi-page name template",
+    "cfg_download_save_metadata": "Save artwork metadata",
+    "cfg_download_save_metadata_hint": "Save artwork details alongside new downloads. For example, downloading “flowers.jpg” saves its metadata as “flowers.jpg.json”.",
     "cfg_download_max_concurrent": "Max concurrent tasks",
     "cfg_download_http_timeout": "Download request timeout",
     "cfg_download_retry_max": "Max retries",

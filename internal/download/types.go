@@ -66,6 +66,10 @@ type Task struct {
 	// task's output and deleted — collision resolution only sees
 	// disk state at Submit/Start time and can't cover that window.
 	WroteFile bool `json:"wrote_file,omitempty"`
+	// Sidecar state is internal to persistence, not the HTTP task model.
+	PageIndex     int    `json:"page_index,omitempty"`
+	MetadataPath  string `json:"metadata_path,omitempty"`
+	WroteMetadata bool   `json:"wrote_metadata,omitempty"`
 
 	// Runtime-only (not serialised).
 	cancel context.CancelFunc `json:"-"`
@@ -87,6 +91,9 @@ type Job struct {
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 	Tasks      []*Task    `json:"tasks"`
+	// A non-nil snapshot pins save_metadata at submission. Older jobs and
+	// jobs submitted with the setting disabled leave it nil.
+	Metadata *MetadataSnapshot `json:"metadata,omitempty"`
 
 	// Ugoira-only fields populated on Submit; used by the worker's
 	// post-download conversion step.

@@ -77,11 +77,12 @@ func httpDownload(
 	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
 		return total, 0, fmt.Errorf("mkdir: %w", err)
 	}
-	tmpPath := destPath + "." + taskID + ".part"
+	tmpPath := partialPath(destPath, taskID)
 	f, err := os.Create(tmpPath)
 	if err != nil {
 		return total, 0, fmt.Errorf("create file: %w", err)
 	}
+	defer os.Remove(tmpPath)
 
 	written, copyErr := copyWithProgress(ctx, f, resp.Body, onProgress)
 	closeErr := f.Close()
@@ -95,13 +96,16 @@ func httpDownload(
 		return total, written, fmt.Errorf("close file: %w", closeErr)
 	}
 	// os.Rename already replaces on both POSIX and Windows
-	// (MoveFileExW + MOVEFILE_REPLACE_EXISTING). On failure we leave
-	// tmpPath untouched — it holds the only copy of the bytes we just
-	// downloaded, and a retry reuses the same deterministic path.
+	// (MoveFileExW + MOVEFILE_REPLACE_EXISTING). A failed rename removes
+	// the partial; recovery always restarts a transfer from byte zero.
 	if err := os.Rename(tmpPath, destPath); err != nil {
 		return total, written, fmt.Errorf("rename: %w", err)
 	}
 	return total, written, nil
+}
+
+func partialPath(destPath, taskID string) string {
+	return filepath.Join(filepath.Dir(destPath), ".pixivbiu-"+taskID+".part")
 }
 
 // copyWithProgress is io.Copy with a progress callback and ctx

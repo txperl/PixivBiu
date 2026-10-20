@@ -89,6 +89,7 @@ type DownloadConfig struct {
 	OutputDir         string        `koanf:"output_dir"`                                      // output dir template (Go text/template)
 	FileTemplate      string        `koanf:"file_template"`                                   // single-file name template
 	FileGroupTemplate string        `koanf:"file_group_template"`                             // multi-page work name template
+	SaveMetadata      bool          `koanf:"save_metadata"`                                   // save a JSON sidecar with each output
 	MaxConcurrent     int           `koanf:"max_concurrent" cfg:"min=1,max=64,restart=true"`  // max concurrent tasks
 	HTTPTimeout       time.Duration `koanf:"http_timeout"`                                    // per-download request timeout
 	Retry             RetryConfig   `koanf:"retry"`                                           // failure-retry policy
@@ -191,6 +192,7 @@ var baseDefaults = sync.OnceValue(func() map[string]any {
 		"download.output_dir":            `./downloads`,
 		"download.file_template":         `{{.IllustID}}_{{.Title | trunc 80}}{{.Ext}}`,
 		"download.file_group_template":   `{{.IllustID}}_{{.Title | trunc 80}}/{{.Index | pad 2}}{{.Ext}}`,
+		"download.save_metadata":         false,
 		"download.max_concurrent":        4,
 		"download.http_timeout":          "60s",
 		"download.retry.max":             2,

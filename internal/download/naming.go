@@ -16,6 +16,8 @@ import (
 	"github.com/txperl/PixivBiu/internal/config"
 )
 
+const maxNameBytes = 240
+
 // NameContext is the root object passed to every template. Field
 // names map to template identifiers (e.g. {{.Title}} / {{.Index}}).
 //
@@ -245,9 +247,12 @@ func cleanSegments(tmplName, raw string) ([]string, error) {
 		}
 		cleaned = append(cleaned, Sanitize(seg))
 	}
-	if len(cleaned) > 0 {
-		last := cleaned[len(cleaned)-1]
-		cleaned[len(cleaned)-1] = truncFilename(last, 240)
+	for i, seg := range cleaned {
+		if i == len(cleaned)-1 {
+			cleaned[i] = Sanitize(truncFilename(seg, maxNameBytes))
+		} else {
+			cleaned[i] = Sanitize(truncUTF8(seg, maxNameBytes))
+		}
 	}
 	return cleaned, nil
 }
@@ -450,12 +455,7 @@ func ResolveCollision(base string, reserved map[string]struct{}) string {
 }
 
 func resolveCollisionWith(base string, reserved map[string]struct{}, exists func(string) bool) string {
-	ext := filepath.Ext(base)
-	stem := strings.TrimSuffix(base, ext)
-	suffix := findFreeSuffix(func(s string) bool {
-		return !taken(stem+s+ext, reserved, exists)
-	})
-	return stem + suffix + ext
+	return resolveOutputPaths(base, "", false, reserved, exists)[0]
 }
 
 // ResolveCollisionPair resolves a single " (n)" suffix such that both
@@ -469,12 +469,46 @@ func ResolveCollisionPair(base, altExt string, reserved map[string]struct{}) (st
 }
 
 func resolveCollisionPairWith(base, altExt string, reserved map[string]struct{}, exists func(string) bool) (string, string) {
-	ext := filepath.Ext(base)
-	stem := strings.TrimSuffix(base, ext)
+	paths := resolveOutputPaths(base, altExt, false, reserved, exists)
+	return paths[0], paths[1]
+}
+
+// resolveOutputPaths chooses one stem for the final media, optional zip,
+// and optional sidecar. Collision suffixes are included in the byte budget.
+// The sidecar's extra five bytes still fit within a 255-byte component.
+func resolveOutputPaths(base, altExt string, metadata bool, reserved map[string]struct{}, exists func(string) bool) []string {
+	dir, name := filepath.Split(base)
+	ext := filepath.Ext(name)
+	stem := strings.TrimSuffix(name, ext)
+	// Pathological template extensions must not consume the whole budget.
+	if len(ext) > maxNameBytes-12 {
+		stem, ext = name, ""
+	}
+	pathsFor := func(suffix string) []string {
+		budget := maxNameBytes - max(len(ext), len(altExt)) - len(suffix)
+		shortStem := truncUTF8(stem, budget)
+		if shortStem == "" {
+			shortStem = "_"
+		}
+		prefix := dir + shortStem + suffix
+		paths := []string{prefix + ext}
+		if altExt != "" {
+			paths = append(paths, prefix+altExt)
+		}
+		if metadata {
+			paths = append(paths, prefix+ext+".json")
+		}
+		return paths
+	}
 	suffix := findFreeSuffix(func(s string) bool {
-		return !taken(stem+s+ext, reserved, exists) && !taken(stem+s+altExt, reserved, exists)
+		for _, p := range pathsFor(s) {
+			if taken(p, reserved, exists) {
+				return false
+			}
+		}
+		return true
 	})
-	return stem + suffix + ext, stem + suffix + altExt
+	return pathsFor(suffix)
 }
 
 // findFreeSuffix returns "" if the bare (no-suffix) candidate set is
@@ -516,7 +550,7 @@ func taken(path string, reserved map[string]struct{}, exists func(string) bool) 
 }
 
 func fileExists(path string) bool {
-	_, err := os.Stat(path)
+	_, err := os.Lstat(path)
 	return err == nil
 }
 

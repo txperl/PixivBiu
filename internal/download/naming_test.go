@@ -7,9 +7,48 @@ import (
 	"testing"
 	"text/template"
 	"time"
+	"unicode/utf8"
 
 	"github.com/txperl/PixivBiu/internal/config"
 )
+
+func TestNaming_LongDirectoriesAndOutputGroup(t *testing.T) {
+	long := strings.Repeat("中🌸", 100)
+	out := mustRender(t, mustParse(t, "file", `{{.Title}}/{{.Title}}{{.Ext}}`), NameContext{Title: long, Ext: ".webp"})
+	for _, segment := range strings.Split(filepath.ToSlash(out), "/") {
+		if len(segment) > maxNameBytes || !utf8.ValidString(segment) {
+			t.Fatalf("bad segment: %q", segment)
+		}
+	}
+	reserved := map[string]struct{}{}
+	for range 3 {
+		paths := resolveOutputPaths(out, ".zip", true, reserved, func(string) bool { return false })
+		if paths[2] != paths[0]+".json" || replaceExt(paths[0], ".zip") != paths[1] {
+			t.Fatalf("unpaired outputs: %v", paths)
+		}
+		for _, p := range paths {
+			limit := maxNameBytes
+			if strings.HasSuffix(p, ".json") {
+				limit += len(".json")
+			}
+			if len(filepath.Base(p)) > limit || !utf8.ValidString(p) {
+				t.Fatalf("collision name exceeds budget: %q", p)
+			}
+			if _, ok := reserved[p]; ok {
+				t.Fatalf("duplicate reservation: %q", p)
+			}
+			reserved[p] = struct{}{}
+		}
+	}
+	checks := 0
+	paths := resolveOutputPaths(out, ".zip", true, nil, func(string) bool {
+		checks++
+		return checks <= 10000 // bare name and all numbered suffixes are taken
+	})
+	if len(filepath.Base(paths[0])) > maxNameBytes || len(filepath.Base(paths[2])) > 255 {
+		t.Fatal("random collision suffix overflowed")
+	}
+}
 
 func TestPreviewNaming(t *testing.T) {
 	base := t.TempDir()

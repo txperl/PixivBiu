@@ -343,6 +343,8 @@
     "cfg_download_output_dir": "输出目录模板",
     "cfg_download_file_template": "单文件名模板",
     "cfg_download_file_group_template": "多页作品文件名模板",
+    "cfg_download_save_metadata": "保存作品元数据",
+    "cfg_download_save_metadata_hint": "为新下载的图片保存作品信息。例如，下载「花海.jpg」时，会将元信息存储为「花海.jpg.json」。",
     "cfg_download_max_concurrent": "最大并发任务数",
     "cfg_download_http_timeout": "下载请求超时",
     "cfg_download_retry_max": "最大重试次数",
